@@ -1,0 +1,23 @@
+Screen {
+    layout: vertical;
+}
+
+#initiative-title {
+    dock: top;
+    margin: 1 1 0 1;
+}
+
+#panels {
+    height: 1fr;
+}
+
+.panel {
+    border: round $primary;
+    padding: 1;
+    margin: 1;
+    height: 1fr;
+}
+
+#strategist {
+    border: round $success;
+}
