@@ -443,3 +443,52 @@ It is a decision-making system.
 And better decisions emerge when evidence, expertise, disagreement, governance, and learning work together.
 
 ProductAgents exists to make that process explicit, repeatable, and continuously improving.
+
+## Running the Slice (first milestone)
+
+This repository currently implements a thin end-to-end slice: two analysts
+(Customer Research + Product Analytics) evaluate a bundled evidence scenario in
+parallel and a strategist produces a recommendation, shown live in a TUI.
+
+### Setup
+
+```bash
+uv sync
+```
+
+### Configure a model
+
+Model selection is provider-agnostic. Set the model via environment variables
+(defaults to `anthropic:claude-sonnet-4-6`):
+
+```bash
+export PRODUCTAGENTS_MODEL="anthropic:claude-sonnet-4-6"
+# Provide the matching provider API key, e.g.:
+export ANTHROPIC_API_KEY="sk-..."
+```
+
+To use another provider, set both variables, e.g.:
+
+```bash
+export PRODUCTAGENTS_MODEL="gpt-5.5"
+export PRODUCTAGENTS_MODEL_PROVIDER="openai"
+export OPENAI_API_KEY="sk-..."
+```
+
+### Run
+
+```bash
+uv run productagents
+```
+
+Type an initiative (e.g. "Add enterprise SSO") and press Enter. The analyst
+panels update live and the strategist panel shows the final recommendation.
+Each run appends a record to `decisions.jsonl`.
+
+### Test
+
+```bash
+uv run pytest
+```
+
+All tests run offline with a fake model — no API key required.
