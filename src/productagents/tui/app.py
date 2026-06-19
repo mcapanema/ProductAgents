@@ -1,5 +1,7 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
+import os
+import sys
 from datetime import datetime, timezone
 from functools import partial
 
@@ -10,7 +12,7 @@ from textual.widgets import Footer, Header, Input, Static
 
 from productagents.evidence import load_scenario
 from productagents.graph import build_graph
-from productagents.llm import get_model
+from productagents.llm import DEFAULT_MODEL, get_model
 from productagents.memory import record_decision
 from productagents.runner import (
     FinishedEvent,
@@ -31,12 +33,11 @@ class ProductAgentsApp(App):
     CSS_PATH = "app.tcss"
     TITLE = "ProductAgents"
 
-    def __init__(self, runner, evidence, *, recorder=record_decision, scenario="sample"):
+    def __init__(self, runner, evidence, *, recorder=record_decision):
         super().__init__()
         self._runner = runner
         self._evidence = evidence
         self._recorder = recorder
-        self._scenario = scenario
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -102,8 +103,22 @@ class ProductAgentsApp(App):
         self.query_one("#strategist", Static).update(text)
 
 
-def main() -> None:
+def _build_app() -> "ProductAgentsApp":
     graph = build_graph(get_model())
     evidence = load_scenario("sample")
-    app = ProductAgentsApp(partial(run_decision, graph), evidence, scenario="sample")
+    return ProductAgentsApp(partial(run_decision, graph), evidence)
+
+
+def main() -> None:
+    try:
+        app = _build_app()
+    except Exception as exc:  # noqa: BLE001 - present a clear startup message instead of a traceback
+        model = os.environ.get("PRODUCTAGENTS_MODEL", DEFAULT_MODEL)
+        print(
+            f"Failed to start ProductAgents: {exc}\n"
+            f"Check that PRODUCTAGENTS_MODEL ('{model}') is valid and the "
+            f"matching provider API key is set (e.g. ANTHROPIC_API_KEY).",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
     app.run()
