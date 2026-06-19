@@ -2,8 +2,7 @@
 
 import json
 
-from langgraph.config import get_stream_writer
-
+from productagents.agents._stream import get_writer
 from productagents.schemas import AnalystFindings, AnalystReport, Evidence, Initiative
 
 ANALYST_ID = "product_analytics"
@@ -22,15 +21,8 @@ def _prompt(initiative: Initiative, evidence: Evidence) -> str:
     )
 
 
-def _get_writer():
-    try:
-        return get_stream_writer()
-    except RuntimeError:
-        return lambda _: None
-
-
 async def product_analytics_node(state: dict, model) -> dict:
-    writer = _get_writer()
+    writer = get_writer()
     writer({"node": ANALYST_ID, "status": "analyzing product metrics…"})
     structured = model.with_structured_output(AnalystFindings)
     try:
