@@ -123,3 +123,71 @@ def test_decision_record_round_trips_with_debate():
     restored = DecisionRecord.model_validate_json(record.model_dump_json())
     assert restored == record
     assert restored.debate[1].side == "skeptic"
+
+
+def test_risk_finding_holds_level_and_rationale():
+    from productagents.schemas import RiskFinding
+
+    finding = RiskFinding(level="high", rationale="tight deadline")
+    assert finding.level == "high"
+    assert finding.rationale == "tight deadline"
+
+
+def test_risk_assessment_defaults_not_failed():
+    from productagents.schemas import RiskAssessment
+
+    assessment = RiskAssessment(
+        reviewer="delivery",
+        role="Delivery Risk Reviewer",
+        level="medium",
+        rationale="some integration work",
+    )
+    assert assessment.reviewer == "delivery"
+    assert assessment.failed is False
+
+
+def test_decision_record_defaults_to_empty_risks():
+    from productagents.schemas import (
+        DecisionRecord,
+        Initiative,
+        Recommendation,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    assert record.risks == []
+
+
+def test_decision_record_round_trips_with_risks():
+    from productagents.schemas import (
+        DecisionRecord,
+        Initiative,
+        Recommendation,
+        RiskAssessment,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        risks=[
+            RiskAssessment(
+                reviewer="financial",
+                role="Financial Risk Reviewer",
+                level="low",
+                rationale="cheap to build",
+            )
+        ],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    restored = DecisionRecord.model_validate_json(record.model_dump_json())
+    assert restored == record
+    assert restored.risks[0].reviewer == "financial"
