@@ -1,0 +1,12 @@
+{
+  "annual_recurring_revenue": 9800000,
+  "enterprise_arr_share": 0.62,
+  "average_enterprise_acv": 48000,
+  "pipeline_blocked_on_sso": 1350000,
+  "estimated_build_cost": 220000,
+  "estimated_annual_maintenance": 60000,
+  "strategic_goals": [
+    "Grow enterprise ARR by 40% this fiscal year",
+    "Improve enterprise win rate against identity-led competitors"
+  ]
+}

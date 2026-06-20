@@ -18,6 +18,9 @@ class Evidence(BaseModel):
     scenario: str
     customer_feedback: str
     product_analytics: dict
+    market_intelligence: str = ""
+    business_metrics: dict = Field(default_factory=dict)
+    technical_context: str = ""
 
 
 class AnalystFindings(BaseModel):
