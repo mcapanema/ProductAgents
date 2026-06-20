@@ -108,9 +108,10 @@ def select_relevant_lessons(
     """Return formatted lessons from the past decisions most similar to `initiative`.
 
     Pairs each prior decision with its recorded outcome (by `decision_id`), scores
-    lexical overlap between the initiative texts, and returns the lessons of the
-    top `limit` matches. Decisions whose outcome is missing, failed, or has no
-    captured lessons are ignored. Returns [] when nothing relevant is found.
+    lexical overlap between the initiative texts, and returns all lessons from the
+    top `limit` matching decisions (each decision may contribute multiple lessons).
+    Decisions whose outcome is missing, failed, or has no captured lessons are ignored.
+    Returns [] when nothing relevant is found.
     """
     by_id = {
         outcome.decision_id: outcome
