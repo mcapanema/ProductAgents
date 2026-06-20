@@ -7,7 +7,7 @@ from functools import partial
 
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input, Static
 
 from productagents.evidence import load_scenario
@@ -15,6 +15,7 @@ from productagents.graph import build_graph
 from productagents.llm import DEFAULT_MODEL, get_model
 from productagents.memory import record_decision
 from productagents.runner import (
+    DebateTurnEvent,
     FinishedEvent,
     NodeCompleteEvent,
     ProgressEvent,
@@ -38,6 +39,7 @@ class ProductAgentsApp(App):
         self._runner = runner
         self._evidence = evidence
         self._recorder = recorder
+        self._debate_lines: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -45,15 +47,18 @@ class ProductAgentsApp(App):
             placeholder="Describe the initiative and press Enter…",
             id="initiative-title",
         )
-        with Horizontal(id="panels"):
+        with Horizontal(id="analysts"):
             yield Static("Waiting…", id="customer_research", classes="panel")
             yield Static("Waiting…", id="product_analytics", classes="panel")
-            yield Static("Waiting…", id="strategist", classes="panel")
+        with VerticalScroll(id="debate-scroll"):
+            yield Static("Waiting…", id="debate")
+        yield Static("Waiting…", id="strategist", classes="panel")
         yield Footer()
 
     def on_mount(self) -> None:
         for node_id, role in _PANELS.items():
             self.query_one(f"#{node_id}", Static).border_title = role
+        self.query_one("#debate-scroll").border_title = "Advocate vs Skeptic Debate"
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         title = message.value.strip()
@@ -61,12 +66,15 @@ class ProductAgentsApp(App):
             return
         for node_id in _PANELS:
             self.query_one(f"#{node_id}", Static).update("…")
+        self._debate_lines = []
+        self.query_one("#debate", Static).update("…")
         self._run(Initiative(title=title, description=title))
 
     @work(exclusive=True)
     async def _run(self, initiative: Initiative) -> None:
         recommendation = None
         reports = []
+        debate = []
         async for event in self._runner(initiative, self._evidence):
             if isinstance(event, ProgressEvent):
                 if event.node in _PANELS:
@@ -77,9 +85,17 @@ class ProductAgentsApp(App):
                 report = event.report
                 body = "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
                 self.query_one(f"#{event.node}", Static).update(body)
+            elif isinstance(event, DebateTurnEvent):
+                self._debate_lines.append(
+                    f"[{event.side} · round {event.round}] {event.argument}"
+                )
+                self.query_one("#debate", Static).update(
+                    "\n\n".join(self._debate_lines)
+                )
             elif isinstance(event, FinishedEvent):
                 recommendation = event.recommendation
                 reports = event.reports
+                debate = event.debate
                 self._render_recommendation(recommendation)
 
         if recommendation is not None:
@@ -88,6 +104,7 @@ class ProductAgentsApp(App):
                     initiative=initiative,
                     recommendation=recommendation,
                     reports=reports,
+                    debate=debate,
                     timestamp=datetime.now(timezone.utc).isoformat(),
                 )
             )

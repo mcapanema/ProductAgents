@@ -7,17 +7,28 @@ Screen {
     margin: 1 1 0 1;
 }
 
-#panels {
-    height: 1fr;
+#analysts {
+    height: auto;
 }
 
 .panel {
     border: round $primary;
     padding: 1;
     margin: 1;
+    height: auto;
+}
+
+#debate-scroll {
     height: 1fr;
+    margin: 1;
+    border: round $accent;
+}
+
+#debate {
+    padding: 1;
 }
 
 #strategist {
     border: round $success;
+    height: auto;
 }

@@ -3,7 +3,12 @@ from functools import partial
 
 from productagents.graph import build_graph
 from productagents.runner import run_decision
-from productagents.schemas import AnalystFindings, Evidence, Recommendation
+from productagents.schemas import (
+    AnalystFindings,
+    DebateArgument,
+    Evidence,
+    Recommendation,
+)
 from productagents.tui.app import ProductAgentsApp
 from tests.fakes import FakeChatModel
 
@@ -12,6 +17,7 @@ def _runner_and_evidence():
     model = FakeChatModel(
         {
             AnalystFindings: AnalystFindings(findings=["demand"], signals=["tickets"]),
+            DebateArgument: DebateArgument(argument="an argument"),
             Recommendation: Recommendation(
                 recommendation="Build SSO now",
                 confidence=0.81,
@@ -27,7 +33,8 @@ def _runner_and_evidence():
     return partial(run_decision, graph), evidence
 
 
-async def test_app_renders_recommendation_and_records(tmp_path):
+async def test_app_renders_recommendation_records_and_shows_debate(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
     runner, evidence = _runner_and_evidence()
     recorded = []
 
@@ -41,14 +48,16 @@ async def test_app_renders_recommendation_and_records(tmp_path):
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        # In Textual 8.x, Static has .content (not .renderable); use str() for both
-        strategist = pilot.app.query_one("#strategist")
-        result_text = str(strategist.content)
-        assert "Build SSO now" in result_text
+        debate_text = str(pilot.app.query_one("#debate").content)
+        strat_text = str(pilot.app.query_one("#strategist").content)
+        assert "an argument" in debate_text
+        assert "advocate" in debate_text
+        assert "Build SSO now" in strat_text
 
     assert len(recorded) == 1
     assert recorded[0].recommendation.recommendation == "Build SSO now"
-    assert recorded[0].initiative.title == "Add SSO"
+    assert len(recorded[0].debate) == 4
+    assert recorded[0].debate[0].side == "advocate"
 
 
 def test_main_reports_clear_error_when_model_init_fails(monkeypatch, capsys):
