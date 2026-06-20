@@ -138,3 +138,43 @@ def test_directory_source_missing_required_file_raises(tmp_path):
     (folder / "customer_feedback.md").write_text("feedback only")
     with pytest.raises(EvidenceError):
         DirectorySource(folder).collect()
+
+
+def test_collect_evidence_defaults_to_sample():
+    from productagents.evidence import collect_evidence
+
+    evidence = collect_evidence(None)
+    assert evidence.scenario == "sample"
+    assert evidence.sources
+    assert evidence.sources[0].source == "scenario:sample"
+
+
+def test_collect_evidence_resolves_known_scenario(tmp_path):
+    from productagents.evidence import collect_evidence
+
+    scenario = tmp_path / "alpha"
+    scenario.mkdir()
+    (scenario / "customer_feedback.md").write_text("f")
+    (scenario / "product_analytics.json").write_text('{"x": 1}')
+    evidence = collect_evidence("alpha", base_dir=tmp_path)
+    assert evidence.scenario == "alpha"
+    assert evidence.sources[0].source == "scenario:alpha"
+
+
+def test_collect_evidence_resolves_directory_path(tmp_path):
+    from productagents.evidence import collect_evidence
+
+    folder = tmp_path / "loose-folder"
+    folder.mkdir()
+    (folder / "customer_feedback.md").write_text("f")
+    (folder / "product_analytics.json").write_text('{"x": 1}')
+    evidence = collect_evidence(str(folder))
+    assert evidence.scenario == "loose-folder"
+    assert evidence.sources[0].source == f"directory:{folder}"
+
+
+def test_collect_evidence_unknown_spec_raises():
+    from productagents.evidence import collect_evidence
+
+    with pytest.raises(EvidenceError):
+        collect_evidence("definitely-not-a-scenario-or-path")

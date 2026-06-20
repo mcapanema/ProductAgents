@@ -166,3 +166,21 @@ class DirectorySource:
 
 def load_scenario(name: str, base_dir: Path | None = None) -> Evidence:
     return ScenarioSource(name, base_dir).collect()
+
+
+def collect_evidence(spec: str | None = None, base_dir: Path | None = None) -> Evidence:
+    """Resolve a user-supplied source spec to Evidence.
+
+    A falsy spec loads the bundled 'sample' scenario. A spec matching a known
+    scenario name loads that scenario; an existing directory path is read as a
+    DirectorySource. Anything else raises EvidenceError.
+    """
+    if not spec:
+        return ScenarioSource("sample", base_dir).collect()
+    if spec in list_scenarios(base_dir):
+        return ScenarioSource(spec, base_dir).collect()
+    if Path(spec).is_dir():
+        return DirectorySource(Path(spec)).collect()
+    raise EvidenceError(
+        f"No evidence source for {spec!r}: not a known scenario or a directory"
+    )
