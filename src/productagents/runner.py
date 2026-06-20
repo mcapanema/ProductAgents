@@ -87,6 +87,8 @@ async def run_decision(
         "recommendation": None,
         "risks": [],
         "portfolio": portfolio or [],
+        "outcomes": [],
+        "prior_lessons": [],
         "governance": None,
     }
     collected_reports: list[AnalystReport] = []
