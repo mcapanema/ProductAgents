@@ -1,0 +1,13 @@
+{
+  "initiative_area": "authentication",
+  "monthly_active_users": 21500,
+  "enterprise_accounts": 47,
+  "auth_funnel": {
+    "invite_sent": 12000,
+    "account_created": 7300,
+    "first_login_completed": 5100
+  },
+  "onboarding_drop_off_rate": 0.30,
+  "enterprise_arr_share": 0.62,
+  "support_tickets_auth_related_90d": 27
+}
