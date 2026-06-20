@@ -41,3 +41,35 @@ async def test_strategist_failure_yields_zero_confidence():
     rec = result["recommendation"]
     assert rec.confidence == 0.0
     assert "unable" in rec.recommendation.lower()
+
+
+async def test_strategist_includes_debate_in_prompt(monkeypatch):
+    from productagents.agents import strategist as strategist_module
+    from productagents.schemas import DebateTurn
+
+    captured = {}
+
+    def fake_format_debate(turns):
+        captured["turns"] = turns
+        return "DEBATE-BLOCK"
+
+    monkeypatch.setattr(strategist_module, "_format_debate", fake_format_debate)
+
+    state = _state()
+    state["debate"] = [DebateTurn(round=1, side="advocate", argument="for it")]
+
+    from productagents.schemas import Recommendation
+
+    model = FakeChatModel(
+        {
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            )
+        }
+    )
+    result = await strategist_node(state, model)
+    assert result["recommendation"].recommendation == "Build it"
+    assert captured["turns"][0].side == "advocate"
