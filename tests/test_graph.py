@@ -3,6 +3,7 @@ from productagents.schemas import (
     AnalystFindings,
     DebateArgument,
     Evidence,
+    GovernanceFinding,
     Initiative,
     Recommendation,
     RiskFinding,
@@ -22,6 +23,9 @@ def _model():
                 expected_outcomes=["growth"],
             ),
             RiskFinding: RiskFinding(level="medium", rationale="manageable risk"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="best use of resources"
+            ),
         }
     )
 
@@ -38,10 +42,12 @@ def _initial_state():
         "debate": [],
         "recommendation": None,
         "risks": [],
+        "portfolio": [],
+        "governance": None,
     }
 
 
-async def test_graph_runs_analysts_debate_strategist_then_risk(monkeypatch):
+async def test_graph_runs_through_governance(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
     graph = build_graph(_model())
     final = await graph.ainvoke(_initial_state())
@@ -66,3 +72,5 @@ async def test_graph_runs_analysts_debate_strategist_then_risk(monkeypatch):
         "financial",
         "organizational",
     ]
+
+    assert final["governance"].verdict == "approve"
