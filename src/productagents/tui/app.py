@@ -13,10 +13,11 @@ from textual.widgets import Footer, Header, Input, Static
 from productagents.evidence import load_scenario
 from productagents.graph import build_graph
 from productagents.llm import DEFAULT_MODEL, get_model
-from productagents.memory import record_decision
+from productagents.memory import read_decisions, record_decision
 from productagents.runner import (
     DebateTurnEvent,
     FinishedEvent,
+    GovernanceVerdictEvent,
     NodeCompleteEvent,
     ProgressEvent,
     RiskAssessmentEvent,
@@ -35,11 +36,14 @@ class ProductAgentsApp(App):
     CSS_PATH = "app.tcss"
     TITLE = "ProductAgents"
 
-    def __init__(self, runner, evidence, *, recorder=record_decision):
+    def __init__(
+        self, runner, evidence, *, recorder=record_decision, reader=read_decisions
+    ):
         super().__init__()
         self._runner = runner
         self._evidence = evidence
         self._recorder = recorder
+        self._reader = reader
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
 
@@ -57,6 +61,7 @@ class ProductAgentsApp(App):
         yield Static("Waiting…", id="strategist", classes="panel")
         with VerticalScroll(id="risk-scroll"):
             yield Static("Waiting…", id="risk")
+        yield Static("Waiting…", id="governance", classes="panel")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -64,6 +69,9 @@ class ProductAgentsApp(App):
             self.query_one(f"#{node_id}", Static).border_title = role
         self.query_one("#debate-scroll").border_title = "Advocate vs Skeptic Debate"
         self.query_one("#risk-scroll").border_title = "Risk Team"
+        self.query_one(
+            "#governance", Static
+        ).border_title = "Portfolio Manager (Governance)"
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         title = message.value.strip()
@@ -75,6 +83,7 @@ class ProductAgentsApp(App):
         self._risk_lines = []
         self.query_one("#debate", Static).update("…")
         self.query_one("#risk", Static).update("…")
+        self.query_one("#governance", Static).update("…")
         self._run(Initiative(title=title, description=title))
 
     @work(exclusive=True)
@@ -83,7 +92,11 @@ class ProductAgentsApp(App):
         reports = []
         debate = []
         risks = []
-        async for event in self._runner(initiative, self._evidence):
+        governance = None
+        portfolio = self._reader()
+        async for event in self._runner(
+            initiative, self._evidence, portfolio=portfolio
+        ):
             if isinstance(event, ProgressEvent):
                 if event.node in _PANELS:
                     self.query_one(f"#{event.node}", Static).update(
@@ -105,11 +118,16 @@ class ProductAgentsApp(App):
                     f"[{event.role} · {event.level}] {event.rationale}"
                 )
                 self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
+            elif isinstance(event, GovernanceVerdictEvent):
+                self.query_one("#governance", Static).update(
+                    f"[b]{event.verdict}[/b]\n\n{event.rationale}"
+                )
             elif isinstance(event, FinishedEvent):
                 recommendation = event.recommendation
                 reports = event.reports
                 debate = event.debate
                 risks = event.risks
+                governance = event.governance
                 self._render_recommendation(recommendation)
 
         if recommendation is not None:
@@ -120,6 +138,7 @@ class ProductAgentsApp(App):
                     reports=reports,
                     debate=debate,
                     risks=risks,
+                    governance=governance,
                     timestamp=datetime.now(UTC).isoformat(),
                 )
             )
