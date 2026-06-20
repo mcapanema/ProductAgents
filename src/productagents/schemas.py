@@ -1,5 +1,7 @@
 """Strongly-typed schemas shared across agents, graph state, and persistence."""
 
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
 
 
@@ -106,9 +108,37 @@ class GovernanceVerdict(BaseModel):
     failed: bool = False
 
 
+class Reflection(BaseModel):
+    """Structured output the reflection agent must produce."""
+
+    actual_outcomes: list[str] = Field(
+        description="What actually happened as a result of the decision."
+    )
+    prediction_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="How well the predicted expected outcomes matched reality, 0 to 1.",
+    )
+    lessons_learned: list[str] = Field(
+        description="Concrete lessons to apply to future decisions."
+    )
+
+
+class OutcomeRecord(BaseModel):
+    """A persisted reflection on a past decision's actual outcome."""
+
+    decision_id: str
+    actual_outcomes: list[str]
+    prediction_accuracy: float
+    lessons_learned: list[str]
+    reflected_at: str
+    failed: bool = False
+
+
 class DecisionRecord(BaseModel):
     """A persisted record of one decision run."""
 
+    decision_id: str = Field(default_factory=lambda: uuid4().hex)
     initiative: Initiative
     recommendation: Recommendation
     reports: list[AnalystReport]
