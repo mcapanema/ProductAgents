@@ -14,6 +14,7 @@ def state():
             scenario="sample",
             customer_feedback="Enterprises demand SSO.",
             product_analytics={"onboarding_drop_off_rate": 0.3},
+            business_metrics={"arr": 1350000},
         ),
     }
 
@@ -85,6 +86,35 @@ async def test_market_degrades_on_failure(state):
     result = await market_node(state, model)
     report = result["reports"][0]
     assert report.analyst == "market"
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []
+
+
+from productagents.agents.business import business_node  # noqa: E402
+
+
+async def test_business_returns_report(state):
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["$1.35M pipeline blocked"], signals=["ARR data"]
+            )
+        }
+    )
+    result = await business_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "business"
+    assert report.role == "Business Analyst"
+    assert report.findings == ["$1.35M pipeline blocked"]
+    assert report.failed is False
+
+
+async def test_business_degrades_on_failure(state):
+    model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
+    result = await business_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "business"
     assert report.failed is True
     assert report.findings == []
     assert report.signals == []
