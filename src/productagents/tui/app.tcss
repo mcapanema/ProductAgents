@@ -32,3 +32,13 @@ Screen {
     border: round $success;
     height: auto;
 }
+
+#risk-scroll {
+    height: 1fr;
+    margin: 1;
+    border: round $warning;
+}
+
+#risk {
+    padding: 1;
+}

@@ -19,6 +19,7 @@ from productagents.runner import (
     FinishedEvent,
     NodeCompleteEvent,
     ProgressEvent,
+    RiskAssessmentEvent,
     run_decision,
 )
 from productagents.schemas import DecisionRecord, Initiative
@@ -40,6 +41,7 @@ class ProductAgentsApp(App):
         self._evidence = evidence
         self._recorder = recorder
         self._debate_lines: list[str] = []
+        self._risk_lines: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -53,12 +55,15 @@ class ProductAgentsApp(App):
         with VerticalScroll(id="debate-scroll"):
             yield Static("Waiting…", id="debate")
         yield Static("Waiting…", id="strategist", classes="panel")
+        with VerticalScroll(id="risk-scroll"):
+            yield Static("Waiting…", id="risk")
         yield Footer()
 
     def on_mount(self) -> None:
         for node_id, role in _PANELS.items():
             self.query_one(f"#{node_id}", Static).border_title = role
         self.query_one("#debate-scroll").border_title = "Advocate vs Skeptic Debate"
+        self.query_one("#risk-scroll").border_title = "Risk Team"
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         title = message.value.strip()
@@ -67,7 +72,9 @@ class ProductAgentsApp(App):
         for node_id in _PANELS:
             self.query_one(f"#{node_id}", Static).update("…")
         self._debate_lines = []
+        self._risk_lines = []
         self.query_one("#debate", Static).update("…")
+        self.query_one("#risk", Static).update("…")
         self._run(Initiative(title=title, description=title))
 
     @work(exclusive=True)
@@ -75,6 +82,7 @@ class ProductAgentsApp(App):
         recommendation = None
         reports = []
         debate = []
+        risks = []
         async for event in self._runner(initiative, self._evidence):
             if isinstance(event, ProgressEvent):
                 if event.node in _PANELS:
@@ -92,10 +100,16 @@ class ProductAgentsApp(App):
                 self.query_one("#debate", Static).update(
                     "\n\n".join(self._debate_lines)
                 )
+            elif isinstance(event, RiskAssessmentEvent):
+                self._risk_lines.append(
+                    f"[{event.role} · {event.level}] {event.rationale}"
+                )
+                self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
             elif isinstance(event, FinishedEvent):
                 recommendation = event.recommendation
                 reports = event.reports
                 debate = event.debate
+                risks = event.risks
                 self._render_recommendation(recommendation)
 
         if recommendation is not None:
@@ -105,6 +119,7 @@ class ProductAgentsApp(App):
                     recommendation=recommendation,
                     reports=reports,
                     debate=debate,
+                    risks=risks,
                     timestamp=datetime.now(UTC).isoformat(),
                 )
             )
