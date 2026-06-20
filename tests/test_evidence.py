@@ -70,3 +70,34 @@ def test_malformed_business_metrics_raises(tmp_path):
     (scenario / "business_metrics.json").write_text("{not valid json")
     with pytest.raises(EvidenceError):
         load_scenario("broken-biz", base_dir=tmp_path)
+
+
+def test_scenario_source_populates_provenance():
+    from productagents.evidence import ScenarioSource
+
+    evidence = ScenarioSource("sample").collect()
+    assert evidence.scenario == "sample"
+    by_field = {ref.field: ref for ref in evidence.sources}
+    # Required fields always have provenance.
+    assert by_field["customer_feedback"].source == "scenario:sample"
+    assert by_field["customer_feedback"].location.endswith("customer_feedback.md")
+    assert by_field["product_analytics"].location.endswith("product_analytics.json")
+
+
+def test_load_scenario_still_works_and_has_provenance():
+    # Backward-compatible wrapper keeps returning Evidence, now with sources.
+    evidence = load_scenario("sample")
+    assert evidence.customer_feedback.strip() != ""
+    assert any(ref.field == "customer_feedback" for ref in evidence.sources)
+
+
+def test_scenario_source_omits_provenance_for_absent_optional_files(tmp_path):
+    from productagents.evidence import ScenarioSource
+
+    scenario = tmp_path / "minimal"
+    scenario.mkdir()
+    (scenario / "customer_feedback.md").write_text("feedback text")
+    (scenario / "product_analytics.json").write_text('{"dau": 100}')
+    evidence = ScenarioSource("minimal", base_dir=tmp_path).collect()
+    fields = {ref.field for ref in evidence.sources}
+    assert fields == {"customer_feedback", "product_analytics"}
