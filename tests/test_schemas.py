@@ -350,3 +350,35 @@ def test_decision_record_generates_id_by_default():
         timestamp="2026-06-19T12:00:00+00:00",
     )
     assert rec.decision_id != rec2.decision_id
+
+
+def test_governance_verdict_defaults_are_ai_authored():
+    from productagents.schemas import GovernanceVerdict
+
+    v = GovernanceVerdict(verdict="approve", rationale="worth it")
+    assert v.decided_by == "ai"
+    assert v.advisory_verdict is None
+    assert v.advisory_rationale is None
+    assert v.failed is False
+
+
+def test_governance_verdict_records_human_override():
+    from productagents.schemas import GovernanceVerdict
+
+    v = GovernanceVerdict(
+        verdict="reject",
+        rationale="no capacity this quarter",
+        decided_by="human",
+        advisory_verdict="approve",
+        advisory_rationale="strong demand",
+    )
+    assert v.decided_by == "human"
+    assert v.advisory_verdict == "approve"
+
+
+def test_human_decision_defaults_blank_rationale():
+    from productagents.schemas import HumanDecision
+
+    d = HumanDecision(verdict="approve")
+    assert d.verdict == "approve"
+    assert d.rationale == ""
