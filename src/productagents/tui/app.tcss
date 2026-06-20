@@ -47,3 +47,21 @@ Screen {
     border: round $secondary;
     height: auto;
 }
+
+#decision-list {
+    height: auto;
+    max-height: 10;
+    margin: 1;
+    border: round $primary;
+}
+
+#outcome-note {
+    margin: 1;
+}
+
+#reflection {
+    border: round $accent;
+    padding: 1;
+    margin: 1;
+    height: auto;
+}

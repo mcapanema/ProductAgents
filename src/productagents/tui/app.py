@@ -4,16 +4,18 @@ import os
 import sys
 from datetime import UTC, datetime
 from functools import partial
+from typing import ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input, Static
 
+from productagents.agents.reflection import reflect
 from productagents.evidence import load_scenario
 from productagents.graph import build_graph
 from productagents.llm import DEFAULT_MODEL, get_model
-from productagents.memory import read_decisions, record_decision
+from productagents.memory import read_decisions, record_decision, record_outcome
 from productagents.runner import (
     DebateTurnEvent,
     FinishedEvent,
@@ -24,6 +26,7 @@ from productagents.runner import (
     run_decision,
 )
 from productagents.schemas import DecisionRecord, Initiative
+from productagents.tui.reflection import ReflectionScreen
 
 _PANELS = {
     "customer_research": "Customer Research Analyst",
@@ -35,15 +38,25 @@ _PANELS = {
 class ProductAgentsApp(App):
     CSS_PATH = "app.tcss"
     TITLE = "ProductAgents"
+    BINDINGS: ClassVar[list] = [("ctrl+r", "reflect", "Reflect on a decision")]
 
     def __init__(
-        self, runner, evidence, *, recorder=record_decision, reader=read_decisions
+        self,
+        runner,
+        evidence,
+        *,
+        recorder=record_decision,
+        reader=read_decisions,
+        reflector=None,
+        outcome_recorder=record_outcome,
     ):
         super().__init__()
         self._runner = runner
         self._evidence = evidence
         self._recorder = recorder
         self._reader = reader
+        self._reflector = reflector
+        self._outcome_recorder = outcome_recorder
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
 
@@ -75,7 +88,7 @@ class ProductAgentsApp(App):
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         title = message.value.strip()
-        if not title:
+        if not title or self._runner is None:
             return
         for node_id in _PANELS:
             self.query_one(f"#{node_id}", Static).update("…")
@@ -85,6 +98,17 @@ class ProductAgentsApp(App):
         self.query_one("#risk", Static).update("…")
         self.query_one("#governance", Static).update("…")
         self._run(Initiative(title=title, description=title))
+
+    def action_reflect(self) -> None:
+        if self._reflector is None:
+            return
+        self.push_screen(
+            ReflectionScreen(
+                reflector=self._reflector,
+                reader=self._reader,
+                outcome_recorder=self._outcome_recorder,
+            )
+        )
 
     @work(exclusive=True)
     async def _run(self, initiative: Initiative) -> None:
@@ -155,9 +179,14 @@ class ProductAgentsApp(App):
 
 
 def _build_app() -> ProductAgentsApp:
-    graph = build_graph(get_model())
+    model = get_model()
+    graph = build_graph(model)
     evidence = load_scenario("sample")
-    return ProductAgentsApp(partial(run_decision, graph), evidence)
+    return ProductAgentsApp(
+        partial(run_decision, graph),
+        evidence,
+        reflector=partial(reflect, model=model),
+    )
 
 
 def main() -> None:
