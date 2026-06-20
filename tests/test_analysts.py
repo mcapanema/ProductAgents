@@ -59,3 +59,32 @@ async def test_analyst_failure_yields_degraded_report(state):
     assert report.findings == []
     assert report.signals == []
     assert report.analyst == "customer_research"
+
+
+from productagents.agents.market import market_node  # noqa: E402
+
+
+async def test_market_returns_report(state):
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["rivals ship SSO"], signals=["3 competitors"]
+            )
+        }
+    )
+    result = await market_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "market"
+    assert report.role == "Market Analyst"
+    assert report.findings == ["rivals ship SSO"]
+    assert report.failed is False
+
+
+async def test_market_degrades_on_failure(state):
+    model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
+    result = await market_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "market"
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []
