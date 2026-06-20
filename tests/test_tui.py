@@ -176,6 +176,75 @@ async def test_app_renders_recalled_lessons(monkeypatch):
     )
 
 
+async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    runner, default_evidence = _runner_and_evidence()
+
+    folder = tmp_path / "typed-dir"
+    folder.mkdir()
+    (folder / "customer_feedback.md").write_text("typed-dir feedback")
+    (folder / "product_analytics.json").write_text('{"dau": 9}')
+
+    seen = {}
+
+    async def capturing_runner(initiative, evidence, **kwargs):
+        seen["scenario"] = evidence.scenario
+        async for event in runner(initiative, evidence, **kwargs):
+            yield event
+
+    from productagents.evidence import collect_evidence
+
+    app = ProductAgentsApp(
+        capturing_runner,
+        default_evidence,
+        collector=collect_evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#evidence-source").value = str(folder)
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert seen["scenario"] == "typed-dir"
+
+
+async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    runner, default_evidence = _runner_and_evidence()
+    ran = {"called": False}
+
+    async def tracking_runner(initiative, evidence, **kwargs):
+        ran["called"] = True
+        async for event in runner(initiative, evidence, **kwargs):
+            yield event
+
+    from productagents.evidence import collect_evidence
+
+    app = ProductAgentsApp(
+        tracking_runner,
+        default_evidence,
+        collector=collect_evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#evidence-source").value = "/no/such/source/xyz"
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.pause()
+        strat_text = str(pilot.app.query_one("#strategist").content)
+
+    assert ran["called"] is False
+    assert "Evidence" in strat_text or "evidence" in strat_text
+
+
 async def test_completion_event_without_panel_is_ignored(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.runner import FinishedEvent, NodeCompleteEvent
