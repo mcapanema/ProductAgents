@@ -391,7 +391,7 @@ The goal is to remember whether those decisions were correct.
 ### Runtime
 
 - Python 3.14
-- Conda
+- uv
 
 ### Orchestration
 
