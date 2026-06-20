@@ -21,9 +21,7 @@ class Evidence(BaseModel):
 class AnalystFindings(BaseModel):
     """Structured output an analyst LLM call must produce."""
 
-    findings: list[str] = Field(
-        description="Key conclusions drawn from the evidence."
-    )
+    findings: list[str] = Field(description="Key conclusions drawn from the evidence.")
     signals: list[str] = Field(
         description="Specific supporting data points or quotes from the evidence."
     )

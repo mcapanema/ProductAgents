@@ -44,9 +44,12 @@ def get_debate_rounds() -> int:
 
 
 def _format_reports(reports: list[AnalystReport]) -> str:
-    return "\n".join(
-        f"- {r.role}: findings={r.findings} signals={r.signals}" for r in reports
-    ) or "(no analyst reports)"
+    return (
+        "\n".join(
+            f"- {r.role}: findings={r.findings} signals={r.signals}" for r in reports
+        )
+        or "(no analyst reports)"
+    )
 
 
 def _format_history(turns: list[DebateTurn]) -> str:
@@ -72,9 +75,7 @@ def _prompt(
     )
 
 
-async def _argue(
-    side: str, state: dict, history: list[DebateTurn], model
-) -> str:
+async def _argue(side: str, state: dict, history: list[DebateTurn], model) -> str:
     structured = model.with_structured_output(DebateArgument)
     result = await structured.ainvoke(
         _prompt(side, state["initiative"], state["reports"], history)
