@@ -16,6 +16,7 @@ productagents = "productagents.tui.app:main"
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",

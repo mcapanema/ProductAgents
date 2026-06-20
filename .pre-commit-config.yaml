@@ -1,0 +1,18 @@
+# Local verification gates, kept in parity with .github/workflows/ci.yml.
+# ruff via the official ruff-pre-commit repo (rev pinned to the installed
+# ruff version); ty as a local hook so it uses the project's pinned ty.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.18
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty type check
+        entry: uv run ty check src
+        language: system
+        types: [python]
+        pass_filenames: false
