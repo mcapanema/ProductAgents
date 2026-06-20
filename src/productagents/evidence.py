@@ -147,5 +147,22 @@ class ScenarioSource:
         )
 
 
+class DirectorySource:
+    """Reads evidence files directly from an arbitrary filesystem directory."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+
+    def collect(self) -> Evidence:
+        if not self.path.is_dir():
+            raise EvidenceError(f"Evidence directory not found: {self.path}")
+        return _collect_from_dir(
+            self.path,
+            scenario=self.path.name,
+            source_label=f"directory:{self.path}",
+            label=str(self.path),
+        )
+
+
 def load_scenario(name: str, base_dir: Path | None = None) -> Evidence:
     return ScenarioSource(name, base_dir).collect()
