@@ -1,7 +1,7 @@
 """Normalize LangGraph's streamed chunks into plain UI-facing events."""
 
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from productagents.schemas import (
     AnalystReport,
@@ -61,7 +61,7 @@ class FinishedEvent:
     debate: list[DebateTurn]
     risks: list[RiskAssessment]
     governance: GovernanceVerdict | None
-    prior_lessons: list[str]
+    prior_lessons: list[str] = field(default_factory=list)
 
 
 async def run_decision(
