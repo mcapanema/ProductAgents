@@ -32,7 +32,7 @@ packages = ["src/productagents"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=productagents --cov-report=term-missing --cov-report=html"
+addopts = "--cov=productagents --cov-report=term-missing --cov-report=html --cov-fail-under=90"
 
 [tool.coverage.run]
 branch = true
