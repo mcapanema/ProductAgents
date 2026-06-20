@@ -39,6 +39,22 @@ class AnalystReport(BaseModel):
     failed: bool = False
 
 
+class DebateArgument(BaseModel):
+    """Structured output a debate agent (advocate or skeptic) must produce."""
+
+    argument: str = Field(
+        description="A single focused argument or rebuttal, two to four sentences."
+    )
+
+
+class DebateTurn(BaseModel):
+    """One assembled turn in the debate transcript."""
+
+    round: int
+    side: str
+    argument: str
+
+
 class Recommendation(BaseModel):
     """The strategist's decision proposal."""
 
@@ -54,4 +70,5 @@ class DecisionRecord(BaseModel):
     initiative: Initiative
     recommendation: Recommendation
     reports: list[AnalystReport]
+    debate: list[DebateTurn] = Field(default_factory=list)
     timestamp: str

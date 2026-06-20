@@ -1,0 +1,99 @@
+"""Structured Advocate-vs-Skeptic debate node.
+
+Runs a configurable number of rounds between an Opportunity Advocate and an
+Opportunity Skeptic. Each round the advocate argues first, then the skeptic
+rebuts; both see the analyst reports and the debate so far. Each turn is
+emitted as a custom stream event for live rendering and collected into a
+structured transcript returned in graph state.
+"""
+
+import os
+
+from productagents.agents._stream import get_writer
+from productagents.schemas import AnalystReport, DebateArgument, DebateTurn, Initiative
+
+NODE_ID = "debate"
+ADVOCATE = "advocate"
+SKEPTIC = "skeptic"
+DEFAULT_DEBATE_ROUNDS = 2
+
+_PERSONA = {
+    ADVOCATE: (
+        "You are the Opportunity Advocate. You argue that the organization SHOULD "
+        "pursue this initiative, emphasizing customer value, business impact, "
+        "strategic opportunity, and competitive advantage."
+    ),
+    SKEPTIC: (
+        "You are the Opportunity Skeptic. You argue that the organization should NOT "
+        "pursue this initiative, emphasizing opportunity cost, risk, complexity, and "
+        "uncertainty."
+    ),
+}
+
+
+def get_debate_rounds() -> int:
+    """Return the configured number of debate rounds (default 2)."""
+    raw = os.environ.get("PRODUCTAGENTS_DEBATE_ROUNDS")
+    if raw is None:
+        return DEFAULT_DEBATE_ROUNDS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_DEBATE_ROUNDS
+    return value if value > 0 else DEFAULT_DEBATE_ROUNDS
+
+
+def _format_reports(reports: list[AnalystReport]) -> str:
+    return "\n".join(
+        f"- {r.role}: findings={r.findings} signals={r.signals}" for r in reports
+    ) or "(no analyst reports)"
+
+
+def _format_history(turns: list[DebateTurn]) -> str:
+    if not turns:
+        return "(no prior arguments yet)"
+    return "\n".join(f"[round {t.round}] {t.side}: {t.argument}" for t in turns)
+
+
+def _prompt(
+    side: str,
+    initiative: Initiative,
+    reports: list[AnalystReport],
+    history: list[DebateTurn],
+) -> str:
+    return (
+        f"{_PERSONA[side]}\n\n"
+        f"Initiative: {initiative.title}\n"
+        f"Description: {initiative.description}\n\n"
+        f"Analyst findings:\n{_format_reports(reports)}\n\n"
+        f"Debate so far:\n{_format_history(history)}\n\n"
+        "Make your strongest single argument for your side, directly responding to "
+        "the opposing points raised so far."
+    )
+
+
+async def _argue(
+    side: str, state: dict, history: list[DebateTurn], model
+) -> str:
+    structured = model.with_structured_output(DebateArgument)
+    result = await structured.ainvoke(
+        _prompt(side, state["initiative"], state["reports"], history)
+    )
+    return result.argument
+
+
+async def debate_node(state: dict, model) -> dict:
+    writer = get_writer()
+    rounds = get_debate_rounds()
+    turns: list[DebateTurn] = []
+    for rnd in range(1, rounds + 1):
+        for side in (ADVOCATE, SKEPTIC):
+            writer({"node": NODE_ID, "status": f"round {rnd}: {side} arguing…"})
+            try:
+                argument = await _argue(side, state, turns, model)
+            except Exception as exc:  # noqa: BLE001 - degrade one turn, never crash
+                argument = f"({side} unavailable: {exc})"
+            turn = DebateTurn(round=rnd, side=side, argument=argument)
+            turns.append(turn)
+            writer({"node": NODE_ID, "turn": turn.model_dump()})
+    return {"debate": turns}

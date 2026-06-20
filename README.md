@@ -446,9 +446,19 @@ ProductAgents exists to make that process explicit, repeatable, and continuously
 
 ## Running the Slice (first milestone)
 
-This repository currently implements a thin end-to-end slice: two analysts
+This repository currently implements an end-to-end slice: two analysts
 (Customer Research + Product Analytics) evaluate a bundled evidence scenario in
-parallel and a strategist produces a recommendation, shown live in a TUI.
+parallel, an Opportunity Advocate and an Opportunity Skeptic debate the
+initiative over several rounds, and a strategist produces a recommendation —
+all shown live in a TUI and saved (with the full debate transcript) to
+`decisions.jsonl`.
+
+The number of debate rounds is configurable (each round is one advocate
+argument followed by one skeptic rebuttal):
+
+```bash
+export PRODUCTAGENTS_DEBATE_ROUNDS=2  # default is 2
+```
 
 ### Setup
 

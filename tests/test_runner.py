@@ -1,5 +1,6 @@
 from productagents.graph import build_graph
 from productagents.runner import (
+    DebateTurnEvent,
     FinishedEvent,
     NodeCompleteEvent,
     ProgressEvent,
@@ -7,6 +8,7 @@ from productagents.runner import (
 )
 from productagents.schemas import (
     AnalystFindings,
+    DebateArgument,
     Evidence,
     Initiative,
     Recommendation,
@@ -18,6 +20,7 @@ def _graph():
     model = FakeChatModel(
         {
             AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="an argument"),
             Recommendation: Recommendation(
                 recommendation="Build it",
                 confidence=0.7,
@@ -36,7 +39,8 @@ def _inputs():
     )
 
 
-async def test_run_decision_emits_progress_completion_and_finished():
+async def test_run_decision_emits_all_event_types(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
     graph = _graph()
     initiative, evidence = _inputs()
 
@@ -44,6 +48,7 @@ async def test_run_decision_emits_progress_completion_and_finished():
 
     progress = [e for e in events if isinstance(e, ProgressEvent)]
     completions = [e for e in events if isinstance(e, NodeCompleteEvent)]
+    debate_turns = [e for e in events if isinstance(e, DebateTurnEvent)]
     finished = [e for e in events if isinstance(e, FinishedEvent)]
 
     assert progress  # at least one in-node progress update
@@ -51,6 +56,13 @@ async def test_run_decision_emits_progress_completion_and_finished():
         "customer_research",
         "product_analytics",
     }
+    assert [(t.round, t.side) for t in debate_turns] == [
+        (1, "advocate"),
+        (1, "skeptic"),
+        (2, "advocate"),
+        (2, "skeptic"),
+    ]
     assert len(finished) == 1
     assert finished[0].recommendation.recommendation == "Build it"
     assert len(finished[0].reports) == 2
+    assert len(finished[0].debate) == 4

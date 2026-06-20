@@ -65,3 +65,62 @@ def test_analyst_findings_holds_lists():
     findings = AnalystFindings(findings=["a"], signals=["b"])
     assert findings.findings == ["a"]
     assert findings.signals == ["b"]
+
+
+def test_debate_turn_fields():
+    from productagents.schemas import DebateTurn
+
+    turn = DebateTurn(round=1, side="advocate", argument="We should build it.")
+    assert turn.round == 1
+    assert turn.side == "advocate"
+    assert turn.argument == "We should build it."
+
+
+def test_debate_argument_holds_text():
+    from productagents.schemas import DebateArgument
+
+    arg = DebateArgument(argument="Risk is too high.")
+    assert arg.argument == "Risk is too high."
+
+
+def test_decision_record_defaults_to_empty_debate():
+    from productagents.schemas import (
+        DecisionRecord,
+        Initiative,
+        Recommendation,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    assert record.debate == []
+
+
+def test_decision_record_round_trips_with_debate():
+    from productagents.schemas import (
+        DebateTurn,
+        DecisionRecord,
+        Initiative,
+        Recommendation,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        debate=[
+            DebateTurn(round=1, side="advocate", argument="for"),
+            DebateTurn(round=1, side="skeptic", argument="against"),
+        ],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    restored = DecisionRecord.model_validate_json(record.model_dump_json())
+    assert restored == record
+    assert restored.debate[1].side == "skeptic"
