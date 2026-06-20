@@ -118,3 +118,32 @@ async def test_business_degrades_on_failure(state):
     assert report.failed is True
     assert report.findings == []
     assert report.signals == []
+
+
+from productagents.agents.technical import technical_node  # noqa: E402
+
+
+async def test_technical_returns_report(state):
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["needs OIDC/SAML layer"], signals=["no IdP abstraction"]
+            )
+        }
+    )
+    result = await technical_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "technical"
+    assert report.role == "Technical Analyst"
+    assert report.findings == ["needs OIDC/SAML layer"]
+    assert report.failed is False
+
+
+async def test_technical_degrades_on_failure(state):
+    model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
+    result = await technical_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "technical"
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []
