@@ -191,3 +191,61 @@ def test_decision_record_round_trips_with_risks():
     restored = DecisionRecord.model_validate_json(record.model_dump_json())
     assert restored == record
     assert restored.risks[0].reviewer == "financial"
+
+
+def test_governance_finding_holds_verdict_and_rationale():
+    from productagents.schemas import GovernanceFinding
+
+    finding = GovernanceFinding(verdict="approve", rationale="best use of budget")
+    assert finding.verdict == "approve"
+    assert finding.rationale == "best use of budget"
+
+
+def test_governance_verdict_defaults_not_failed():
+    from productagents.schemas import GovernanceVerdict
+
+    verdict = GovernanceVerdict(verdict="reject", rationale="too risky right now")
+    assert verdict.verdict == "reject"
+    assert verdict.failed is False
+
+
+def test_decision_record_defaults_to_none_governance():
+    from productagents.schemas import (
+        DecisionRecord,
+        Initiative,
+        Recommendation,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    assert record.governance is None
+
+
+def test_decision_record_round_trips_with_governance():
+    from productagents.schemas import (
+        DecisionRecord,
+        GovernanceVerdict,
+        Initiative,
+        Recommendation,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        governance=GovernanceVerdict(
+            verdict="request_analysis", rationale="need more data"
+        ),
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    restored = DecisionRecord.model_validate_json(record.model_dump_json())
+    assert restored == record
+    assert restored.governance.verdict == "request_analysis"

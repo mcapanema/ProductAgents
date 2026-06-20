@@ -42,3 +42,8 @@ Screen {
 #risk {
     padding: 1;
 }
+
+#governance {
+    border: round $secondary;
+    height: auto;
+}

@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from productagents.schemas import (
     AnalystReport,
     DebateTurn,
+    DecisionRecord,
     Evidence,
+    GovernanceVerdict,
     Initiative,
     Recommendation,
     RiskAssessment,
@@ -41,28 +43,41 @@ class RiskAssessmentEvent:
 
 
 @dataclass
+class GovernanceVerdictEvent:
+    verdict: str
+    rationale: str
+
+
+@dataclass
 class FinishedEvent:
     recommendation: Recommendation | None
     reports: list[AnalystReport]
     debate: list[DebateTurn]
     risks: list[RiskAssessment]
+    governance: GovernanceVerdict | None
 
 
 async def run_decision(
-    graph, initiative: Initiative, evidence: Evidence
+    graph,
+    initiative: Initiative,
+    evidence: Evidence,
+    portfolio: list[DecisionRecord] | None = None,
 ) -> AsyncIterator[
     ProgressEvent
     | NodeCompleteEvent
     | DebateTurnEvent
     | RiskAssessmentEvent
+    | GovernanceVerdictEvent
     | FinishedEvent
 ]:
     """Stream a decision run, yielding normalized events.
 
     Consumes `graph.astream(..., stream_mode=["updates", "custom"])`. Each item is
     a `(mode, chunk)` tuple. `custom` chunks carry a debate `turn` dict, a risk
-    `assessment` dict, or a progress `status`; `updates` chunks map a node name to
-    the partial state it returned.
+    `assessment` dict, a governance `verdict` dict, or a progress `status`;
+    `updates` chunks map a node name to the partial state it returned. Recent
+    prior decisions are passed in as `portfolio` and seeded into graph state for
+    the governance node.
     """
     initial_state = {
         "initiative": initiative,
@@ -71,11 +86,14 @@ async def run_decision(
         "debate": [],
         "recommendation": None,
         "risks": [],
+        "portfolio": portfolio or [],
+        "governance": None,
     }
     collected_reports: list[AnalystReport] = []
     collected_debate: list[DebateTurn] = []
     collected_risks: list[RiskAssessment] = []
     recommendation: Recommendation | None = None
+    governance: GovernanceVerdict | None = None
 
     async for mode, chunk in graph.astream(
         initial_state, stream_mode=["updates", "custom"]
@@ -96,6 +114,12 @@ async def run_decision(
                     level=a["level"],
                     rationale=a["rationale"],
                 )
+            elif "verdict" in chunk:
+                v = chunk["verdict"]
+                yield GovernanceVerdictEvent(
+                    verdict=v["verdict"],
+                    rationale=v["rationale"],
+                )
             else:
                 yield ProgressEvent(
                     node=chunk.get("node", ""), message=chunk.get("status", "")
@@ -113,10 +137,13 @@ async def run_decision(
                     collected_risks = node_state["risks"]
                 if node_state.get("recommendation") is not None:
                     recommendation = node_state["recommendation"]
+                if node_state.get("governance") is not None:
+                    governance = node_state["governance"]
 
     yield FinishedEvent(
         recommendation=recommendation,
         reports=collected_reports,
         debate=collected_debate,
         risks=collected_risks,
+        governance=governance,
     )

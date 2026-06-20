@@ -2,6 +2,7 @@ from productagents.graph import build_graph
 from productagents.runner import (
     DebateTurnEvent,
     FinishedEvent,
+    GovernanceVerdictEvent,
     NodeCompleteEvent,
     ProgressEvent,
     RiskAssessmentEvent,
@@ -11,6 +12,7 @@ from productagents.schemas import (
     AnalystFindings,
     DebateArgument,
     Evidence,
+    GovernanceFinding,
     Initiative,
     Recommendation,
     RiskFinding,
@@ -30,6 +32,9 @@ def _graph():
                 expected_outcomes=["o"],
             ),
             RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="resources well spent"
+            ),
         }
     )
     return build_graph(model)
@@ -53,6 +58,7 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     completions = [e for e in events if isinstance(e, NodeCompleteEvent)]
     debate_turns = [e for e in events if isinstance(e, DebateTurnEvent)]
     risk_events = [e for e in events if isinstance(e, RiskAssessmentEvent)]
+    governance_events = [e for e in events if isinstance(e, GovernanceVerdictEvent)]
     finished = [e for e in events if isinstance(e, FinishedEvent)]
 
     assert progress  # at least one in-node progress update
@@ -73,8 +79,10 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
         "financial",
         "organizational",
     ]
+    assert [g.verdict for g in governance_events] == ["approve"]
     assert len(finished) == 1
     assert finished[0].recommendation.recommendation == "Build it"
     assert len(finished[0].reports) == 2
     assert len(finished[0].debate) == 4
     assert len(finished[0].risks) == 5
+    assert finished[0].governance.verdict == "approve"

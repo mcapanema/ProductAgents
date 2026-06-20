@@ -83,6 +83,29 @@ class Recommendation(BaseModel):
     expected_outcomes: list[str]
 
 
+class GovernanceFinding(BaseModel):
+    """Structured output the Product Portfolio Manager must produce."""
+
+    verdict: str = Field(
+        description=(
+            "The governance verdict: one of 'approve', 'reject', or 'request_analysis'."
+        )
+    )
+    rationale: str = Field(
+        description=(
+            "A short explanation, two to four sentences, justifying the verdict."
+        )
+    )
+
+
+class GovernanceVerdict(BaseModel):
+    """One assembled governance verdict plus a failure flag set by the node."""
+
+    verdict: str
+    rationale: str
+    failed: bool = False
+
+
 class DecisionRecord(BaseModel):
     """A persisted record of one decision run."""
 
@@ -91,4 +114,5 @@ class DecisionRecord(BaseModel):
     reports: list[AnalystReport]
     debate: list[DebateTurn] = Field(default_factory=list)
     risks: list[RiskAssessment] = Field(default_factory=list)
+    governance: GovernanceVerdict | None = None
     timestamp: str

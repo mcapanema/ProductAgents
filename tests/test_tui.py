@@ -8,6 +8,7 @@ from productagents.schemas import (
     AnalystFindings,
     DebateArgument,
     Evidence,
+    GovernanceFinding,
     Recommendation,
     RiskFinding,
 )
@@ -27,6 +28,9 @@ def _runner_and_evidence():
                 expected_outcomes=["enterprise unblock"],
             ),
             RiskFinding: RiskFinding(level="medium", rationale="some delivery risk"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="best use of resources"
+            ),
         }
     )
     graph = build_graph(model)
@@ -46,7 +50,7 @@ async def test_app_renders_recommendation_records_debate_and_risk(
     def recorder(record):
         recorded.append(record)
 
-    app = ProductAgentsApp(runner, evidence, recorder=recorder)
+    app = ProductAgentsApp(runner, evidence, recorder=recorder, reader=lambda: [])
 
     async with app.run_test() as pilot:
         pilot.app.query_one("#initiative-title").value = "Add SSO"
@@ -55,17 +59,20 @@ async def test_app_renders_recommendation_records_debate_and_risk(
         await pilot.pause()
         debate_text = str(pilot.app.query_one("#debate").content)
         risk_text = str(pilot.app.query_one("#risk").content)
+        gov_text = str(pilot.app.query_one("#governance").content)
         strat_text = str(pilot.app.query_one("#strategist").content)
         assert "an argument" in debate_text
         assert "advocate" in debate_text
         assert "Delivery Risk Reviewer" in risk_text
         assert "medium" in risk_text
+        assert "approve" in gov_text
         assert "Build SSO now" in strat_text
 
     assert len(recorded) == 1
     assert recorded[0].recommendation.recommendation == "Build SSO now"
     assert len(recorded[0].debate) == 4
     assert len(recorded[0].risks) == 5
+    assert recorded[0].governance.verdict == "approve"
     assert recorded[0].risks[0].reviewer == "delivery"
 
 
