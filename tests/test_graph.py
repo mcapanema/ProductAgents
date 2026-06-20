@@ -52,9 +52,15 @@ async def test_graph_runs_through_governance(monkeypatch):
     graph = build_graph(_model())
     final = await graph.ainvoke(_initial_state())
 
-    assert len(final["reports"]) == 2
+    assert len(final["reports"]) == 5
     analysts = {r.analyst for r in final["reports"]}
-    assert analysts == {"customer_research", "product_analytics"}
+    assert analysts == {
+        "customer_research",
+        "product_analytics",
+        "market",
+        "business",
+        "technical",
+    }
 
     assert [(t.round, t.side) for t in final["debate"]] == [
         (1, "advocate"),

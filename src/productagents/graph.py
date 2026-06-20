@@ -6,12 +6,15 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from productagents.agents.business import business_node
 from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node
 from productagents.agents.governance import governance_node
+from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
 from productagents.agents.risk import risk_node
 from productagents.agents.strategist import strategist_node
+from productagents.agents.technical import technical_node
 from productagents.schemas import (
     AnalystReport,
     DebateTurn,
@@ -42,6 +45,9 @@ def build_graph(model):
     graph = StateGraph(GraphState)  # ty: ignore[invalid-argument-type]
     graph.add_node("customer_research", partial(customer_research_node, model=model))
     graph.add_node("product_analytics", partial(product_analytics_node, model=model))
+    graph.add_node("market", partial(market_node, model=model))
+    graph.add_node("business", partial(business_node, model=model))
+    graph.add_node("technical", partial(technical_node, model=model))
     graph.add_node("debate", partial(debate_node, model=model))
     graph.add_node("strategist", partial(strategist_node, model=model))
     graph.add_node("risk", partial(risk_node, model=model))
@@ -49,8 +55,14 @@ def build_graph(model):
 
     graph.add_edge(START, "customer_research")
     graph.add_edge(START, "product_analytics")
+    graph.add_edge(START, "market")
+    graph.add_edge(START, "business")
+    graph.add_edge(START, "technical")
     graph.add_edge("customer_research", "debate")
     graph.add_edge("product_analytics", "debate")
+    graph.add_edge("market", "debate")
+    graph.add_edge("business", "debate")
+    graph.add_edge("technical", "debate")
     graph.add_edge("debate", "strategist")
     graph.add_edge("strategist", "risk")
     graph.add_edge("risk", "governance")
