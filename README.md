@@ -461,8 +461,10 @@ After a decision is made, you can record how it actually turned out: press
 `Ctrl+R` to open reflection mode, pick a past decision, and describe what
 happened. An Outcome Reflection Analyst compares the predicted expected outcomes
 against reality and produces a prediction-accuracy score and lessons learned,
-saved to an append-only `outcomes.jsonl` — the capture half of the
-organizational-memory loop (remembering whether decisions were correct).
+saved to an append-only `outcomes.jsonl`. Those reflections are now automatically
+retrieved by lexical relevance and injected into the strategist's prompt on future
+decisions, closing the organizational-memory loop — the system continuously learns
+whether past decisions were correct and applies those lessons to new choices.
 
 The number of debate rounds is configurable (each round is one advocate
 argument followed by one skeptic rebuttal):
