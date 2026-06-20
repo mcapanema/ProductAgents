@@ -50,7 +50,13 @@ async def test_app_renders_recommendation_records_debate_and_risk(
     def recorder(record):
         recorded.append(record)
 
-    app = ProductAgentsApp(runner, evidence, recorder=recorder, reader=lambda: [])
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=recorder,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+    )
 
     async with app.run_test() as pilot:
         pilot.app.query_one("#initiative-title").value = "Add SSO"
@@ -94,7 +100,13 @@ def test_main_reports_clear_error_when_model_init_fails(monkeypatch, capsys):
 async def test_app_renders_new_analyst_panels(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     runner, evidence = _runner_and_evidence()
-    app = ProductAgentsApp(runner, evidence, recorder=lambda r: None, reader=lambda: [])
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+    )
 
     async with app.run_test() as pilot:
         pilot.app.query_one("#initiative-title").value = "Add SSO"
@@ -110,12 +122,66 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
     assert "demand" in technical_text
 
 
+async def test_app_renders_recalled_lessons(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.schemas import (
+        DecisionRecord,
+        Initiative,
+        OutcomeRecord,
+        Recommendation,
+    )
+
+    runner, evidence = _runner_and_evidence()
+
+    prior = DecisionRecord(
+        decision_id="d1",
+        initiative=Initiative(title="Add enterprise SSO login", description="d"),
+        recommendation=Recommendation(
+            recommendation="Build it",
+            confidence=0.7,
+            rationale="r",
+            expected_outcomes=["o"],
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    outcome = OutcomeRecord(
+        decision_id="d1",
+        actual_outcomes=["shipped late"],
+        prediction_accuracy=0.5,
+        lessons_learned=["SSO integrations take longer than predicted"],
+        reflected_at="2026-06-20T00:00:00+00:00",
+    )
+
+    recorded = []
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=recorded.append,
+        reader=lambda: [prior],
+        outcome_reader=lambda: [outcome],
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        recall_text = str(pilot.app.query_one("#recall").content)
+
+    assert "take longer than predicted" in recall_text
+    assert len(recorded) == 1
+    assert any(
+        "take longer than predicted" in line for line in recorded[0].prior_lessons
+    )
+
+
 async def test_completion_event_without_panel_is_ignored(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.runner import FinishedEvent, NodeCompleteEvent
     from productagents.schemas import AnalystReport, Evidence, Recommendation
 
-    async def fake_runner(initiative, evidence, *, portfolio=None):
+    async def fake_runner(initiative, evidence, *, portfolio=None, outcomes=None):
         # A completion event for a node id that has no matching panel must be
         # skipped, not crash the worker with NoMatches before the run finishes.
         yield NodeCompleteEvent(
@@ -144,7 +210,11 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
         scenario="sample", customer_feedback="d", product_analytics={"x": 1}
     )
     app = ProductAgentsApp(
-        fake_runner, evidence, recorder=lambda r: None, reader=lambda: []
+        fake_runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
     )
 
     async with app.run_test() as pilot:
