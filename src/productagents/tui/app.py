@@ -23,6 +23,7 @@ from productagents.memory import (
 )
 from productagents.runner import (
     DebateTurnEvent,
+    FinalVerdictEvent,
     FinishedEvent,
     GovernanceVerdictEvent,
     NodeCompleteEvent,
@@ -32,6 +33,7 @@ from productagents.runner import (
     run_decision,
 )
 from productagents.schemas import DecisionRecord, Initiative
+from productagents.tui.approval import ApprovalScreen
 from productagents.tui.reflection import ReflectionScreen
 
 _PANELS = {
@@ -126,6 +128,10 @@ class ProductAgentsApp(App):
             )
         )
 
+    async def _ask_human(self, advisory):
+        """Pause for a human governance decision; returns a HumanDecision."""
+        return await self.push_screen_wait(ApprovalScreen(advisory))
+
     @work(exclusive=True)
     async def _run(self, initiative: Initiative) -> None:
         recommendation = None
@@ -137,7 +143,11 @@ class ProductAgentsApp(App):
         portfolio = self._reader()
         outcomes = self._outcome_reader()
         async for event in self._runner(
-            initiative, self._evidence, portfolio=portfolio, outcomes=outcomes
+            initiative,
+            self._evidence,
+            portfolio=portfolio,
+            outcomes=outcomes,
+            approver=self._ask_human,
         ):
             if isinstance(event, ProgressEvent):
                 if event.node in _PANELS:
@@ -166,6 +176,11 @@ class ProductAgentsApp(App):
             elif isinstance(event, GovernanceVerdictEvent):
                 self.query_one("#governance", Static).update(
                     f"[b]{event.verdict}[/b]\n\n{event.rationale}"
+                )
+            elif isinstance(event, FinalVerdictEvent):
+                self.query_one("#governance", Static).update(
+                    f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n"
+                    f"{event.rationale}"
                 )
             elif isinstance(event, RecallEvent):
                 body = "\n".join(f"• {line}" for line in event.lessons) or (
@@ -208,7 +223,7 @@ class ProductAgentsApp(App):
 
 def _build_app() -> ProductAgentsApp:
     model = get_model()
-    graph = build_graph(model)
+    graph = build_graph(model, human_in_the_loop=True)
     evidence = load_scenario("sample")
     return ProductAgentsApp(
         partial(run_decision, graph),

@@ -181,7 +181,9 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
     from productagents.runner import FinishedEvent, NodeCompleteEvent
     from productagents.schemas import AnalystReport, Evidence, Recommendation
 
-    async def fake_runner(initiative, evidence, *, portfolio=None, outcomes=None):
+    async def fake_runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
         # A completion event for a node id that has no matching panel must be
         # skipped, not crash the worker with NoMatches before the run finishes.
         yield NodeCompleteEvent(

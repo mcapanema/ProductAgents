@@ -104,11 +104,28 @@ class GovernanceFinding(BaseModel):
 
 
 class GovernanceVerdict(BaseModel):
-    """One assembled governance verdict plus a failure flag set by the node."""
+    """One assembled governance verdict plus a failure flag set by the node.
+
+    In human-in-the-loop runs this carries the *final* (human) decision, with the
+    AI's advisory recommendation preserved for traceability. In autonomous runs
+    `decided_by` stays "ai" and the advisory fields stay None.
+    """
 
     verdict: str
     rationale: str
     failed: bool = False
+    decided_by: str = "ai"
+    advisory_verdict: str | None = None
+    advisory_rationale: str | None = None
+
+
+class HumanDecision(BaseModel):
+    """A human reviewer's final governance choice, fed back to resume the graph."""
+
+    verdict: str = Field(
+        description="One of 'approve', 'reject', or 'request_analysis'."
+    )
+    rationale: str = ""
 
 
 class Reflection(BaseModel):

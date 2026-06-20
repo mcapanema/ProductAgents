@@ -49,6 +49,16 @@ def _initial_state():
     }
 
 
+def test_default_graph_has_no_human_approval_node():
+    graph = build_graph(_model())
+    assert "human_approval" not in graph.nodes
+
+
+def test_human_in_the_loop_graph_adds_human_approval_node():
+    graph = build_graph(_model(), human_in_the_loop=True)
+    assert "human_approval" in graph.nodes
+
+
 async def test_graph_runs_through_governance(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
     graph = build_graph(_model())
