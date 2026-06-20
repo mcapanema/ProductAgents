@@ -1,7 +1,10 @@
 import pytest
 
+from productagents.agents.business import business_node
 from productagents.agents.customer_research import customer_research_node
+from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
+from productagents.agents.technical import technical_node
 from productagents.schemas import AnalystFindings, Evidence, Initiative
 from tests.fakes import FakeChatModel
 
@@ -62,9 +65,6 @@ async def test_analyst_failure_yields_degraded_report(state):
     assert report.analyst == "customer_research"
 
 
-from productagents.agents.market import market_node  # noqa: E402
-
-
 async def test_market_returns_report(state):
     model = FakeChatModel(
         {
@@ -91,9 +91,6 @@ async def test_market_degrades_on_failure(state):
     assert report.signals == []
 
 
-from productagents.agents.business import business_node  # noqa: E402
-
-
 async def test_business_returns_report(state):
     model = FakeChatModel(
         {
@@ -118,9 +115,6 @@ async def test_business_degrades_on_failure(state):
     assert report.failed is True
     assert report.findings == []
     assert report.signals == []
-
-
-from productagents.agents.technical import technical_node  # noqa: E402
 
 
 async def test_technical_returns_report(state):
