@@ -1,8 +1,9 @@
 """Append-only logs (decisions and outcomes) — the organizational-memory stub."""
 
+import re
 from pathlib import Path
 
-from productagents.schemas import DecisionRecord, OutcomeRecord
+from productagents.schemas import DecisionRecord, Initiative, OutcomeRecord
 
 DEFAULT_LOG_PATH = Path("decisions.jsonl")
 DEFAULT_OUTCOME_LOG_PATH = Path("outcomes.jsonl")
@@ -54,3 +55,90 @@ def read_outcomes(path: Path | None = None) -> list[OutcomeRecord]:
         if line:
             outcomes.append(OutcomeRecord.model_validate_json(line))
     return outcomes
+
+
+# Short, ubiquitous words carry no signal for matching past initiatives.
+_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "for",
+        "to",
+        "of",
+        "in",
+        "on",
+        "with",
+        "is",
+        "are",
+        "be",
+        "this",
+        "that",
+        "it",
+        "as",
+        "by",
+        "at",
+        "from",
+        "our",
+        "we",
+        "add",
+        "new",
+        "support",
+    }
+)
+
+
+def _tokens(text: str) -> set[str]:
+    return {
+        word
+        for word in re.findall(r"[a-z0-9]+", text.lower())
+        if len(word) > 2 and word not in _STOPWORDS
+    }
+
+
+def select_relevant_lessons(
+    initiative: Initiative,
+    decisions: list[DecisionRecord],
+    outcomes: list[OutcomeRecord],
+    *,
+    limit: int = 3,
+) -> list[str]:
+    """Return formatted lessons from the past decisions most similar to `initiative`.
+
+    Pairs each prior decision with its recorded outcome (by `decision_id`), scores
+    lexical overlap between the initiative texts, and returns the lessons of the
+    top `limit` matches. Decisions whose outcome is missing, failed, or has no
+    captured lessons are ignored. Returns [] when nothing relevant is found.
+    """
+    by_id = {
+        outcome.decision_id: outcome
+        for outcome in outcomes
+        if not outcome.failed and outcome.lessons_learned
+    }
+    query = _tokens(f"{initiative.title} {initiative.description}")
+    if not query:
+        return []
+
+    scored: list[tuple[int, DecisionRecord, OutcomeRecord]] = []
+    for decision in decisions:
+        outcome = by_id.get(decision.decision_id)
+        if outcome is None:
+            continue
+        past = _tokens(f"{decision.initiative.title} {decision.initiative.description}")
+        overlap = len(query & past)
+        if overlap == 0:
+            continue
+        scored.append((overlap, decision, outcome))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+
+    lessons: list[str] = []
+    for _, decision, outcome in scored[:limit]:
+        for lesson in outcome.lessons_learned:
+            lessons.append(
+                f'From "{decision.initiative.title}" '
+                f"(prediction accuracy {outcome.prediction_accuracy:.0%}): {lesson}"
+            )
+    return lessons
