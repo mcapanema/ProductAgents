@@ -249,3 +249,104 @@ def test_decision_record_round_trips_with_governance():
     restored = DecisionRecord.model_validate_json(record.model_dump_json())
     assert restored == record
     assert restored.governance.verdict == "request_analysis"
+
+
+def test_reflection_holds_outcome_fields():
+    from productagents.schemas import Reflection
+
+    r = Reflection(
+        actual_outcomes=["slow adoption"],
+        prediction_accuracy=0.4,
+        lessons_learned=["validate demand earlier"],
+    )
+    assert r.actual_outcomes == ["slow adoption"]
+    assert r.prediction_accuracy == 0.4
+    assert r.lessons_learned == ["validate demand earlier"]
+
+
+def test_reflection_accuracy_must_be_in_range():
+    from productagents.schemas import Reflection
+
+    with pytest.raises(ValidationError):
+        Reflection(actual_outcomes=[], prediction_accuracy=1.5, lessons_learned=[])
+
+
+def test_outcome_record_accuracy_must_be_in_range():
+    from productagents.schemas import OutcomeRecord
+
+    with pytest.raises(ValidationError):
+        OutcomeRecord(
+            decision_id="d1",
+            actual_outcomes=[],
+            prediction_accuracy=1.5,
+            lessons_learned=[],
+            reflected_at="2026-06-20T00:00:00+00:00",
+        )
+
+
+def test_outcome_record_defaults_not_failed():
+    from productagents.schemas import OutcomeRecord
+
+    o = OutcomeRecord(
+        decision_id="d1",
+        actual_outcomes=[],
+        prediction_accuracy=0.0,
+        lessons_learned=[],
+        reflected_at="2026-06-20T00:00:00+00:00",
+    )
+    assert o.decision_id == "d1"
+    assert o.failed is False
+
+
+def test_outcome_record_round_trips():
+    from productagents.schemas import OutcomeRecord
+
+    o = OutcomeRecord(
+        decision_id="d1",
+        actual_outcomes=["x"],
+        prediction_accuracy=0.7,
+        lessons_learned=["y"],
+        reflected_at="2026-06-20T00:00:00+00:00",
+    )
+    restored = OutcomeRecord.model_validate_json(o.model_dump_json())
+    assert restored == o
+
+
+def test_decision_record_keeps_explicit_id():
+    from productagents.schemas import DecisionRecord, Initiative, Recommendation
+
+    rec = DecisionRecord(
+        decision_id="fixed-id",
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    restored = DecisionRecord.model_validate_json(rec.model_dump_json())
+    assert restored.decision_id == "fixed-id"
+
+
+def test_decision_record_generates_id_by_default():
+    from productagents.schemas import DecisionRecord, Initiative, Recommendation
+
+    rec = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    assert isinstance(rec.decision_id, str)
+    assert rec.decision_id
+    rec2 = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    assert rec.decision_id != rec2.decision_id

@@ -457,6 +457,13 @@ request further analysis — all shown live in a TUI and saved (with the full
 debate transcript, risk assessments, and governance verdict) to
 `decisions.jsonl`.
 
+After a decision is made, you can record how it actually turned out: press
+`Ctrl+R` to open reflection mode, pick a past decision, and describe what
+happened. An Outcome Reflection Analyst compares the predicted expected outcomes
+against reality and produces a prediction-accuracy score and lessons learned,
+saved to an append-only `outcomes.jsonl` — the capture half of the
+organizational-memory loop (remembering whether decisions were correct).
+
 The number of debate rounds is configurable (each round is one advocate
 argument followed by one skeptic rebuttal):
 
