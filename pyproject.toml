@@ -16,10 +16,12 @@ productagents = "productagents.tui.app:main"
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",
     "ruff>=0.15.18",
+    "ty==0.0.51",
 ]
 
 [build-system]
@@ -44,3 +46,25 @@ show_missing = true
 [tool.ruff]
 line-length = 88
 # target-version is inferred from project.requires-python (>=3.14).
+
+[tool.ruff.lint]
+# Curated, explicit rule set. The default ruff selection is nearly empty;
+# this locks in the rules the codebase was already written against (note the
+# existing `# noqa: BLE001` suppressions).
+#
+# `TC` (flake8-type-checking) is intentionally EXCLUDED: moving Pydantic
+# field-type imports into `if TYPE_CHECKING:` blocks breaks Pydantic's
+# runtime annotation evaluation (see schemas.py).
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "BLE", # flake8-blind-except (makes the existing `# noqa: BLE001` meaningful)
+    "RUF", # ruff-specific rules
+    "PT",  # flake8-pytest-style
+]

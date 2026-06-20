@@ -1,5 +1,6 @@
-import pytest
 from functools import partial
+
+import pytest
 
 from productagents.graph import build_graph
 from productagents.runner import run_decision

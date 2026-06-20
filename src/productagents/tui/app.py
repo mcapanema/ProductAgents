@@ -2,7 +2,7 @@
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 
 from textual import work
@@ -105,7 +105,7 @@ class ProductAgentsApp(App):
                     recommendation=recommendation,
                     reports=reports,
                     debate=debate,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
             )
 
@@ -120,7 +120,7 @@ class ProductAgentsApp(App):
         self.query_one("#strategist", Static).update(text)
 
 
-def _build_app() -> "ProductAgentsApp":
+def _build_app() -> ProductAgentsApp:
     graph = build_graph(get_model())
     evidence = load_scenario("sample")
     return ProductAgentsApp(partial(run_decision, graph), evidence)
@@ -129,7 +129,7 @@ def _build_app() -> "ProductAgentsApp":
 def main() -> None:
     try:
         app = _build_app()
-    except Exception as exc:  # noqa: BLE001 - present a clear startup message instead of a traceback
+    except Exception as exc:
         model = os.environ.get("PRODUCTAGENTS_MODEL", DEFAULT_MODEL)
         print(
             f"Failed to start ProductAgents: {exc}\n"

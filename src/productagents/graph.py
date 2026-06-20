@@ -29,7 +29,9 @@ class GraphState(TypedDict):
 
 def build_graph(model):
     """Compile the decision graph using the injected chat model."""
-    graph = StateGraph(GraphState)
+    # NOTE: GraphState is a valid TypedDict; langgraph's StateT bound stub is
+    # too narrow to recognize it. Suppress narrowly rather than weakening the type.
+    graph = StateGraph(GraphState)  # ty: ignore[invalid-argument-type]
     graph.add_node("customer_research", partial(customer_research_node, model=model))
     graph.add_node("product_analytics", partial(product_analytics_node, model=model))
     graph.add_node("debate", partial(debate_node, model=model))
