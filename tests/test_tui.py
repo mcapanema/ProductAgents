@@ -89,3 +89,22 @@ def test_main_reports_clear_error_when_model_init_fails(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "PRODUCTAGENTS_MODEL" in err
     assert "api key" in err.lower()
+
+
+async def test_app_renders_new_analyst_panels(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(runner, evidence, recorder=lambda r: None, reader=lambda: [])
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        market_text = str(pilot.app.query_one("#market").content)
+        business_text = str(pilot.app.query_one("#business").content)
+        technical_text = str(pilot.app.query_one("#technical").content)
+
+    assert "demand" in market_text
+    assert "demand" in business_text
+    assert "demand" in technical_text
