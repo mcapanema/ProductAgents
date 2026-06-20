@@ -8,7 +8,7 @@ ProductAgents is a multi-agent framework for product decision-making under uncer
 
 ```
 evidence → [customer_research ∥ product_analytics ∥ market ∥ business ∥ technical] → debate (advocate vs skeptic) ┐
-                                                                  recall (past lessons) ┴→ strategist → risk → governance → decisions.jsonl
+                                                                  recall (past lessons) ┴→ strategist → risk → governance (advisory) → human_approval → decisions.jsonl
 ```
 
 Everything runs live in a Textual TUI.
@@ -40,8 +40,9 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - `schemas.py` — all Pydantic models, shared across nodes, graph state, and the JSONL persistence. There are two flavours of model: the structured-output schemas an LLM call must return (`AnalystFindings`, `DebateArgument`, `Recommendation`) and the assembled/enriched records nodes build from them (`AnalystReport`, `DebateTurn`, `DecisionRecord`). Nodes call `model.with_structured_output(Schema)`.
 - `evidence.py` — loads a named scenario (markdown + JSON) from `data/scenarios/<name>/`. The TUI loads the bundled `sample` scenario.
 - `agents/` — one node per file. Analysts and the strategist each issue a single structured LLM call; `debate.py` loops rounds, alternating advocate/skeptic personas, each turn seeing the full transcript so far.
-- `runner.py` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`). The TUI only ever sees these events — it has no LangGraph knowledge.
-- `tui/app.py` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event, and on `FinishedEvent` appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`).
+- `graph.py` — wires nodes into the StateGraph. When `human_in_the_loop=True`, `build_graph(model, human_in_the_loop=True)` appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
+- `runner.py` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge.
+- `tui/app.py` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On `FinalVerdictEvent`, the `ApprovalScreen` modal (`tui/approval.py`) is shown via `push_screen_wait` so the human can approve, reject, or request further analysis; the app resumes the graph with the human's decision. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`).
 - `memory.py` — append-only `decisions.jsonl` and `outcomes.jsonl` logs (the "organizational memory"). `select_relevant_lessons()` scores past decisions by lexical similarity to the current initiative and returns the lessons of the closest matches — this is the read side of Outcome Learning.
 
 ### Conventions that matter

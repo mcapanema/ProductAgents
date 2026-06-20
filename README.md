@@ -451,11 +451,11 @@ This repository currently implements an end-to-end slice: two analysts
 parallel, an Opportunity Advocate and an Opportunity Skeptic debate the
 initiative over several rounds, a strategist produces a recommendation, a Risk
 Team of five reviewers (Delivery, Adoption, Strategic, Financial, Organizational)
-assesses that recommendation, and a Product Portfolio Manager weighs the
-recommendation, the risks, and recent prior decisions to approve, reject, or
-request further analysis — all shown live in a TUI and saved (with the full
-debate transcript, risk assessments, and governance verdict) to
-`decisions.jsonl`.
+assesses that recommendation, and a Product Portfolio Manager produces an advisory
+verdict — then a human makes the binding call to approve, reject, or request
+further analysis (with an optional note) directly in the TUI. All stages run live
+in the TUI and are saved (with the full debate transcript, risk assessments,
+advisory governance verdict, and human decision) to `decisions.jsonl`.
 
 After a decision is made, you can record how it actually turned out: press
 `Ctrl+R` to open reflection mode, pick a past decision, and describe what
