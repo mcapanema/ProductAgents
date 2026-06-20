@@ -108,3 +108,52 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
     assert "demand" in market_text
     assert "demand" in business_text
     assert "demand" in technical_text
+
+
+async def test_completion_event_without_panel_is_ignored(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.runner import FinishedEvent, NodeCompleteEvent
+    from productagents.schemas import AnalystReport, Evidence, Recommendation
+
+    async def fake_runner(initiative, evidence, *, portfolio=None):
+        # A completion event for a node id that has no matching panel must be
+        # skipped, not crash the worker with NoMatches before the run finishes.
+        yield NodeCompleteEvent(
+            node="aggregator",
+            report=AnalystReport(
+                analyst="aggregator",
+                role="Aggregator",
+                findings=["x"],
+                signals=[],
+            ),
+        )
+        yield FinishedEvent(
+            recommendation=Recommendation(
+                recommendation="Build it",
+                confidence=0.5,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+        )
+
+    evidence = Evidence(
+        scenario="sample", customer_feedback="d", product_analytics={"x": 1}
+    )
+    app = ProductAgentsApp(
+        fake_runner, evidence, recorder=lambda r: None, reader=lambda: []
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        strat_text = str(pilot.app.query_one("#strategist").content)
+
+    # The unknown-node completion was skipped, so the run reached FinishedEvent
+    # and rendered the recommendation.
+    assert "Build it" in strat_text

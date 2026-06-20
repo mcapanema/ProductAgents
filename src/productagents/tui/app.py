@@ -133,9 +133,12 @@ class ProductAgentsApp(App):
                         f"… {event.message}"
                     )
             elif isinstance(event, NodeCompleteEvent):
-                report = event.report
-                body = "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
-                self.query_one(f"#{event.node}", Static).update(body)
+                if event.node in _PANELS:
+                    report = event.report
+                    body = (
+                        "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
+                    )
+                    self.query_one(f"#{event.node}", Static).update(body)
             elif isinstance(event, DebateTurnEvent):
                 self._debate_lines.append(
                     f"[{event.side} · round {event.round}] {event.argument}"
