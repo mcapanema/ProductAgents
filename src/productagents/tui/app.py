@@ -15,13 +15,19 @@ from productagents.agents.reflection import reflect
 from productagents.evidence import load_scenario
 from productagents.graph import build_graph
 from productagents.llm import DEFAULT_MODEL, get_model
-from productagents.memory import read_decisions, record_decision, record_outcome
+from productagents.memory import (
+    read_decisions,
+    read_outcomes,
+    record_decision,
+    record_outcome,
+)
 from productagents.runner import (
     DebateTurnEvent,
     FinishedEvent,
     GovernanceVerdictEvent,
     NodeCompleteEvent,
     ProgressEvent,
+    RecallEvent,
     RiskAssessmentEvent,
     run_decision,
 )
@@ -34,6 +40,7 @@ _PANELS = {
     "market": "Market Analyst",
     "business": "Business Analyst",
     "technical": "Technical Analyst",
+    "recall": "Lessons from Past Decisions",
     "strategist": "Product Strategist",
 }
 
@@ -50,6 +57,7 @@ class ProductAgentsApp(App):
         *,
         recorder=record_decision,
         reader=read_decisions,
+        outcome_reader=read_outcomes,
         reflector=None,
         outcome_recorder=record_outcome,
     ):
@@ -58,6 +66,7 @@ class ProductAgentsApp(App):
         self._evidence = evidence
         self._recorder = recorder
         self._reader = reader
+        self._outcome_reader = outcome_reader
         self._reflector = reflector
         self._outcome_recorder = outcome_recorder
         self._debate_lines: list[str] = []
@@ -77,6 +86,7 @@ class ProductAgentsApp(App):
             yield Static("Waiting…", id="technical", classes="panel")
         with VerticalScroll(id="debate-scroll"):
             yield Static("Waiting…", id="debate")
+        yield Static("Waiting…", id="recall", classes="panel")
         yield Static("Waiting…", id="strategist", classes="panel")
         with VerticalScroll(id="risk-scroll"):
             yield Static("Waiting…", id="risk")
@@ -123,9 +133,11 @@ class ProductAgentsApp(App):
         debate = []
         risks = []
         governance = None
+        prior_lessons: list[str] = []
         portfolio = self._reader()
+        outcomes = self._outcome_reader()
         async for event in self._runner(
-            initiative, self._evidence, portfolio=portfolio
+            initiative, self._evidence, portfolio=portfolio, outcomes=outcomes
         ):
             if isinstance(event, ProgressEvent):
                 if event.node in _PANELS:
@@ -155,12 +167,18 @@ class ProductAgentsApp(App):
                 self.query_one("#governance", Static).update(
                     f"[b]{event.verdict}[/b]\n\n{event.rationale}"
                 )
+            elif isinstance(event, RecallEvent):
+                body = "\n".join(f"• {line}" for line in event.lessons) or (
+                    "(no relevant past lessons)"
+                )
+                self.query_one("#recall", Static).update(body)
             elif isinstance(event, FinishedEvent):
                 recommendation = event.recommendation
                 reports = event.reports
                 debate = event.debate
                 risks = event.risks
                 governance = event.governance
+                prior_lessons = event.prior_lessons
                 self._render_recommendation(recommendation)
 
         if recommendation is not None:
@@ -172,6 +190,7 @@ class ProductAgentsApp(App):
                     debate=debate,
                     risks=risks,
                     governance=governance,
+                    prior_lessons=prior_lessons,
                     timestamp=datetime.now(UTC).isoformat(),
                 )
             )

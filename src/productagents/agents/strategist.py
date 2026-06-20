@@ -24,20 +24,29 @@ def _format_debate(turns: list[DebateTurn]) -> str:
     return "\n".join(f"[round {t.round}] {t.side}: {t.argument}" for t in turns)
 
 
+def _format_lessons(lessons: list[str]) -> str:
+    if not lessons:
+        return "(no relevant past lessons)"
+    return "\n".join(f"- {lesson}" for lesson in lessons)
+
+
 def _prompt(
     initiative: Initiative,
     reports: list[AnalystReport],
     debate: list[DebateTurn],
+    prior_lessons: list[str],
 ) -> str:
     return (
         "You are a Product Strategist. Synthesize the analyst reports AND the "
         "advocate/skeptic debate below into a single recommendation. Provide a "
         "recommendation, a confidence score between 0 and 1, a rationale, and "
-        "expected outcomes.\n\n"
+        "expected outcomes. Apply the lessons from past decisions where they are "
+        "relevant.\n\n"
         f"Initiative: {initiative.title}\n"
         f"Description: {initiative.description}\n\n"
         f"Analyst reports:\n{_format_reports(reports)}\n\n"
-        f"Debate transcript:\n{_format_debate(debate)}\n"
+        f"Debate transcript:\n{_format_debate(debate)}\n\n"
+        f"Lessons from past decisions:\n{_format_lessons(prior_lessons)}\n"
     )
 
 
@@ -51,6 +60,7 @@ async def strategist_node(state: dict, model) -> dict:
                 state["initiative"],
                 state["reports"],
                 state.get("debate", []),
+                state.get("prior_lessons", []),
             )
         )
         writer({"node": NODE_ID, "status": "done"})

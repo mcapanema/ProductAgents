@@ -12,6 +12,7 @@ from productagents.agents.debate import debate_node
 from productagents.agents.governance import governance_node
 from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
+from productagents.agents.recall import recall_node
 from productagents.agents.risk import risk_node
 from productagents.agents.strategist import strategist_node
 from productagents.agents.technical import technical_node
@@ -22,6 +23,7 @@ from productagents.schemas import (
     Evidence,
     GovernanceVerdict,
     Initiative,
+    OutcomeRecord,
     Recommendation,
     RiskAssessment,
 )
@@ -35,6 +37,8 @@ class GraphState(TypedDict):
     recommendation: Recommendation | None
     risks: list[RiskAssessment]
     portfolio: list[DecisionRecord]
+    outcomes: list[OutcomeRecord]
+    prior_lessons: list[str]
     governance: GovernanceVerdict | None
 
 
@@ -48,6 +52,7 @@ def build_graph(model):
     graph.add_node("market", partial(market_node, model=model))
     graph.add_node("business", partial(business_node, model=model))
     graph.add_node("technical", partial(technical_node, model=model))
+    graph.add_node("recall", recall_node)
     graph.add_node("debate", partial(debate_node, model=model))
     graph.add_node("strategist", partial(strategist_node, model=model))
     graph.add_node("risk", partial(risk_node, model=model))
@@ -58,6 +63,7 @@ def build_graph(model):
     graph.add_edge(START, "market")
     graph.add_edge(START, "business")
     graph.add_edge(START, "technical")
+    graph.add_edge(START, "recall")
     graph.add_edge("customer_research", "debate")
     graph.add_edge("product_analytics", "debate")
     graph.add_edge("market", "debate")

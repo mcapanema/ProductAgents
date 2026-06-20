@@ -73,3 +73,32 @@ async def test_strategist_includes_debate_in_prompt(monkeypatch):
     result = await strategist_node(state, model)
     assert result["recommendation"].recommendation == "Build it"
     assert captured["turns"][0].side == "advocate"
+
+
+async def test_strategist_includes_prior_lessons_in_prompt(monkeypatch):
+    from productagents.agents import strategist as strategist_module
+
+    captured = {}
+
+    def fake_format_lessons(lessons):
+        captured["lessons"] = lessons
+        return "LESSONS-BLOCK"
+
+    monkeypatch.setattr(strategist_module, "_format_lessons", fake_format_lessons)
+
+    state = _state()
+    state["prior_lessons"] = ['From "Add SSO login": SSO took two quarters']
+
+    model = FakeChatModel(
+        {
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            )
+        }
+    )
+    result = await strategist_node(state, model)
+    assert result["recommendation"].recommendation == "Build it"
+    assert captured["lessons"] == ['From "Add SSO login": SSO took two quarters']

@@ -43,6 +43,8 @@ def _initial_state():
         "recommendation": None,
         "risks": [],
         "portfolio": [],
+        "outcomes": [],
+        "prior_lessons": [],
         "governance": None,
     }
 
@@ -80,3 +82,5 @@ async def test_graph_runs_through_governance(monkeypatch):
     ]
 
     assert final["governance"].verdict == "approve"
+
+    assert final["prior_lessons"] == []
