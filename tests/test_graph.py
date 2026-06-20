@@ -5,6 +5,7 @@ from productagents.schemas import (
     Evidence,
     Initiative,
     Recommendation,
+    RiskFinding,
 )
 from tests.fakes import FakeChatModel
 
@@ -20,6 +21,7 @@ def _model():
                 rationale="evidence supports it",
                 expected_outcomes=["growth"],
             ),
+            RiskFinding: RiskFinding(level="medium", rationale="manageable risk"),
         }
     )
 
@@ -35,10 +37,11 @@ def _initial_state():
         "reports": [],
         "debate": [],
         "recommendation": None,
+        "risks": [],
     }
 
 
-async def test_graph_runs_analysts_then_debate_then_strategist(monkeypatch):
+async def test_graph_runs_analysts_debate_strategist_then_risk(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
     graph = build_graph(_model())
     final = await graph.ainvoke(_initial_state())
@@ -55,3 +58,11 @@ async def test_graph_runs_analysts_then_debate_then_strategist(monkeypatch):
     ]
 
     assert final["recommendation"].recommendation == "Build it"
+
+    assert [r.reviewer for r in final["risks"]] == [
+        "delivery",
+        "adoption",
+        "strategic",
+        "financial",
+        "organizational",
+    ]
