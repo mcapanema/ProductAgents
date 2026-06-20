@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from productagents.agents.reflection import reflect
 from productagents.schemas import (
     DecisionRecord,
@@ -40,6 +42,8 @@ async def test_reflect_produces_outcome_record():
     assert outcome.lessons_learned == ["validate demand earlier"]
     assert outcome.failed is False
     assert outcome.reflected_at  # non-empty ISO timestamp
+    parsed = datetime.fromisoformat(outcome.reflected_at)
+    assert parsed.tzinfo is not None
 
 
 async def test_reflect_degrades_on_failure():

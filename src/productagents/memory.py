@@ -1,4 +1,4 @@
-"""Append-only decision log — the organizational-memory stub for the slice."""
+"""Append-only logs (decisions and outcomes) — the organizational-memory stub."""
 
 from pathlib import Path
 

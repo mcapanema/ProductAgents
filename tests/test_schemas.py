@@ -341,3 +341,12 @@ def test_decision_record_generates_id_by_default():
     )
     assert isinstance(rec.decision_id, str)
     assert rec.decision_id
+    rec2 = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    assert rec.decision_id != rec2.decision_id
