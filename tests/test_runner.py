@@ -1,6 +1,7 @@
 from productagents.graph import build_graph
 from productagents.runner import (
     DebateTurnEvent,
+    FinalVerdictEvent,
     FinishedEvent,
     GovernanceVerdictEvent,
     NodeCompleteEvent,
@@ -15,6 +16,7 @@ from productagents.schemas import (
     DecisionRecord,
     Evidence,
     GovernanceFinding,
+    HumanDecision,
     Initiative,
     OutcomeRecord,
     Recommendation,
@@ -134,3 +136,63 @@ async def test_run_decision_recalls_and_emits_lessons(monkeypatch):
     assert any(
         "take longer than predicted" in line for line in finished[0].prior_lessons
     )
+
+
+def _hitl_graph():
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="resources well spent"
+            ),
+        }
+    )
+    return build_graph(model, human_in_the_loop=True)
+
+
+async def test_run_decision_human_override_becomes_final_verdict(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    graph = _hitl_graph()
+    initiative, evidence = _inputs()
+    seen_advisory = []
+
+    async def approver(advisory):
+        seen_advisory.append(advisory)
+        return HumanDecision(verdict="reject", rationale="no capacity")
+
+    events = [
+        e async for e in run_decision(graph, initiative, evidence, approver=approver)
+    ]
+
+    # The approver was shown the AI's advisory verdict.
+    assert len(seen_advisory) == 1
+    assert seen_advisory[0].verdict == "approve"
+
+    finals = [e for e in events if isinstance(e, FinalVerdictEvent)]
+    assert len(finals) == 1
+    assert finals[0].verdict == "reject"
+    assert finals[0].decided_by == "human"
+
+    finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.governance.verdict == "reject"
+    assert finished.governance.decided_by == "human"
+    assert finished.governance.advisory_verdict == "approve"
+
+
+async def test_run_decision_without_approver_auto_accepts_advisory(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    graph = _hitl_graph()
+    initiative, evidence = _inputs()
+
+    events = [e async for e in run_decision(graph, initiative, evidence)]
+
+    finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.governance.verdict == "approve"
