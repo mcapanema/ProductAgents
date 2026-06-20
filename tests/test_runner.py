@@ -4,6 +4,7 @@ from productagents.runner import (
     FinishedEvent,
     NodeCompleteEvent,
     ProgressEvent,
+    RiskAssessmentEvent,
     run_decision,
 )
 from productagents.schemas import (
@@ -12,6 +13,7 @@ from productagents.schemas import (
     Evidence,
     Initiative,
     Recommendation,
+    RiskFinding,
 )
 from tests.fakes import FakeChatModel
 
@@ -27,6 +29,7 @@ def _graph():
                 rationale="r",
                 expected_outcomes=["o"],
             ),
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
         }
     )
     return build_graph(model)
@@ -49,6 +52,7 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     progress = [e for e in events if isinstance(e, ProgressEvent)]
     completions = [e for e in events if isinstance(e, NodeCompleteEvent)]
     debate_turns = [e for e in events if isinstance(e, DebateTurnEvent)]
+    risk_events = [e for e in events if isinstance(e, RiskAssessmentEvent)]
     finished = [e for e in events if isinstance(e, FinishedEvent)]
 
     assert progress  # at least one in-node progress update
@@ -62,7 +66,15 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
         (2, "advocate"),
         (2, "skeptic"),
     ]
+    assert [r.reviewer for r in risk_events] == [
+        "delivery",
+        "adoption",
+        "strategic",
+        "financial",
+        "organizational",
+    ]
     assert len(finished) == 1
     assert finished[0].recommendation.recommendation == "Build it"
     assert len(finished[0].reports) == 2
     assert len(finished[0].debate) == 4
+    assert len(finished[0].risks) == 5
