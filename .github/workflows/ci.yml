@@ -21,10 +21,10 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint
-        run: uv run ruff check .
+        run: uv run --frozen ruff check .
 
       - name: Format check
-        run: uv run ruff format --check .
+        run: uv run --frozen ruff format --check .
 
       - name: Type check
         run: uv run --frozen ty check src
