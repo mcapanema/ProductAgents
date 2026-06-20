@@ -10,6 +10,7 @@ from productagents.schemas import (
     Evidence,
     GovernanceVerdict,
     Initiative,
+    OutcomeRecord,
     Recommendation,
     RiskAssessment,
 )
@@ -49,12 +50,18 @@ class GovernanceVerdictEvent:
 
 
 @dataclass
+class RecallEvent:
+    lessons: list[str]
+
+
+@dataclass
 class FinishedEvent:
     recommendation: Recommendation | None
     reports: list[AnalystReport]
     debate: list[DebateTurn]
     risks: list[RiskAssessment]
     governance: GovernanceVerdict | None
+    prior_lessons: list[str]
 
 
 async def run_decision(
@@ -62,12 +69,14 @@ async def run_decision(
     initiative: Initiative,
     evidence: Evidence,
     portfolio: list[DecisionRecord] | None = None,
+    outcomes: list[OutcomeRecord] | None = None,
 ) -> AsyncIterator[
     ProgressEvent
     | NodeCompleteEvent
     | DebateTurnEvent
     | RiskAssessmentEvent
     | GovernanceVerdictEvent
+    | RecallEvent
     | FinishedEvent
 ]:
     """Stream a decision run, yielding normalized events.
@@ -87,13 +96,14 @@ async def run_decision(
         "recommendation": None,
         "risks": [],
         "portfolio": portfolio or [],
-        "outcomes": [],
+        "outcomes": outcomes or [],
         "prior_lessons": [],
         "governance": None,
     }
     collected_reports: list[AnalystReport] = []
     collected_debate: list[DebateTurn] = []
     collected_risks: list[RiskAssessment] = []
+    collected_lessons: list[str] = []
     recommendation: Recommendation | None = None
     governance: GovernanceVerdict | None = None
 
@@ -137,6 +147,9 @@ async def run_decision(
                     collected_debate = node_state["debate"]
                 if node_state.get("risks"):
                     collected_risks = node_state["risks"]
+                if "prior_lessons" in node_state:
+                    collected_lessons = node_state["prior_lessons"]
+                    yield RecallEvent(lessons=collected_lessons)
                 if node_state.get("recommendation") is not None:
                     recommendation = node_state["recommendation"]
                 if node_state.get("governance") is not None:
@@ -148,4 +161,5 @@ async def run_decision(
         debate=collected_debate,
         risks=collected_risks,
         governance=governance,
+        prior_lessons=collected_lessons,
     )

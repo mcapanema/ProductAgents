@@ -148,4 +148,5 @@ class DecisionRecord(BaseModel):
     debate: list[DebateTurn] = Field(default_factory=list)
     risks: list[RiskAssessment] = Field(default_factory=list)
     governance: GovernanceVerdict | None = None
+    prior_lessons: list[str] = Field(default_factory=list)
     timestamp: str

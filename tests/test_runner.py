@@ -5,15 +5,18 @@ from productagents.runner import (
     GovernanceVerdictEvent,
     NodeCompleteEvent,
     ProgressEvent,
+    RecallEvent,
     RiskAssessmentEvent,
     run_decision,
 )
 from productagents.schemas import (
     AnalystFindings,
     DebateArgument,
+    DecisionRecord,
     Evidence,
     GovernanceFinding,
     Initiative,
+    OutcomeRecord,
     Recommendation,
     RiskFinding,
 )
@@ -89,3 +92,45 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     assert len(finished[0].debate) == 4
     assert len(finished[0].risks) == 5
     assert finished[0].governance.verdict == "approve"
+
+
+async def test_run_decision_recalls_and_emits_lessons(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    graph = _graph()
+    initiative, evidence = _inputs()
+
+    prior = DecisionRecord(
+        decision_id="d1",
+        initiative=Initiative(title="Add enterprise SSO login", description="d"),
+        recommendation=Recommendation(
+            recommendation="Build it",
+            confidence=0.7,
+            rationale="r",
+            expected_outcomes=["o"],
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    outcome = OutcomeRecord(
+        decision_id="d1",
+        actual_outcomes=["shipped late"],
+        prediction_accuracy=0.5,
+        lessons_learned=["SSO integrations take longer than predicted"],
+        reflected_at="2026-06-20T00:00:00+00:00",
+    )
+
+    events = [
+        e
+        async for e in run_decision(
+            graph, initiative, evidence, portfolio=[prior], outcomes=[outcome]
+        )
+    ]
+
+    recalls = [e for e in events if isinstance(e, RecallEvent)]
+    finished = [e for e in events if isinstance(e, FinishedEvent)]
+
+    assert len(recalls) == 1
+    assert any("take longer than predicted" in line for line in recalls[0].lessons)
+    assert any(
+        "take longer than predicted" in line for line in finished[0].prior_lessons
+    )
