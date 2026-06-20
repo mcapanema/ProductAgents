@@ -4,12 +4,14 @@ import operator
 from functools import partial
 from typing import Annotated, TypedDict
 
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from productagents.agents.business import business_node
 from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node
 from productagents.agents.governance import governance_node
+from productagents.agents.human_approval import human_approval_node
 from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
 from productagents.agents.recall import recall_node
@@ -42,8 +44,13 @@ class GraphState(TypedDict):
     governance: GovernanceVerdict | None
 
 
-def build_graph(model):
-    """Compile the decision graph using the injected chat model."""
+def build_graph(model, *, human_in_the_loop: bool = False):
+    """Compile the decision graph using the injected chat model.
+
+    When `human_in_the_loop` is True, a `human_approval` node is appended after
+    `governance` (whose verdict becomes advisory) and the graph is compiled with
+    an in-memory checkpointer so it can pause on `interrupt()` and resume.
+    """
     # NOTE: GraphState is a valid TypedDict; langgraph's StateT bound stub is
     # too narrow to recognize it. Suppress narrowly rather than weakening the type.
     graph = StateGraph(GraphState)  # ty: ignore[invalid-argument-type]
@@ -72,6 +79,12 @@ def build_graph(model):
     graph.add_edge("debate", "strategist")
     graph.add_edge("strategist", "risk")
     graph.add_edge("risk", "governance")
-    graph.add_edge("governance", END)
 
+    if human_in_the_loop:
+        graph.add_node("human_approval", human_approval_node)
+        graph.add_edge("governance", "human_approval")
+        graph.add_edge("human_approval", END)
+        return graph.compile(checkpointer=InMemorySaver())
+
+    graph.add_edge("governance", END)
     return graph.compile()
