@@ -449,9 +449,10 @@ ProductAgents exists to make that process explicit, repeatable, and continuously
 This repository currently implements an end-to-end slice: two analysts
 (Customer Research + Product Analytics) evaluate a bundled evidence scenario in
 parallel, an Opportunity Advocate and an Opportunity Skeptic debate the
-initiative over several rounds, and a strategist produces a recommendation —
-all shown live in a TUI and saved (with the full debate transcript) to
-`decisions.jsonl`.
+initiative over several rounds, a strategist produces a recommendation, and a
+Risk Team of five reviewers (Delivery, Adoption, Strategic, Financial,
+Organizational) assesses that recommendation — all shown live in a TUI and saved
+(with the full debate transcript and risk assessments) to `decisions.jsonl`.
 
 The number of debate rounds is configurable (each round is one advocate
 argument followed by one skeptic rebuttal):
