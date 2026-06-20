@@ -40,9 +40,7 @@ class FinishedEvent:
 
 async def run_decision(
     graph, initiative: Initiative, evidence: Evidence
-) -> AsyncIterator[
-    ProgressEvent | NodeCompleteEvent | DebateTurnEvent | FinishedEvent
-]:
+) -> AsyncIterator[ProgressEvent | NodeCompleteEvent | DebateTurnEvent | FinishedEvent]:
     """Stream a decision run, yielding normalized events.
 
     Consumes `graph.astream(..., stream_mode=["updates", "custom"])`. Each item is

@@ -5,7 +5,6 @@ from productagents.schemas import (
     AnalystFindings,
     AnalystReport,
     DecisionRecord,
-    Evidence,
     Initiative,
     Recommendation,
 )

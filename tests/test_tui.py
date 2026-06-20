@@ -33,7 +33,9 @@ def _runner_and_evidence():
     return partial(run_decision, graph), evidence
 
 
-async def test_app_renders_recommendation_records_and_shows_debate(tmp_path, monkeypatch):
+async def test_app_renders_recommendation_records_and_shows_debate(
+    tmp_path, monkeypatch
+):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
     runner, evidence = _runner_and_evidence()
     recorded = []

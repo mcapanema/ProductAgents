@@ -20,7 +20,11 @@ def state():
 
 async def test_customer_research_returns_report(state):
     model = FakeChatModel(
-        {AnalystFindings: AnalystFindings(findings=["demand for SSO"], signals=["18 tickets"])}
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["demand for SSO"], signals=["18 tickets"]
+            )
+        }
     )
     result = await customer_research_node(state, model)
     reports = result["reports"]
@@ -34,7 +38,11 @@ async def test_customer_research_returns_report(state):
 
 async def test_product_analytics_returns_report(state):
     model = FakeChatModel(
-        {AnalystFindings: AnalystFindings(findings=["30% drop-off"], signals=["funnel data"])}
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["30% drop-off"], signals=["funnel data"]
+            )
+        }
     )
     result = await product_analytics_node(state, model)
     report = result["reports"][0]
