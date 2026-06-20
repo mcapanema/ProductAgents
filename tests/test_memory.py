@@ -45,3 +45,39 @@ def test_records_append(tmp_path):
 
 def test_read_missing_file_returns_empty(tmp_path):
     assert read_decisions(path=tmp_path / "nope.jsonl") == []
+
+
+def _outcome():
+    from productagents.schemas import OutcomeRecord
+
+    return OutcomeRecord(
+        decision_id="d1",
+        actual_outcomes=["x"],
+        prediction_accuracy=0.6,
+        lessons_learned=["y"],
+        reflected_at="2026-06-20T00:00:00+00:00",
+    )
+
+
+def test_record_then_read_outcomes_round_trips(tmp_path):
+    from productagents.memory import read_outcomes, record_outcome
+
+    path = tmp_path / "outcomes.jsonl"
+    outcome = _outcome()
+    record_outcome(outcome, path=path)
+    assert read_outcomes(path=path) == [outcome]
+
+
+def test_outcomes_append(tmp_path):
+    from productagents.memory import read_outcomes, record_outcome
+
+    path = tmp_path / "outcomes.jsonl"
+    record_outcome(_outcome(), path=path)
+    record_outcome(_outcome(), path=path)
+    assert len(read_outcomes(path=path)) == 2
+
+
+def test_read_missing_outcomes_returns_empty(tmp_path):
+    from productagents.memory import read_outcomes
+
+    assert read_outcomes(path=tmp_path / "nope.jsonl") == []
