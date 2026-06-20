@@ -1,13 +1,14 @@
-"""Governance node: the Product Portfolio Manager approves, rejects, or
-requests further analysis.
+"""Governance node: the Product Portfolio Manager provides an advisory
+recommendation.
 
-Runs last, after the risk team. The Portfolio Manager is the final decision
-authority: it reviews the strategist's recommendation and the risk assessments,
-weighs them against the recent portfolio of prior decisions, and asks not "is
-this a good idea?" but "is this the best use of our limited resources right
-now?" The verdict is emitted as a custom stream event for live rendering and
-returned in graph state. Prior decisions arrive via state (read at the UI
-boundary); the node never touches the filesystem.
+Runs last, after the risk team. The Portfolio Manager reviews the strategist's
+recommendation and the risk assessments, weighs them against the recent
+portfolio of prior decisions, and asks not "is this a good idea?" but "is this
+the best use of our limited resources right now?" In Human-in-the-Loop runs,
+this verdict is advisory; a human approver makes the final decision. The
+verdict is emitted as a custom stream event for live rendering and returned in
+graph state. Prior decisions arrive via state (read at the UI boundary); the
+node never touches the filesystem.
 """
 
 from productagents.agents._stream import get_writer
@@ -66,12 +67,12 @@ def _prompt(
     portfolio: list[DecisionRecord],
 ) -> str:
     return (
-        f"You are the {ROLE}, the final decision authority. You do not ask 'is "
-        "this a good idea?' but 'is this the best use of our limited resources "
-        "right now?' Review the recommendation and the risk assessments below, "
-        "weigh them against the recent portfolio of prior decisions, and decide. "
-        "Your verdict must be one of: approve, reject, request_analysis. Justify "
-        "it.\n\n"
+        f"You are the {ROLE}, providing an advisory recommendation. You do not "
+        "ask 'is this a good idea?' but 'is this the best use of our limited "
+        "resources right now?' Review the recommendation and the risk assessments "
+        "below, weigh them against the recent portfolio of prior decisions, and "
+        "provide your advisory verdict. Your verdict must be one of: approve, "
+        "reject, request_analysis. Justify it.\n\n"
         f"Initiative: {initiative.title}\n"
         f"Description: {initiative.description}\n\n"
         f"Recommendation:\n{_format_recommendation(recommendation)}\n\n"
