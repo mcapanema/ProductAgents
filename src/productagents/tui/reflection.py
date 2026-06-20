@@ -55,14 +55,18 @@ class ReflectionScreen(Screen):
     @work(exclusive=True)
     async def _reflect(self, decision, note: str) -> None:
         self.query_one("#reflection", Static).update("Reflecting…")
-        outcome = await self._reflector(decision, note)
-        outcomes = "\n".join(f"• {o}" for o in outcome.actual_outcomes) or "(none)"
-        lessons = (
-            "\n".join(f"• {lesson}" for lesson in outcome.lessons_learned) or "(none)"
-        )
-        self.query_one("#reflection", Static).update(
-            f"Prediction accuracy: {outcome.prediction_accuracy:.0%}\n\n"
-            f"Actual outcomes:\n{outcomes}\n\n"
-            f"Lessons learned:\n{lessons}"
-        )
-        self._outcome_recorder(outcome)
+        try:
+            outcome = await self._reflector(decision, note)
+            outcomes = "\n".join(f"• {o}" for o in outcome.actual_outcomes) or "(none)"
+            lessons = (
+                "\n".join(f"• {lesson}" for lesson in outcome.lessons_learned)
+                or "(none)"
+            )
+            self.query_one("#reflection", Static).update(
+                f"Prediction accuracy: {outcome.prediction_accuracy:.0%}\n\n"
+                f"Actual outcomes:\n{outcomes}\n\n"
+                f"Lessons learned:\n{lessons}"
+            )
+            self._outcome_recorder(outcome)
+        except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash
+            self.query_one("#reflection", Static).update(f"Reflection failed: {exc}")

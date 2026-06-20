@@ -84,5 +84,32 @@ async def test_reflection_mode_no_decisions_does_nothing():
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
+        text = str(pilot.app.screen.query_one("#reflection").content)
+        assert "Pick a decision" in text
+
+    assert recorded == []
+
+
+async def test_reflection_mode_reflector_raises_shows_error():
+    decision = _decision()
+    recorded: list[OutcomeRecord] = []
+
+    async def boom(d, note):
+        raise RuntimeError("LLM down")
+
+    app = _app(boom, lambda: [decision], recorded.append)
+
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        # After push_screen, pilot.app.screen is the active ReflectionScreen.
+        note = pilot.app.screen.query_one("#outcome-note")
+        note.focus()
+        note.value = "We shipped but it flopped."
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        text = str(pilot.app.screen.query_one("#reflection").content)
+        assert "Reflection failed" in text
 
     assert recorded == []
