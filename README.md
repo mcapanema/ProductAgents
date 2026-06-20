@@ -108,7 +108,7 @@ Given a proposed initiative, ProductAgents gathers evidence, debates the opportu
 
 ## Agent Architecture
 
-### Potential Analyst Team
+### Analyst Team
 
 The Analyst Team gathers evidence from multiple dimensions of the business.
 
