@@ -271,6 +271,19 @@ def test_reflection_accuracy_must_be_in_range():
         Reflection(actual_outcomes=[], prediction_accuracy=1.5, lessons_learned=[])
 
 
+def test_outcome_record_accuracy_must_be_in_range():
+    from productagents.schemas import OutcomeRecord
+
+    with pytest.raises(ValidationError):
+        OutcomeRecord(
+            decision_id="d1",
+            actual_outcomes=[],
+            prediction_accuracy=1.5,
+            lessons_learned=[],
+            reflected_at="2026-06-20T00:00:00+00:00",
+        )
+
+
 def test_outcome_record_defaults_not_failed():
     from productagents.schemas import OutcomeRecord
 

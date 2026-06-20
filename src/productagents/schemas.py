@@ -129,7 +129,7 @@ class OutcomeRecord(BaseModel):
 
     decision_id: str
     actual_outcomes: list[str]
-    prediction_accuracy: float
+    prediction_accuracy: float = Field(ge=0.0, le=1.0)
     lessons_learned: list[str]
     reflected_at: str
     failed: bool = False
