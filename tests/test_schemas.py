@@ -382,3 +382,50 @@ def test_human_decision_defaults_blank_rationale():
     d = HumanDecision(verdict="approve")
     assert d.verdict == "approve"
     assert d.rationale == ""
+
+
+def test_evidence_source_ref_and_provenance_defaults():
+    from productagents.schemas import (
+        DecisionRecord,
+        Evidence,
+        EvidenceSourceRef,
+        Initiative,
+        Recommendation,
+    )
+
+    # Evidence.sources defaults to empty and round-trips through JSON.
+    ev = Evidence(scenario="s", customer_feedback="f", product_analytics={"x": 1})
+    assert ev.sources == []
+
+    ref = EvidenceSourceRef(
+        field="customer_feedback",
+        source="directory:/data/q3",
+        location="/data/q3/customer_feedback.md",
+    )
+    ev2 = Evidence(
+        scenario="s",
+        customer_feedback="f",
+        product_analytics={"x": 1},
+        sources=[ref],
+    )
+    assert Evidence.model_validate_json(ev2.model_dump_json()).sources[0].field == (
+        "customer_feedback"
+    )
+
+    # DecisionRecord.evidence_sources defaults to empty (back-compat for old records).
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=["o"]
+        ),
+        reports=[],
+        timestamp="2026-06-20T00:00:00+00:00",
+    )
+    assert record.evidence_sources == []
+    record2 = record.model_copy(update={"evidence_sources": [ref]})
+    assert (
+        DecisionRecord.model_validate_json(record2.model_dump_json())
+        .evidence_sources[0]
+        .source
+        == "directory:/data/q3"
+    )

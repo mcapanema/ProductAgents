@@ -12,6 +12,18 @@ class Initiative(BaseModel):
     description: str
 
 
+class EvidenceSourceRef(BaseModel):
+    """Where one piece of evidence came from, for traceability."""
+
+    field: str = Field(description="The Evidence field this piece populated.")
+    source: str = Field(
+        description="Source label, e.g. 'scenario:sample' or 'directory:/data/q3'."
+    )
+    location: str = Field(
+        description="Concrete origin, e.g. the file path the data was read from."
+    )
+
+
 class Evidence(BaseModel):
     """Mock evidence loaded from a named scenario."""
 
@@ -21,6 +33,7 @@ class Evidence(BaseModel):
     market_intelligence: str = ""
     business_metrics: dict = Field(default_factory=dict)
     technical_context: str = ""
+    sources: list[EvidenceSourceRef] = Field(default_factory=list)
 
 
 class AnalystFindings(BaseModel):
@@ -166,4 +179,5 @@ class DecisionRecord(BaseModel):
     risks: list[RiskAssessment] = Field(default_factory=list)
     governance: GovernanceVerdict | None = None
     prior_lessons: list[str] = Field(default_factory=list)
+    evidence_sources: list[EvidenceSourceRef] = Field(default_factory=list)
     timestamp: str
