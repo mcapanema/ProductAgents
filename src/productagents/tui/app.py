@@ -31,6 +31,9 @@ from productagents.tui.reflection import ReflectionScreen
 _PANELS = {
     "customer_research": "Customer Research Analyst",
     "product_analytics": "Product Analytics Analyst",
+    "market": "Market Analyst",
+    "business": "Business Analyst",
+    "technical": "Technical Analyst",
     "strategist": "Product Strategist",
 }
 
@@ -69,6 +72,9 @@ class ProductAgentsApp(App):
         with Horizontal(id="analysts"):
             yield Static("Waiting…", id="customer_research", classes="panel")
             yield Static("Waiting…", id="product_analytics", classes="panel")
+            yield Static("Waiting…", id="market", classes="panel")
+            yield Static("Waiting…", id="business", classes="panel")
+            yield Static("Waiting…", id="technical", classes="panel")
         with VerticalScroll(id="debate-scroll"):
             yield Static("Waiting…", id="debate")
         yield Static("Waiting…", id="strategist", classes="panel")

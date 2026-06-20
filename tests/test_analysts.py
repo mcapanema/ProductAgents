@@ -14,6 +14,7 @@ def state():
             scenario="sample",
             customer_feedback="Enterprises demand SSO.",
             product_analytics={"onboarding_drop_off_rate": 0.3},
+            business_metrics={"arr": 1350000},
         ),
     }
 
@@ -59,3 +60,90 @@ async def test_analyst_failure_yields_degraded_report(state):
     assert report.findings == []
     assert report.signals == []
     assert report.analyst == "customer_research"
+
+
+from productagents.agents.market import market_node  # noqa: E402
+
+
+async def test_market_returns_report(state):
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["rivals ship SSO"], signals=["3 competitors"]
+            )
+        }
+    )
+    result = await market_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "market"
+    assert report.role == "Market Analyst"
+    assert report.findings == ["rivals ship SSO"]
+    assert report.failed is False
+
+
+async def test_market_degrades_on_failure(state):
+    model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
+    result = await market_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "market"
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []
+
+
+from productagents.agents.business import business_node  # noqa: E402
+
+
+async def test_business_returns_report(state):
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["$1.35M pipeline blocked"], signals=["ARR data"]
+            )
+        }
+    )
+    result = await business_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "business"
+    assert report.role == "Business Analyst"
+    assert report.findings == ["$1.35M pipeline blocked"]
+    assert report.failed is False
+
+
+async def test_business_degrades_on_failure(state):
+    model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
+    result = await business_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "business"
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []
+
+
+from productagents.agents.technical import technical_node  # noqa: E402
+
+
+async def test_technical_returns_report(state):
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(
+                findings=["needs OIDC/SAML layer"], signals=["no IdP abstraction"]
+            )
+        }
+    )
+    result = await technical_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "technical"
+    assert report.role == "Technical Analyst"
+    assert report.findings == ["needs OIDC/SAML layer"]
+    assert report.failed is False
+
+
+async def test_technical_degrades_on_failure(state):
+    model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
+    result = await technical_node(state, model)
+    report = result["reports"][0]
+    assert report.analyst == "technical"
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []

@@ -65,6 +65,9 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     assert {c.report.analyst for c in completions} == {
         "customer_research",
         "product_analytics",
+        "market",
+        "business",
+        "technical",
     }
     assert [(t.round, t.side) for t in debate_turns] == [
         (1, "advocate"),
@@ -82,7 +85,7 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     assert [g.verdict for g in governance_events] == ["approve"]
     assert len(finished) == 1
     assert finished[0].recommendation.recommendation == "Build it"
-    assert len(finished[0].reports) == 2
+    assert len(finished[0].reports) == 5
     assert len(finished[0].debate) == 4
     assert len(finished[0].risks) == 5
     assert finished[0].governance.verdict == "approve"

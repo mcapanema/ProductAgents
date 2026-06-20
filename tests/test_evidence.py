@@ -39,3 +39,34 @@ def test_loads_from_custom_base_dir(tmp_path):
     evidence = load_scenario("custom", base_dir=tmp_path)
     assert evidence.customer_feedback == "feedback text"
     assert evidence.product_analytics == {"dau": 100}
+
+
+def test_sample_scenario_loads_new_evidence_fields():
+    evidence = load_scenario("sample")
+    assert isinstance(evidence.market_intelligence, str)
+    assert evidence.market_intelligence.strip() != ""
+    assert isinstance(evidence.business_metrics, dict)
+    assert evidence.business_metrics != {}
+    assert isinstance(evidence.technical_context, str)
+    assert evidence.technical_context.strip() != ""
+
+
+def test_scenario_without_new_files_uses_defaults(tmp_path):
+    scenario = tmp_path / "minimal"
+    scenario.mkdir()
+    (scenario / "customer_feedback.md").write_text("feedback text")
+    (scenario / "product_analytics.json").write_text(json.dumps({"dau": 100}))
+    evidence = load_scenario("minimal", base_dir=tmp_path)
+    assert evidence.market_intelligence == ""
+    assert evidence.business_metrics == {}
+    assert evidence.technical_context == ""
+
+
+def test_malformed_business_metrics_raises(tmp_path):
+    scenario = tmp_path / "broken-biz"
+    scenario.mkdir()
+    (scenario / "customer_feedback.md").write_text("ok")
+    (scenario / "product_analytics.json").write_text(json.dumps({"x": 1}))
+    (scenario / "business_metrics.json").write_text("{not valid json")
+    with pytest.raises(EvidenceError):
+        load_scenario("broken-biz", base_dir=tmp_path)
