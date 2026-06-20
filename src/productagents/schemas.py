@@ -53,6 +53,27 @@ class DebateTurn(BaseModel):
     argument: str
 
 
+class RiskFinding(BaseModel):
+    """Structured output a risk reviewer must produce."""
+
+    level: str = Field(
+        description="The assessed risk level: one of 'low', 'medium', or 'high'."
+    )
+    rationale: str = Field(
+        description="A short explanation, two to four sentences, justifying the level."
+    )
+
+
+class RiskAssessment(BaseModel):
+    """One assembled risk assessment plus identifying metadata set by the node."""
+
+    reviewer: str
+    role: str
+    level: str
+    rationale: str
+    failed: bool = False
+
+
 class Recommendation(BaseModel):
     """The strategist's decision proposal."""
 
@@ -69,4 +90,5 @@ class DecisionRecord(BaseModel):
     recommendation: Recommendation
     reports: list[AnalystReport]
     debate: list[DebateTurn] = Field(default_factory=list)
+    risks: list[RiskAssessment] = Field(default_factory=list)
     timestamp: str

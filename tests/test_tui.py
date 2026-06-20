@@ -9,6 +9,7 @@ from productagents.schemas import (
     DebateArgument,
     Evidence,
     Recommendation,
+    RiskFinding,
 )
 from productagents.tui.app import ProductAgentsApp
 from tests.fakes import FakeChatModel
@@ -25,6 +26,7 @@ def _runner_and_evidence():
                 rationale="strong demand",
                 expected_outcomes=["enterprise unblock"],
             ),
+            RiskFinding: RiskFinding(level="medium", rationale="some delivery risk"),
         }
     )
     graph = build_graph(model)
@@ -34,7 +36,7 @@ def _runner_and_evidence():
     return partial(run_decision, graph), evidence
 
 
-async def test_app_renders_recommendation_records_and_shows_debate(
+async def test_app_renders_recommendation_records_debate_and_risk(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "2")
@@ -52,15 +54,19 @@ async def test_app_renders_recommendation_records_and_shows_debate(
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
         debate_text = str(pilot.app.query_one("#debate").content)
+        risk_text = str(pilot.app.query_one("#risk").content)
         strat_text = str(pilot.app.query_one("#strategist").content)
         assert "an argument" in debate_text
         assert "advocate" in debate_text
+        assert "Delivery Risk Reviewer" in risk_text
+        assert "medium" in risk_text
         assert "Build SSO now" in strat_text
 
     assert len(recorded) == 1
     assert recorded[0].recommendation.recommendation == "Build SSO now"
     assert len(recorded[0].debate) == 4
-    assert recorded[0].debate[0].side == "advocate"
+    assert len(recorded[0].risks) == 5
+    assert recorded[0].risks[0].reviewer == "delivery"
 
 
 def test_main_reports_clear_error_when_model_init_fails(monkeypatch, capsys):
