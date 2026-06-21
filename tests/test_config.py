@@ -1,5 +1,7 @@
 """Tests for the dotenv-backed configuration loader."""
 
+import os
+
 from productagents.config import load_env
 
 
@@ -11,8 +13,6 @@ def test_load_env_populates_missing_var_from_file(tmp_path, monkeypatch):
     loaded = load_env(env_file)
 
     assert loaded is True
-    import os
-
     assert os.environ["PRODUCTAGENTS_TEST_VAR"] == "from_file"
 
 
@@ -22,8 +22,6 @@ def test_load_env_does_not_override_existing_var(tmp_path, monkeypatch):
     env_file.write_text("PRODUCTAGENTS_TEST_VAR=from_file\n")
 
     load_env(env_file)
-
-    import os
 
     assert os.environ["PRODUCTAGENTS_TEST_VAR"] == "from_shell"
 

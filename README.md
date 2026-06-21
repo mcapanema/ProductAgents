@@ -492,7 +492,7 @@ uv sync
 ### Configure a model
 
 Model selection is provider-agnostic. Set the model via environment variables
-(defaults to `anthropic:claude-sonnet-4-6`):
+(defaults to `anthropic:claude-sonnet-4-6`).
 
 The easiest way is to copy the template and edit it — `.env` is loaded
 automatically on startup and is git-ignored:
