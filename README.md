@@ -457,6 +457,16 @@ further analysis (with an optional note) directly in the TUI. All stages run liv
 in the TUI and are saved (with the full debate transcript, risk assessments,
 advisory governance verdict, and human decision) to `decisions.jsonl`.
 
+Evidence is pluggable. By default the bundled `sample` scenario is loaded, but
+the TUI's second input lets you point a run at a different source before pressing
+Enter: type another bundled scenario name, or a filesystem path to any folder
+containing the evidence files. A folder is read as a `DirectorySource` and must
+contain `customer_feedback.md` and `product_analytics.json` (required) and may
+include `market_intelligence.md`, `business_metrics.json`, and
+`technical_context.md` (optional). Each piece of evidence records its provenance
+(which source and file it came from); the provenance is shown in the TUI's
+"Evidence Sources" panel and saved on the decision record.
+
 After a decision is made, you can record how it actually turned out: press
 `Ctrl+R` to open reflection mode, pick a past decision, and describe what
 happened. An Outcome Reflection Analyst compares the predicted expected outcomes
