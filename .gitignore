@@ -225,3 +225,6 @@ outcomes.jsonl
 
 # Ignore oxs files.
 .DS_Store
+
+# Ignore graphify-out
+graphify-out
