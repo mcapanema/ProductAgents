@@ -53,7 +53,7 @@ class GovernanceVerdictEvent:
     rationale: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class NodeErrorEvent:
     node: str
     message: str
