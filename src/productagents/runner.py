@@ -194,8 +194,13 @@ async def run_decision(
         if approver is not None:
             decision = await approver(advisory)
         else:
+            advisory_verdict = (
+                advisory.verdict
+                if advisory and advisory.verdict != "error"
+                else "approve"
+            )
             decision = HumanDecision(
-                verdict=advisory.verdict if advisory else "approve",
+                verdict=advisory_verdict,
                 rationale=advisory.rationale if advisory else "",
             )
         stream_input = Command(resume=decision.model_dump())

@@ -5,8 +5,12 @@ from productagents.schemas import (
     AnalystFindings,
     AnalystReport,
     DecisionRecord,
+    GovernanceFinding,
+    GovernanceVerdict,
     Initiative,
     Recommendation,
+    RiskAssessment,
+    RiskFinding,
 )
 
 
@@ -429,3 +433,34 @@ def test_evidence_source_ref_and_provenance_defaults():
         .source
         == "directory:/data/q3"
     )
+
+
+def test_governance_finding_rejects_unknown_verdict():
+    with pytest.raises(ValidationError):
+        GovernanceFinding(verdict="maybe", rationale="x")
+
+
+def test_risk_finding_rejects_unknown_level():
+    with pytest.raises(ValidationError):
+        RiskFinding(level="catastrophic", rationale="x")
+
+
+def test_governance_verdict_allows_error_sentinel():
+    v = GovernanceVerdict(verdict="error", rationale="down", failed=True)
+    assert v.verdict == "error"
+
+
+def test_governance_verdict_rejects_arbitrary_value():
+    with pytest.raises(ValidationError):
+        GovernanceVerdict(verdict="nope", rationale="x")
+
+
+def test_risk_assessment_allows_unknown_sentinel():
+    a = RiskAssessment(
+        reviewer="delivery",
+        role="Delivery Risk Reviewer",
+        level="unknown",
+        rationale="down",
+        failed=True,
+    )
+    assert a.level == "unknown"
