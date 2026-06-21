@@ -7,6 +7,7 @@ from typing import ClassVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
+from textual.css.query import NoMatches
 from textual.widgets import Footer, Header, Input, Static
 
 from productagents.agents.reflection import reflect
@@ -26,6 +27,7 @@ from productagents.runner import (
     FinishedEvent,
     GovernanceVerdictEvent,
     NodeCompleteEvent,
+    NodeErrorEvent,
     ProgressEvent,
     RecallEvent,
     RiskAssessmentEvent,
@@ -38,7 +40,7 @@ from productagents.tui.home_screen import HomeScreen
 from productagents.tui.reflection import ReflectionScreen
 from productagents.tui.setup_screen import SetupScreen
 
-_PANELS = {
+_TITLES = {
     "customer_research": "Customer Research Analyst",
     "product_analytics": "Product Analytics Analyst",
     "market": "Market Analyst",
@@ -46,6 +48,28 @@ _PANELS = {
     "technical": "Technical Analyst",
     "recall": "Lessons from Past Decisions",
     "strategist": "Product Strategist",
+    "evidence-provenance": "Evidence Sources",
+    "debate-scroll": "Advocate vs Skeptic Debate",
+    "risk-scroll": "Risk Team",
+    "governance": "Portfolio Manager (Governance)",
+    "status-log": "Status / Errors",
+}
+
+# Runner node names whose live widget differs from the node id.
+_WIDGET_FOR_NODE = {
+    "debate": "debate-scroll",
+    "risk": "risk-scroll",
+}
+
+# Analyst node ids that have a dedicated panel widget (used to gate updates).
+_PANELS = {
+    "customer_research",
+    "product_analytics",
+    "market",
+    "business",
+    "technical",
+    "recall",
+    "strategist",
 }
 
 
@@ -90,6 +114,7 @@ class ProductAgentsApp(App):
         self._show_home = show_home
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
+        self._status_lines: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -115,17 +140,12 @@ class ProductAgentsApp(App):
         with VerticalScroll(id="risk-scroll"):
             yield Static("Waiting…", id="risk")
         yield Static("Waiting…", id="governance", classes="panel")
+        yield Static("", id="status-log", classes="panel")
         yield Footer()
 
     def on_mount(self) -> None:
-        for node_id, role in _PANELS.items():
-            self.query_one(f"#{node_id}", Static).border_title = role
-        self.query_one("#debate-scroll").border_title = "Advocate vs Skeptic Debate"
-        self.query_one("#risk-scroll").border_title = "Risk Team"
-        self.query_one(
-            "#governance", Static
-        ).border_title = "Portfolio Manager (Governance)"
-        self.query_one("#evidence-provenance", Static).border_title = "Evidence Sources"
+        for widget_id, title in _TITLES.items():
+            self.query_one(f"#{widget_id}").border_title = title
         if self._show_home:
             self._open_home()
 
@@ -169,17 +189,17 @@ class ProductAgentsApp(App):
             return
         if self._runner is None:
             reason = self._runner_error or "model not configured"
-            self.query_one("#strategist", Static).update(
-                f"Cannot run — {reason}\n\n"
-                "Open the menu (ctrl+h) to fix your provider/key, or install the "
-                "provider's integration package, then restart."
+            self._log_status(
+                f"Cannot run — {reason}. Open the menu (ctrl+h) to fix your "
+                "provider/key, or install the provider's integration package.",
+                level="error",
             )
             return
         spec = self.query_one("#evidence-source", Input).value.strip()
         try:
             evidence = self._collector(spec) if spec else self._evidence
         except EvidenceError as exc:
-            self.query_one("#strategist", Static).update(f"Evidence error: {exc}")
+            self._log_status(f"Evidence error: {exc}", level="error")
             return
         prov = "\n".join(f"• {ref.field} ← {ref.source}" for ref in evidence.sources)
         self.query_one("#evidence-provenance", Static).update(prov or "(default)")
@@ -190,6 +210,18 @@ class ProductAgentsApp(App):
         self.query_one("#debate", Static).update("…")
         self.query_one("#risk", Static).update("…")
         self.query_one("#governance", Static).update("…")
+        self._status_lines = []
+        self.query_one("#status-log", Static).update("")
+        for widget_id, base in _TITLES.items():
+            if widget_id == "status-log":
+                continue
+            try:
+                widget = self.query_one(f"#{widget_id}")
+            except NoMatches:
+                continue
+            widget.remove_class("failed")
+            widget.styles.border = None
+            widget.border_title = base
         self._run(Initiative(title=title, description=title), evidence)
 
     def action_reflect(self) -> None:
@@ -219,59 +251,77 @@ class ProductAgentsApp(App):
         prior_lessons: list[str] = []
         portfolio = self._reader()
         outcomes = self._outcome_reader()
-        async for event in self._runner(
-            initiative,
-            evidence,
-            portfolio=portfolio,
-            outcomes=outcomes,
-            approver=self._ask_human,
-        ):
-            if isinstance(event, ProgressEvent):
-                if event.node in _PANELS:
-                    self.query_one(f"#{event.node}", Static).update(
-                        f"… {event.message}"
+        try:
+            async for event in self._runner(
+                initiative,
+                evidence,
+                portfolio=portfolio,
+                outcomes=outcomes,
+                approver=self._ask_human,
+            ):
+                if isinstance(event, ProgressEvent):
+                    if event.node in _PANELS:
+                        self.query_one(f"#{event.node}", Static).update(
+                            f"… {event.message}"
+                        )
+                elif isinstance(event, NodeCompleteEvent):
+                    if event.node in _PANELS:
+                        report = event.report
+                        if report.failed:
+                            self.query_one(f"#{event.node}", Static).update(
+                                "[red]failed — see Status / Errors below[/red]"
+                            )
+                        else:
+                            body = (
+                                "\n".join(f"• {f}" for f in report.findings)
+                                or "(no findings)"
+                            )
+                            self.query_one(f"#{event.node}", Static).update(body)
+                elif isinstance(event, NodeErrorEvent):
+                    label = _TITLES.get(
+                        _WIDGET_FOR_NODE.get(event.node, event.node), event.node
                     )
-            elif isinstance(event, NodeCompleteEvent):
-                if event.node in _PANELS:
-                    report = event.report
-                    body = (
-                        "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
+                    self._log_status(f"{label}: {event.message}", level="error")
+                    self._mark_failed(event.node)
+                elif isinstance(event, DebateTurnEvent):
+                    self._debate_lines.append(
+                        f"[{event.side} · round {event.round}] {event.argument}"
                     )
-                    self.query_one(f"#{event.node}", Static).update(body)
-            elif isinstance(event, DebateTurnEvent):
-                self._debate_lines.append(
-                    f"[{event.side} · round {event.round}] {event.argument}"
-                )
-                self.query_one("#debate", Static).update(
-                    "\n\n".join(self._debate_lines)
-                )
-            elif isinstance(event, RiskAssessmentEvent):
-                self._risk_lines.append(
-                    f"[{event.role} · {event.level}] {event.rationale}"
-                )
-                self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
-            elif isinstance(event, GovernanceVerdictEvent):
-                self.query_one("#governance", Static).update(
-                    f"[b]{event.verdict}[/b]\n\n{event.rationale}"
-                )
-            elif isinstance(event, FinalVerdictEvent):
-                self.query_one("#governance", Static).update(
-                    f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n"
-                    f"{event.rationale}"
-                )
-            elif isinstance(event, RecallEvent):
-                body = "\n".join(f"• {line}" for line in event.lessons) or (
-                    "(no relevant past lessons)"
-                )
-                self.query_one("#recall", Static).update(body)
-            elif isinstance(event, FinishedEvent):
-                recommendation = event.recommendation
-                reports = event.reports
-                debate = event.debate
-                risks = event.risks
-                governance = event.governance
-                prior_lessons = event.prior_lessons
-                self._render_recommendation(recommendation)
+                    self.query_one("#debate", Static).update(
+                        "\n\n".join(self._debate_lines)
+                    )
+                elif isinstance(event, RiskAssessmentEvent):
+                    self._risk_lines.append(
+                        f"[{event.role} · {event.level}] {event.rationale}"
+                    )
+                    self.query_one("#risk", Static).update(
+                        "\n\n".join(self._risk_lines)
+                    )
+                elif isinstance(event, GovernanceVerdictEvent):
+                    self.query_one("#governance", Static).update(
+                        f"[b]{event.verdict}[/b]\n\n{event.rationale}"
+                    )
+                elif isinstance(event, FinalVerdictEvent):
+                    self.query_one("#governance", Static).update(
+                        f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n"
+                        f"{event.rationale}"
+                    )
+                elif isinstance(event, RecallEvent):
+                    body = "\n".join(f"• {line}" for line in event.lessons) or (
+                        "(no relevant past lessons)"
+                    )
+                    self.query_one("#recall", Static).update(body)
+                elif isinstance(event, FinishedEvent):
+                    recommendation = event.recommendation
+                    reports = event.reports
+                    debate = event.debate
+                    risks = event.risks
+                    governance = event.governance
+                    prior_lessons = event.prior_lessons
+                    self._render_recommendation(recommendation)
+        except Exception as exc:  # noqa: BLE001 - never crash the worker
+            self._log_status(f"run failed: {exc}", level="error")
+            return
 
         if recommendation is not None:
             self._recorder(
@@ -297,6 +347,26 @@ class ProductAgentsApp(App):
             + "\n".join(f"• {o}" for o in recommendation.expected_outcomes)
         )
         self.query_one("#strategist", Static).update(text)
+
+    def _log_status(self, message: str, *, level: str = "info") -> None:
+        ts = datetime.now(UTC).strftime("%H:%M:%S")
+        icon = "✗" if level == "error" else "·"
+        color = "red" if level == "error" else "dim"
+        self._status_lines.append(f"[{color}]{icon} {ts} {message}[/{color}]")
+        self._status_lines = self._status_lines[-50:]
+        self.query_one("#status-log", Static).update("\n".join(self._status_lines))
+
+    def _mark_failed(self, node: str) -> None:
+        widget_id = _WIDGET_FOR_NODE.get(node, node)
+        try:
+            panel = self.query_one(f"#{widget_id}")
+        except NoMatches:
+            return
+        panel.add_class("failed")
+        panel.styles.border = ("round", "red")
+        base = _TITLES.get(widget_id)
+        if base:
+            panel.border_title = f"✗ {base}"
 
 
 def _build_app() -> ProductAgentsApp:

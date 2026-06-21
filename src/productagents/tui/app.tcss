@@ -107,3 +107,16 @@ SetupScreen {
 #setup-save, #setup-cancel {
     margin: 0 1;
 }
+
+#status-log {
+    dock: bottom;
+    height: 8;
+    margin: 0 1 1 1;
+    border: round $error;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+.failed {
+    border: round $error;
+}
