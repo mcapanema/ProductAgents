@@ -4,6 +4,7 @@ from productagents.runner import (
     FinalVerdictEvent,
     FinishedEvent,
     GovernanceVerdictEvent,
+    JudgmentEvent,
     NodeCompleteEvent,
     ProgressEvent,
     RecallEvent,
@@ -100,6 +101,12 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     assert len(finished[0].debate) == 4
     assert len(finished[0].risks) == 5
     assert finished[0].governance.verdict == "approve"
+    judgments = [e for e in events if isinstance(e, JudgmentEvent)]
+    assert len(judgments) == 1
+    assert judgments[0].passed is True
+    assert judgments[0].attempt == 1
+    assert finished[0].judgment is not None
+    assert finished[0].judgment.passed is True
 
 
 async def test_run_decision_recalls_and_emits_lessons(monkeypatch):

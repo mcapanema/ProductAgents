@@ -14,6 +14,7 @@ from productagents.schemas import (
     GovernanceVerdict,
     HumanDecision,
     Initiative,
+    JudgeVerdict,
     OutcomeRecord,
     Recommendation,
     RiskAssessment,
@@ -53,6 +54,15 @@ class GovernanceVerdictEvent:
     rationale: str
 
 
+@dataclass
+class JudgmentEvent:
+    evidence_grounding_score: float
+    rationale_coherence_score: float
+    passed: bool
+    critique: str
+    attempt: int
+
+
 @dataclass(frozen=True)
 class NodeErrorEvent:
     node: str
@@ -79,6 +89,7 @@ class FinishedEvent:
     risks: list[RiskAssessment]
     governance: GovernanceVerdict | None
     prior_lessons: list[str] = field(default_factory=list)
+    judgment: JudgeVerdict | None = None
 
 
 async def run_decision(
@@ -95,6 +106,7 @@ async def run_decision(
     | DebateTurnEvent
     | RiskAssessmentEvent
     | GovernanceVerdictEvent
+    | JudgmentEvent
     | NodeErrorEvent
     | FinalVerdictEvent
     | RecallEvent
@@ -122,6 +134,8 @@ async def run_decision(
         "outcomes": outcomes or [],
         "prior_lessons": [],
         "governance": None,
+        "judgment": None,
+        "judge_attempts": 0,
     }
     collected_reports: list[AnalystReport] = []
     collected_debate: list[DebateTurn] = []
@@ -129,6 +143,7 @@ async def run_decision(
     collected_lessons: list[str] = []
     recommendation: Recommendation | None = None
     governance: GovernanceVerdict | None = None
+    judgment: JudgeVerdict | None = None
 
     config = {"configurable": {"thread_id": uuid4().hex}}
     stream_input: dict | Command = initial_state
@@ -160,6 +175,15 @@ async def run_decision(
                         verdict=fv["verdict"],
                         rationale=fv["rationale"],
                         decided_by=fv["decided_by"],
+                    )
+                elif "judgment" in chunk:
+                    j = chunk["judgment"]
+                    yield JudgmentEvent(
+                        evidence_grounding_score=j["evidence_grounding_score"],
+                        rationale_coherence_score=j["rationale_coherence_score"],
+                        passed=j["passed"],
+                        critique=j["critique"],
+                        attempt=j["attempt"],
                     )
                 elif "verdict" in chunk:
                     v = chunk["verdict"]
@@ -196,6 +220,8 @@ async def run_decision(
                         recommendation = node_state["recommendation"]
                     if node_state.get("governance") is not None:
                         governance = node_state["governance"]
+                    if node_state.get("judgment") is not None:
+                        judgment = node_state["judgment"]
 
         if pending_interrupt is None:
             break
@@ -223,4 +249,5 @@ async def run_decision(
         risks=collected_risks,
         governance=governance,
         prior_lessons=collected_lessons,
+        judgment=judgment,
     )
