@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Python dependencies managed by uv (pyproject.toml + uv.lock).
+  # `uv` is a first-class Dependabot ecosystem, distinct from `pip`.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build"
+      prefix-development: "build"
+    groups:
+      # Batch low-risk runtime bumps into one PR; majors open individually.
+      uv-production:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # Batch low-risk dev-tool bumps (ruff, ty, pytest, bandit, ...) into one PR.
+      uv-development:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions pinned in .github/workflows (actions/checkout, astral-sh/setup-uv).
+  # Note: the gitleaks image in the `security` job is referenced via a `docker run`
+  # shell command, not a `uses:` or Dockerfile, so Dependabot cannot track it —
+  # bump that pin manually.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
