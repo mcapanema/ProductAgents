@@ -102,3 +102,45 @@ async def test_strategist_includes_prior_lessons_in_prompt(monkeypatch):
     result = await strategist_node(state, model)
     assert result["recommendation"].recommendation == "Build it"
     assert captured["lessons"] == ['From "Add SSO login": SSO took two quarters']
+
+
+async def test_format_critique_empty_when_no_judgment():
+    from productagents.agents.strategist import _format_critique
+
+    assert _format_critique(None) == ""
+
+
+async def test_strategist_injects_judge_critique_on_retry(monkeypatch):
+    from productagents.agents import strategist as strategist_module
+    from productagents.schemas import JudgeVerdict
+
+    captured = {}
+
+    def fake_format_critique(judgment):
+        captured["judgment"] = judgment
+        return "CRITIQUE-BLOCK"
+
+    monkeypatch.setattr(strategist_module, "_format_critique", fake_format_critique)
+
+    state = _state()
+    state["judgment"] = JudgeVerdict(
+        evidence_grounding_score=0.2,
+        rationale_coherence_score=0.3,
+        passed=False,
+        critique="cite the funnel data",
+        attempt=1,
+    )
+
+    model = FakeChatModel(
+        {
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            )
+        }
+    )
+    result = await strategist_node(state, model)
+    assert result["recommendation"].recommendation == "Build it"
+    assert captured["judgment"].critique == "cite the funnel data"
