@@ -11,6 +11,8 @@ dataclasses and knows nothing about LangGraph. `main()` (in `app.py`) is the
 | `app.py` | `ProductAgentsApp` + `main()`. Builds the model/graph once (`_build_app`), runs a decision in a `@work(exclusive=True)` worker, and updates one panel per event. `app.tcss` is the stylesheet. |
 | `approval.py` | `ApprovalScreen` (`ModalScreen[HumanDecision]`). Shows the advisory verdict; the button id (`approve`/`reject`/`request_analysis`) becomes the `HumanDecision.verdict`. |
 | `reflection.py` | `ReflectionScreen`. Pick a past decision, describe what happened, and record an `OutcomeRecord` via the injected reflector — drives the out-of-graph reflection loop (bound to `ctrl+r`). |
+| `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. |
+| `setup_screen.py` | `SetupScreen` (`ModalScreen[bool]`). Collects model/provider/key, validates, and writes them via the injected `writer` (`setup.write_env`). Dismisses `True` on save, `False` on cancel. |
 
 ## The event loop
 
@@ -41,6 +43,18 @@ the app is testable headless (see `tests/test_tui.py`):
 On a governance `__interrupt__`, `run_decision` calls the app's `_ask_human`,
 which `push_screen_wait(ApprovalScreen(...))` and returns the `HumanDecision`
 that resumes the graph; a `FinalVerdictEvent` then updates the governance panel.
+
+## First-run menu & setup
+
+`on_mount` pushes `HomeScreen` (skipped when `show_home=False`, used by the
+decision/approval/reflection tests). If `config_checker()` reports the app isn't
+ready, `open_setup()` pushes `SetupScreen` on top. A successful save calls the
+injected `rebuild()` to rebuild the runner/reflector with the new config, then
+refreshes the home status. "Run a decision" pops `HomeScreen` to reveal the base
+decision UI; `ctrl+h` re-opens the menu. New DI seams on `ProductAgentsApp`:
+`config_checker` (default `setup.check_config`), `env_writer` (default
+`setup.write_env`), `rebuild` (default `None`; `main` injects the real builder),
+and `show_home`.
 
 ## Testing
 

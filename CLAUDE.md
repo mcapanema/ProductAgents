@@ -20,6 +20,7 @@ src/productagents/
 ├── schemas.py            # all Pydantic models + shared Literal vocabularies
 ├── evidence.py           # Layer-1 EvidenceSource protocol + scenario/dir sources
 ├── llm.py                # get_model() — the only provider-agnostic factory
+├── setup.py              # config readiness check (check_config) + .env writer (write_env)
 ├── graph.py              # LangGraph StateGraph assembly + GraphState
 ├── runner.py             # graph→UI boundary: normalizes the stream into events
 ├── memory.py             # decisions.jsonl / outcomes.jsonl + lesson retrieval
@@ -33,7 +34,7 @@ src/productagents/
 │   ├── human_approval.py # HITL interrupt node (added only when enabled)
 │   └── reflection.py     # OUT OF GRAPH: post-hoc outcome reflection
 ├── tui/                  # Textual app + modal screens (see tui/CLAUDE.md)
-│   ├── app.py · app.tcss · approval.py · reflection.py
+│   ├── app.py · app.tcss · approval.py · reflection.py · home_screen.py · setup_screen.py
 └── data/scenarios/<name>/  # bundled mock evidence files
 tests/                    # offline suite, FakeChatModel (see tests/CLAUDE.md)
 ```
@@ -58,6 +59,13 @@ uv run pytest tests/test_debate.py::test_name -x           # one test
 
 - `PRODUCTAGENTS_MODEL` — provider-prefixed model id, default `anthropic:claude-sonnet-4-6`. For non-LangChain-native providers also set `PRODUCTAGENTS_MODEL_PROVIDER`. Provide the matching key (e.g. `ANTHROPIC_API_KEY`).
 - `PRODUCTAGENTS_DEBATE_ROUNDS` — debate rounds, default 2 (each round = one advocate argument + one skeptic rebuttal).
+
+On launch the TUI shows a **home menu** (Set up / Run a decision / Quit) and runs
+a **static readiness check** (`setup.check_config`): it derives the provider from
+`PRODUCTAGENTS_MODEL`, looks up the matching API-key env var, and verifies it is
+present. If anything is missing it auto-opens a **SetupScreen** that writes the
+model/provider/key to `.env` (`setup.write_env`) and rebuilds the model so the
+new config takes effect without a restart. The check never makes a network call.
 
 ## Architecture
 
