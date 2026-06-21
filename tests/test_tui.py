@@ -238,6 +238,30 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
     assert "Evidence" in strat_text or "evidence" in strat_text
 
 
+async def test_app_surfaces_runner_unavailable(monkeypatch):
+    # When the model/graph could not be built (e.g. a provider package is
+    # missing), runner is None. Submitting an initiative must tell the user
+    # why instead of silently doing nothing.
+    _, default_evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        None,
+        default_evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+        runner_error="ImportError: requires the langchain-google-genai package",
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.pause()
+        strat_text = str(pilot.app.query_one("#strategist").content)
+
+    assert "langchain-google-genai" in strat_text
+
+
 async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     runner, default_evidence = _runner_and_evidence()

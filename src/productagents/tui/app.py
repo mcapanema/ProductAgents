@@ -1,6 +1,5 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
-import contextlib
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -73,9 +72,11 @@ class ProductAgentsApp(App):
         env_writer=write_env,
         rebuild=None,
         show_home=True,
+        runner_error=None,
     ):
         super().__init__()
         self._runner = runner
+        self._runner_error = runner_error
         self._evidence = evidence
         self._collector = collector
         self._recorder = recorder
@@ -142,8 +143,12 @@ class ProductAgentsApp(App):
 
     def _after_setup(self, saved: bool | None) -> None:
         if saved and self._rebuild is not None:
-            with contextlib.suppress(Exception):
+            try:
                 self._runner, self._reflector = self._rebuild()
+                self._runner_error = None
+            except Exception as exc:  # noqa: BLE001 - keep the menu usable
+                self._runner, self._reflector = None, None
+                self._runner_error = str(exc)
         screen = self.screen
         if isinstance(screen, HomeScreen):
             screen.refresh_status(self._config_checker())
@@ -160,7 +165,15 @@ class ProductAgentsApp(App):
         if message.input.id != "initiative-title":
             return
         title = message.value.strip()
-        if not title or self._runner is None:
+        if not title:
+            return
+        if self._runner is None:
+            reason = self._runner_error or "model not configured"
+            self.query_one("#strategist", Static).update(
+                f"Cannot run — {reason}\n\n"
+                "Open the menu (ctrl+h) to fix your provider/key, or install the "
+                "provider's integration package, then restart."
+            )
             return
         spec = self.query_one("#evidence-source", Input).value.strip()
         try:
@@ -196,6 +209,8 @@ class ProductAgentsApp(App):
 
     @work(exclusive=True)
     async def _run(self, initiative: Initiative, evidence) -> None:
+        if self._runner is None:
+            return
         recommendation = None
         reports = []
         debate = []
@@ -292,14 +307,17 @@ def _build_app() -> ProductAgentsApp:
 
     try:
         runner, reflector = rebuild()
-    except Exception:  # noqa: BLE001 - launch into setup instead of crashing
+        build_error = None
+    except Exception as exc:  # noqa: BLE001 - launch into setup instead of crashing
         runner, reflector = None, None
+        build_error = str(exc)
     evidence = load_scenario("sample")
     return ProductAgentsApp(
         runner,
         evidence,
         reflector=reflector,
         rebuild=rebuild,
+        runner_error=build_error,
     )
 
 
