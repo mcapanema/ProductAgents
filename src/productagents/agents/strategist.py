@@ -1,5 +1,6 @@
 """Product Strategist node: synthesizes analyst reports and the debate."""
 
+from productagents.agents._format import format_transcript
 from productagents.agents._stream import get_writer
 from productagents.schemas import AnalystReport, DebateTurn, Initiative, Recommendation
 
@@ -16,12 +17,6 @@ def _format_reports(reports: list[AnalystReport]) -> str:
             f"Signals: {report.signals}\n"
         )
     return "\n".join(blocks)
-
-
-def _format_debate(turns: list[DebateTurn]) -> str:
-    if not turns:
-        return "(no debate)"
-    return "\n".join(f"[round {t.round}] {t.side}: {t.argument}" for t in turns)
 
 
 def _format_lessons(lessons: list[str]) -> str:
@@ -45,7 +40,7 @@ def _prompt(
         f"Initiative: {initiative.title}\n"
         f"Description: {initiative.description}\n\n"
         f"Analyst reports:\n{_format_reports(reports)}\n\n"
-        f"Debate transcript:\n{_format_debate(debate)}\n\n"
+        f"Debate transcript:\n{format_transcript(debate)}\n\n"
         f"Lessons from past decisions:\n{_format_lessons(prior_lessons)}\n"
     )
 

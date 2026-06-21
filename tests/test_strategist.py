@@ -49,11 +49,11 @@ async def test_strategist_includes_debate_in_prompt(monkeypatch):
 
     captured = {}
 
-    def fake_format_debate(turns):
+    def fake_format_transcript(turns, *, empty="(no debate)"):
         captured["turns"] = turns
         return "DEBATE-BLOCK"
 
-    monkeypatch.setattr(strategist_module, "_format_debate", fake_format_debate)
+    monkeypatch.setattr(strategist_module, "format_transcript", fake_format_transcript)
 
     state = _state()
     state["debate"] = [DebateTurn(round=1, side="advocate", argument="for it")]
