@@ -18,6 +18,7 @@ productagents = "productagents.tui.app:main"
 
 [dependency-groups]
 dev = [
+    "bandit[toml]>=1.8",
     "pre-commit>=4.6.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
@@ -44,6 +45,11 @@ source = ["productagents"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.bandit]
+# Scan only application source in CI (`-r src`); tests legitimately use
+# patterns bandit flags (e.g. asserts), so exclude them from any wider scan.
+exclude_dirs = ["tests"]
 
 [tool.ruff]
 line-length = 88
