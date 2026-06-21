@@ -86,6 +86,7 @@ class ProductAgentsApp(App):
             placeholder="Evidence source (scenario name or path; blank = sample)",
             id="evidence-source",
         )
+        yield Static("Waiting…", id="evidence-provenance", classes="panel")
         with Horizontal(id="analysts"):
             yield Static("Waiting…", id="customer_research", classes="panel")
             yield Static("Waiting…", id="product_analytics", classes="panel")
@@ -109,6 +110,7 @@ class ProductAgentsApp(App):
         self.query_one(
             "#governance", Static
         ).border_title = "Portfolio Manager (Governance)"
+        self.query_one("#evidence-provenance", Static).border_title = "Evidence Sources"
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         if message.input.id != "initiative-title":
@@ -122,6 +124,8 @@ class ProductAgentsApp(App):
         except EvidenceError as exc:
             self.query_one("#strategist", Static).update(f"Evidence error: {exc}")
             return
+        prov = "\n".join(f"• {ref.field} ← {ref.source}" for ref in evidence.sources)
+        self.query_one("#evidence-provenance", Static).update(prov or "(default)")
         for node_id in _PANELS:
             self.query_one(f"#{node_id}", Static).update("…")
         self._debate_lines = []
@@ -220,6 +224,7 @@ class ProductAgentsApp(App):
                     risks=risks,
                     governance=governance,
                     prior_lessons=prior_lessons,
+                    evidence_sources=evidence.sources,
                     timestamp=datetime.now(UTC).isoformat(),
                 )
             )

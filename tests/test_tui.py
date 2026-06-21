@@ -245,6 +245,41 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
     assert "Evidence" in strat_text or "evidence" in strat_text
 
 
+async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    runner, default_evidence = _runner_and_evidence()
+
+    folder = tmp_path / "prov-dir"
+    folder.mkdir()
+    (folder / "customer_feedback.md").write_text("prov feedback")
+    (folder / "product_analytics.json").write_text('{"dau": 3}')
+
+    from productagents.evidence import collect_evidence
+
+    recorded = []
+    app = ProductAgentsApp(
+        runner,
+        default_evidence,
+        collector=collect_evidence,
+        recorder=recorded.append,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#evidence-source").value = str(folder)
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        prov_text = str(pilot.app.query_one("#evidence-provenance").content)
+
+    assert "customer_feedback" in prov_text
+    assert "directory:" in prov_text
+    assert len(recorded) == 1
+    assert any(ref.field == "customer_feedback" for ref in recorded[0].evidence_sources)
+
+
 async def test_completion_event_without_panel_is_ignored(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.runner import FinishedEvent, NodeCompleteEvent
