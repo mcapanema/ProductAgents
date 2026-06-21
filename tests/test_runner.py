@@ -196,3 +196,36 @@ async def test_run_decision_without_approver_auto_accepts_advisory(monkeypatch):
 
     finished = next(e for e in events if isinstance(e, FinishedEvent))
     assert finished.governance.verdict == "approve"
+
+
+def _hitl_graph_degraded_governance():
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: RuntimeError("governance LLM down"),
+        }
+    )
+    return build_graph(model, human_in_the_loop=True)
+
+
+async def test_run_decision_without_approver_coerces_degraded_advisory_to_approve(
+    monkeypatch,
+):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    graph = _hitl_graph_degraded_governance()
+    initiative, evidence = _inputs()
+
+    events = [e async for e in run_decision(graph, initiative, evidence)]
+
+    finished = next(e for e in events if isinstance(e, FinishedEvent))
+    # Governance degraded to verdict="error"; the no-approver fallback must coerce it.
+    assert finished.governance.verdict == "approve"
+    assert finished.governance.decided_by == "human"

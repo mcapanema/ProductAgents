@@ -35,3 +35,14 @@ def test_final_verdict_tolerates_missing_advisory():
     assert final.advisory_verdict is None
     assert final.advisory_rationale is None
     assert final.decided_by == "human"
+
+
+def test_final_verdict_drops_degraded_advisory_verdict():
+    degraded = GovernanceVerdict(
+        verdict="error", rationale="LLM call failed", failed=True
+    )
+    final = _final_verdict(degraded, {"verdict": "approve", "rationale": "looks good"})
+    assert final.verdict == "approve"
+    assert final.rationale == "looks good"
+    assert final.decided_by == "human"
+    assert final.advisory_verdict is None
