@@ -62,8 +62,8 @@ jobs:
 
       - name: Dependency vulnerability audit (pip-audit)
         run: |
-          uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements-prod.txt
-          uvx pip-audit --no-deps -r requirements-prod.txt
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o "$RUNNER_TEMP/requirements-prod.txt"
+          uvx pip-audit@2.10.1 --no-deps -r "$RUNNER_TEMP/requirements-prod.txt"
 
       - name: Static security analysis (bandit)
         run: uv run --frozen bandit -c pyproject.toml -r src
