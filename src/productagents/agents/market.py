@@ -1,10 +1,11 @@
 """Market Analyst node: reads competitive and market evidence."""
 
-from productagents.agents._stream import get_writer
-from productagents.schemas import AnalystFindings, AnalystReport, Evidence, Initiative
+from productagents.agents._analyst import run_analyst
+from productagents.schemas import Evidence, Initiative
 
 ANALYST_ID = "market"
 ROLE = "Market Analyst"
+_START_STATUS = "scanning the market…"
 
 
 def _prompt(initiative: Initiative, evidence: Evidence) -> str:
@@ -20,23 +21,11 @@ def _prompt(initiative: Initiative, evidence: Evidence) -> str:
 
 
 async def market_node(state: dict, model) -> dict:
-    writer = get_writer()
-    writer({"node": ANALYST_ID, "status": "scanning the market…"})
-    structured = model.with_structured_output(AnalystFindings)
-    try:
-        findings = await structured.ainvoke(
-            _prompt(state["initiative"], state["evidence"])
-        )
-        report = AnalystReport(
-            analyst=ANALYST_ID,
-            role=ROLE,
-            findings=findings.findings,
-            signals=findings.signals,
-        )
-        writer({"node": ANALYST_ID, "status": "done"})
-    except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph
-        writer({"node": ANALYST_ID, "status": f"failed: {exc}"})
-        report = AnalystReport(
-            analyst=ANALYST_ID, role=ROLE, findings=[], signals=[], failed=True
-        )
-    return {"reports": [report]}
+    return await run_analyst(
+        state,
+        model,
+        analyst_id=ANALYST_ID,
+        role=ROLE,
+        start_status=_START_STATUS,
+        prompt=_prompt,
+    )

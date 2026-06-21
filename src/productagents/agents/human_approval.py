@@ -27,7 +27,9 @@ def _final_verdict(
         verdict=decision["verdict"],
         rationale=rationale,
         decided_by="human",
-        advisory_verdict=advisory.verdict if advisory else None,
+        advisory_verdict=(
+            advisory.verdict if advisory and advisory.verdict != "error" else None
+        ),
         advisory_rationale=advisory.rationale if advisory else None,
     )
 

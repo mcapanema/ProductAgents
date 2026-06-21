@@ -9,6 +9,7 @@ structured transcript returned in graph state.
 
 import os
 
+from productagents.agents._format import format_reports_brief, format_transcript
 from productagents.agents._stream import get_writer
 from productagents.schemas import AnalystReport, DebateArgument, DebateTurn, Initiative
 
@@ -43,21 +44,6 @@ def get_debate_rounds() -> int:
     return value if value > 0 else DEFAULT_DEBATE_ROUNDS
 
 
-def _format_reports(reports: list[AnalystReport]) -> str:
-    return (
-        "\n".join(
-            f"- {r.role}: findings={r.findings} signals={r.signals}" for r in reports
-        )
-        or "(no analyst reports)"
-    )
-
-
-def _format_history(turns: list[DebateTurn]) -> str:
-    if not turns:
-        return "(no prior arguments yet)"
-    return "\n".join(f"[round {t.round}] {t.side}: {t.argument}" for t in turns)
-
-
 def _prompt(
     side: str,
     initiative: Initiative,
@@ -68,8 +54,9 @@ def _prompt(
         f"{_PERSONA[side]}\n\n"
         f"Initiative: {initiative.title}\n"
         f"Description: {initiative.description}\n\n"
-        f"Analyst findings:\n{_format_reports(reports)}\n\n"
-        f"Debate so far:\n{_format_history(history)}\n\n"
+        f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
+        f"Debate so far:\n"
+        f"{format_transcript(history, empty='(no prior arguments yet)')}\n\n"
         "Make your strongest single argument for your side, directly responding to "
         "the opposing points raised so far."
     )

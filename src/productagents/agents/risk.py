@@ -7,6 +7,7 @@ level plus rationale. Each assessment is emitted as a custom stream event for
 live rendering and collected into a structured list returned in graph state.
 """
 
+from productagents.agents._format import format_reports_brief, format_transcript
 from productagents.agents._stream import get_writer
 from productagents.schemas import (
     AnalystReport,
@@ -37,21 +38,6 @@ _FOCUS = {
 }
 
 
-def _format_reports(reports: list[AnalystReport]) -> str:
-    return (
-        "\n".join(
-            f"- {r.role}: findings={r.findings} signals={r.signals}" for r in reports
-        )
-        or "(no analyst reports)"
-    )
-
-
-def _format_debate(turns: list[DebateTurn]) -> str:
-    if not turns:
-        return "(no debate)"
-    return "\n".join(f"[round {t.round}] {t.side}: {t.argument}" for t in turns)
-
-
 def _prompt(
     reviewer: str,
     role: str,
@@ -68,8 +54,8 @@ def _prompt(
         f"Recommendation: {recommendation.recommendation}\n"
         f"Rationale: {recommendation.rationale}\n"
         f"Expected outcomes: {recommendation.expected_outcomes}\n\n"
-        f"Analyst findings:\n{_format_reports(reports)}\n\n"
-        f"Debate transcript:\n{_format_debate(debate)}\n"
+        f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
+        f"Debate transcript:\n{format_transcript(debate)}\n"
     )
 
 

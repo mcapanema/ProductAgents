@@ -1,8 +1,17 @@
 """Strongly-typed schemas shared across agents, graph state, and persistence."""
 
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+# Constrained vocabularies shared across the LLM-output schemas, the assembled
+# records, and the persisted log. The assembled records widen their field by the
+# single degraded sentinel a failing node may emit ("error"/"unknown").
+Verdict = Literal["approve", "reject", "request_analysis"]
+RiskLevel = Literal["low", "medium", "high"]
+DebateSide = Literal["advocate", "skeptic"]
+DecidedBy = Literal["ai", "human"]
 
 
 class Initiative(BaseModel):
@@ -67,14 +76,14 @@ class DebateTurn(BaseModel):
     """One assembled turn in the debate transcript."""
 
     round: int
-    side: str
+    side: DebateSide
     argument: str
 
 
 class RiskFinding(BaseModel):
     """Structured output a risk reviewer must produce."""
 
-    level: str = Field(
+    level: RiskLevel = Field(
         description="The assessed risk level: one of 'low', 'medium', or 'high'."
     )
     rationale: str = Field(
@@ -87,7 +96,7 @@ class RiskAssessment(BaseModel):
 
     reviewer: str
     role: str
-    level: str
+    level: RiskLevel | Literal["unknown"]
     rationale: str
     failed: bool = False
 
@@ -104,7 +113,7 @@ class Recommendation(BaseModel):
 class GovernanceFinding(BaseModel):
     """Structured output the Product Portfolio Manager must produce."""
 
-    verdict: str = Field(
+    verdict: Verdict = Field(
         description=(
             "The governance verdict: one of 'approve', 'reject', or 'request_analysis'."
         )
@@ -124,18 +133,18 @@ class GovernanceVerdict(BaseModel):
     `decided_by` stays "ai" and the advisory fields stay None.
     """
 
-    verdict: str
+    verdict: Verdict | Literal["error"]
     rationale: str
     failed: bool = False
-    decided_by: str = "ai"
-    advisory_verdict: str | None = None
+    decided_by: DecidedBy = "ai"
+    advisory_verdict: Verdict | None = None
     advisory_rationale: str | None = None
 
 
 class HumanDecision(BaseModel):
     """A human reviewer's final governance choice, fed back to resume the graph."""
 
-    verdict: str = Field(
+    verdict: Verdict = Field(
         description="One of 'approve', 'reject', or 'request_analysis'."
     )
     rationale: str = ""
