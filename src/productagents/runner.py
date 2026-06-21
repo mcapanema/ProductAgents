@@ -54,6 +54,12 @@ class GovernanceVerdictEvent:
 
 
 @dataclass
+class NodeErrorEvent:
+    node: str
+    message: str
+
+
+@dataclass
 class FinalVerdictEvent:
     verdict: str
     rationale: str
@@ -89,6 +95,7 @@ async def run_decision(
     | DebateTurnEvent
     | RiskAssessmentEvent
     | GovernanceVerdictEvent
+    | NodeErrorEvent
     | FinalVerdictEvent
     | RecallEvent
     | FinishedEvent
@@ -159,6 +166,10 @@ async def run_decision(
                     yield GovernanceVerdictEvent(
                         verdict=v["verdict"],
                         rationale=v["rationale"],
+                    )
+                elif "error" in chunk:
+                    yield NodeErrorEvent(
+                        node=chunk.get("node", ""), message=chunk["error"]
                     )
                 else:
                     yield ProgressEvent(
