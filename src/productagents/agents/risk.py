@@ -83,6 +83,7 @@ async def risk_node(state: dict, model) -> dict:
                 rationale=finding.rationale,
             )
         except Exception as exc:  # noqa: BLE001 - degrade one reviewer, never crash
+            writer({"node": NODE_ID, "error": str(exc)})
             assessment = RiskAssessment(
                 reviewer=reviewer,
                 role=role,
