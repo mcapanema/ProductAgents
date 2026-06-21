@@ -29,6 +29,7 @@ def _app(reflector, reader, outcome_recorder):
         reader=reader,
         reflector=reflector,
         outcome_recorder=outcome_recorder,
+        show_home=False,
     )
 
 

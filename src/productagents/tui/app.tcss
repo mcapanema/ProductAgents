@@ -65,3 +65,45 @@ Screen {
     margin: 1;
     height: auto;
 }
+
+#home-status {
+    margin: 1;
+    border: round $primary;
+    padding: 1;
+    height: auto;
+}
+
+#home-setup, #home-run, #home-quit {
+    margin: 0 1;
+    width: 100%;
+}
+
+SetupScreen {
+    align: center middle;
+}
+
+#setup-intro {
+    margin: 1;
+    padding: 1;
+    border: round $warning;
+    height: auto;
+}
+
+#setup-provider, #setup-model, #setup-key {
+    margin: 0 1;
+}
+
+#setup-key-label {
+    margin: 1 1 0 1;
+    color: $text-muted;
+}
+
+#setup-feedback {
+    margin: 1;
+    color: $error;
+    height: auto;
+}
+
+#setup-save, #setup-cancel {
+    margin: 0 1;
+}

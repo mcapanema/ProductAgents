@@ -1,6 +1,6 @@
 from functools import partial
 
-import pytest
+from textual.widgets import Button
 
 from productagents.graph import build_graph
 from productagents.runner import run_decision
@@ -12,7 +12,10 @@ from productagents.schemas import (
     Recommendation,
     RiskFinding,
 )
+from productagents.setup import ConfigStatus
 from productagents.tui.app import ProductAgentsApp
+from productagents.tui.home_screen import HomeScreen
+from productagents.tui.setup_screen import SetupScreen
 from tests.fakes import FakeChatModel
 
 
@@ -56,6 +59,7 @@ async def test_app_renders_recommendation_records_debate_and_risk(
         recorder=recorder,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -82,21 +86,6 @@ async def test_app_renders_recommendation_records_debate_and_risk(
     assert recorded[0].risks[0].reviewer == "delivery"
 
 
-def test_main_reports_clear_error_when_model_init_fails(monkeypatch, capsys):
-    import productagents.tui.app as app_module
-
-    def boom():
-        raise RuntimeError("no api key")
-
-    monkeypatch.setattr(app_module, "get_model", boom)
-    with pytest.raises(SystemExit) as excinfo:
-        app_module.main()
-    assert excinfo.value.code == 1
-    err = capsys.readouterr().err
-    assert "PRODUCTAGENTS_MODEL" in err
-    assert "api key" in err.lower()
-
-
 async def test_app_renders_new_analyst_panels(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     runner, evidence = _runner_and_evidence()
@@ -106,6 +95,7 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
         recorder=lambda r: None,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -160,6 +150,7 @@ async def test_app_renders_recalled_lessons(monkeypatch):
         recorder=recorded.append,
         reader=lambda: [prior],
         outcome_reader=lambda: [outcome],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -201,6 +192,7 @@ async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch)
         recorder=lambda r: None,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -232,6 +224,7 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
         recorder=lambda r: None,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -264,6 +257,7 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
         recorder=recorded.append,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -321,6 +315,7 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
         recorder=lambda r: None,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
@@ -333,3 +328,135 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
     # The unknown-node completion was skipped, so the run reached FinishedEvent
     # and rendered the recommendation.
     assert "Build it" in strat_text
+
+
+def _ok_status():
+    return ConfigStatus(
+        model="anthropic:claude-sonnet-4-6",
+        provider="anthropic",
+        key_var="ANTHROPIC_API_KEY",
+        key_present=True,
+    )
+
+
+def _missing_status():
+    return ConfigStatus(
+        model="anthropic:claude-sonnet-4-6",
+        provider="anthropic",
+        key_var="ANTHROPIC_API_KEY",
+        key_present=False,
+        problems=["Missing API key: set ANTHROPIC_API_KEY for provider 'anthropic'."],
+    )
+
+
+async def test_app_shows_home_menu_when_config_ready():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        config_checker=_ok_status,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, HomeScreen)
+        assert app.screen.query_one("#home-run", Button).disabled is False
+
+
+async def test_app_auto_opens_setup_when_config_incomplete():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        config_checker=_missing_status,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, SetupScreen)
+
+
+async def test_app_run_from_menu_reveals_decision_ui():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        config_checker=_ok_status,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.click("#home-run")
+        await pilot.pause()
+        assert not isinstance(app.screen, HomeScreen)
+        # The decision input is now on the active screen.
+        app.query_one("#initiative-title")
+
+
+async def test_setup_save_rebuilds_runner_and_refreshes_home():
+    runner, evidence = _runner_and_evidence()
+    state = {"ok": False}
+
+    def checker():
+        return _ok_status() if state["ok"] else _missing_status()
+
+    written = {}
+
+    def writer(values, **_kwargs):
+        written.update(values)
+        state["ok"] = True
+
+    rebuilt = []
+
+    def rebuild():
+        rebuilt.append(True)
+        return runner, None
+
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        config_checker=checker,
+        env_writer=writer,
+        rebuild=rebuild,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Incomplete config auto-opened the setup screen.
+        assert isinstance(app.screen, SetupScreen)
+        app.screen.query_one("#setup-key").value = "sk-test"
+        await pilot.click("#setup-save")
+        await pilot.pause()
+        # Back on the home menu, now reporting Ready with run enabled.
+        assert isinstance(app.screen, HomeScreen)
+        assert app.screen.query_one("#home-run", Button).disabled is False
+
+    assert written["ANTHROPIC_API_KEY"] == "sk-test"
+    assert rebuilt == [True]
+
+
+async def test_ctrl_h_reopens_menu_from_decision_ui():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        config_checker=_ok_status,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.click("#home-run")  # reveal decision UI
+        await pilot.pause()
+        await pilot.press("ctrl+h")  # back to the menu
+        await pilot.pause()
+        assert isinstance(app.screen, HomeScreen)

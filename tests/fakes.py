@@ -1,5 +1,17 @@
 """Test doubles for offline agent/graph testing."""
 
+from productagents.setup import ConfigStatus
+
+
+def ready_status() -> ConfigStatus:
+    """A ConfigStatus that reports the app is fully configured."""
+    return ConfigStatus(
+        model="anthropic:claude-sonnet-4-6",
+        provider="anthropic",
+        key_var="ANTHROPIC_API_KEY",
+        key_present=True,
+    )
+
 
 class _FakeStructured:
     def __init__(self, result):
