@@ -8,7 +8,7 @@ ProductAgents is a multi-agent framework for product decision-making under uncer
 
 ```
 evidence → [customer_research ∥ product_analytics ∥ market ∥ business ∥ technical] → debate (advocate vs skeptic) ┐
-                                                                  recall (past lessons) ┴→ strategist → risk → governance (advisory) → human_approval → decisions.jsonl
+                                                                  recall (past lessons) ┴→ strategist → judge → risk → governance (advisory) → human_approval → decisions.jsonl
 ```
 
 Everything runs live in a Textual TUI.
@@ -59,6 +59,8 @@ uv run pytest tests/test_debate.py::test_name -x           # one test
 
 - `PRODUCTAGENTS_MODEL` — provider-prefixed model id, default `anthropic:claude-sonnet-4-6`. For non-LangChain-native providers also set `PRODUCTAGENTS_MODEL_PROVIDER`. Provide the matching key (e.g. `ANTHROPIC_API_KEY`).
 - `PRODUCTAGENTS_DEBATE_ROUNDS` — debate rounds, default 2 (each round = one advocate argument + one skeptic rebuttal).
+- `PRODUCTAGENTS_JUDGE_THRESHOLD` — judge pass threshold for both rubric dimensions (evidence grounding, rationale coherence), default 0.7.
+- `PRODUCTAGENTS_JUDGE_MAX_RETRIES` — max strategist revisions the judge can trigger, default 1. `0` makes the judge score-only (it never loops back to the strategist).
 
 On launch the TUI shows a **home menu** (Set up / Run a decision / Quit) and runs
 a **static readiness check** (`setup.check_config`): it derives the provider from
@@ -78,7 +80,11 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
   differ only in their `_prompt`; the strategist issues its own single structured
   call. `debate.py` loops rounds, alternating advocate/skeptic personas, each turn
   seeing the full transcript so far. Shared prompt formatters live in
-  `agents/_format.py`.
+  `agents/_format.py`. After the strategist, the `judge` node (LLM-as-Judge) scores
+  the `Recommendation` on evidence grounding and rationale coherence; a deterministic
+  threshold decides pass/fail. On a failing, retryable verdict the graph routes back
+  to the strategist (which sees the judge's critique) up to `PRODUCTAGENTS_JUDGE_MAX_RETRIES`
+  times, then proceeds to risk regardless.
 - `graph.py` — wires nodes into the StateGraph. When `human_in_the_loop=True`, `build_graph(model, human_in_the_loop=True)` appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
 - `runner.py` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge.
 - `tui/app.py` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.

@@ -7,6 +7,7 @@ from productagents.schemas import (
     DebateArgument,
     Evidence,
     GovernanceFinding,
+    JudgeFinding,
     Recommendation,
     RiskFinding,
 )
@@ -25,6 +26,11 @@ def _hitl_runner_and_evidence():
                 confidence=0.81,
                 rationale="strong demand",
                 expected_outcomes=["enterprise unblock"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
             ),
             RiskFinding: RiskFinding(level="medium", rationale="some delivery risk"),
             GovernanceFinding: GovernanceFinding(

@@ -33,7 +33,8 @@ arrive via `state`, never the filesystem.
 | `customer_research.py`, `product_analytics.py`, `market.py`, `business.py`, `technical.py` | The five parallel analysts. Each is a thin delegate: module constants + a `_prompt(initiative, evidence)` + a `*_node` that calls `run_analyst`. |
 | `debate.py` | Advocate-vs-Skeptic loop, `get_debate_rounds()` rounds (env `PRODUCTAGENTS_DEBATE_ROUNDS`, default 2). Emits each turn. |
 | `recall.py` | Model-free; selects lessons from past decisions via `memory.select_relevant_lessons`. Runs in parallel from `START`. |
-| `strategist.py` | Synthesizes reports + debate + recalled lessons into a `Recommendation`. |
+| `strategist.py` | Synthesizes reports + debate + recalled lessons into a `Recommendation`. On revision runs, appends the judge's critique via `_format_critique`. |
+| `judge.py` | LLM-as-Judge gate on the recommendation. Scores evidence grounding + rationale coherence (`JudgeFinding`), computes pass/fail from `get_judge_threshold()` (env `PRODUCTAGENTS_JUDGE_THRESHOLD`, default 0.7), and returns a `JudgeVerdict` + incremented `judge_attempts`. The graph loops it back to the strategist up to `get_judge_max_retries()` times (env `PRODUCTAGENTS_JUDGE_MAX_RETRIES`, default 1; 0 = score-only). |
 | `risk.py` | Five fixed reviewers (`REVIEWERS`), each a structured `RiskFinding`. Emits each assessment. |
 | `governance.py` | Portfolio Manager advisory `GovernanceVerdict`, weighed against the recent portfolio window. |
 | `human_approval.py` | HITL only. `interrupt()` pauses for a human; the resumed `HumanDecision` becomes the binding verdict (`decided_by="human"`, advisory preserved). |
