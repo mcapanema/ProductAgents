@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.widgets import Footer, Header, Input, Static
 
@@ -118,28 +118,37 @@ class ProductAgentsApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input(
-            placeholder="Describe the initiative and press Enter…",
-            id="initiative-title",
-        )
-        yield Input(
-            placeholder="Evidence source (scenario name or path; blank = sample)",
-            id="evidence-source",
-        )
-        yield Static("Waiting…", id="evidence-provenance", classes="panel")
-        with Horizontal(id="analysts"):
-            yield Static("Waiting…", id="customer_research", classes="panel")
-            yield Static("Waiting…", id="product_analytics", classes="panel")
-            yield Static("Waiting…", id="market", classes="panel")
-            yield Static("Waiting…", id="business", classes="panel")
-            yield Static("Waiting…", id="technical", classes="panel")
-        with VerticalScroll(id="debate-scroll"):
-            yield Static("Waiting…", id="debate")
-        yield Static("Waiting…", id="recall", classes="panel")
-        yield Static("Waiting…", id="strategist", classes="panel")
-        with VerticalScroll(id="risk-scroll"):
-            yield Static("Waiting…", id="risk")
-        yield Static("Waiting…", id="governance", classes="panel")
+        with Horizontal(id="top-bar"):
+            yield Input(
+                placeholder="Describe the initiative and press Enter…",
+                id="initiative-title",
+            )
+            yield Input(
+                placeholder="Evidence source (scenario name or path; blank = sample)",
+                id="evidence-source",
+            )
+        with Horizontal(id="lanes"):
+            with VerticalScroll(id="left-lane"):
+                yield Static("Waiting…", id="evidence-provenance", classes="panel")
+                yield Static("Waiting…", id="recall", classes="panel")
+            with Vertical(id="center-lane"):
+                with Grid(id="analyst-grid"):
+                    yield Static(
+                        "Waiting…", id="customer_research", classes="panel analyst"
+                    )
+                    yield Static(
+                        "Waiting…", id="product_analytics", classes="panel analyst"
+                    )
+                    yield Static("Waiting…", id="market", classes="panel analyst")
+                    yield Static("Waiting…", id="business", classes="panel analyst")
+                    yield Static("Waiting…", id="technical", classes="panel analyst")
+                with VerticalScroll(id="debate-scroll"):
+                    yield Static("Waiting…", id="debate")
+            with Vertical(id="right-lane"):
+                yield Static("Waiting…", id="strategist", classes="panel")
+                with VerticalScroll(id="risk-scroll"):
+                    yield Static("Waiting…", id="risk")
+                yield Static("Waiting…", id="governance", classes="panel")
         yield Static("", id="status-log", classes="panel")
         yield Footer()
 

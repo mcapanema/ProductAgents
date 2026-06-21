@@ -2,13 +2,46 @@ Screen {
     layout: vertical;
 }
 
-#initiative-title {
+#top-bar {
     dock: top;
+    height: auto;
     margin: 1 1 0 1;
 }
 
-#analysts {
-    height: auto;
+#initiative-title {
+    width: 2fr;
+}
+
+#evidence-source {
+    width: 3fr;
+    margin-left: 1;
+}
+
+#lanes {
+    height: 1fr;
+}
+
+#left-lane {
+    width: 26%;
+}
+
+#center-lane {
+    width: 1fr;
+}
+
+#right-lane {
+    width: 32%;
+}
+
+#analyst-grid {
+    grid-size: 3 2;
+    grid-gutter: 1;
+    height: 2fr;
+}
+
+.analyst {
+    height: 100%;
+    overflow-y: auto;
 }
 
 .panel {

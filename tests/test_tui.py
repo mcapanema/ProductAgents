@@ -527,3 +527,39 @@ async def test_app_logs_node_error_and_marks_panel_failed():
         status_text = str(pilot.app.query_one("#status-log").content)
         assert "429 rate limit reached" in status_text
         assert pilot.app.query_one("#technical").has_class("failed")
+
+
+async def test_app_uses_three_lane_layout_with_analyst_grid():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # New lane containers exist.
+        app.query_one("#left-lane")
+        app.query_one("#center-lane")
+        app.query_one("#right-lane")
+        grid = app.query_one("#analyst-grid")
+        # All five analyst panels live inside the grid.
+        for analyst_id in (
+            "customer_research",
+            "product_analytics",
+            "market",
+            "business",
+            "technical",
+        ):
+            assert app.query_one(f"#{analyst_id}") in grid.query(".analyst")
+        # Existing panels are still reachable by id.
+        app.query_one("#debate")
+        app.query_one("#risk")
+        app.query_one("#governance")
+        app.query_one("#strategist")
+        app.query_one("#recall")
+        app.query_one("#evidence-provenance")
+        app.query_one("#status-log")
