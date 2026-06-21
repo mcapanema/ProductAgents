@@ -229,3 +229,134 @@ async def test_run_decision_without_approver_coerces_degraded_advisory_to_approv
     # Governance degraded to verdict="error"; the no-approver fallback must coerce it.
     assert finished.governance.verdict == "approve"
     assert finished.governance.decided_by == "human"
+
+
+async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.graph import build_graph
+    from productagents.runner import NodeErrorEvent, run_decision
+    from productagents.schemas import (
+        AnalystFindings,
+        DebateArgument,
+        Evidence,
+        GovernanceFinding,
+        Initiative,
+        Recommendation,
+        RiskFinding,
+    )
+    from tests.fakes import FakeChatModel
+
+    model = FakeChatModel(
+        {
+            AnalystFindings: RuntimeError("429 Too Many Requests: rate limit reached"),
+            DebateArgument: DebateArgument(argument="a"),
+            Recommendation: Recommendation(
+                recommendation="r",
+                confidence=0.5,
+                rationale="x",
+                expected_outcomes=["o"],
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="ok"),
+            GovernanceFinding: GovernanceFinding(verdict="approve", rationale="ok"),
+        }
+    )
+    graph = build_graph(model)
+    evidence = Evidence(scenario="s", customer_feedback="d", product_analytics={"x": 1})
+
+    events = []
+    async for event in run_decision(
+        graph, Initiative(title="t", description="d"), evidence
+    ):
+        events.append(event)
+
+    errors = [e for e in events if isinstance(e, NodeErrorEvent)]
+    analyst_ids = {
+        "customer_research",
+        "product_analytics",
+        "market",
+        "business",
+        "technical",
+    }
+    assert errors, "expected NodeErrorEvent(s) for the failing analysts"
+    assert all(e.node in analyst_ids for e in errors)
+    assert any("429" in e.message for e in errors)
+
+
+async def _drive_with(model, monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.graph import build_graph
+    from productagents.runner import run_decision
+    from productagents.schemas import Evidence, Initiative
+
+    graph = build_graph(model)
+    evidence = Evidence(scenario="s", customer_feedback="d", product_analytics={"x": 1})
+    events = []
+    async for event in run_decision(
+        graph, Initiative(title="t", description="d"), evidence
+    ):
+        events.append(event)
+    return events
+
+
+def _base_results():
+    from productagents.schemas import (
+        AnalystFindings,
+        DebateArgument,
+        GovernanceFinding,
+        Recommendation,
+        RiskFinding,
+    )
+
+    return {
+        AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+        DebateArgument: DebateArgument(argument="a"),
+        Recommendation: Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=["o"]
+        ),
+        RiskFinding: RiskFinding(level="low", rationale="ok"),
+        GovernanceFinding: GovernanceFinding(verdict="approve", rationale="ok"),
+    }
+
+
+async def test_runner_emits_node_error_for_debate(monkeypatch):
+    from productagents.runner import NodeErrorEvent
+    from productagents.schemas import DebateArgument
+    from tests.fakes import FakeChatModel
+
+    results = _base_results()
+    results[DebateArgument] = RuntimeError("debate boom")
+    events = await _drive_with(FakeChatModel(results), monkeypatch)
+    assert any(isinstance(e, NodeErrorEvent) and e.node == "debate" for e in events)
+
+
+async def test_runner_emits_node_error_for_risk(monkeypatch):
+    from productagents.runner import NodeErrorEvent
+    from productagents.schemas import RiskFinding
+    from tests.fakes import FakeChatModel
+
+    results = _base_results()
+    results[RiskFinding] = RuntimeError("risk boom")
+    events = await _drive_with(FakeChatModel(results), monkeypatch)
+    assert any(isinstance(e, NodeErrorEvent) and e.node == "risk" for e in events)
+
+
+async def test_runner_emits_node_error_for_strategist(monkeypatch):
+    from productagents.runner import NodeErrorEvent
+    from productagents.schemas import Recommendation
+    from tests.fakes import FakeChatModel
+
+    results = _base_results()
+    results[Recommendation] = RuntimeError("strategist boom")
+    events = await _drive_with(FakeChatModel(results), monkeypatch)
+    assert any(isinstance(e, NodeErrorEvent) and e.node == "strategist" for e in events)
+
+
+async def test_runner_emits_node_error_for_governance(monkeypatch):
+    from productagents.runner import NodeErrorEvent
+    from productagents.schemas import GovernanceFinding
+    from tests.fakes import FakeChatModel
+
+    results = _base_results()
+    results[GovernanceFinding] = RuntimeError("governance boom")
+    events = await _drive_with(FakeChatModel(results), monkeypatch)
+    assert any(isinstance(e, NodeErrorEvent) and e.node == "governance" for e in events)

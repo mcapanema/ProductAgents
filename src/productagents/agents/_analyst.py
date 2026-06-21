@@ -42,7 +42,7 @@ async def run_analyst(
         )
         writer({"node": analyst_id, "status": "done"})
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph
-        writer({"node": analyst_id, "status": f"failed: {exc}"})
+        writer({"node": analyst_id, "error": str(exc)})
         report = AnalystReport(
             analyst=analyst_id, role=role, findings=[], signals=[], failed=True
         )

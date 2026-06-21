@@ -80,6 +80,7 @@ async def debate_node(state: dict, model) -> dict:
             try:
                 argument = await _argue(side, state, turns, model)
             except Exception as exc:  # noqa: BLE001 - degrade one turn, never crash
+                writer({"node": NODE_ID, "error": str(exc)})
                 argument = f"({side} unavailable: {exc})"
             turn = DebateTurn(round=rnd, side=side, argument=argument)
             turns.append(turn)

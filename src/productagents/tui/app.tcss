@@ -2,13 +2,47 @@ Screen {
     layout: vertical;
 }
 
-#initiative-title {
+#top-bar {
     dock: top;
+    height: auto;
     margin: 1 1 0 1;
 }
 
-#analysts {
-    height: auto;
+#initiative-title {
+    width: 2fr;
+}
+
+#evidence-source {
+    width: 3fr;
+    margin-left: 1;
+}
+
+#lanes {
+    height: 1fr;
+}
+
+#left-lane {
+    width: 26%;
+}
+
+#center-lane {
+    width: 1fr;
+}
+
+#right-lane {
+    width: 32%;
+}
+
+#analyst-grid {
+    grid-size: 3 2;
+    grid-gutter: 1;
+    height: 2fr;
+}
+
+.analyst {
+    height: 100%;
+    overflow-y: auto;
+    border: round #38bdf8;
 }
 
 .panel {
@@ -21,7 +55,7 @@ Screen {
 #debate-scroll {
     height: 1fr;
     margin: 1;
-    border: round $accent;
+    border: round #f59e0b;
 }
 
 #debate {
@@ -29,14 +63,14 @@ Screen {
 }
 
 #strategist {
-    border: round $success;
+    border: round #22c55e;   /* strategy — green */
     height: auto;
 }
 
 #risk-scroll {
     height: 1fr;
     margin: 1;
-    border: round $warning;
+    border: round #fb923c;
 }
 
 #risk {
@@ -44,7 +78,7 @@ Screen {
 }
 
 #governance {
-    border: round $secondary;
+    border: round #a78bfa;   /* governance — violet */
     height: auto;
 }
 
@@ -106,4 +140,22 @@ SetupScreen {
 
 #setup-save, #setup-cancel {
     margin: 0 1;
+}
+
+#status-log {
+    dock: bottom;
+    height: 8;
+    margin: 0 1 1 1;
+    border: round $error;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+.failed {
+    border: round $error;
+}
+
+/* Per-stage accent borders are inlined above; .failed overrides all via CSS class. */
+#recall, #evidence-provenance {
+    border: round $primary;
 }

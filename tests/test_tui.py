@@ -232,10 +232,10 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
         pilot.app.query_one("#initiative-title").value = "Add SSO"
         await pilot.press("enter")
         await pilot.pause()
-        strat_text = str(pilot.app.query_one("#strategist").content)
+        status_text = str(pilot.app.query_one("#status-log").content)
 
     assert ran["called"] is False
-    assert "Evidence" in strat_text or "evidence" in strat_text
+    assert "Evidence" in status_text or "evidence" in status_text
 
 
 async def test_app_surfaces_runner_unavailable(monkeypatch):
@@ -257,9 +257,9 @@ async def test_app_surfaces_runner_unavailable(monkeypatch):
         pilot.app.query_one("#initiative-title").value = "Add SSO"
         await pilot.press("enter")
         await pilot.pause()
-        strat_text = str(pilot.app.query_one("#strategist").content)
+        status_text = str(pilot.app.query_one("#status-log").content)
 
-    assert "langchain-google-genai" in strat_text
+    assert "langchain-google-genai" in status_text
 
 
 async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
@@ -484,3 +484,146 @@ async def test_ctrl_h_reopens_menu_from_decision_ui():
         await pilot.press("ctrl+h")  # back to the menu
         await pilot.pause()
         assert isinstance(app.screen, HomeScreen)
+
+
+async def test_app_logs_node_error_and_marks_panel_failed():
+    from productagents.runner import FinishedEvent, NodeErrorEvent
+    from productagents.schemas import Evidence, Recommendation
+
+    async def fake_runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
+        yield NodeErrorEvent(node="technical", message="429 rate limit reached")
+        yield FinishedEvent(
+            recommendation=Recommendation(
+                recommendation="Build it",
+                confidence=0.5,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+        )
+
+    evidence = Evidence(
+        scenario="sample", customer_feedback="d", product_analytics={"x": 1}
+    )
+    app = ProductAgentsApp(
+        fake_runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        status_text = str(pilot.app.query_one("#status-log").content)
+        assert "429 rate limit reached" in status_text
+        assert pilot.app.query_one("#technical").has_class("failed")
+
+
+async def test_app_registers_and_applies_custom_theme():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.theme == "productagents"
+
+
+async def test_app_panel_titles_show_state_icons():
+    from productagents.runner import FinishedEvent, NodeCompleteEvent
+    from productagents.schemas import AnalystReport, Evidence, Recommendation
+
+    async def fake_runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
+        yield NodeCompleteEvent(
+            node="market",
+            report=AnalystReport(
+                analyst="market", role="Market Analyst", findings=["x"], signals=[]
+            ),
+        )
+        yield FinishedEvent(
+            recommendation=Recommendation(
+                recommendation="Build it",
+                confidence=0.5,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+        )
+
+    evidence = Evidence(
+        scenario="sample", customer_feedback="d", product_analytics={"x": 1}
+    )
+    app = ProductAgentsApp(
+        fake_runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Idle on mount.
+        assert str(app.query_one("#technical").border_title).startswith("·")
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        # Completed analyst shows the done icon.
+        assert "✓" in str(app.query_one("#market").border_title)
+
+
+async def test_app_uses_three_lane_layout_with_analyst_grid():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # New lane containers exist.
+        app.query_one("#left-lane")
+        app.query_one("#center-lane")
+        app.query_one("#right-lane")
+        grid = app.query_one("#analyst-grid")
+        # All five analyst panels live inside the grid.
+        for analyst_id in (
+            "customer_research",
+            "product_analytics",
+            "market",
+            "business",
+            "technical",
+        ):
+            assert app.query_one(f"#{analyst_id}") in grid.query(".analyst")
+        # Existing panels are still reachable by id.
+        app.query_one("#debate")
+        app.query_one("#risk")
+        app.query_one("#governance")
+        app.query_one("#strategist")
+        app.query_one("#recall")
+        app.query_one("#evidence-provenance")
+        app.query_one("#status-log")

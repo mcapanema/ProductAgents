@@ -100,7 +100,7 @@ async def governance_node(state: dict, model) -> dict:
         )
         writer({"node": NODE_ID, "status": "done"})
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph
-        writer({"node": NODE_ID, "status": f"failed: {exc}"})
+        writer({"node": NODE_ID, "error": str(exc)})
         verdict = GovernanceVerdict(
             verdict="error",
             rationale=f"({ROLE} unavailable: {exc})",
