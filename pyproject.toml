@@ -10,6 +10,7 @@ dependencies = [
     "textual>=4.0",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
+    "langchain-google-genai>=2.0",
 ]
 
 [project.scripts]

@@ -47,6 +47,26 @@ def test_read_missing_file_returns_empty(tmp_path):
     assert read_decisions(path=tmp_path / "nope.jsonl") == []
 
 
+def test_read_skips_invalid_records(tmp_path):
+    # A legacy record whose governance.advisory_verdict holds the now-invalid
+    # "error" sentinel must be skipped, not crash the whole read. The valid
+    # record written after it is still returned.
+    path = tmp_path / "decisions.jsonl"
+    bad_line = (
+        '{"decision_id":"legacy","initiative":{"title":"Add SSO","description":"d"},'
+        '"recommendation":{"recommendation":"x","confidence":0.0,"rationale":"r",'
+        '"expected_outcomes":[]},"reports":[],'
+        '"governance":{"verdict":"request_analysis","rationale":"r",'
+        '"decided_by":"human","advisory_verdict":"error"},'
+        '"timestamp":"2026-06-20T00:00:00+00:00"}'
+    )
+    path.write_text(bad_line + "\n", encoding="utf-8")
+    good = _record()
+    record_decision(good, path=path)
+
+    assert read_decisions(path=path) == [good]
+
+
 def _outcome():
     from productagents.schemas import OutcomeRecord
 
@@ -81,6 +101,22 @@ def test_read_missing_outcomes_returns_empty(tmp_path):
     from productagents.memory import read_outcomes
 
     assert read_outcomes(path=tmp_path / "nope.jsonl") == []
+
+
+def test_read_outcomes_skips_invalid_records(tmp_path):
+    from productagents.memory import read_outcomes, record_outcome
+
+    path = tmp_path / "outcomes.jsonl"
+    # prediction_accuracy out of [0, 1] is invalid and must be skipped.
+    path.write_text(
+        '{"decision_id":"bad","actual_outcomes":[],"prediction_accuracy":5.0,'
+        '"lessons_learned":[],"reflected_at":"2026-06-20T00:00:00+00:00"}\n',
+        encoding="utf-8",
+    )
+    good = _outcome()
+    record_outcome(good, path=path)
+
+    assert read_outcomes(path=path) == [good]
 
 
 def _decision(decision_id, title, description="d"):

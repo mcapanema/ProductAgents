@@ -3,6 +3,8 @@
 import re
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from productagents.schemas import DecisionRecord, Initiative, OutcomeRecord
 
 DEFAULT_LOG_PATH = Path("decisions.jsonl")
@@ -21,15 +23,24 @@ def record_decision(record: DecisionRecord, path: Path | None = None) -> None:
 
 
 def read_decisions(path: Path | None = None) -> list[DecisionRecord]:
-    """Read all decision records; return [] if the log does not exist."""
+    """Read all decision records; return [] if the log does not exist.
+
+    Malformed or schema-incompatible lines (e.g. legacy records that predate a
+    schema tightening) are skipped rather than aborting the whole read — the
+    "degrade, never crash" principle applied at the persistence boundary.
+    """
     target = _path(path)
     if not target.is_file():
         return []
     records = []
     for line in target.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if line:
+        if not line:
+            continue
+        try:
             records.append(DecisionRecord.model_validate_json(line))
+        except ValidationError:
+            continue
     return records
 
 
@@ -45,15 +56,23 @@ def record_outcome(outcome: OutcomeRecord, path: Path | None = None) -> None:
 
 
 def read_outcomes(path: Path | None = None) -> list[OutcomeRecord]:
-    """Read all outcome records; return [] if the log does not exist."""
+    """Read all outcome records; return [] if the log does not exist.
+
+    Malformed or schema-incompatible lines are skipped rather than aborting the
+    whole read (see `read_decisions`).
+    """
     target = _outcome_path(path)
     if not target.is_file():
         return []
     outcomes = []
     for line in target.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if line:
+        if not line:
+            continue
+        try:
             outcomes.append(OutcomeRecord.model_validate_json(line))
+        except ValidationError:
+            continue
     return outcomes
 
 
