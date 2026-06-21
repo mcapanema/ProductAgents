@@ -11,6 +11,8 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from dotenv import find_dotenv, set_key
+
 from productagents.llm import DEFAULT_MODEL
 
 # provider -> the environment variable holding its API key. Extensible: an
@@ -95,3 +97,32 @@ def check_config(env: Mapping[str, str] | None = None) -> ConfigStatus:
         key_present=key_present,
         problems=problems,
     )
+
+
+def write_env(
+    values: Mapping[str, str],
+    *,
+    dotenv_path: str | os.PathLike[str] | None = None,
+) -> str:
+    """Persist `values` to a .env file and the live process environment.
+
+    With `dotenv_path=None`, an existing .env is discovered (walking up from the
+    cwd); if none exists, `.env` in the cwd is created. Each key is written with
+    python-dotenv's `set_key` (preserving other lines) and also set in
+    `os.environ` so the current run picks it up immediately. Returns the path
+    written.
+    """
+    if dotenv_path is not None:
+        path = str(dotenv_path)
+    else:
+        path = find_dotenv(usecwd=True) or os.path.join(os.getcwd(), ".env")
+
+    if not os.path.exists(path):
+        # set_key needs an existing file on some python-dotenv versions.
+        with open(path, "a", encoding="utf-8"):
+            pass
+
+    for key, value in values.items():
+        set_key(path, key, value)
+        os.environ[key] = value
+    return path

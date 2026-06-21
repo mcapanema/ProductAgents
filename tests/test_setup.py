@@ -1,10 +1,13 @@
 """Tests for the static config-readiness check and helpers."""
 
+import os
+
 from productagents.setup import (
     ConfigStatus,
     api_key_var_for,
     check_config,
     provider_for,
+    write_env,
 )
 
 
@@ -73,3 +76,36 @@ def test_check_config_blank_key_is_not_present():
     status = check_config(env)
     assert status.key_present is False
     assert status.ok is False
+
+
+def test_write_env_creates_file_and_sets_process_env(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    env_file = tmp_path / ".env"
+
+    path = write_env(
+        {
+            "PRODUCTAGENTS_MODEL": "anthropic:claude-sonnet-4-6",
+            "ANTHROPIC_API_KEY": "sk-test",
+        },
+        dotenv_path=env_file,
+    )
+
+    assert path == str(env_file)
+    assert env_file.exists()
+    contents = env_file.read_text()
+    assert "PRODUCTAGENTS_MODEL" in contents
+    assert "sk-test" in contents
+    assert os.environ["ANTHROPIC_API_KEY"] == "sk-test"
+    assert os.environ["PRODUCTAGENTS_MODEL"] == "anthropic:claude-sonnet-4-6"
+
+
+def test_write_env_preserves_existing_lines(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("EXISTING_VAR=keep-me\n")
+
+    write_env({"OPENAI_API_KEY": "sk-openai"}, dotenv_path=env_file)
+
+    contents = env_file.read_text()
+    assert "EXISTING_VAR=keep-me" in contents
+    assert "sk-openai" in contents
