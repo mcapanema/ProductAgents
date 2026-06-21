@@ -110,6 +110,42 @@ class Recommendation(BaseModel):
     expected_outcomes: list[str]
 
 
+class JudgeFinding(BaseModel):
+    """Structured output the quality Judge must produce for a recommendation."""
+
+    evidence_grounding_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "0-1: is every claim in the recommendation supported by the analyst "
+            "findings and signals, with no unsupported assertions?"
+        ),
+    )
+    rationale_coherence_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "0-1: does the conclusion follow logically from the stated rationale "
+            "and expected outcomes, with no internal contradictions?"
+        ),
+    )
+    critique: str = Field(
+        description="Specific, actionable feedback the strategist can use to revise."
+    )
+
+
+class JudgeVerdict(BaseModel):
+    """One assembled judge verdict. `passed` is computed by the node from the
+    configured threshold, never by the LLM."""
+
+    evidence_grounding_score: float
+    rationale_coherence_score: float
+    passed: bool
+    critique: str
+    attempt: int
+    failed: bool = False
+
+
 class GovernanceFinding(BaseModel):
     """Structured output the Product Portfolio Manager must produce."""
 
@@ -187,6 +223,7 @@ class DecisionRecord(BaseModel):
     debate: list[DebateTurn] = Field(default_factory=list)
     risks: list[RiskAssessment] = Field(default_factory=list)
     governance: GovernanceVerdict | None = None
+    judgment: JudgeVerdict | None = None
     prior_lessons: list[str] = Field(default_factory=list)
     evidence_sources: list[EvidenceSourceRef] = Field(default_factory=list)
     timestamp: str

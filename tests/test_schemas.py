@@ -464,3 +464,71 @@ def test_risk_assessment_allows_unknown_sentinel():
         failed=True,
     )
     assert a.level == "unknown"
+
+
+def test_judge_finding_and_verdict_construct():
+    from productagents.schemas import JudgeFinding, JudgeVerdict
+
+    finding = JudgeFinding(
+        evidence_grounding_score=0.9,
+        rationale_coherence_score=0.8,
+        critique="Cite the funnel data explicitly.",
+    )
+    assert finding.evidence_grounding_score == 0.9
+
+    verdict = JudgeVerdict(
+        evidence_grounding_score=0.9,
+        rationale_coherence_score=0.8,
+        passed=True,
+        critique="solid",
+        attempt=1,
+    )
+    assert verdict.passed is True
+    assert verdict.attempt == 1
+    assert verdict.failed is False
+
+
+def test_decision_record_round_trips_with_judgment():
+    from productagents.schemas import (
+        DecisionRecord,
+        Initiative,
+        JudgeVerdict,
+        Recommendation,
+    )
+
+    record = DecisionRecord(
+        initiative=Initiative(title="Add SSO", description="Enterprise SSO"),
+        recommendation=Recommendation(
+            recommendation="Build it",
+            confidence=0.7,
+            rationale="r",
+            expected_outcomes=["o"],
+        ),
+        reports=[],
+        judgment=JudgeVerdict(
+            evidence_grounding_score=0.6,
+            rationale_coherence_score=0.55,
+            passed=False,
+            critique="weakly grounded",
+            attempt=2,
+        ),
+        timestamp="2026-06-21T00:00:00+00:00",
+    )
+    dumped = record.model_dump_json()
+    restored = DecisionRecord.model_validate_json(dumped)
+    assert restored.judgment.passed is False
+    assert restored.judgment.attempt == 2
+
+
+def test_decision_record_judgment_defaults_to_none():
+    from productagents.schemas import DecisionRecord, Initiative, Recommendation
+
+    record = DecisionRecord(
+        initiative=Initiative(title="t", description="d"),
+        recommendation=Recommendation(
+            recommendation="r", confidence=0.5, rationale="x", expected_outcomes=["o"]
+        ),
+        reports=[],
+        timestamp="2026-06-21T00:00:00+00:00",
+    )
+    assert record.judgment is None
