@@ -26,8 +26,49 @@ jobs:
       - name: Format check
         run: uv run --frozen ruff format --check .
 
+      - name: Test
+        run: uv run --frozen pytest
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
       - name: Type check
         run: uv run --frozen ty check src
 
-      - name: Test
-        run: uv run --frozen pytest
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Dependency vulnerability audit (pip-audit)
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o "$RUNNER_TEMP/requirements-prod.txt"
+          uvx pip-audit@2.10.1 --no-deps -r "$RUNNER_TEMP/requirements-prod.txt"
+
+      - name: Static security analysis (bandit)
+        run: uv run --frozen bandit -c pyproject.toml -r src
+
+      - name: Secret scan (gitleaks)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --no-banner
