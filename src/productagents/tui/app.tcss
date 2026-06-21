@@ -42,6 +42,7 @@ Screen {
 .analyst {
     height: 100%;
     overflow-y: auto;
+    border: round #38bdf8;
 }
 
 .panel {
@@ -54,7 +55,7 @@ Screen {
 #debate-scroll {
     height: 1fr;
     margin: 1;
-    border: round $accent;
+    border: round #f59e0b;
 }
 
 #debate {
@@ -62,14 +63,14 @@ Screen {
 }
 
 #strategist {
-    border: round $success;
+    border: round #22c55e;   /* strategy — green */
     height: auto;
 }
 
 #risk-scroll {
     height: 1fr;
     margin: 1;
-    border: round $warning;
+    border: round #fb923c;
 }
 
 #risk {
@@ -77,7 +78,7 @@ Screen {
 }
 
 #governance {
-    border: round $secondary;
+    border: round #a78bfa;   /* governance — violet */
     height: auto;
 }
 
@@ -154,27 +155,7 @@ SetupScreen {
     border: round $error;
 }
 
-/* Per-stage accent borders (failed state overrides via inline style). */
-.analyst {
-    border: round #38bdf8;   /* analysts — cyan */
-}
-
-#debate-scroll {
-    border: round #f59e0b;   /* debate — amber */
-}
-
-#strategist {
-    border: round #22c55e;   /* strategy — green */
-}
-
-#risk-scroll {
-    border: round #fb923c;   /* risk — orange */
-}
-
-#governance {
-    border: round #a78bfa;   /* governance — violet */
-}
-
+/* Per-stage accent borders are inlined above; .failed overrides all via CSS class. */
 #recall, #evidence-provenance {
     border: round $primary;
 }

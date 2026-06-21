@@ -258,7 +258,6 @@ class ProductAgentsApp(App):
             except NoMatches:
                 continue
             widget.remove_class("failed")
-            widget.styles.border = None
             self._set_state(widget_id, "idle")
         self._run(Initiative(title=title, description=title), evidence)
 
@@ -310,6 +309,7 @@ class ProductAgentsApp(App):
                             self.query_one(f"#{event.node}", Static).update(
                                 "[red]failed — see Status / Errors below[/red]"
                             )
+                            self._set_state(event.node, "failed")
                         else:
                             body = (
                                 "\n".join(f"• {f}" for f in report.findings)
@@ -405,7 +405,6 @@ class ProductAgentsApp(App):
         except NoMatches:
             return
         panel.add_class("failed")
-        panel.styles.border = ("round", "red")
         self._set_state(widget_id, "failed")
 
 
