@@ -89,8 +89,13 @@ SetupScreen {
     height: auto;
 }
 
-#setup-model, #setup-provider, #setup-key {
+#setup-provider, #setup-model, #setup-key {
     margin: 0 1;
+}
+
+#setup-key-label {
+    margin: 1 1 0 1;
+    color: $text-muted;
 }
 
 #setup-feedback {

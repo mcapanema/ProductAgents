@@ -15,15 +15,55 @@ from dotenv import find_dotenv, set_key
 
 from productagents.llm import DEFAULT_MODEL
 
-# provider -> the environment variable holding its API key. Extensible: an
-# unknown but non-empty provider falls back to a derived "<PROVIDER>_API_KEY"
-# name in api_key_var_for, so new providers work without code changes.
+
+@dataclass(frozen=True)
+class ProviderInfo:
+    """Metadata for a supported model provider."""
+
+    label: str  # human-readable name shown in the setup UI
+    key_var: str  # environment variable for the API key
+    default_model: str  # suggested full model string for this provider
+
+
+# Ordered by popularity; CN variants grouped at the end.
+PROVIDERS: dict[str, ProviderInfo] = {
+    "anthropic": ProviderInfo(
+        "Anthropic", "ANTHROPIC_API_KEY", "anthropic:claude-sonnet-4-6"
+    ),
+    "openai": ProviderInfo("OpenAI", "OPENAI_API_KEY", "openai:gpt-4o"),
+    "google_genai": ProviderInfo(
+        "Google", "GOOGLE_API_KEY", "google_genai:gemini-2.0-flash"
+    ),
+    "xai": ProviderInfo("xAI (Grok)", "XAI_API_KEY", "xai:grok-2"),
+    "deepseek": ProviderInfo("DeepSeek", "DEEPSEEK_API_KEY", "deepseek:deepseek-chat"),
+    "openrouter": ProviderInfo(
+        "OpenRouter", "OPENROUTER_API_KEY", "openrouter:openai/gpt-4o"
+    ),
+    "groq": ProviderInfo("Groq", "GROQ_API_KEY", "groq:llama-3.3-70b-versatile"),
+    "mistralai": ProviderInfo(
+        "Mistral", "MISTRAL_API_KEY", "mistralai:mistral-large-latest"
+    ),
+    "moonshot": ProviderInfo("Moonshot", "MOONSHOT_API_KEY", "moonshot:moonshot-v1-8k"),
+    "nvidia": ProviderInfo(
+        "NVIDIA NIM", "NVIDIA_API_KEY", "nvidia:meta/llama-3.1-70b-instruct"
+    ),
+    "dashscope": ProviderInfo(
+        "DashScope (Alibaba)", "DASHSCOPE_API_KEY", "dashscope:qwen-plus"
+    ),
+    "dashscope_cn": ProviderInfo(
+        "DashScope (CN)", "DASHSCOPE_CN_API_KEY", "dashscope_cn:qwen-plus"
+    ),
+    "zhipu": ProviderInfo("ZhipuAI", "ZHIPU_API_KEY", "zhipu:glm-4"),
+    "zhipu_cn": ProviderInfo("ZhipuAI (CN)", "ZHIPU_CN_API_KEY", "zhipu_cn:glm-4"),
+    "minimax": ProviderInfo("MiniMax", "MINIMAX_API_KEY", "minimax:abab6.5s-chat"),
+    "minimax_cn": ProviderInfo(
+        "MiniMax (CN)", "MINIMAX_CN_API_KEY", "minimax_cn:abab6.5s-chat"
+    ),
+}
+
+# Derived from PROVIDERS; still used by check_config / api_key_var_for.
 PROVIDER_API_KEYS: dict[str, str] = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "google_genai": "GOOGLE_API_KEY",
-    "groq": "GROQ_API_KEY",
-    "mistralai": "MISTRAL_API_KEY",
+    pid: info.key_var for pid, info in PROVIDERS.items()
 }
 
 

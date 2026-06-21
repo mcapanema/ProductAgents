@@ -3,12 +3,52 @@
 import os
 
 from productagents.setup import (
+    PROVIDERS,
     ConfigStatus,
+    ProviderInfo,
     api_key_var_for,
     check_config,
     provider_for,
     write_env,
 )
+
+
+def test_providers_covers_all_expected_keys():
+    expected = {
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "XAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "DASHSCOPE_API_KEY",
+        "DASHSCOPE_CN_API_KEY",
+        "ZHIPU_API_KEY",
+        "ZHIPU_CN_API_KEY",
+        "MINIMAX_API_KEY",
+        "MINIMAX_CN_API_KEY",
+        "OPENROUTER_API_KEY",
+        "MISTRAL_API_KEY",
+        "MOONSHOT_API_KEY",
+        "GROQ_API_KEY",
+        "NVIDIA_API_KEY",
+    }
+    actual = {info.key_var for info in PROVIDERS.values()}
+    assert actual == expected
+
+
+def test_providers_all_have_default_model_with_provider_prefix():
+    for pid, info in PROVIDERS.items():
+        assert isinstance(info, ProviderInfo)
+        assert info.default_model.startswith(f"{pid}:"), (
+            f"{pid}: default model '{info.default_model}' must start with '{pid}:'"
+        )
+
+
+def test_providers_cn_variants_present():
+    assert "dashscope_cn" in PROVIDERS
+    assert "zhipu_cn" in PROVIDERS
+    assert "minimax_cn" in PROVIDERS
+    assert PROVIDERS["dashscope_cn"].key_var == "DASHSCOPE_CN_API_KEY"
 
 
 def test_provider_for_parses_prefix():

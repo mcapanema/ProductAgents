@@ -1,21 +1,23 @@
-"""First-run setup: collect a provider/model and API key, persist to .env."""
+"""First-run setup: pick a provider, confirm the model, paste the API key."""
 
 from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Static
+from textual.widgets import Button, Input, Select, Static
+from textual.widgets.select import NoSelection
 
 from productagents.setup import (
+    PROVIDERS,
     ConfigStatus,
-    api_key_var_for,
-    provider_for,
     write_env,
 )
 
+_PROVIDER_OPTIONS = [(info.label, pid) for pid, info in PROVIDERS.items()]
+
 
 class SetupScreen(ModalScreen[bool]):
-    """Collect model/provider/key, validate, and write them to .env.
+    """Pick a provider from a list, confirm the model string, paste the API key.
 
     Dismisses with True when values were saved, False when cancelled.
     """
@@ -29,23 +31,46 @@ class SetupScreen(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         problems = "\n".join(f"• {p}" for p in self._status.problems) or (
-            "Update your model, provider, or API key."
+            "Update your provider and API key."
         )
+        initial_pid = (
+            self._status.provider if self._status.provider in PROVIDERS else Select.NULL
+        )
+        initial_info = PROVIDERS.get(self._status.provider)
+
         yield Static(f"Setup needed:\n{problems}", id="setup-intro")
-        yield Input(
-            value=self._status.model,
-            placeholder="provider:model (e.g. anthropic:claude-sonnet-4-6)",
-            id="setup-model",
-        )
-        yield Input(
-            value=self._status.provider,
-            placeholder="Provider override (optional)",
+        yield Select(
+            _PROVIDER_OPTIONS,
+            value=initial_pid,
+            allow_blank=True,
+            prompt="Choose a provider…",
             id="setup-provider",
         )
-        yield Input(placeholder="API key", password=True, id="setup-key")
+        yield Input(
+            value=initial_info.default_model if initial_info else "",
+            placeholder="provider:model-id",
+            id="setup-model",
+        )
+        key_label = f"API key ({initial_info.key_var})" if initial_info else "API key"
+        yield Static(key_label, id="setup-key-label")
+        yield Input(
+            placeholder="Paste your API key here", password=True, id="setup-key"
+        )
         yield Static("", id="setup-feedback")
         yield Button("Save", id="setup-save", variant="success")
         yield Button("Cancel", id="setup-cancel")
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id != "setup-provider":
+            return
+        value = event.value
+        if isinstance(value, NoSelection):
+            self.query_one("#setup-model", Input).value = ""
+            self.query_one("#setup-key-label", Static).update("API key")
+            return
+        info = PROVIDERS[str(value)]
+        self.query_one("#setup-model", Input).value = info.default_model
+        self.query_one("#setup-key-label", Static).update(f"API key ({info.key_var})")
 
     def action_cancel(self) -> None:
         self.dismiss(False)
@@ -57,23 +82,21 @@ class SetupScreen(ModalScreen[bool]):
         self._save()
 
     def _save(self) -> None:
+        provider_id = self.query_one("#setup-provider", Select).value
         model = self.query_one("#setup-model", Input).value.strip()
-        provider_override = self.query_one("#setup-provider", Input).value.strip()
         key = self.query_one("#setup-key", Input).value.strip()
         feedback = self.query_one("#setup-feedback", Static)
 
-        provider = provider_for(model, provider_override or None)
-        key_var = api_key_var_for(provider)
-        if not provider:
-            feedback.update("Enter a 'provider:model' id or a provider override.")
-            return
-        if not key:
-            feedback.update(f"Enter the API key for {key_var}.")
+        if isinstance(provider_id, NoSelection):
+            feedback.update("Choose a provider from the list.")
             return
 
-        values = {"PRODUCTAGENTS_MODEL": model, key_var: key}
-        if provider_override:
-            values["PRODUCTAGENTS_MODEL_PROVIDER"] = provider_override
+        info = PROVIDERS[str(provider_id)]
+        if not key:
+            feedback.update(f"Enter the API key ({info.key_var}).")
+            return
+
+        values = {"PRODUCTAGENTS_MODEL": model or info.default_model, info.key_var: key}
         try:
             self._writer(values)
         except Exception as exc:  # noqa: BLE001 - surface, never crash the TUI

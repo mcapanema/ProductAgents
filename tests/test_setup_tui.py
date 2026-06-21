@@ -1,6 +1,7 @@
 """SetupScreen behavior, driven through a minimal host app."""
 
 from textual.app import App
+from textual.widgets import Select
 
 from productagents.setup import ConfigStatus
 from productagents.tui.setup_screen import SetupScreen
@@ -13,6 +14,16 @@ def _missing_status():
         key_var="ANTHROPIC_API_KEY",
         key_present=False,
         problems=["Missing API key: set ANTHROPIC_API_KEY for provider 'anthropic'."],
+    )
+
+
+def _no_provider_status():
+    return ConfigStatus(
+        model="",
+        provider="",
+        key_var="",
+        key_present=False,
+        problems=["Could not determine a provider."],
     )
 
 
@@ -39,6 +50,7 @@ async def test_setup_save_persists_values_and_dismisses_true():
     app = _Host(_missing_status(), writer, results)
     async with app.run_test() as pilot:
         await pilot.pause()
+        # "anthropic" is pre-selected from status; model is pre-filled
         app.screen.query_one("#setup-key").value = "sk-test"
         await pilot.click("#setup-save")
         await pilot.pause()
@@ -65,6 +77,53 @@ async def test_setup_requires_a_key():
     assert "API key" in feedback
     assert calls == []
     assert results == []
+
+
+async def test_setup_requires_provider():
+    calls = []
+
+    def writer(values, **_kwargs):
+        calls.append(values)
+
+    results = []
+    app = _Host(_no_provider_status(), writer, results)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#setup-key").value = "sk-test"
+        await pilot.click("#setup-save")
+        await pilot.pause()
+        feedback = str(app.screen.query_one("#setup-feedback").content)
+
+    assert "Choose a provider" in feedback
+    assert calls == []
+    assert results == []
+
+
+async def test_setup_provider_selection_updates_model_and_key_label():
+    written = {}
+
+    def writer(values, **_kwargs):
+        written.update(values)
+
+    results = []
+    app = _Host(_missing_status(), writer, results)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Switch to OpenAI — model and key label should update
+        app.screen.query_one("#setup-provider", Select).value = "openai"
+        await pilot.pause()
+        model_val = app.screen.query_one("#setup-model").value
+        key_label = str(app.screen.query_one("#setup-key-label").content)
+        assert model_val == "openai:gpt-4o"
+        assert "OPENAI_API_KEY" in key_label
+        # Save with the OpenAI key
+        app.screen.query_one("#setup-key").value = "sk-openai-test"
+        await pilot.click("#setup-save")
+        await pilot.pause()
+
+    assert written["OPENAI_API_KEY"] == "sk-openai-test"
+    assert written["PRODUCTAGENTS_MODEL"] == "openai:gpt-4o"
+    assert results == [True]
 
 
 async def test_setup_cancel_dismisses_false():
