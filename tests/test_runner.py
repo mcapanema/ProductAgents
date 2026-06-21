@@ -18,6 +18,7 @@ from productagents.schemas import (
     GovernanceFinding,
     HumanDecision,
     Initiative,
+    JudgeFinding,
     OutcomeRecord,
     Recommendation,
     RiskFinding,
@@ -35,6 +36,11 @@ def _graph():
                 confidence=0.7,
                 rationale="r",
                 expected_outcomes=["o"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
             ),
             RiskFinding: RiskFinding(level="low", rationale="cheap"),
             GovernanceFinding: GovernanceFinding(
@@ -149,6 +155,11 @@ def _hitl_graph():
                 rationale="r",
                 expected_outcomes=["o"],
             ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
+            ),
             RiskFinding: RiskFinding(level="low", rationale="cheap"),
             GovernanceFinding: GovernanceFinding(
                 verdict="approve", rationale="resources well spent"
@@ -209,6 +220,11 @@ def _hitl_graph_degraded_governance():
                 rationale="r",
                 expected_outcomes=["o"],
             ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
+            ),
             RiskFinding: RiskFinding(level="low", rationale="cheap"),
             GovernanceFinding: RuntimeError("governance LLM down"),
         }
@@ -244,6 +260,7 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
         Recommendation,
         RiskFinding,
     )
+    from productagents.schemas import JudgeFinding as _JudgeFinding
     from tests.fakes import FakeChatModel
 
     model = FakeChatModel(
@@ -255,6 +272,11 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
                 confidence=0.5,
                 rationale="x",
                 expected_outcomes=["o"],
+            ),
+            _JudgeFinding: _JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
             ),
             RiskFinding: RiskFinding(level="low", rationale="ok"),
             GovernanceFinding: GovernanceFinding(verdict="approve", rationale="ok"),
@@ -303,6 +325,7 @@ def _base_results():
         AnalystFindings,
         DebateArgument,
         GovernanceFinding,
+        JudgeFinding,
         Recommendation,
         RiskFinding,
     )
@@ -312,6 +335,11 @@ def _base_results():
         DebateArgument: DebateArgument(argument="a"),
         Recommendation: Recommendation(
             recommendation="r", confidence=0.5, rationale="x", expected_outcomes=["o"]
+        ),
+        JudgeFinding: JudgeFinding(
+            evidence_grounding_score=0.9,
+            rationale_coherence_score=0.9,
+            critique="ok",
         ),
         RiskFinding: RiskFinding(level="low", rationale="ok"),
         GovernanceFinding: GovernanceFinding(verdict="approve", rationale="ok"),
