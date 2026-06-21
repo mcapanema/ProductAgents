@@ -12,6 +12,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input, Static
 
 from productagents.agents.reflection import reflect
+from productagents.config import load_env
 from productagents.evidence import EvidenceError, collect_evidence, load_scenario
 from productagents.graph import build_graph
 from productagents.llm import DEFAULT_MODEL, get_model
@@ -252,6 +253,7 @@ def _build_app() -> ProductAgentsApp:
 
 
 def main() -> None:
+    load_env()
     try:
         app = _build_app()
     except Exception as exc:

@@ -492,7 +492,18 @@ uv sync
 ### Configure a model
 
 Model selection is provider-agnostic. Set the model via environment variables
-(defaults to `anthropic:claude-sonnet-4-6`):
+(defaults to `anthropic:claude-sonnet-4-6`).
+
+The easiest way is to copy the template and edit it — `.env` is loaded
+automatically on startup and is git-ignored:
+
+```bash
+cp .env.example .env
+# then edit .env and set your provider API key
+```
+
+Any variable already exported in your shell takes precedence over `.env`.
+You can still configure everything with plain `export`s instead:
 
 ```bash
 export PRODUCTAGENTS_MODEL="anthropic:claude-sonnet-4-6"
