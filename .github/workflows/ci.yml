@@ -45,3 +45,30 @@ jobs:
 
       - name: Type check
         run: uv run --frozen ty check src
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Dependency vulnerability audit (pip-audit)
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements-prod.txt
+          uvx pip-audit --no-deps -r requirements-prod.txt
+
+      - name: Static security analysis (bandit)
+        run: uv run --frozen bandit -c pyproject.toml -r src
+
+      - name: Secret scan (gitleaks)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --no-banner
