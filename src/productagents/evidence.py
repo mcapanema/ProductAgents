@@ -2,8 +2,9 @@
 
 import json
 from pathlib import Path
+from typing import Protocol
 
-from productagents.schemas import Evidence
+from productagents.schemas import Evidence, EvidenceSourceRef
 
 SCENARIOS_DIR = Path(__file__).parent / "data" / "scenarios"
 
@@ -12,6 +13,12 @@ _ANALYTICS_FILE = "product_analytics.json"
 _MARKET_FILE = "market_intelligence.md"
 _BUSINESS_FILE = "business_metrics.json"
 _TECHNICAL_FILE = "technical_context.md"
+
+
+class EvidenceSource(Protocol):
+    """A source that resolves into a fully-populated Evidence object."""
+
+    def collect(self) -> Evidence: ...
 
 
 class EvidenceError(Exception):
@@ -41,46 +48,139 @@ def _parse_json_object(text: str, filename: str, name: str) -> dict:
     return data
 
 
-def load_scenario(name: str, base_dir: Path | None = None) -> Evidence:
-    scenario_dir = _base(base_dir) / name
-    if not scenario_dir.is_dir():
-        raise EvidenceError(f"Scenario not found: {name!r} (looked in {scenario_dir})")
-
-    feedback_path = scenario_dir / _FEEDBACK_FILE
-    analytics_path = scenario_dir / _ANALYTICS_FILE
-
+def _collect_from_dir(
+    directory: Path, *, scenario: str, source_label: str, label: str
+) -> Evidence:
+    feedback_path = directory / _FEEDBACK_FILE
+    analytics_path = directory / _ANALYTICS_FILE
     if not feedback_path.is_file():
-        raise EvidenceError(f"Missing {_FEEDBACK_FILE} in scenario {name!r}")
+        raise EvidenceError(f"Missing {_FEEDBACK_FILE} in {label!r}")
     if not analytics_path.is_file():
-        raise EvidenceError(f"Missing {_ANALYTICS_FILE} in scenario {name!r}")
+        raise EvidenceError(f"Missing {_ANALYTICS_FILE} in {label!r}")
+
+    sources: list[EvidenceSourceRef] = []
 
     customer_feedback = feedback_path.read_text(encoding="utf-8")
+    sources.append(
+        EvidenceSourceRef(
+            field="customer_feedback",
+            source=source_label,
+            location=str(feedback_path),
+        )
+    )
     product_analytics = _parse_json_object(
-        analytics_path.read_text(encoding="utf-8"), _ANALYTICS_FILE, name
+        analytics_path.read_text(encoding="utf-8"), _ANALYTICS_FILE, label
+    )
+    sources.append(
+        EvidenceSourceRef(
+            field="product_analytics", source=source_label, location=str(analytics_path)
+        )
     )
 
     market_intelligence = ""
-    market_path = scenario_dir / _MARKET_FILE
+    market_path = directory / _MARKET_FILE
     if market_path.is_file():
         market_intelligence = market_path.read_text(encoding="utf-8")
-
-    technical_context = ""
-    technical_path = scenario_dir / _TECHNICAL_FILE
-    if technical_path.is_file():
-        technical_context = technical_path.read_text(encoding="utf-8")
+        sources.append(
+            EvidenceSourceRef(
+                field="market_intelligence",
+                source=source_label,
+                location=str(market_path),
+            )
+        )
 
     business_metrics: dict = {}
-    business_path = scenario_dir / _BUSINESS_FILE
+    business_path = directory / _BUSINESS_FILE
     if business_path.is_file():
         business_metrics = _parse_json_object(
-            business_path.read_text(encoding="utf-8"), _BUSINESS_FILE, name
+            business_path.read_text(encoding="utf-8"), _BUSINESS_FILE, label
+        )
+        sources.append(
+            EvidenceSourceRef(
+                field="business_metrics",
+                source=source_label,
+                location=str(business_path),
+            )
+        )
+
+    technical_context = ""
+    technical_path = directory / _TECHNICAL_FILE
+    if technical_path.is_file():
+        technical_context = technical_path.read_text(encoding="utf-8")
+        sources.append(
+            EvidenceSourceRef(
+                field="technical_context",
+                source=source_label,
+                location=str(technical_path),
+            )
         )
 
     return Evidence(
-        scenario=name,
+        scenario=scenario,
         customer_feedback=customer_feedback,
         product_analytics=product_analytics,
         market_intelligence=market_intelligence,
         business_metrics=business_metrics,
         technical_context=technical_context,
+        sources=sources,
+    )
+
+
+class ScenarioSource:
+    """Reads a named scenario from the bundled (or a custom) scenarios directory."""
+
+    def __init__(self, name: str, base_dir: Path | None = None):
+        self.name = name
+        self.base_dir = base_dir
+
+    def collect(self) -> Evidence:
+        directory = _base(self.base_dir) / self.name
+        if not directory.is_dir():
+            raise EvidenceError(
+                f"Scenario not found: {self.name!r} (looked in {directory})"
+            )
+        return _collect_from_dir(
+            directory,
+            scenario=self.name,
+            source_label=f"scenario:{self.name}",
+            label=self.name,
+        )
+
+
+class DirectorySource:
+    """Reads evidence files directly from an arbitrary filesystem directory."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+
+    def collect(self) -> Evidence:
+        if not self.path.is_dir():
+            raise EvidenceError(f"Evidence directory not found: {self.path}")
+        return _collect_from_dir(
+            self.path,
+            scenario=self.path.name,
+            source_label=f"directory:{self.path}",
+            label=str(self.path),
+        )
+
+
+def load_scenario(name: str, base_dir: Path | None = None) -> Evidence:
+    return ScenarioSource(name, base_dir).collect()
+
+
+def collect_evidence(spec: str | None = None, base_dir: Path | None = None) -> Evidence:
+    """Resolve a user-supplied source spec to Evidence.
+
+    A falsy spec loads the bundled 'sample' scenario. A spec matching a known
+    scenario name loads that scenario; an existing directory path is read as a
+    DirectorySource. Anything else raises EvidenceError.
+    """
+    if not spec:
+        return ScenarioSource("sample", base_dir).collect()
+    if spec in list_scenarios(base_dir):
+        return ScenarioSource(spec, base_dir).collect()
+    if Path(spec).is_dir():
+        return DirectorySource(Path(spec)).collect()
+    raise EvidenceError(
+        f"No evidence source for {spec!r}: not a known scenario or a directory"
     )

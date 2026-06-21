@@ -12,7 +12,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input, Static
 
 from productagents.agents.reflection import reflect
-from productagents.evidence import load_scenario
+from productagents.evidence import EvidenceError, collect_evidence, load_scenario
 from productagents.graph import build_graph
 from productagents.llm import DEFAULT_MODEL, get_model
 from productagents.memory import (
@@ -57,6 +57,7 @@ class ProductAgentsApp(App):
         runner,
         evidence,
         *,
+        collector=collect_evidence,
         recorder=record_decision,
         reader=read_decisions,
         outcome_reader=read_outcomes,
@@ -66,6 +67,7 @@ class ProductAgentsApp(App):
         super().__init__()
         self._runner = runner
         self._evidence = evidence
+        self._collector = collector
         self._recorder = recorder
         self._reader = reader
         self._outcome_reader = outcome_reader
@@ -80,6 +82,11 @@ class ProductAgentsApp(App):
             placeholder="Describe the initiative and press Enter…",
             id="initiative-title",
         )
+        yield Input(
+            placeholder="Evidence source (scenario name or path; blank = sample)",
+            id="evidence-source",
+        )
+        yield Static("Waiting…", id="evidence-provenance", classes="panel")
         with Horizontal(id="analysts"):
             yield Static("Waiting…", id="customer_research", classes="panel")
             yield Static("Waiting…", id="product_analytics", classes="panel")
@@ -103,11 +110,22 @@ class ProductAgentsApp(App):
         self.query_one(
             "#governance", Static
         ).border_title = "Portfolio Manager (Governance)"
+        self.query_one("#evidence-provenance", Static).border_title = "Evidence Sources"
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
+        if message.input.id != "initiative-title":
+            return
         title = message.value.strip()
         if not title or self._runner is None:
             return
+        spec = self.query_one("#evidence-source", Input).value.strip()
+        try:
+            evidence = self._collector(spec) if spec else self._evidence
+        except EvidenceError as exc:
+            self.query_one("#strategist", Static).update(f"Evidence error: {exc}")
+            return
+        prov = "\n".join(f"• {ref.field} ← {ref.source}" for ref in evidence.sources)
+        self.query_one("#evidence-provenance", Static).update(prov or "(default)")
         for node_id in _PANELS:
             self.query_one(f"#{node_id}", Static).update("…")
         self._debate_lines = []
@@ -115,7 +133,7 @@ class ProductAgentsApp(App):
         self.query_one("#debate", Static).update("…")
         self.query_one("#risk", Static).update("…")
         self.query_one("#governance", Static).update("…")
-        self._run(Initiative(title=title, description=title))
+        self._run(Initiative(title=title, description=title), evidence)
 
     def action_reflect(self) -> None:
         if self._reflector is None:
@@ -133,7 +151,7 @@ class ProductAgentsApp(App):
         return await self.push_screen_wait(ApprovalScreen(advisory))
 
     @work(exclusive=True)
-    async def _run(self, initiative: Initiative) -> None:
+    async def _run(self, initiative: Initiative, evidence) -> None:
         recommendation = None
         reports = []
         debate = []
@@ -144,7 +162,7 @@ class ProductAgentsApp(App):
         outcomes = self._outcome_reader()
         async for event in self._runner(
             initiative,
-            self._evidence,
+            evidence,
             portfolio=portfolio,
             outcomes=outcomes,
             approver=self._ask_human,
@@ -206,6 +224,7 @@ class ProductAgentsApp(App):
                     risks=risks,
                     governance=governance,
                     prior_lessons=prior_lessons,
+                    evidence_sources=evidence.sources,
                     timestamp=datetime.now(UTC).isoformat(),
                 )
             )
