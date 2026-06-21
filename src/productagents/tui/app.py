@@ -1,7 +1,6 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
-import os
-import sys
+import contextlib
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -15,7 +14,7 @@ from productagents.agents.reflection import reflect
 from productagents.config import load_env
 from productagents.evidence import EvidenceError, collect_evidence, load_scenario
 from productagents.graph import build_graph
-from productagents.llm import DEFAULT_MODEL, get_model
+from productagents.llm import get_model
 from productagents.memory import (
     read_decisions,
     read_outcomes,
@@ -34,8 +33,11 @@ from productagents.runner import (
     run_decision,
 )
 from productagents.schemas import DecisionRecord, Initiative
+from productagents.setup import check_config, write_env
 from productagents.tui.approval import ApprovalScreen
+from productagents.tui.home_screen import HomeScreen
 from productagents.tui.reflection import ReflectionScreen
+from productagents.tui.setup_screen import SetupScreen
 
 _PANELS = {
     "customer_research": "Customer Research Analyst",
@@ -51,7 +53,10 @@ _PANELS = {
 class ProductAgentsApp(App):
     CSS_PATH = "app.tcss"
     TITLE = "ProductAgents"
-    BINDINGS: ClassVar[list] = [("ctrl+r", "reflect", "Reflect on a decision")]
+    BINDINGS: ClassVar[list] = [
+        ("ctrl+r", "reflect", "Reflect on a decision"),
+        ("ctrl+h", "home", "Menu"),
+    ]
 
     def __init__(
         self,
@@ -64,6 +69,10 @@ class ProductAgentsApp(App):
         outcome_reader=read_outcomes,
         reflector=None,
         outcome_recorder=record_outcome,
+        config_checker=check_config,
+        env_writer=write_env,
+        rebuild=None,
+        show_home=True,
     ):
         super().__init__()
         self._runner = runner
@@ -74,6 +83,10 @@ class ProductAgentsApp(App):
         self._outcome_reader = outcome_reader
         self._reflector = reflector
         self._outcome_recorder = outcome_recorder
+        self._config_checker = config_checker
+        self._env_writer = env_writer
+        self._rebuild = rebuild
+        self._show_home = show_home
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
 
@@ -112,6 +125,36 @@ class ProductAgentsApp(App):
             "#governance", Static
         ).border_title = "Portfolio Manager (Governance)"
         self.query_one("#evidence-provenance", Static).border_title = "Evidence Sources"
+        if self._show_home:
+            self._open_home()
+
+    def _open_home(self) -> None:
+        status = self._config_checker()
+        self.push_screen(HomeScreen(status))
+        if not status.ok:
+            self.open_setup()
+
+    def open_setup(self) -> None:
+        self.push_screen(
+            SetupScreen(self._config_checker(), writer=self._env_writer),
+            self._after_setup,
+        )
+
+    def _after_setup(self, saved: bool | None) -> None:
+        if saved and self._rebuild is not None:
+            with contextlib.suppress(Exception):
+                self._runner, self._reflector = self._rebuild()
+        screen = self.screen
+        if isinstance(screen, HomeScreen):
+            screen.refresh_status(self._config_checker())
+
+    def start_decision(self) -> None:
+        if isinstance(self.screen, HomeScreen):
+            self.pop_screen()
+
+    def action_home(self) -> None:
+        if not isinstance(self.screen, HomeScreen):
+            self._open_home()
 
     def on_input_submitted(self, message: Input.Submitted) -> None:
         if message.input.id != "initiative-title":
@@ -242,27 +285,25 @@ class ProductAgentsApp(App):
 
 
 def _build_app() -> ProductAgentsApp:
-    model = get_model()
-    graph = build_graph(model, human_in_the_loop=True)
+    def rebuild():
+        model = get_model()
+        graph = build_graph(model, human_in_the_loop=True)
+        return partial(run_decision, graph), partial(reflect, model=model)
+
+    try:
+        runner, reflector = rebuild()
+    except Exception:  # noqa: BLE001 - launch into setup instead of crashing
+        runner, reflector = None, None
     evidence = load_scenario("sample")
     return ProductAgentsApp(
-        partial(run_decision, graph),
+        runner,
         evidence,
-        reflector=partial(reflect, model=model),
+        reflector=reflector,
+        rebuild=rebuild,
     )
 
 
 def main() -> None:
     load_env()
-    try:
-        app = _build_app()
-    except Exception as exc:
-        model = os.environ.get("PRODUCTAGENTS_MODEL", DEFAULT_MODEL)
-        print(
-            f"Failed to start ProductAgents: {exc}\n"
-            f"Check that PRODUCTAGENTS_MODEL ('{model}') is valid and the "
-            f"matching provider API key is set (e.g. ANTHROPIC_API_KEY).",
-            file=sys.stderr,
-        )
-        raise SystemExit(1) from exc
+    app = _build_app()
     app.run()

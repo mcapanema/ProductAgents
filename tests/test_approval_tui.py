@@ -50,6 +50,7 @@ async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeyp
         recorder=recorded.append,
         reader=lambda: [],
         outcome_reader=lambda: [],
+        show_home=False,
     )
 
     async with app.run_test() as pilot:
