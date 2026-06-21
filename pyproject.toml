@@ -18,7 +18,7 @@ productagents = "productagents.tui.app:main"
 
 [dependency-groups]
 dev = [
-    "bandit[toml]>=1.8",
+    "bandit[toml]>=1.9.4",
     "pre-commit>=4.6.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
