@@ -8,6 +8,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
+from textual.theme import Theme
 from textual.widgets import Footer, Header, Input, Static
 
 from productagents.agents.reflection import reflect
@@ -71,6 +72,21 @@ _PANELS = {
     "recall",
     "strategist",
 }
+
+_THEME = Theme(
+    name="productagents",
+    primary="#38bdf8",
+    secondary="#a78bfa",
+    accent="#f59e0b",
+    success="#22c55e",
+    warning="#fb923c",
+    error="#ef4444",
+    surface="#1e293b",
+    panel="#0f172a",
+    dark=True,
+)
+
+_STATE_ICON = {"idle": "·", "running": "●", "done": "✓", "failed": "✗"}
 
 
 class ProductAgentsApp(App):
@@ -153,10 +169,23 @@ class ProductAgentsApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        for widget_id, title in _TITLES.items():
-            self.query_one(f"#{widget_id}").border_title = title
+        self.register_theme(_THEME)
+        self.theme = "productagents"
+        for widget_id in _TITLES:
+            if widget_id == "status-log":
+                self.query_one("#status-log").border_title = _TITLES["status-log"]
+            else:
+                self._set_state(widget_id, "idle")
         if self._show_home:
             self._open_home()
+
+    def _set_state(self, widget_id: str, state: str) -> None:
+        try:
+            widget = self.query_one(f"#{widget_id}")
+        except NoMatches:
+            return
+        base = _TITLES.get(widget_id, widget_id)
+        widget.border_title = f"{_STATE_ICON[state]} {base}"
 
     def _open_home(self) -> None:
         status = self._config_checker()
@@ -221,7 +250,7 @@ class ProductAgentsApp(App):
         self.query_one("#governance", Static).update("…")
         self._status_lines = []
         self.query_one("#status-log", Static).update("")
-        for widget_id, base in _TITLES.items():
+        for widget_id in _TITLES:
             if widget_id == "status-log":
                 continue
             try:
@@ -230,7 +259,7 @@ class ProductAgentsApp(App):
                 continue
             widget.remove_class("failed")
             widget.styles.border = None
-            widget.border_title = base
+            self._set_state(widget_id, "idle")
         self._run(Initiative(title=title, description=title), evidence)
 
     def action_reflect(self) -> None:
@@ -273,6 +302,7 @@ class ProductAgentsApp(App):
                         self.query_one(f"#{event.node}", Static).update(
                             f"… {event.message}"
                         )
+                        self._set_state(event.node, "running")
                 elif isinstance(event, NodeCompleteEvent):
                     if event.node in _PANELS:
                         report = event.report
@@ -286,6 +316,7 @@ class ProductAgentsApp(App):
                                 or "(no findings)"
                             )
                             self.query_one(f"#{event.node}", Static).update(body)
+                            self._set_state(event.node, "done")
                 elif isinstance(event, NodeErrorEvent):
                     label = _TITLES.get(
                         _WIDGET_FOR_NODE.get(event.node, event.node), event.node
@@ -320,6 +351,7 @@ class ProductAgentsApp(App):
                         "(no relevant past lessons)"
                     )
                     self.query_one("#recall", Static).update(body)
+                    self._set_state("recall", "done")
                 elif isinstance(event, FinishedEvent):
                     recommendation = event.recommendation
                     reports = event.reports
@@ -328,6 +360,7 @@ class ProductAgentsApp(App):
                     governance = event.governance
                     prior_lessons = event.prior_lessons
                     self._render_recommendation(recommendation)
+                    self._set_state("strategist", "done")
         except Exception as exc:  # noqa: BLE001 - never crash the worker
             self._log_status(f"run failed: {exc}", level="error")
             return
@@ -373,9 +406,7 @@ class ProductAgentsApp(App):
             return
         panel.add_class("failed")
         panel.styles.border = ("round", "red")
-        base = _TITLES.get(widget_id)
-        if base:
-            panel.border_title = f"✗ {base}"
+        self._set_state(widget_id, "failed")
 
 
 def _build_app() -> ProductAgentsApp:

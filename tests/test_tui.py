@@ -529,6 +529,70 @@ async def test_app_logs_node_error_and_marks_panel_failed():
         assert pilot.app.query_one("#technical").has_class("failed")
 
 
+async def test_app_registers_and_applies_custom_theme():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.theme == "productagents"
+
+
+async def test_app_panel_titles_show_state_icons():
+    from productagents.runner import FinishedEvent, NodeCompleteEvent
+    from productagents.schemas import AnalystReport, Evidence, Recommendation
+
+    async def fake_runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
+        yield NodeCompleteEvent(
+            node="market",
+            report=AnalystReport(
+                analyst="market", role="Market Analyst", findings=["x"], signals=[]
+            ),
+        )
+        yield FinishedEvent(
+            recommendation=Recommendation(
+                recommendation="Build it",
+                confidence=0.5,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+        )
+
+    evidence = Evidence(
+        scenario="sample", customer_feedback="d", product_analytics={"x": 1}
+    )
+    app = ProductAgentsApp(
+        fake_runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Idle on mount.
+        assert str(app.query_one("#technical").border_title).startswith("·")
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        # Completed analyst shows the done icon.
+        assert "✓" in str(app.query_one("#market").border_title)
+
+
 async def test_app_uses_three_lane_layout_with_analyst_grid():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
