@@ -4,9 +4,12 @@ from textual.widgets import Button
 
 from productagents.graph import build_graph
 from productagents.runner import (
+    DebateTurnEvent,
     FinalVerdictEvent,
     GovernanceVerdictEvent,
     JudgmentEvent,
+    ProgressEvent,
+    RiskAssessmentEvent,
     run_decision,
 )
 from productagents.schemas import (
@@ -770,3 +773,76 @@ async def test_governance_non_approve_warns_then_approval_clears_it():
         )
         assert str(gov.border_title).startswith("✓")
         assert not gov.has_class("warning")
+
+
+async def test_debate_panel_runs_then_done_when_strategist_starts():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._on_debate_turn(
+            DebateTurnEvent(round=1, side="advocate", argument="ship it")
+        )
+        assert "debate-scroll" in app._spinning  # running spinner
+        app._on_progress(ProgressEvent(node="strategist", message="thinking"))
+        assert str(app.query_one("#debate-scroll").border_title).startswith("✓")
+        assert "strategist" in app._spinning
+
+
+async def test_strategist_done_when_judgment_arrives():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._on_progress(ProgressEvent(node="strategist", message="thinking"))
+        assert "strategist" in app._spinning
+        app._on_judgment(
+            JudgmentEvent(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                passed=True,
+                critique="ok",
+                attempt=1,
+            )
+        )
+        assert str(app.query_one("#strategist").border_title).startswith("✓")
+        assert "strategist" not in app._spinning
+
+
+async def test_risk_panel_runs_then_done_when_governance_arrives():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._on_risk_assessment(
+            RiskAssessmentEvent(
+                reviewer="r", role="Risk Reviewer", level="medium", rationale="some"
+            )
+        )
+        assert "risk-scroll" in app._spinning
+        app._on_governance_verdict(
+            GovernanceVerdictEvent(verdict="approve", rationale="go")
+        )
+        assert str(app.query_one("#risk-scroll").border_title).startswith("✓")
+        assert "risk-scroll" not in app._spinning

@@ -388,6 +388,8 @@ class ProductAgentsApp(App):
     def _on_progress(self, event) -> None:
         if event.node in _PANELS:
             self.query_one(f"#{event.node}", Static).update(f"… {event.message}")
+            if event.node == "strategist":
+                self._set_state("debate-scroll", "done")
             self._set_state(event.node, "running")
 
     def _on_node_complete(self, event) -> None:
@@ -414,10 +416,12 @@ class ProductAgentsApp(App):
             f"[{event.side} · round {event.round}] {event.argument}"
         )
         self.query_one("#debate", Static).update("\n\n".join(self._debate_lines))
+        self._set_state("debate-scroll", "running")
 
     def _on_risk_assessment(self, event) -> None:
         self._risk_lines.append(f"[{event.role} · {event.level}] {event.rationale}")
         self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
+        self._set_state("risk-scroll", "running")
 
     def _on_judgment(self, event) -> None:
         status = "PASS" if event.passed else "FAIL"
@@ -427,12 +431,14 @@ class ProductAgentsApp(App):
             f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
             f"{event.critique}"
         )
+        self._set_state("strategist", "done")
         self._set_state("judgment", "done" if event.passed else "warning")
 
     def _on_governance_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
             f"[b]{event.verdict}[/b]\n\n{event.rationale}"
         )
+        self._set_state("risk-scroll", "done")
         state = "done" if event.verdict == "approve" else "warning"
         self._set_state("governance", state)
 
