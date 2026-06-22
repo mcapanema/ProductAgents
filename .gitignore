@@ -226,6 +226,9 @@ outcomes.jsonl
 # Claude Code local (machine-specific) settings
 .claude/settings.local.json
 
+# Ignore headroom
+.serena
+
 # Ignore Superpowers
 docs/superpowers/*
 
