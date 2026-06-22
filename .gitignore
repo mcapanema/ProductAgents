@@ -226,6 +226,9 @@ outcomes.jsonl
 # Claude Code local (machine-specific) settings
 .claude/settings.local.json
 
+# Ignore Superpowers
+docs/superpowers/*
+
 # Ignore oxs files.
 .DS_Store
 
