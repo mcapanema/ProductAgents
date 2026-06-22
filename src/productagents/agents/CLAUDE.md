@@ -23,6 +23,9 @@ arrive via `state`, never the filesystem.
    centralizes logging and converts an empty (`None`) result into a clear
    `StructuredOutputError`. `Schema` is an LLM-output model from `schemas.py`.
    Assemble the enriched record yourself.
+   On a fatal failure (rate limit, bad key, no tool calling) the wrapper also
+   emits a `fatal` stream marker; `runner.py` turns that into a `RunAbortedEvent`
+   and stops the run. Nodes still catch and degrade exactly as before.
 4. **Return only your slice of `GraphState`.** e.g. `{"reports": [report]}`,
    `{"debate": turns}`, `{"recommendation": rec}`.
 
@@ -32,7 +35,7 @@ arrive via `state`, never the filesystem.
 | --- | --- |
 | `_analyst.py` | `run_analyst(...)` — shared executor for the five analysts (progress events + structured call + graceful degradation). Not a node itself. |
 | `_format.py` | `format_reports_brief`, `format_transcript` — shared prompt formatters used by debate/risk (and strategist for the transcript). |
-| `_llm_call.py` | `invoke_structured(model, schema, prompt, *, node)` — the one wrapper every node's structured call routes through. Logs the call + tracebacks, and raises `StructuredOutputError` when the model returns `None` (no tool call) instead of letting a cryptic `AttributeError` escape. Not a node. |
+| `_llm_call.py` | `invoke_structured(model, schema, prompt, *, node)` — the one wrapper every node's structured call routes through. Logs the call + full tracebacks, classifies provider exceptions via `productagents.llm_errors.classify_provider_error` into a friendly `ProviderError`, raises `StructuredOutputError` when the model returns `None`, and on a **fatal** category emits a `{"fatal": True}` stream marker so `runner.py` can stop the run. Not a node. |
 | `_stream.py` | `get_writer()` — active stream writer or a no-op outside a graph run. |
 | `customer_research.py`, `product_analytics.py`, `market.py`, `business.py`, `technical.py` | The five parallel analysts. Each is a thin delegate: module constants + a `_prompt(initiative, evidence)` + a `*_node` that calls `run_analyst`. |
 | `debate.py` | Advocate-vs-Skeptic loop, `get_debate_rounds()` rounds (env `PRODUCTAGENTS_DEBATE_ROUNDS`, default 2). Emits each turn. |
