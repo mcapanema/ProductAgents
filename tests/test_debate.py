@@ -56,3 +56,16 @@ async def test_debate_node_degrades_on_failure(monkeypatch):
     assert len(turns) == 2
     assert "unavailable" in turns[0].argument
     assert turns[0].side == "advocate"
+
+
+async def test_debate_degrades_when_model_returns_none(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    model = FakeChatModel({DebateArgument: None})
+    state = {
+        "initiative": Initiative(title="Add SSO", description="Enterprise SSO"),
+        "reports": [],
+    }
+    result = await debate_node(state, model)
+    # One round → advocate + skeptic, both unavailable placeholders, not a crash.
+    assert len(result["debate"]) == 2
+    assert all("unavailable" in turn.argument for turn in result["debate"])

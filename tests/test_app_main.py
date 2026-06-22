@@ -10,6 +10,10 @@ def test_main_loads_env_before_building_app(monkeypatch):
         calls.append("load_env")
         return True
 
+    def fake_configure_logging():
+        calls.append("configure_logging")
+        return None
+
     class _StubApp:
         def run(self):
             calls.append("run")
@@ -19,11 +23,12 @@ def test_main_loads_env_before_building_app(monkeypatch):
         return _StubApp()
 
     monkeypatch.setattr(app_module, "load_env", fake_load_env)
+    monkeypatch.setattr(app_module, "configure_logging", fake_configure_logging)
     monkeypatch.setattr(app_module, "_build_app", fake_build_app)
 
     app_module.main()
 
-    assert calls == ["load_env", "build_app", "run"]
+    assert calls == ["load_env", "configure_logging", "build_app", "run"]
 
 
 def test_build_app_is_resilient_when_model_init_fails(monkeypatch):

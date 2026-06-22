@@ -12,6 +12,7 @@ from productagents.agents._format import (
     format_reports_brief,
     format_transcript,
 )
+from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.config import env_float, env_int
 from productagents.schemas import (
@@ -75,16 +76,18 @@ async def judge_node(state: dict, model) -> dict:
     writer = get_writer()
     writer({"node": NODE_ID, "status": "judging recommendation..."})
     attempt = state.get("judge_attempts", 0) + 1
-    structured = model.with_structured_output(JudgeFinding)
     threshold = get_judge_threshold()
     try:
-        finding = await structured.ainvoke(
+        finding = await invoke_structured(
+            model,
+            JudgeFinding,
             _prompt(
                 state["initiative"],
                 state["recommendation"],
                 state["reports"],
                 state.get("debate", []),
-            )
+            ),
+            node=NODE_ID,
         )
         passed = (
             finding.evidence_grounding_score >= threshold

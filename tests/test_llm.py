@@ -1,3 +1,5 @@
+import logging
+
 import productagents.llm as llm
 
 
@@ -112,3 +114,15 @@ def test_openrouter_free_model_resolves_to_chatopenrouter(monkeypatch):
     # init_chat_model strips the `openrouter:` provider prefix (first colon only)
     # and keeps the rest verbatim — including the `:free` suffix.
     assert model.model == "deepseek/deepseek-chat-v3-0324:free"
+
+
+def test_get_model_logs_resolved_model(monkeypatch, caplog):
+    monkeypatch.setenv("PRODUCTAGENTS_MODEL", "anthropic:claude-sonnet-4-6")
+    monkeypatch.delenv("PRODUCTAGENTS_MODEL_PROVIDER", raising=False)
+    monkeypatch.delenv("PRODUCTAGENTS_MAX_RETRIES", raising=False)
+    monkeypatch.setattr(llm, "init_chat_model", lambda model, **kwargs: "MODEL")
+
+    with caplog.at_level(logging.INFO, logger="productagents.llm"):
+        llm.get_model()
+
+    assert any("anthropic:claude-sonnet-4-6" in r.getMessage() for r in caplog.records)

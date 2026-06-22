@@ -54,3 +54,18 @@ async def test_reflect_degrades_on_failure():
     assert outcome.actual_outcomes == []
     assert "unavailable" in outcome.lessons_learned[0]
     assert outcome.decision_id == "dec-1"
+
+
+async def test_reflect_degrades_when_model_returns_none():
+    model = FakeChatModel({Reflection: None})
+    decision = DecisionRecord(
+        initiative=Initiative(title="Add SSO", description="Enterprise SSO"),
+        recommendation=Recommendation(
+            recommendation="ship", confidence=0.5, rationale="r", expected_outcomes=[]
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    outcome = await reflect(decision, "It shipped late.", model)
+    assert outcome.failed is True
+    assert outcome.prediction_accuracy == 0.0

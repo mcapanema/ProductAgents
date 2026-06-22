@@ -1,6 +1,7 @@
 """Product Strategist node: synthesizes analyst reports and the debate."""
 
 from productagents.agents._format import format_initiative, format_transcript
+from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.schemas import AnalystReport, DebateTurn, Initiative, Recommendation
 
@@ -63,16 +64,18 @@ def _prompt(
 async def strategist_node(state: dict, model) -> dict:
     writer = get_writer()
     writer({"node": NODE_ID, "status": "synthesizing recommendation…"})
-    structured = model.with_structured_output(Recommendation)
     try:
-        recommendation = await structured.ainvoke(
+        recommendation = await invoke_structured(
+            model,
+            Recommendation,
             _prompt(
                 state["initiative"],
                 state["reports"],
                 state.get("debate", []),
                 state.get("prior_lessons", []),
                 state.get("judgment"),
-            )
+            ),
+            node=NODE_ID,
         )
         writer({"node": NODE_ID, "status": "done"})
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph

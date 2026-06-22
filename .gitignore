@@ -223,6 +223,9 @@ outcomes.jsonl
 # Claude Code git worktrees
 .claude/worktrees/
 
+# Claude Code local (machine-specific) settings
+.claude/settings.local.json
+
 # Ignore oxs files.
 .DS_Store
 
@@ -231,3 +234,7 @@ graphify-out
 
 # git worktrees (writing-plans execution)
 .worktrees/
+
+# Application log file (from logging_config.configure_logging)
+productagents.log
+productagents.log.*

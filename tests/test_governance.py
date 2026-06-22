@@ -71,3 +71,19 @@ async def test_governance_node_degrades_on_failure():
     assert verdict.failed is True
     assert verdict.verdict == "error"
     assert "unavailable" in verdict.rationale
+
+
+async def test_governance_degrades_when_model_returns_none():
+    model = FakeChatModel({GovernanceFinding: None})
+    state = {
+        "initiative": Initiative(title="Add SSO", description="Enterprise SSO"),
+        "recommendation": Recommendation(
+            recommendation="ship", confidence=0.5, rationale="r", expected_outcomes=[]
+        ),
+        "risks": [],
+        "portfolio": [],
+    }
+    result = await governance_node(state, model)
+    verdict = result["governance"]
+    assert verdict.failed is True
+    assert verdict.verdict == "error"

@@ -66,3 +66,19 @@ async def test_risk_node_degrades_on_failure():
     assert all(r.failed for r in risks)
     assert risks[0].level == "unknown"
     assert "unavailable" in risks[0].rationale
+
+
+async def test_risk_degrades_when_model_returns_none():
+    model = FakeChatModel({RiskFinding: None})
+    state = {
+        "initiative": Initiative(title="Add SSO", description="Enterprise SSO"),
+        "reports": [],
+        "debate": [],
+        "recommendation": Recommendation(
+            recommendation="ship", confidence=0.5, rationale="r", expected_outcomes=[]
+        ),
+    }
+    result = await risk_node(state, model)
+    assert len(result["risks"]) == 5
+    assert all(a.failed for a in result["risks"])
+    assert all(a.level == "unknown" for a in result["risks"])

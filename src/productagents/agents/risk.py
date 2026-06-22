@@ -13,6 +13,7 @@ from productagents.agents._format import (
     format_reports_brief,
     format_transcript,
 )
+from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.schemas import (
     AnalystReport,
@@ -63,12 +64,13 @@ def _prompt(
 
 async def risk_node(state: dict, model) -> dict:
     writer = get_writer()
-    structured = model.with_structured_output(RiskFinding)
     assessments: list[RiskAssessment] = []
     for reviewer, role in REVIEWERS:
         writer({"node": NODE_ID, "status": f"{role} assessing…"})
         try:
-            finding = await structured.ainvoke(
+            finding = await invoke_structured(
+                model,
+                RiskFinding,
                 _prompt(
                     reviewer,
                     role,
@@ -76,7 +78,8 @@ async def risk_node(state: dict, model) -> dict:
                     state["reports"],
                     state["debate"],
                     state["recommendation"],
-                )
+                ),
+                node=NODE_ID,
             )
             assessment = RiskAssessment(
                 reviewer=reviewer,

@@ -117,6 +117,23 @@ def test_get_judge_threshold_parsing(monkeypatch):
     assert get_judge_threshold() == DEFAULT_JUDGE_THRESHOLD
 
 
+async def test_judge_degrades_when_model_returns_none():
+    model = FakeChatModel({JudgeFinding: None})
+    state = {
+        "initiative": Initiative(title="Add SSO", description="Enterprise SSO"),
+        "recommendation": Recommendation(
+            recommendation="ship", confidence=0.5, rationale="r", expected_outcomes=[]
+        ),
+        "reports": [],
+        "debate": [],
+        "judge_attempts": 0,
+    }
+    result = await judge_node(state, model)
+    verdict = result["judgment"]
+    assert verdict.failed is True
+    assert verdict.passed is True  # a broken judge never blocks
+
+
 def test_get_judge_max_retries_parsing(monkeypatch):
     monkeypatch.delenv("PRODUCTAGENTS_JUDGE_MAX_RETRIES", raising=False)
     assert get_judge_max_retries() == DEFAULT_JUDGE_MAX_RETRIES
