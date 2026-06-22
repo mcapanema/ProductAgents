@@ -88,7 +88,27 @@ _THEME = Theme(
     dark=True,
 )
 
-_STATE_ICON = {"idle": "·", "running": "●", "done": "✓", "failed": "✗"}
+_STATE_ICON = {
+    "idle": "·",
+    "waiting": "◌",
+    "running": "●",
+    "done": "✓",
+    "failed": "✗",
+    "warning": "⚠",
+}
+
+# Spinner frames for the "running" state (a rotating filled circle).
+_SPINNER_FRAMES = "◐◓◑◒"
+
+# Downstream panels that depend on upstream output; they show "waiting" at the
+# start of a run until their first event flips them to running.
+_WAITING_AT_START = {
+    "debate-scroll",
+    "strategist",
+    "judgment",
+    "risk-scroll",
+    "governance",
+}
 
 
 class ProductAgentsApp(App):
@@ -262,12 +282,8 @@ class ProductAgentsApp(App):
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 continue
-            try:
-                widget = self.query_one(f"#{widget_id}")
-            except NoMatches:
-                continue
-            widget.remove_class("failed")
-            self._set_state(widget_id, "idle")
+            state = "waiting" if widget_id in _WAITING_AT_START else "idle"
+            self._set_state(widget_id, state)
 
     def action_reflect(self) -> None:
         if self._reflector is None:

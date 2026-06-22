@@ -599,6 +599,33 @@ async def test_app_panel_titles_show_state_icons():
         assert "✓" in str(app.query_one("#market").border_title)
 
 
+async def test_reset_panels_marks_downstream_waiting():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._reset_panels()
+        # Downstream panels wait on upstream output.
+        for widget_id in (
+            "debate-scroll",
+            "strategist",
+            "judgment",
+            "risk-scroll",
+            "governance",
+        ):
+            assert str(app.query_one(f"#{widget_id}").border_title).startswith("◌")
+        # Analysts and recall do not wait — they start immediately.
+        assert str(app.query_one("#technical").border_title).startswith("·")
+        assert str(app.query_one("#recall").border_title).startswith("·")
+
+
 async def test_app_uses_three_lane_layout_with_analyst_grid():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
