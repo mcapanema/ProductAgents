@@ -53,3 +53,21 @@ async def test_run_analyst_degrades_on_failure():
     assert report.findings == []
     assert report.signals == []
     assert report.analyst == "demo"
+
+
+async def test_run_analyst_degrades_when_model_returns_none():
+    # Reproduces "Product Analytics/Technical Analyst: 'NoneType' object has no
+    # attribute 'findings'": a non-tool-calling model returns None.
+    model = FakeChatModel({AnalystFindings: None})
+    result = await run_analyst(
+        _state(),
+        model,
+        analyst_id="demo",
+        role="Demo Analyst",
+        start_status="working…",
+        prompt=_prompt,
+    )
+    report = result["reports"][0]
+    assert report.failed is True
+    assert report.findings == []
+    assert report.signals == []

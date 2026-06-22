@@ -111,6 +111,21 @@ async def test_format_critique_empty_when_no_judgment():
     assert _format_critique(None) == ""
 
 
+async def test_strategist_degrades_when_model_returns_none():
+    model = FakeChatModel({Recommendation: None})
+    state = {
+        "initiative": Initiative(title="Add SSO", description="Enterprise SSO"),
+        "reports": [],
+        "debate": [],
+        "prior_lessons": [],
+        "judgment": None,
+    }
+    result = await strategist_node(state, model)
+    rec = result["recommendation"]
+    assert rec.failed is True
+    assert rec.confidence == 0.0
+
+
 async def test_strategist_injects_judge_critique_on_retry(monkeypatch):
     from productagents.agents import strategist as strategist_module
     from productagents.schemas import JudgeVerdict

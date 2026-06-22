@@ -9,6 +9,7 @@ shape; each analyst module supplies its own constants and `_prompt` builder.
 
 from collections.abc import Callable
 
+from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.schemas import AnalystFindings, AnalystReport, Evidence, Initiative
 
@@ -29,10 +30,12 @@ async def run_analyst(
     """
     writer = get_writer()
     writer({"node": analyst_id, "status": start_status})
-    structured = model.with_structured_output(AnalystFindings)
     try:
-        findings = await structured.ainvoke(
-            prompt(state["initiative"], state["evidence"])
+        findings = await invoke_structured(
+            model,
+            AnalystFindings,
+            prompt(state["initiative"], state["evidence"]),
+            node=analyst_id,
         )
         report = AnalystReport(
             analyst=analyst_id,
