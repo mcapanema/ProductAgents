@@ -82,23 +82,13 @@ The system continuously reflects on previous recommendations and uses those lear
 
 ## General Architecture
 
-ProductAgents follows a seven-stage decision-making architecture:
+ProductAgents follows a seven-stage decision-making architecture — a stable
+pipeline that turns raw evidence into governed, defensible product decisions and
+learns from every outcome:
 
-```text
-Evidence Collection
-        ↓
-Perspective Formation
-        ↓
-Structured Disagreement
-        ↓
-Decision Proposal
-        ↓
-Risk Evaluation
-        ↓
-Governance Approval
-        ↓
-Outcome Learning
-```
+<p align="center">
+  <img src="docs/images/general-architecture.png" alt="General Architecture — the seven-stage pipeline: Evidence Collection, Perspective Formation, Structured Disagreement, Decision Proposal, Risk Evaluation, Governance Approval, and Outcome Learning, wrapped by a continuous learning loop." width="900">
+</p>
 
 This architecture remains stable while agents, integrations, and organizational workflows can be customized for each company.
 
@@ -107,6 +97,13 @@ Given a proposed initiative, ProductAgents gathers evidence, debates the opportu
 ---
 
 ## Agent Architecture
+
+Specialised agents are organised into teams — gathering evidence, debating it,
+proposing a call, stress-testing risk, and governing the final decision.
+
+<p align="center">
+  <img src="docs/images/agent-architecture.png" alt="Agent Architecture — five teams in sequence: the Analyst Team (five parallel analysts), the Research Team (Opportunity Advocate vs. Skeptic), the Product Strategist, the Risk Team (five reviewers), and the Portfolio Manager (Approve / Reject / Request analysis)." width="900">
+</p>
 
 ### Analyst Team
 
@@ -294,7 +291,12 @@ Instead, it asks:
 
 ## The Six Layers
 
-ProductAgents is organized into six configurable layers.
+ProductAgents is organized into six configurable layers — wrapped by a memory
+that learns whether each decision was right.
+
+<p align="center">
+  <img src="docs/images/six-layers.png" alt="The Six Layers — Evidence Collection, Perspective Formation, Structured Disagreement, Decision Proposal, Risk Evaluation, and Governance Approval, plus the Organizational Memory loop that records decisions, measures outcomes, and feeds lessons back." width="900">
+</p>
 
 ### Layer 1 — Evidence Collection
 
