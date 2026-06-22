@@ -206,6 +206,15 @@ class ProductAgentsApp(App):
             self._open_home()
 
     def _set_state(self, widget_id: str, state: str) -> None:
+        try:
+            widget = self.query_one(f"#{widget_id}")
+        except NoMatches:
+            return
+        widget.remove_class("failed", "warning")
+        if state == "failed":
+            widget.add_class("failed")
+        elif state == "warning":
+            widget.add_class("warning")
         if state == "running":
             self._spinning.add(widget_id)
             self._ensure_spinner()
@@ -418,17 +427,21 @@ class ProductAgentsApp(App):
             f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
             f"{event.critique}"
         )
-        self._set_state("judgment", "done" if event.passed else "failed")
+        self._set_state("judgment", "done" if event.passed else "warning")
 
     def _on_governance_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
             f"[b]{event.verdict}[/b]\n\n{event.rationale}"
         )
+        state = "done" if event.verdict == "approve" else "warning"
+        self._set_state("governance", state)
 
     def _on_final_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
             f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n{event.rationale}"
         )
+        state = "done" if event.verdict == "approve" else "warning"
+        self._set_state("governance", state)
 
     def _on_recall(self, event) -> None:
         body = "\n".join(f"• {line}" for line in event.lessons) or (
@@ -461,11 +474,6 @@ class ProductAgentsApp(App):
 
     def _mark_failed(self, node: str) -> None:
         widget_id = _WIDGET_FOR_NODE.get(node, node)
-        try:
-            panel = self.query_one(f"#{widget_id}")
-        except NoMatches:
-            return
-        panel.add_class("failed")
         self._set_state(widget_id, "failed")
 
 

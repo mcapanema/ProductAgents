@@ -3,7 +3,12 @@ from functools import partial
 from textual.widgets import Button
 
 from productagents.graph import build_graph
-from productagents.runner import run_decision
+from productagents.runner import (
+    FinalVerdictEvent,
+    GovernanceVerdictEvent,
+    JudgmentEvent,
+    run_decision,
+)
 from productagents.schemas import (
     AnalystFindings,
     DebateArgument,
@@ -713,3 +718,55 @@ async def test_running_state_shows_advancing_spinner_that_stops_on_done():
         app._set_state("market", "done")
         assert "market" not in app._spinning
         assert str(app.query_one("#market").border_title).startswith("✓")
+
+
+async def test_judgment_failure_shows_warning():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._on_judgment(
+            JudgmentEvent(
+                evidence_grounding_score=0.4,
+                rationale_coherence_score=0.5,
+                passed=False,
+                critique="weak grounding",
+                attempt=1,
+            )
+        )
+        panel = app.query_one("#judgment")
+        assert str(panel.border_title).startswith("⚠")
+        assert panel.has_class("warning")
+
+
+async def test_governance_non_approve_warns_then_approval_clears_it():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._on_governance_verdict(
+            GovernanceVerdictEvent(verdict="reject", rationale="not now")
+        )
+        gov = app.query_one("#governance")
+        assert str(gov.border_title).startswith("⚠")
+        assert gov.has_class("warning")
+        # A human override to approve clears the warning.
+        app._on_final_verdict(
+            FinalVerdictEvent(verdict="approve", rationale="ok", decided_by="human")
+        )
+        assert str(gov.border_title).startswith("✓")
+        assert not gov.has_class("warning")
