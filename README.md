@@ -529,6 +529,29 @@ export PRODUCTAGENTS_MODEL_PROVIDER="openai"
 export OPENAI_API_KEY="sk-..."
 ```
 
+#### OpenRouter free models
+
+[OpenRouter](https://openrouter.ai) exposes many models — including a free
+tier — behind one API key. Set a `openrouter:`-prefixed model id and your
+OpenRouter key:
+
+```bash
+export PRODUCTAGENTS_MODEL="openrouter:deepseek/deepseek-chat-v3-0324:free"
+export OPENROUTER_API_KEY="sk-or-..."
+```
+
+Leave `PRODUCTAGENTS_MODEL_PROVIDER` unset — the `openrouter:` prefix selects
+the provider, and the `:free` suffix is preserved as part of the model id.
+
+**Pick a model that supports tool/function calling.** Every stage in the
+pipeline uses structured output (`with_structured_output`, which defaults to
+function calling), so a free model without tool support will make each node
+fall back to a placeholder result rather than fail loudly. Known-good free
+options include `deepseek/deepseek-chat-v3-0324:free`,
+`meta-llama/llama-3.3-70b-instruct:free`, and
+`google/gemini-2.0-flash-exp:free`. Expect free-tier rate limits — runs may be
+slower or occasionally throttled.
+
 ### Run
 
 ```bash
