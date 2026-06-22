@@ -37,7 +37,9 @@ PROVIDERS: dict[str, ProviderInfo] = {
     "xai": ProviderInfo("xAI (Grok)", "XAI_API_KEY", "xai:grok-2"),
     "deepseek": ProviderInfo("DeepSeek", "DEEPSEEK_API_KEY", "deepseek:deepseek-chat"),
     "openrouter": ProviderInfo(
-        "OpenRouter", "OPENROUTER_API_KEY", "openrouter:openai/gpt-4o"
+        "OpenRouter",
+        "OPENROUTER_API_KEY",
+        "openrouter:deepseek/deepseek-chat-v3-0324:free",
     ),
     "groq": ProviderInfo("Groq", "GROQ_API_KEY", "groq:llama-3.3-70b-versatile"),
     "mistralai": ProviderInfo(

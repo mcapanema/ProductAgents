@@ -149,3 +149,15 @@ def test_write_env_preserves_existing_lines(tmp_path, monkeypatch):
     contents = env_file.read_text()
     assert "EXISTING_VAR=keep-me" in contents
     assert "sk-openai" in contents
+
+
+def test_openrouter_default_is_a_free_tool_calling_model():
+    """The OpenRouter provider defaults to a free model.
+
+    The pipeline drives every node through `with_structured_output`
+    (`method="function_calling"` by default), so the default free model must
+    support tool/function calling — deepseek-chat-v3 does.
+    """
+    info = PROVIDERS["openrouter"]
+    assert info.default_model == "openrouter:deepseek/deepseek-chat-v3-0324:free"
+    assert info.default_model.endswith(":free")
