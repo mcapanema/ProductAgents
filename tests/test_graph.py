@@ -1,4 +1,13 @@
+import pytest
+
 from productagents.graph import build_graph
+from productagents.runner import (
+    FinishedEvent,
+    GovernanceVerdictEvent,
+    JudgmentEvent,
+    RiskAssessmentEvent,
+    run_decision,
+)
 from productagents.schemas import (
     AnalystFindings,
     DebateArgument,
@@ -158,3 +167,37 @@ async def test_graph_judge_score_only_when_retries_zero(monkeypatch):
     assert final["judge_attempts"] == 1  # scored once, never looped
     assert final["judgment"].passed is False
     assert final["governance"].verdict == "approve"
+
+
+@pytest.fixture
+def _failed_strategist_model():
+    return FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["demand"], signals=["tickets"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: RuntimeError("Provider returned error"),
+        }
+    )
+
+
+async def test_failed_recommendation_ends_run_before_governance(
+    _failed_strategist_model,  # noqa: PT019
+    monkeypatch,
+):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    graph = build_graph(_failed_strategist_model, human_in_the_loop=True)
+    evidence = Evidence(
+        scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
+    )
+    initiative = Initiative(title="SSO", description="SSO")
+
+    events = [e async for e in run_decision(graph, initiative, evidence)]
+
+    # No judge, risk, or governance events: the run fails fast at the strategist.
+    assert not any(isinstance(e, JudgmentEvent) for e in events)
+    assert not any(isinstance(e, RiskAssessmentEvent) for e in events)
+    assert not any(isinstance(e, GovernanceVerdictEvent) for e in events)
+    finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.recommendation is not None
+    assert finished.recommendation.failed is True
+    assert finished.governance is None

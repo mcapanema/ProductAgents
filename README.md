@@ -150,6 +150,8 @@ export OPENROUTER_API_KEY="sk-or-..."
 ```
 
 > **Pick a model that supports tool/function calling.** Every stage uses structured output, so a model without tool support falls back to placeholder results rather than failing loudly. Known-good free options: `deepseek/deepseek-chat-v3-0324:free`, `meta-llama/llama-3.3-70b-instruct:free`, `google/gemini-2.0-flash-exp:free`. Expect free-tier rate limits.
+>
+> Free OpenRouter models are rate-limited and frequently return transient "Provider returned error" responses under load. `PRODUCTAGENTS_MAX_RETRIES` (default 6) retries these with backoff; if a model hits a hard daily cap, switch to a keyed/paid model.
 
 ### Tuning (optional)
 
@@ -157,6 +159,7 @@ export OPENROUTER_API_KEY="sk-or-..."
 export PRODUCTAGENTS_DEBATE_ROUNDS=2     # each round = one advocate argument + one skeptic rebuttal
 export PRODUCTAGENTS_JUDGE_THRESHOLD=0.7 # min score (0-1) for evidence grounding & rationale coherence
 export PRODUCTAGENTS_JUDGE_MAX_RETRIES=1 # times the judge can loop back to the strategist; 0 = score-only
+export PRODUCTAGENTS_MAX_RETRIES=6      # retry budget (with backoff) for transient provider errors
 ```
 
 ### Run

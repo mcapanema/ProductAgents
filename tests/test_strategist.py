@@ -41,6 +41,7 @@ async def test_strategist_failure_yields_zero_confidence():
     rec = result["recommendation"]
     assert rec.confidence == 0.0
     assert "unable" in rec.recommendation.lower()
+    assert rec.failed is True
 
 
 async def test_strategist_includes_debate_in_prompt(monkeypatch):

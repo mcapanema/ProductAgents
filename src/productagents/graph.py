@@ -48,6 +48,14 @@ class GraphState(TypedDict):
     judge_attempts: int
 
 
+def _route_after_strategist(state) -> str:
+    """Fail fast: end the run when the strategist could not produce a rec."""
+    recommendation = state.get("recommendation")
+    if recommendation is None or recommendation.failed:
+        return END
+    return "judge"
+
+
 def _route_after_judge(state) -> str:
     """Route forward to risk on pass/exhausted retries, else back to strategist."""
     judgment = state.get("judgment")
@@ -92,7 +100,11 @@ def build_graph(model, *, human_in_the_loop: bool = False):
     graph.add_edge("business", "debate")
     graph.add_edge("technical", "debate")
     graph.add_edge("debate", "strategist")
-    graph.add_edge("strategist", "judge")
+    graph.add_conditional_edges(
+        "strategist",
+        _route_after_strategist,
+        {"judge": "judge", END: END},
+    )
     graph.add_conditional_edges(
         "judge",
         _route_after_judge,
