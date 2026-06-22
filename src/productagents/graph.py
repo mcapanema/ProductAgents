@@ -12,6 +12,7 @@ from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node
 from productagents.agents.governance import governance_node
 from productagents.agents.human_approval import human_approval_node
+from productagents.agents.judge import get_judge_max_retries, judge_node
 from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
 from productagents.agents.recall import recall_node
@@ -25,6 +26,7 @@ from productagents.schemas import (
     Evidence,
     GovernanceVerdict,
     Initiative,
+    JudgeVerdict,
     OutcomeRecord,
     Recommendation,
     RiskAssessment,
@@ -42,6 +44,18 @@ class GraphState(TypedDict):
     outcomes: list[OutcomeRecord]
     prior_lessons: list[str]
     governance: GovernanceVerdict | None
+    judgment: JudgeVerdict | None
+    judge_attempts: int
+
+
+def _route_after_judge(state) -> str:
+    """Route forward to risk on pass/exhausted retries, else back to strategist."""
+    judgment = state.get("judgment")
+    if judgment is None or judgment.passed:
+        return "risk"
+    if state.get("judge_attempts", 0) > get_judge_max_retries():
+        return "risk"
+    return "strategist"
 
 
 def build_graph(model, *, human_in_the_loop: bool = False):
@@ -62,6 +76,7 @@ def build_graph(model, *, human_in_the_loop: bool = False):
     graph.add_node("recall", recall_node)
     graph.add_node("debate", partial(debate_node, model=model))
     graph.add_node("strategist", partial(strategist_node, model=model))
+    graph.add_node("judge", partial(judge_node, model=model))
     graph.add_node("risk", partial(risk_node, model=model))
     graph.add_node("governance", partial(governance_node, model=model))
 
@@ -77,7 +92,12 @@ def build_graph(model, *, human_in_the_loop: bool = False):
     graph.add_edge("business", "debate")
     graph.add_edge("technical", "debate")
     graph.add_edge("debate", "strategist")
-    graph.add_edge("strategist", "risk")
+    graph.add_edge("strategist", "judge")
+    graph.add_conditional_edges(
+        "judge",
+        _route_after_judge,
+        {"strategist": "strategist", "risk": "risk"},
+    )
     graph.add_edge("risk", "governance")
 
     if human_in_the_loop:

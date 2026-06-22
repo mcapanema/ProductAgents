@@ -9,6 +9,7 @@ from productagents.schemas import (
     DebateArgument,
     Evidence,
     GovernanceFinding,
+    JudgeFinding,
     Recommendation,
     RiskFinding,
 )
@@ -29,6 +30,11 @@ def _runner_and_evidence():
                 confidence=0.81,
                 rationale="strong demand",
                 expected_outcomes=["enterprise unblock"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
             ),
             RiskFinding: RiskFinding(level="medium", rationale="some delivery risk"),
             GovernanceFinding: GovernanceFinding(
@@ -624,6 +630,32 @@ async def test_app_uses_three_lane_layout_with_analyst_grid():
         app.query_one("#risk")
         app.query_one("#governance")
         app.query_one("#strategist")
+        app.query_one("#judgment")
         app.query_one("#recall")
         app.query_one("#evidence-provenance")
         app.query_one("#status-log")
+
+
+async def test_app_renders_and_records_judgment(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    runner, evidence = _runner_and_evidence()
+    recorded = []
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=recorded.append,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        judge_text = str(pilot.app.query_one("#judgment").content)
+
+    assert "PASS" in judge_text
+    assert len(recorded) == 1
+    assert recorded[0].judgment is not None
+    assert recorded[0].judgment.passed is True

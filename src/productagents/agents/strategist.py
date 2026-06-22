@@ -25,11 +25,26 @@ def _format_lessons(lessons: list[str]) -> str:
     return "\n".join(f"- {lesson}" for lesson in lessons)
 
 
+def _format_critique(judgment) -> str:
+    if judgment is None:
+        return ""
+    return (
+        "\n\nIMPORTANT - a prior version of your recommendation was reviewed by a "
+        "quality judge and did NOT pass. Revise it to address this critique:\n"
+        f"- Evidence grounding score: {judgment.evidence_grounding_score:.2f} "
+        "(improve this)\n"
+        f"- Rationale coherence score: {judgment.rationale_coherence_score:.2f} "
+        "(improve this)\n"
+        f"- Critique: {judgment.critique}\n"
+    )
+
+
 def _prompt(
     initiative: Initiative,
     reports: list[AnalystReport],
     debate: list[DebateTurn],
     prior_lessons: list[str],
+    judgment=None,
 ) -> str:
     return (
         "You are a Product Strategist. Synthesize the analyst reports AND the "
@@ -42,6 +57,7 @@ def _prompt(
         f"Analyst reports:\n{_format_reports(reports)}\n\n"
         f"Debate transcript:\n{format_transcript(debate)}\n\n"
         f"Lessons from past decisions:\n{_format_lessons(prior_lessons)}\n"
+        f"{_format_critique(judgment)}"
     )
 
 
@@ -56,6 +72,7 @@ async def strategist_node(state: dict, model) -> dict:
                 state["reports"],
                 state.get("debate", []),
                 state.get("prior_lessons", []),
+                state.get("judgment"),
             )
         )
         writer({"node": NODE_ID, "status": "done"})

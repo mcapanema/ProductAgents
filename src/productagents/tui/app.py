@@ -27,6 +27,7 @@ from productagents.runner import (
     FinalVerdictEvent,
     FinishedEvent,
     GovernanceVerdictEvent,
+    JudgmentEvent,
     NodeCompleteEvent,
     NodeErrorEvent,
     ProgressEvent,
@@ -49,6 +50,7 @@ _TITLES = {
     "technical": "Technical Analyst",
     "recall": "Lessons from Past Decisions",
     "strategist": "Product Strategist",
+    "judgment": "Quality Judge",
     "evidence-provenance": "Evidence Sources",
     "debate-scroll": "Advocate vs Skeptic Debate",
     "risk-scroll": "Risk Team",
@@ -162,6 +164,7 @@ class ProductAgentsApp(App):
                     yield Static("Waiting…", id="debate")
             with Vertical(id="right-lane"):
                 yield Static("Waiting…", id="strategist", classes="panel")
+                yield Static("Waiting…", id="judgment", classes="panel")
                 with VerticalScroll(id="risk-scroll"):
                     yield Static("Waiting…", id="risk")
                 yield Static("Waiting…", id="governance", classes="panel")
@@ -248,6 +251,7 @@ class ProductAgentsApp(App):
         self.query_one("#debate", Static).update("…")
         self.query_one("#risk", Static).update("…")
         self.query_one("#governance", Static).update("…")
+        self.query_one("#judgment", Static).update("…")
         self._status_lines = []
         self.query_one("#status-log", Static).update("")
         for widget_id in _TITLES:
@@ -285,6 +289,7 @@ class ProductAgentsApp(App):
         debate = []
         risks = []
         governance = None
+        judgment = None
         prior_lessons: list[str] = []
         portfolio = self._reader()
         outcomes = self._outcome_reader()
@@ -337,6 +342,15 @@ class ProductAgentsApp(App):
                     self.query_one("#risk", Static).update(
                         "\n\n".join(self._risk_lines)
                     )
+                elif isinstance(event, JudgmentEvent):
+                    status = "PASS" if event.passed else "FAIL"
+                    self.query_one("#judgment", Static).update(
+                        f"[b]{status}[/b] (attempt {event.attempt})\n\n"
+                        f"Evidence: {event.evidence_grounding_score:.0%}  "
+                        f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
+                        f"{event.critique}"
+                    )
+                    self._set_state("judgment", "done" if event.passed else "failed")
                 elif isinstance(event, GovernanceVerdictEvent):
                     self.query_one("#governance", Static).update(
                         f"[b]{event.verdict}[/b]\n\n{event.rationale}"
@@ -358,6 +372,7 @@ class ProductAgentsApp(App):
                     debate = event.debate
                     risks = event.risks
                     governance = event.governance
+                    judgment = event.judgment
                     prior_lessons = event.prior_lessons
                     self._render_recommendation(recommendation)
                     self._set_state("strategist", "done")
@@ -374,6 +389,7 @@ class ProductAgentsApp(App):
                     debate=debate,
                     risks=risks,
                     governance=governance,
+                    judgment=judgment,
                     prior_lessons=prior_lessons,
                     evidence_sources=evidence.sources,
                     timestamp=datetime.now(UTC).isoformat(),

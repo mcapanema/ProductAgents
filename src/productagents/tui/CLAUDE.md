@@ -19,9 +19,9 @@ dataclasses and knows nothing about LangGraph. `main()` (in `app.py`) is the
 `app._run` iterates `self._runner(...)` and dispatches by event type:
 `ProgressEvent`/`NodeCompleteEvent` → analyst panels (gated by `_PANELS`),
 `DebateTurnEvent` → debate scroll, `RiskAssessmentEvent` → risk scroll,
-`GovernanceVerdictEvent`/`FinalVerdictEvent` → governance panel, `RecallEvent` →
-lessons panel, `FinishedEvent` → render the recommendation and persist a
-`DecisionRecord`. Any new event type needs a branch here **and** (usually) a
+`GovernanceVerdictEvent`/`FinalVerdictEvent` → governance panel, `JudgmentEvent`
+→ quality-judge panel, `RecallEvent` → lessons panel, `FinishedEvent` → render
+the recommendation and persist a `DecisionRecord` (now including `judgment`). Any new event type needs a branch here **and** (usually) a
 `_PANELS` entry, or it is silently dropped.
 
 ## Dependency-injection seams
