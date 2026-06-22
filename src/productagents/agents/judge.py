@@ -6,10 +6,14 @@ configurable threshold. The graph uses the verdict to route the recommendation
 forward to risk or back to the strategist for a bounded revision.
 """
 
-import os
-
-from productagents.agents._format import format_reports_brief, format_transcript
+from productagents.agents._format import (
+    format_initiative,
+    format_recommendation,
+    format_reports_brief,
+    format_transcript,
+)
 from productagents.agents._stream import get_writer
+from productagents.config import env_float, env_int
 from productagents.schemas import (
     AnalystReport,
     DebateTurn,
@@ -30,26 +34,19 @@ DEFAULT_JUDGE_MAX_RETRIES = 1
 
 def get_judge_threshold() -> float:
     """Return the configured pass threshold for both dimensions (default 0.7)."""
-    raw = os.environ.get("PRODUCTAGENTS_JUDGE_THRESHOLD")
-    if raw is None:
-        return DEFAULT_JUDGE_THRESHOLD
-    try:
-        value = float(raw)
-    except ValueError:
-        return DEFAULT_JUDGE_THRESHOLD
-    return value if 0.0 <= value <= 1.0 else DEFAULT_JUDGE_THRESHOLD
+    return env_float(
+        "PRODUCTAGENTS_JUDGE_THRESHOLD",
+        DEFAULT_JUDGE_THRESHOLD,
+        minimum=0.0,
+        maximum=1.0,
+    )
 
 
 def get_judge_max_retries() -> int:
     """Return the configured max strategist revisions (default 1; 0 = score-only)."""
-    raw = os.environ.get("PRODUCTAGENTS_JUDGE_MAX_RETRIES")
-    if raw is None:
-        return DEFAULT_JUDGE_MAX_RETRIES
-    try:
-        value = int(raw)
-    except ValueError:
-        return DEFAULT_JUDGE_MAX_RETRIES
-    return value if value >= 0 else DEFAULT_JUDGE_MAX_RETRIES
+    return env_int(
+        "PRODUCTAGENTS_JUDGE_MAX_RETRIES", DEFAULT_JUDGE_MAX_RETRIES, minimum=0
+    )
 
 
 def _prompt(
@@ -67,12 +64,8 @@ def _prompt(
         "stated rationale and expected outcomes, with no internal contradictions?\n"
         "Also give a short, specific, actionable critique the strategist can use "
         "to revise.\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
-        f"Recommendation: {recommendation.recommendation}\n"
-        f"Confidence: {recommendation.confidence}\n"
-        f"Rationale: {recommendation.rationale}\n"
-        f"Expected outcomes: {recommendation.expected_outcomes}\n\n"
+        f"{format_initiative(initiative)}\n\n"
+        f"{format_recommendation(recommendation)}\n\n"
         f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
         f"Debate transcript:\n{format_transcript(debate)}\n"
     )

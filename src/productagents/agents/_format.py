@@ -7,7 +7,27 @@ reports are context rather than the subject; the strategist keeps its own
 detailed, failure-annotated rendering locally because it is the only consumer.
 """
 
-from productagents.schemas import AnalystReport, DebateTurn
+from productagents.schemas import AnalystReport, DebateTurn, Initiative, Recommendation
+
+
+def format_initiative(initiative: Initiative) -> str:
+    """Render the shared two-line initiative header used by every prompt."""
+    return f"Initiative: {initiative.title}\nDescription: {initiative.description}"
+
+
+def format_recommendation(recommendation: Recommendation | None) -> str:
+    """Render the strategist's recommendation as a prompt block.
+
+    The canonical shape shared by the risk, judge, and governance prompts.
+    """
+    if recommendation is None:
+        return "(no recommendation)"
+    return (
+        f"Recommendation: {recommendation.recommendation}\n"
+        f"Confidence: {recommendation.confidence:.0%}\n"
+        f"Rationale: {recommendation.rationale}\n"
+        f"Expected outcomes: {recommendation.expected_outcomes}"
+    )
 
 
 def format_reports_brief(reports: list[AnalystReport]) -> str:

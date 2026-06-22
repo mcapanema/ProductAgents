@@ -92,6 +92,56 @@ class FinishedEvent:
     judgment: JudgeVerdict | None = None
 
 
+def _build_debate_turn(chunk: dict) -> DebateTurnEvent:
+    turn = chunk["turn"]
+    return DebateTurnEvent(
+        round=turn["round"], side=turn["side"], argument=turn["argument"]
+    )
+
+
+def _build_risk_assessment(chunk: dict) -> RiskAssessmentEvent:
+    a = chunk["assessment"]
+    return RiskAssessmentEvent(
+        reviewer=a["reviewer"],
+        role=a["role"],
+        level=a["level"],
+        rationale=a["rationale"],
+    )
+
+
+def _build_final_verdict(chunk: dict) -> FinalVerdictEvent:
+    fv = chunk["final_verdict"]
+    return FinalVerdictEvent(
+        verdict=fv["verdict"], rationale=fv["rationale"], decided_by=fv["decided_by"]
+    )
+
+
+def _build_judgment(chunk: dict) -> JudgmentEvent:
+    j = chunk["judgment"]
+    return JudgmentEvent(
+        evidence_grounding_score=j["evidence_grounding_score"],
+        rationale_coherence_score=j["rationale_coherence_score"],
+        passed=j["passed"],
+        critique=j["critique"],
+        attempt=j["attempt"],
+    )
+
+
+def _build_governance_verdict(chunk: dict) -> GovernanceVerdictEvent:
+    v = chunk["verdict"]
+    return GovernanceVerdictEvent(verdict=v["verdict"], rationale=v["rationale"])
+
+
+# Ordered so the first matching key wins, mirroring the original elif chain.
+_CUSTOM_BUILDERS = (
+    ("turn", _build_debate_turn),
+    ("assessment", _build_risk_assessment),
+    ("final_verdict", _build_final_verdict),
+    ("judgment", _build_judgment),
+    ("verdict", _build_governance_verdict),
+)
+
+
 async def run_decision(
     graph,
     initiative: Initiative,
@@ -154,51 +204,19 @@ async def run_decision(
             stream_input, config, stream_mode=["updates", "custom"]
         ):
             if mode == "custom":
-                if "turn" in chunk:
-                    turn = chunk["turn"]
-                    yield DebateTurnEvent(
-                        round=turn["round"],
-                        side=turn["side"],
-                        argument=turn["argument"],
-                    )
-                elif "assessment" in chunk:
-                    a = chunk["assessment"]
-                    yield RiskAssessmentEvent(
-                        reviewer=a["reviewer"],
-                        role=a["role"],
-                        level=a["level"],
-                        rationale=a["rationale"],
-                    )
-                elif "final_verdict" in chunk:
-                    fv = chunk["final_verdict"]
-                    yield FinalVerdictEvent(
-                        verdict=fv["verdict"],
-                        rationale=fv["rationale"],
-                        decided_by=fv["decided_by"],
-                    )
-                elif "judgment" in chunk:
-                    j = chunk["judgment"]
-                    yield JudgmentEvent(
-                        evidence_grounding_score=j["evidence_grounding_score"],
-                        rationale_coherence_score=j["rationale_coherence_score"],
-                        passed=j["passed"],
-                        critique=j["critique"],
-                        attempt=j["attempt"],
-                    )
-                elif "verdict" in chunk:
-                    v = chunk["verdict"]
-                    yield GovernanceVerdictEvent(
-                        verdict=v["verdict"],
-                        rationale=v["rationale"],
-                    )
-                elif "error" in chunk:
-                    yield NodeErrorEvent(
-                        node=chunk.get("node", ""), message=chunk["error"]
-                    )
+                for key, builder in _CUSTOM_BUILDERS:
+                    if key in chunk:
+                        yield builder(chunk)
+                        break
                 else:
-                    yield ProgressEvent(
-                        node=chunk.get("node", ""), message=chunk.get("status", "")
-                    )
+                    if "error" in chunk:
+                        yield NodeErrorEvent(
+                            node=chunk.get("node", ""), message=chunk["error"]
+                        )
+                    else:
+                        yield ProgressEvent(
+                            node=chunk.get("node", ""), message=chunk.get("status", "")
+                        )
             elif mode == "updates":
                 if "__interrupt__" in chunk:
                     pending_interrupt = chunk["__interrupt__"][0].value

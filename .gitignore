@@ -228,3 +228,6 @@ outcomes.jsonl
 
 # Ignore graphify-out
 graphify-out
+
+# git worktrees (writing-plans execution)
+.worktrees/

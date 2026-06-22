@@ -1,4 +1,9 @@
-from productagents.memory import read_decisions, record_decision
+from productagents.memory import (
+    read_decisions,
+    read_outcomes,
+    record_decision,
+    record_outcome,
+)
 from productagents.schemas import (
     AnalystReport,
     DecisionRecord,
@@ -80,8 +85,6 @@ def _outcome():
 
 
 def test_record_then_read_outcomes_round_trips(tmp_path):
-    from productagents.memory import read_outcomes, record_outcome
-
     path = tmp_path / "outcomes.jsonl"
     outcome = _outcome()
     record_outcome(outcome, path=path)
@@ -89,8 +92,6 @@ def test_record_then_read_outcomes_round_trips(tmp_path):
 
 
 def test_outcomes_append(tmp_path):
-    from productagents.memory import read_outcomes, record_outcome
-
     path = tmp_path / "outcomes.jsonl"
     record_outcome(_outcome(), path=path)
     record_outcome(_outcome(), path=path)
@@ -98,14 +99,10 @@ def test_outcomes_append(tmp_path):
 
 
 def test_read_missing_outcomes_returns_empty(tmp_path):
-    from productagents.memory import read_outcomes
-
     assert read_outcomes(path=tmp_path / "nope.jsonl") == []
 
 
 def test_read_outcomes_skips_invalid_records(tmp_path):
-    from productagents.memory import read_outcomes, record_outcome
-
     path = tmp_path / "outcomes.jsonl"
     # prediction_accuracy out of [0, 1] is invalid and must be skipped.
     path.write_text(
@@ -216,3 +213,13 @@ def test_respects_limit():
     initiative = Initiative(title="Add SSO", description="Enterprise SSO")
     lessons = select_relevant_lessons(initiative, decisions, outcomes, limit=2)
     assert len(lessons) == 2
+
+
+def test_read_outcomes_skips_blank_and_invalid_lines(tmp_path):
+    path = tmp_path / "outcomes.jsonl"
+    outcome = _outcome()
+    record_outcome(outcome, path=path)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("\n")  # blank line skipped
+        handle.write("{not valid json}\n")  # invalid line skipped
+    assert read_outcomes(path=path) == [outcome]

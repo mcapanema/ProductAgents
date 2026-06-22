@@ -10,6 +10,7 @@ than crashing.
 
 from datetime import UTC, datetime
 
+from productagents.agents._format import format_initiative
 from productagents.schemas import DecisionRecord, OutcomeRecord, Reflection
 
 ROLE = "Outcome Reflection Analyst"
@@ -22,8 +23,7 @@ def _prompt(decision: DecisionRecord, outcome_note: str) -> str:
         "actually turned out. Compare the predicted expected outcomes against what "
         "actually happened, assign a prediction accuracy between 0 and 1, and "
         "extract concrete lessons for future decisions.\n\n"
-        f"Initiative: {decision.initiative.title}\n"
-        f"Description: {decision.initiative.description}\n\n"
+        f"{format_initiative(decision.initiative)}\n\n"
         f"Recommendation made: {rec.recommendation}\n"
         f"Predicted confidence: {rec.confidence}\n"
         f"Expected outcomes (predicted): {rec.expected_outcomes}\n\n"

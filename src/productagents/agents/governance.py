@@ -11,6 +11,7 @@ graph state. Prior decisions arrive via state (read at the UI boundary); the
 node never touches the filesystem.
 """
 
+from productagents.agents._format import format_initiative, format_recommendation
 from productagents.agents._stream import get_writer
 from productagents.schemas import (
     DecisionRecord,
@@ -26,17 +27,6 @@ ROLE = "Product Portfolio Manager"
 
 # How many of the most recent prior decisions to show as portfolio context.
 _PORTFOLIO_WINDOW = 5
-
-
-def _format_recommendation(recommendation: Recommendation | None) -> str:
-    if recommendation is None:
-        return "(no recommendation)"
-    return (
-        f"{recommendation.recommendation} "
-        f"(confidence {recommendation.confidence:.0%})\n"
-        f"Rationale: {recommendation.rationale}\n"
-        f"Expected outcomes: {recommendation.expected_outcomes}"
-    )
 
 
 def _format_risks(risks: list[RiskAssessment]) -> str:
@@ -73,9 +63,8 @@ def _prompt(
         "below, weigh them against the recent portfolio of prior decisions, and "
         "provide your advisory verdict. Your verdict must be one of: approve, "
         "reject, request_analysis. Justify it.\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
-        f"Recommendation:\n{_format_recommendation(recommendation)}\n\n"
+        f"{format_initiative(initiative)}\n\n"
+        f"Recommendation:\n{format_recommendation(recommendation)}\n\n"
         f"Risk assessments:\n{_format_risks(risks)}\n\n"
         f"Recent portfolio:\n{_format_portfolio(portfolio)}\n"
     )
