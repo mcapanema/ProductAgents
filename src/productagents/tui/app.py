@@ -34,6 +34,7 @@ from productagents.runner import (
     ProgressEvent,
     RecallEvent,
     RiskAssessmentEvent,
+    RunAbortedEvent,
     run_decision,
 )
 from productagents.schemas import DecisionRecord, GovernanceVerdict, Initiative
@@ -343,6 +344,7 @@ class ProductAgentsApp(App):
             ProgressEvent: self._on_progress,
             NodeCompleteEvent: self._on_node_complete,
             NodeErrorEvent: self._on_node_error,
+            RunAbortedEvent: self._on_run_aborted,
             DebateTurnEvent: self._on_debate_turn,
             RiskAssessmentEvent: self._on_risk_assessment,
             JudgmentEvent: self._on_judgment,
@@ -436,6 +438,11 @@ class ProductAgentsApp(App):
         label = _TITLES.get(_WIDGET_FOR_NODE.get(event.node, event.node), event.node)
         self._log_status(f"{label}: {event.message}", level="error")
         self._mark_failed(event.node)
+
+    def _on_run_aborted(self, event) -> None:
+        self._log_status(f"run aborted — {event.message}", level="error")
+        if event.node:
+            self._mark_failed(event.node)
 
     def _on_debate_turn(self, event) -> None:
         self._debate_lines.append(
