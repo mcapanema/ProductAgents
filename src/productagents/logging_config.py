@@ -16,7 +16,6 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any
 
 DEFAULT_LOG_FILE = "productagents.log"
 DEFAULT_LEVEL = "INFO"
@@ -49,8 +48,7 @@ def configure_logging() -> Path:
     handler = RotatingFileHandler(
         log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
-    cast_handler: Any = handler
-    cast_handler._productagents_handler = True
+    handler._productagents_handler = True  # ty: ignore  # marker for idempotent re-config
     handler.setFormatter(logging.Formatter(_FORMAT))
     logger.addHandler(handler)
 
