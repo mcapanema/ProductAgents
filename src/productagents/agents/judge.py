@@ -6,7 +6,11 @@ configurable threshold. The graph uses the verdict to route the recommendation
 forward to risk or back to the strategist for a bounded revision.
 """
 
-from productagents.agents._format import format_reports_brief, format_transcript
+from productagents.agents._format import (
+    format_initiative,
+    format_reports_brief,
+    format_transcript,
+)
 from productagents.agents._stream import get_writer
 from productagents.config import env_float, env_int
 from productagents.schemas import (
@@ -59,8 +63,7 @@ def _prompt(
         "stated rationale and expected outcomes, with no internal contradictions?\n"
         "Also give a short, specific, actionable critique the strategist can use "
         "to revise.\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
+        f"{format_initiative(initiative)}\n\n"
         f"Recommendation: {recommendation.recommendation}\n"
         f"Confidence: {recommendation.confidence}\n"
         f"Rationale: {recommendation.rationale}\n"

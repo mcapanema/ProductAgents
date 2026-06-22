@@ -1,6 +1,6 @@
 """Product Strategist node: synthesizes analyst reports and the debate."""
 
-from productagents.agents._format import format_transcript
+from productagents.agents._format import format_initiative, format_transcript
 from productagents.agents._stream import get_writer
 from productagents.schemas import AnalystReport, DebateTurn, Initiative, Recommendation
 
@@ -52,8 +52,7 @@ def _prompt(
         "recommendation, a confidence score between 0 and 1, a rationale, and "
         "expected outcomes. Apply the lessons from past decisions where they are "
         "relevant.\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
+        f"{format_initiative(initiative)}\n\n"
         f"Analyst reports:\n{_format_reports(reports)}\n\n"
         f"Debate transcript:\n{format_transcript(debate)}\n\n"
         f"Lessons from past decisions:\n{_format_lessons(prior_lessons)}\n"

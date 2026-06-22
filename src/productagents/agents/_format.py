@@ -7,7 +7,12 @@ reports are context rather than the subject; the strategist keeps its own
 detailed, failure-annotated rendering locally because it is the only consumer.
 """
 
-from productagents.schemas import AnalystReport, DebateTurn
+from productagents.schemas import AnalystReport, DebateTurn, Initiative
+
+
+def format_initiative(initiative: Initiative) -> str:
+    """Render the shared two-line initiative header used by every prompt."""
+    return f"Initiative: {initiative.title}\nDescription: {initiative.description}"
 
 
 def format_reports_brief(reports: list[AnalystReport]) -> str:

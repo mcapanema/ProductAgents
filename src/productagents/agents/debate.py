@@ -7,7 +7,11 @@ emitted as a custom stream event for live rendering and collected into a
 structured transcript returned in graph state.
 """
 
-from productagents.agents._format import format_reports_brief, format_transcript
+from productagents.agents._format import (
+    format_initiative,
+    format_reports_brief,
+    format_transcript,
+)
 from productagents.agents._stream import get_writer
 from productagents.config import env_int
 from productagents.schemas import AnalystReport, DebateArgument, DebateTurn, Initiative
@@ -44,8 +48,7 @@ def _prompt(
 ) -> str:
     return (
         f"{_PERSONA[side]}\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
+        f"{format_initiative(initiative)}\n\n"
         f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
         f"Debate so far:\n"
         f"{format_transcript(history, empty='(no prior arguments yet)')}\n\n"

@@ -3,6 +3,7 @@
 import json
 
 from productagents.agents._analyst import run_analyst
+from productagents.agents._format import format_initiative
 from productagents.schemas import Evidence, Initiative
 
 ANALYST_ID = "business"
@@ -14,8 +15,7 @@ def _prompt(initiative: Initiative, evidence: Evidence) -> str:
     metrics = json.dumps(evidence.business_metrics, indent=2)
     return (
         f"You are a {ROLE} evaluating a proposed product initiative.\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
+        f"{format_initiative(initiative)}\n\n"
         "Using ONLY the business metrics below, assess business impact, goal "
         "alignment, and ROI considerations relevant to this initiative.\n\n"
         f"Business metrics (JSON):\n{metrics}\n"

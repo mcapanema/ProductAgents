@@ -1,5 +1,9 @@
-from productagents.agents._format import format_reports_brief, format_transcript
-from productagents.schemas import AnalystReport, DebateTurn
+from productagents.agents._format import (
+    format_initiative,
+    format_reports_brief,
+    format_transcript,
+)
+from productagents.schemas import AnalystReport, DebateTurn, Initiative
 
 
 def _report():
@@ -9,6 +13,11 @@ def _report():
         findings=["demand"],
         signals=["tickets"],
     )
+
+
+def test_format_initiative_renders_two_lines():
+    out = format_initiative(Initiative(title="Add SSO", description="Enterprise SSO"))
+    assert out == "Initiative: Add SSO\nDescription: Enterprise SSO"
 
 
 def test_format_reports_brief_one_line_per_report():

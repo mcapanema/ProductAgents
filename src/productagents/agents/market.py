@@ -1,6 +1,7 @@
 """Market Analyst node: reads competitive and market evidence."""
 
 from productagents.agents._analyst import run_analyst
+from productagents.agents._format import format_initiative
 from productagents.schemas import Evidence, Initiative
 
 ANALYST_ID = "market"
@@ -11,8 +12,7 @@ _START_STATUS = "scanning the market…"
 def _prompt(initiative: Initiative, evidence: Evidence) -> str:
     return (
         f"You are a {ROLE} evaluating a proposed product initiative.\n\n"
-        f"Initiative: {initiative.title}\n"
-        f"Description: {initiative.description}\n\n"
+        f"{format_initiative(initiative)}\n\n"
         "Using ONLY the market intelligence below, identify competitive "
         "intelligence, market opportunities, and strategic context relevant to "
         "this initiative.\n\n"
