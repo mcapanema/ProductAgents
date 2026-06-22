@@ -82,5 +82,6 @@ async def strategist_node(state: dict, model) -> dict:
             confidence=0.0,
             rationale=f"Strategist failed: {exc}",
             expected_outcomes=[],
+            failed=True,
         )
     return {"recommendation": recommendation}

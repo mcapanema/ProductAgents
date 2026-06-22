@@ -532,3 +532,13 @@ def test_decision_record_judgment_defaults_to_none():
         timestamp="2026-06-21T00:00:00+00:00",
     )
     assert record.judgment is None
+
+
+def test_recommendation_failed_defaults_false():
+    rec = Recommendation(
+        recommendation="ship it",
+        confidence=0.9,
+        rationale="strong demand",
+        expected_outcomes=["growth"],
+    )
+    assert rec.failed is False
