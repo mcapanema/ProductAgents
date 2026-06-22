@@ -12,6 +12,7 @@ from productagents.agents._format import (
     format_reports_brief,
     format_transcript,
 )
+from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.config import env_int
 from productagents.schemas import AnalystReport, DebateArgument, DebateTurn, Initiative
@@ -58,9 +59,11 @@ def _prompt(
 
 
 async def _argue(side: str, state: dict, history: list[DebateTurn], model) -> str:
-    structured = model.with_structured_output(DebateArgument)
-    result = await structured.ainvoke(
-        _prompt(side, state["initiative"], state["reports"], history)
+    result = await invoke_structured(
+        model,
+        DebateArgument,
+        _prompt(side, state["initiative"], state["reports"], history),
+        node=NODE_ID,
     )
     return result.argument
 

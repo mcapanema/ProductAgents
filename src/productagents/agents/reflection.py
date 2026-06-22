@@ -11,6 +11,7 @@ than crashing.
 from datetime import UTC, datetime
 
 from productagents.agents._format import format_initiative
+from productagents.agents._llm_call import invoke_structured
 from productagents.schemas import DecisionRecord, OutcomeRecord, Reflection
 
 ROLE = "Outcome Reflection Analyst"
@@ -32,10 +33,11 @@ def _prompt(decision: DecisionRecord, outcome_note: str) -> str:
 
 
 async def reflect(decision: DecisionRecord, outcome_note: str, model) -> OutcomeRecord:
-    structured = model.with_structured_output(Reflection)
     reflected_at = datetime.now(UTC).isoformat()
     try:
-        reflection = await structured.ainvoke(_prompt(decision, outcome_note))
+        reflection = await invoke_structured(
+            model, Reflection, _prompt(decision, outcome_note), node="reflection"
+        )
         return OutcomeRecord(
             decision_id=decision.decision_id,
             actual_outcomes=reflection.actual_outcomes,

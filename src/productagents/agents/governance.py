@@ -12,6 +12,7 @@ node never touches the filesystem.
 """
 
 from productagents.agents._format import format_initiative, format_recommendation
+from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.schemas import (
     DecisionRecord,
@@ -73,15 +74,17 @@ def _prompt(
 async def governance_node(state: dict, model) -> dict:
     writer = get_writer()
     writer({"node": NODE_ID, "status": f"{ROLE} reviewing…"})
-    structured = model.with_structured_output(GovernanceFinding)
     try:
-        finding = await structured.ainvoke(
+        finding = await invoke_structured(
+            model,
+            GovernanceFinding,
             _prompt(
                 state["initiative"],
                 state.get("recommendation"),
                 state.get("risks", []),
                 state.get("portfolio", []),
-            )
+            ),
+            node=NODE_ID,
         )
         verdict = GovernanceVerdict(
             verdict=finding.verdict,
