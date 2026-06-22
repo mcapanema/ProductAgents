@@ -244,6 +244,11 @@ class ProductAgentsApp(App):
             return
         prov = "\n".join(f"• {ref.field} ← {ref.source}" for ref in evidence.sources)
         self.query_one("#evidence-provenance", Static).update(prov or "(default)")
+        self._reset_panels()
+        self._run(Initiative(title=title, description=title), evidence)
+
+    def _reset_panels(self) -> None:
+        """Clear every live panel back to its pre-run placeholder."""
         for node_id in _PANELS:
             self.query_one(f"#{node_id}", Static).update("…")
         self._debate_lines = []
@@ -263,7 +268,6 @@ class ProductAgentsApp(App):
                 continue
             widget.remove_class("failed")
             self._set_state(widget_id, "idle")
-        self._run(Initiative(title=title, description=title), evidence)
 
     def action_reflect(self) -> None:
         if self._reflector is None:
@@ -284,13 +288,19 @@ class ProductAgentsApp(App):
     async def _run(self, initiative: Initiative, evidence) -> None:
         if self._runner is None:
             return
-        recommendation = None
-        reports = []
-        debate = []
-        risks = []
-        governance = None
-        judgment = None
-        prior_lessons: list[str] = []
+        handlers = {
+            ProgressEvent: self._on_progress,
+            NodeCompleteEvent: self._on_node_complete,
+            NodeErrorEvent: self._on_node_error,
+            DebateTurnEvent: self._on_debate_turn,
+            RiskAssessmentEvent: self._on_risk_assessment,
+            JudgmentEvent: self._on_judgment,
+            GovernanceVerdictEvent: self._on_governance_verdict,
+            FinalVerdictEvent: self._on_final_verdict,
+            RecallEvent: self._on_recall,
+            FinishedEvent: self._on_finished,
+        }
+        finished: FinishedEvent | None = None
         portfolio = self._reader()
         outcomes = self._outcome_reader()
         try:
@@ -301,100 +311,95 @@ class ProductAgentsApp(App):
                 outcomes=outcomes,
                 approver=self._ask_human,
             ):
-                if isinstance(event, ProgressEvent):
-                    if event.node in _PANELS:
-                        self.query_one(f"#{event.node}", Static).update(
-                            f"… {event.message}"
-                        )
-                        self._set_state(event.node, "running")
-                elif isinstance(event, NodeCompleteEvent):
-                    if event.node in _PANELS:
-                        report = event.report
-                        if report.failed:
-                            self.query_one(f"#{event.node}", Static).update(
-                                "[red]failed — see Status / Errors below[/red]"
-                            )
-                            self._set_state(event.node, "failed")
-                        else:
-                            body = (
-                                "\n".join(f"• {f}" for f in report.findings)
-                                or "(no findings)"
-                            )
-                            self.query_one(f"#{event.node}", Static).update(body)
-                            self._set_state(event.node, "done")
-                elif isinstance(event, NodeErrorEvent):
-                    label = _TITLES.get(
-                        _WIDGET_FOR_NODE.get(event.node, event.node), event.node
-                    )
-                    self._log_status(f"{label}: {event.message}", level="error")
-                    self._mark_failed(event.node)
-                elif isinstance(event, DebateTurnEvent):
-                    self._debate_lines.append(
-                        f"[{event.side} · round {event.round}] {event.argument}"
-                    )
-                    self.query_one("#debate", Static).update(
-                        "\n\n".join(self._debate_lines)
-                    )
-                elif isinstance(event, RiskAssessmentEvent):
-                    self._risk_lines.append(
-                        f"[{event.role} · {event.level}] {event.rationale}"
-                    )
-                    self.query_one("#risk", Static).update(
-                        "\n\n".join(self._risk_lines)
-                    )
-                elif isinstance(event, JudgmentEvent):
-                    status = "PASS" if event.passed else "FAIL"
-                    self.query_one("#judgment", Static).update(
-                        f"[b]{status}[/b] (attempt {event.attempt})\n\n"
-                        f"Evidence: {event.evidence_grounding_score:.0%}  "
-                        f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
-                        f"{event.critique}"
-                    )
-                    self._set_state("judgment", "done" if event.passed else "failed")
-                elif isinstance(event, GovernanceVerdictEvent):
-                    self.query_one("#governance", Static).update(
-                        f"[b]{event.verdict}[/b]\n\n{event.rationale}"
-                    )
-                elif isinstance(event, FinalVerdictEvent):
-                    self.query_one("#governance", Static).update(
-                        f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n"
-                        f"{event.rationale}"
-                    )
-                elif isinstance(event, RecallEvent):
-                    body = "\n".join(f"• {line}" for line in event.lessons) or (
-                        "(no relevant past lessons)"
-                    )
-                    self.query_one("#recall", Static).update(body)
-                    self._set_state("recall", "done")
-                elif isinstance(event, FinishedEvent):
-                    recommendation = event.recommendation
-                    reports = event.reports
-                    debate = event.debate
-                    risks = event.risks
-                    governance = event.governance
-                    judgment = event.judgment
-                    prior_lessons = event.prior_lessons
-                    self._render_recommendation(recommendation)
-                    self._set_state("strategist", "done")
+                handler = handlers.get(type(event))
+                if handler is not None:
+                    handler(event)
+                if isinstance(event, FinishedEvent):
+                    finished = event
         except Exception as exc:  # noqa: BLE001 - never crash the worker
             self._log_status(f"run failed: {exc}", level="error")
             return
 
-        if recommendation is not None:
+        if finished is not None and finished.recommendation is not None:
             self._recorder(
                 DecisionRecord(
                     initiative=initiative,
-                    recommendation=recommendation,
-                    reports=reports,
-                    debate=debate,
-                    risks=risks,
-                    governance=governance,
-                    judgment=judgment,
-                    prior_lessons=prior_lessons,
+                    recommendation=finished.recommendation,
+                    reports=finished.reports,
+                    debate=finished.debate,
+                    risks=finished.risks,
+                    governance=finished.governance,
+                    judgment=finished.judgment,
+                    prior_lessons=finished.prior_lessons,
                     evidence_sources=evidence.sources,
                     timestamp=datetime.now(UTC).isoformat(),
                 )
             )
+
+    def _on_progress(self, event) -> None:
+        if event.node in _PANELS:
+            self.query_one(f"#{event.node}", Static).update(f"… {event.message}")
+            self._set_state(event.node, "running")
+
+    def _on_node_complete(self, event) -> None:
+        if event.node not in _PANELS:
+            return
+        report = event.report
+        if report.failed:
+            self.query_one(f"#{event.node}", Static).update(
+                "[red]failed — see Status / Errors below[/red]"
+            )
+            self._set_state(event.node, "failed")
+        else:
+            body = "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
+            self.query_one(f"#{event.node}", Static).update(body)
+            self._set_state(event.node, "done")
+
+    def _on_node_error(self, event) -> None:
+        label = _TITLES.get(_WIDGET_FOR_NODE.get(event.node, event.node), event.node)
+        self._log_status(f"{label}: {event.message}", level="error")
+        self._mark_failed(event.node)
+
+    def _on_debate_turn(self, event) -> None:
+        self._debate_lines.append(
+            f"[{event.side} · round {event.round}] {event.argument}"
+        )
+        self.query_one("#debate", Static).update("\n\n".join(self._debate_lines))
+
+    def _on_risk_assessment(self, event) -> None:
+        self._risk_lines.append(f"[{event.role} · {event.level}] {event.rationale}")
+        self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
+
+    def _on_judgment(self, event) -> None:
+        status = "PASS" if event.passed else "FAIL"
+        self.query_one("#judgment", Static).update(
+            f"[b]{status}[/b] (attempt {event.attempt})\n\n"
+            f"Evidence: {event.evidence_grounding_score:.0%}  "
+            f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
+            f"{event.critique}"
+        )
+        self._set_state("judgment", "done" if event.passed else "failed")
+
+    def _on_governance_verdict(self, event) -> None:
+        self.query_one("#governance", Static).update(
+            f"[b]{event.verdict}[/b]\n\n{event.rationale}"
+        )
+
+    def _on_final_verdict(self, event) -> None:
+        self.query_one("#governance", Static).update(
+            f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n{event.rationale}"
+        )
+
+    def _on_recall(self, event) -> None:
+        body = "\n".join(f"• {line}" for line in event.lessons) or (
+            "(no relevant past lessons)"
+        )
+        self.query_one("#recall", Static).update(body)
+        self._set_state("recall", "done")
+
+    def _on_finished(self, event) -> None:
+        self._render_recommendation(event.recommendation)
+        self._set_state("strategist", "done")
 
     def _render_recommendation(self, recommendation) -> None:
         text = (
