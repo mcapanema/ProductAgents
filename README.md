@@ -532,7 +532,7 @@ export OPENAI_API_KEY="sk-..."
 #### OpenRouter free models
 
 [OpenRouter](https://openrouter.ai) exposes many models — including a free
-tier — behind one API key. Set a `openrouter:`-prefixed model id and your
+tier — behind one API key. Set an `openrouter:`-prefixed model id and your
 OpenRouter key:
 
 ```bash
