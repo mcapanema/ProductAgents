@@ -125,4 +125,4 @@ def test_get_model_logs_resolved_model(monkeypatch, caplog):
     with caplog.at_level(logging.INFO, logger="productagents.llm"):
         llm.get_model()
 
-    assert any("anthropic:claude-sonnet-4-6" in r.message for r in caplog.records)
+    assert any("anthropic:claude-sonnet-4-6" in r.getMessage() for r in caplog.records)
