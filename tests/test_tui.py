@@ -686,3 +686,30 @@ async def test_app_renders_and_records_judgment(monkeypatch):
     assert len(recorded) == 1
     assert recorded[0].judgment is not None
     assert recorded[0].judgment.passed is True
+
+
+async def test_running_state_shows_advancing_spinner_that_stops_on_done():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._set_state("market", "running")
+        title_before = str(app.query_one("#market").border_title)
+        assert title_before[0] in "◐◓◑◒"
+        assert "market" in app._spinning
+        # Advancing the timer rotates the frame.
+        app._advance_spinner()
+        title_after = str(app.query_one("#market").border_title)
+        assert title_after[0] in "◐◓◑◒"
+        assert title_after != title_before
+        # Reaching a terminal state stops the spin and paints the static icon.
+        app._set_state("market", "done")
+        assert "market" not in app._spinning
+        assert str(app.query_one("#market").border_title).startswith("✓")

@@ -153,6 +153,9 @@ class ProductAgentsApp(App):
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
+        self._spinning: set[str] = set()
+        self._spinner_frame: int = 0
+        self._spinner_timer = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -203,12 +206,33 @@ class ProductAgentsApp(App):
             self._open_home()
 
     def _set_state(self, widget_id: str, state: str) -> None:
+        if state == "running":
+            self._spinning.add(widget_id)
+            self._ensure_spinner()
+            self._paint_state(widget_id, _SPINNER_FRAMES[self._spinner_frame])
+        else:
+            self._spinning.discard(widget_id)
+            self._paint_state(widget_id, _STATE_ICON[state])
+
+    def _paint_state(self, widget_id: str, icon: str) -> None:
         try:
             widget = self.query_one(f"#{widget_id}")
         except NoMatches:
             return
         base = _TITLES.get(widget_id, widget_id)
-        widget.border_title = f"{_STATE_ICON[state]} {base}"
+        widget.border_title = f"{icon} {base}"
+
+    def _ensure_spinner(self) -> None:
+        if self._spinner_timer is None:
+            self._spinner_timer = self.set_interval(0.12, self._advance_spinner)
+
+    def _advance_spinner(self) -> None:
+        if not self._spinning:
+            return
+        self._spinner_frame = (self._spinner_frame + 1) % len(_SPINNER_FRAMES)
+        frame = _SPINNER_FRAMES[self._spinner_frame]
+        for widget_id in self._spinning:
+            self._paint_state(widget_id, frame)
 
     def _open_home(self) -> None:
         status = self._config_checker()
