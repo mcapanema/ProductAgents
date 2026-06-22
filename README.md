@@ -446,16 +446,19 @@ ProductAgents exists to make that process explicit, repeatable, and continuously
 
 ## Running the Slice (first milestone)
 
-This repository currently implements an end-to-end slice: two analysts
-(Customer Research + Product Analytics) evaluate a bundled evidence scenario in
-parallel, an Opportunity Advocate and an Opportunity Skeptic debate the
-initiative over several rounds, a strategist produces a recommendation, a Risk
-Team of five reviewers (Delivery, Adoption, Strategic, Financial, Organizational)
-assesses that recommendation, and a Product Portfolio Manager produces an advisory
-verdict — then a human makes the binding call to approve, reject, or request
-further analysis (with an optional note) directly in the TUI. All stages run live
-in the TUI and are saved (with the full debate transcript, risk assessments,
-advisory governance verdict, and human decision) to `decisions.jsonl`.
+This repository currently implements an end-to-end slice: five analysts
+(Customer Research, Product Analytics, Market, Business, Technical) evaluate
+evidence in parallel, an Opportunity Advocate and an Opportunity Skeptic debate
+the initiative over several rounds, a strategist produces a recommendation, an
+LLM-as-Judge quality gate scores the recommendation for evidence grounding and
+rationale coherence (looping back to the strategist for revision if it does not
+pass), a Risk Team of five reviewers (Delivery, Adoption, Strategic, Financial,
+Organizational) assesses the recommendation, and a Product Portfolio Manager
+produces an advisory verdict — then a human makes the binding call to approve,
+reject, or request further analysis (with an optional note) directly in the TUI.
+All stages run live in the TUI and are saved (with the full debate transcript,
+judge verdict, risk assessments, advisory governance verdict, and human decision)
+to `decisions.jsonl`.
 
 Evidence is pluggable. By default the bundled `sample` scenario is loaded, but
 the TUI's second input lets you point a run at a different source before pressing
@@ -481,6 +484,13 @@ argument followed by one skeptic rebuttal):
 
 ```bash
 export PRODUCTAGENTS_DEBATE_ROUNDS=2  # default is 2
+```
+
+The quality judge threshold and maximum retries are also configurable:
+
+```bash
+export PRODUCTAGENTS_JUDGE_THRESHOLD=0.7  # minimum score (0-1) for evidence grounding and rationale coherence; default is 0.7
+export PRODUCTAGENTS_JUDGE_MAX_RETRIES=1  # how many times the judge can loop back to the strategist; 0 = score-only (no retries); default is 1
 ```
 
 ### Setup
