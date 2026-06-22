@@ -11,69 +11,56 @@ DEFAULT_LOG_PATH = Path("decisions.jsonl")
 DEFAULT_OUTCOME_LOG_PATH = Path("outcomes.jsonl")
 
 
-def _path(path: Path | None) -> Path:
-    return path if path is not None else DEFAULT_LOG_PATH
+def _path(path: Path | None, default: Path) -> Path:
+    return path if path is not None else default
 
 
-def record_decision(record: DecisionRecord, path: Path | None = None) -> None:
-    """Append one decision record as a JSON line."""
-    target = _path(path)
-    with target.open("a", encoding="utf-8") as handle:
+def _append_jsonl(record, path: Path) -> None:
+    """Append one pydantic record as a JSON line."""
+    with path.open("a", encoding="utf-8") as handle:
         handle.write(record.model_dump_json() + "\n")
 
 
-def read_decisions(path: Path | None = None) -> list[DecisionRecord]:
-    """Read all decision records; return [] if the log does not exist.
+def _read_jsonl(path: Path, model_cls):
+    """Read+validate every JSON line into `model_cls`, skipping malformed lines.
 
-    Malformed or schema-incompatible lines (e.g. legacy records that predate a
-    schema tightening) are skipped rather than aborting the whole read — the
-    "degrade, never crash" principle applied at the persistence boundary.
+    Returns [] if the file does not exist. Blank lines and schema-incompatible
+    lines (e.g. legacy records that predate a schema tightening) are skipped
+    rather than aborting the read — "degrade, never crash" at the persistence
+    boundary.
     """
-    target = _path(path)
-    if not target.is_file():
+    if not path.is_file():
         return []
     records = []
-    for line in target.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
         try:
-            records.append(DecisionRecord.model_validate_json(line))
+            records.append(model_cls.model_validate_json(line))
         except ValidationError:
             continue
     return records
 
 
-def _outcome_path(path: Path | None) -> Path:
-    return path if path is not None else DEFAULT_OUTCOME_LOG_PATH
+def record_decision(record: DecisionRecord, path: Path | None = None) -> None:
+    """Append one decision record as a JSON line."""
+    _append_jsonl(record, _path(path, DEFAULT_LOG_PATH))
+
+
+def read_decisions(path: Path | None = None) -> list[DecisionRecord]:
+    """Read all decision records; return [] if the log does not exist."""
+    return _read_jsonl(_path(path, DEFAULT_LOG_PATH), DecisionRecord)
 
 
 def record_outcome(outcome: OutcomeRecord, path: Path | None = None) -> None:
     """Append one outcome record as a JSON line."""
-    target = _outcome_path(path)
-    with target.open("a", encoding="utf-8") as handle:
-        handle.write(outcome.model_dump_json() + "\n")
+    _append_jsonl(outcome, _path(path, DEFAULT_OUTCOME_LOG_PATH))
 
 
 def read_outcomes(path: Path | None = None) -> list[OutcomeRecord]:
-    """Read all outcome records; return [] if the log does not exist.
-
-    Malformed or schema-incompatible lines are skipped rather than aborting the
-    whole read (see `read_decisions`).
-    """
-    target = _outcome_path(path)
-    if not target.is_file():
-        return []
-    outcomes = []
-    for line in target.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            outcomes.append(OutcomeRecord.model_validate_json(line))
-        except ValidationError:
-            continue
-    return outcomes
+    """Read all outcome records; return [] if the log does not exist."""
+    return _read_jsonl(_path(path, DEFAULT_OUTCOME_LOG_PATH), OutcomeRecord)
 
 
 # Short, ubiquitous words carry no signal for matching past initiatives.
