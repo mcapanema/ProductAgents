@@ -11,13 +11,14 @@ def test_default_model_used_when_env_unset(monkeypatch):
 
     monkeypatch.delenv("PRODUCTAGENTS_MODEL", raising=False)
     monkeypatch.delenv("PRODUCTAGENTS_MODEL_PROVIDER", raising=False)
+    monkeypatch.delenv("PRODUCTAGENTS_MAX_RETRIES", raising=False)
     monkeypatch.setattr(llm, "init_chat_model", fake_init)
 
     result = llm.get_model()
 
     assert result == "MODEL"
     assert captured["model"] == llm.DEFAULT_MODEL
-    assert captured["kwargs"] == {}
+    assert captured["kwargs"] == {"max_retries": 6}
 
 
 def test_env_overrides_model_and_provider(monkeypatch):
@@ -30,12 +31,65 @@ def test_env_overrides_model_and_provider(monkeypatch):
 
     monkeypatch.setenv("PRODUCTAGENTS_MODEL", "gpt-5.5")
     monkeypatch.setenv("PRODUCTAGENTS_MODEL_PROVIDER", "openai")
+    monkeypatch.delenv("PRODUCTAGENTS_MAX_RETRIES", raising=False)
     monkeypatch.setattr(llm, "init_chat_model", fake_init)
 
     llm.get_model()
 
     assert captured["model"] == "gpt-5.5"
-    assert captured["kwargs"] == {"model_provider": "openai"}
+    assert captured["kwargs"] == {"model_provider": "openai", "max_retries": 6}
+
+
+def test_default_max_retries_passed(monkeypatch):
+    captured = {}
+
+    def fake_init(model, **kwargs):
+        captured["kwargs"] = kwargs
+        return "MODEL"
+
+    monkeypatch.delenv("PRODUCTAGENTS_MODEL", raising=False)
+    monkeypatch.delenv("PRODUCTAGENTS_MODEL_PROVIDER", raising=False)
+    monkeypatch.delenv("PRODUCTAGENTS_MAX_RETRIES", raising=False)
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+
+    llm.get_model()
+
+    assert captured["kwargs"]["max_retries"] == 6
+
+
+def test_max_retries_env_override(monkeypatch):
+    captured = {}
+
+    def fake_init(model, **kwargs):
+        captured["kwargs"] = kwargs
+        return "MODEL"
+
+    monkeypatch.delenv("PRODUCTAGENTS_MODEL", raising=False)
+    monkeypatch.delenv("PRODUCTAGENTS_MODEL_PROVIDER", raising=False)
+    monkeypatch.setenv("PRODUCTAGENTS_MAX_RETRIES", "10")
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+
+    llm.get_model()
+
+    assert captured["kwargs"]["max_retries"] == 10
+
+
+def test_max_retries_passed_with_provider(monkeypatch):
+    captured = {}
+
+    def fake_init(model, **kwargs):
+        captured["kwargs"] = kwargs
+        return "MODEL"
+
+    monkeypatch.setenv("PRODUCTAGENTS_MODEL", "gpt-5.5")
+    monkeypatch.setenv("PRODUCTAGENTS_MODEL_PROVIDER", "openai")
+    monkeypatch.delenv("PRODUCTAGENTS_MAX_RETRIES", raising=False)
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+
+    llm.get_model()
+
+    assert captured["kwargs"]["model_provider"] == "openai"
+    assert captured["kwargs"]["max_retries"] == 6
 
 
 def test_openrouter_free_model_resolves_to_chatopenrouter(monkeypatch):
