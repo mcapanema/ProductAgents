@@ -155,6 +155,10 @@ SetupScreen {
     border: round $error;
 }
 
+.warning {
+    border: round $warning;
+}
+
 /* Per-stage accent borders are inlined above; .failed overrides all via CSS class. */
 #recall, #evidence-provenance {
     border: round $primary;

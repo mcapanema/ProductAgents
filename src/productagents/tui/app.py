@@ -88,7 +88,27 @@ _THEME = Theme(
     dark=True,
 )
 
-_STATE_ICON = {"idle": "·", "running": "●", "done": "✓", "failed": "✗"}
+_STATE_ICON = {
+    "idle": "·",
+    "waiting": "◌",
+    "running": "●",
+    "done": "✓",
+    "failed": "✗",
+    "warning": "⚠",
+}
+
+# Spinner frames for the "running" state (a rotating filled circle).
+_SPINNER_FRAMES = "◐◓◑◒"
+
+# Downstream panels that depend on upstream output; they show "waiting" at the
+# start of a run until their first event flips them to running.
+_WAITING_AT_START = {
+    "debate-scroll",
+    "strategist",
+    "judgment",
+    "risk-scroll",
+    "governance",
+}
 
 
 class ProductAgentsApp(App):
@@ -133,6 +153,9 @@ class ProductAgentsApp(App):
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
+        self._spinning: set[str] = set()
+        self._spinner_frame: int = 0
+        self._spinner_timer = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -187,8 +210,38 @@ class ProductAgentsApp(App):
             widget = self.query_one(f"#{widget_id}")
         except NoMatches:
             return
+        widget.remove_class("failed", "warning")
+        if state == "failed":
+            widget.add_class("failed")
+        elif state == "warning":
+            widget.add_class("warning")
+        if state == "running":
+            self._spinning.add(widget_id)
+            self._ensure_spinner()
+            self._paint_state(widget_id, _SPINNER_FRAMES[self._spinner_frame])
+        else:
+            self._spinning.discard(widget_id)
+            self._paint_state(widget_id, _STATE_ICON[state])
+
+    def _paint_state(self, widget_id: str, icon: str) -> None:
+        try:
+            widget = self.query_one(f"#{widget_id}")
+        except NoMatches:
+            return
         base = _TITLES.get(widget_id, widget_id)
-        widget.border_title = f"{_STATE_ICON[state]} {base}"
+        widget.border_title = f"{icon} {base}"
+
+    def _ensure_spinner(self) -> None:
+        if self._spinner_timer is None:
+            self._spinner_timer = self.set_interval(0.12, self._advance_spinner)
+
+    def _advance_spinner(self) -> None:
+        if not self._spinning:
+            return
+        self._spinner_frame = (self._spinner_frame + 1) % len(_SPINNER_FRAMES)
+        frame = _SPINNER_FRAMES[self._spinner_frame]
+        for widget_id in self._spinning:
+            self._paint_state(widget_id, frame)
 
     def _open_home(self) -> None:
         status = self._config_checker()
@@ -262,12 +315,8 @@ class ProductAgentsApp(App):
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 continue
-            try:
-                widget = self.query_one(f"#{widget_id}")
-            except NoMatches:
-                continue
-            widget.remove_class("failed")
-            self._set_state(widget_id, "idle")
+            state = "waiting" if widget_id in _WAITING_AT_START else "idle"
+            self._set_state(widget_id, state)
 
     def action_reflect(self) -> None:
         if self._reflector is None:
@@ -339,6 +388,8 @@ class ProductAgentsApp(App):
     def _on_progress(self, event) -> None:
         if event.node in _PANELS:
             self.query_one(f"#{event.node}", Static).update(f"… {event.message}")
+            if event.node == "strategist":
+                self._set_state("debate-scroll", "done")
             self._set_state(event.node, "running")
 
     def _on_node_complete(self, event) -> None:
@@ -365,10 +416,12 @@ class ProductAgentsApp(App):
             f"[{event.side} · round {event.round}] {event.argument}"
         )
         self.query_one("#debate", Static).update("\n\n".join(self._debate_lines))
+        self._set_state("debate-scroll", "running")
 
     def _on_risk_assessment(self, event) -> None:
         self._risk_lines.append(f"[{event.role} · {event.level}] {event.rationale}")
         self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
+        self._set_state("risk-scroll", "running")
 
     def _on_judgment(self, event) -> None:
         status = "PASS" if event.passed else "FAIL"
@@ -378,17 +431,23 @@ class ProductAgentsApp(App):
             f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
             f"{event.critique}"
         )
-        self._set_state("judgment", "done" if event.passed else "failed")
+        self._set_state("strategist", "done")
+        self._set_state("judgment", "done" if event.passed else "warning")
 
     def _on_governance_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
             f"[b]{event.verdict}[/b]\n\n{event.rationale}"
         )
+        self._set_state("risk-scroll", "done")
+        state = "done" if event.verdict == "approve" else "warning"
+        self._set_state("governance", state)
 
     def _on_final_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
             f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n{event.rationale}"
         )
+        state = "done" if event.verdict == "approve" else "warning"
+        self._set_state("governance", state)
 
     def _on_recall(self, event) -> None:
         body = "\n".join(f"• {line}" for line in event.lessons) or (
@@ -421,11 +480,6 @@ class ProductAgentsApp(App):
 
     def _mark_failed(self, node: str) -> None:
         widget_id = _WIDGET_FOR_NODE.get(node, node)
-        try:
-            panel = self.query_one(f"#{widget_id}")
-        except NoMatches:
-            return
-        panel.add_class("failed")
         self._set_state(widget_id, "failed")
 
 
