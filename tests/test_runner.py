@@ -272,7 +272,7 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
 
     model = FakeChatModel(
         {
-            AnalystFindings: RuntimeError("429 Too Many Requests: rate limit reached"),
+            AnalystFindings: RuntimeError("unexpected model error"),
             DebateArgument: DebateArgument(argument="a"),
             Recommendation: Recommendation(
                 recommendation="r",
@@ -308,7 +308,7 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
     }
     assert errors, "expected NodeErrorEvent(s) for the failing analysts"
     assert all(e.node in analyst_ids for e in errors)
-    assert any("429" in e.message for e in errors)
+    assert any("unexpected model error" in e.message for e in errors)
 
 
 async def _drive_with(model, monkeypatch):
@@ -395,3 +395,65 @@ async def test_runner_emits_node_error_for_governance(monkeypatch):
     results[GovernanceFinding] = RuntimeError("governance boom")
     events = await _drive_with(FakeChatModel(results), monkeypatch)
     assert any(isinstance(e, NodeErrorEvent) and e.node == "governance" for e in events)
+
+
+async def test_run_decision_aborts_on_fatal_chunk():
+    from productagents.runner import FinishedEvent, RunAbortedEvent, run_decision
+    from productagents.schemas import Evidence, Initiative
+
+    class _FatalGraph:
+        async def astream(self, _input, _config, *, stream_mode):
+            yield "custom", {"node": "customer_research", "status": "working…"}
+            yield (
+                "custom",
+                {
+                    "node": "customer_research",
+                    "error": "Rate limit reached for the configured model. …",
+                    "fatal": True,
+                    "category": "rate_limit",
+                },
+            )
+            # A real graph would keep emitting; the runner must stop before here.
+            yield "custom", {"node": "market", "status": "should not be seen"}
+
+    events = []
+    async for event in run_decision(
+        _FatalGraph(),
+        Initiative(title="t", description="d"),
+        Evidence(scenario="s", customer_feedback="d", product_analytics={}),
+    ):
+        events.append(event)
+
+    aborted = [e for e in events if isinstance(e, RunAbortedEvent)]
+    assert len(aborted) == 1
+    assert aborted[0].category == "rate_limit"
+    assert "Rate limit" in aborted[0].message
+    # Fail-fast: no FinishedEvent, and the post-abort chunk was never processed.
+    assert not any(isinstance(e, FinishedEvent) for e in events)
+    assert all(getattr(e, "message", "") != "should not be seen" for e in events)
+
+
+async def test_run_decision_aborts_end_to_end_on_rate_limit():
+    from productagents.graph import build_graph
+    from productagents.runner import FinishedEvent, RunAbortedEvent, run_decision
+    from productagents.schemas import AnalystFindings, Evidence, Initiative
+    from tests.fakes import FakeChatModel
+
+    # Every analyst's structured call raises a rate-limit-shaped error.
+    model = FakeChatModel(
+        {AnalystFindings: RuntimeError("Rate limit exceeded: free-models-per-day")}
+    )
+    graph = build_graph(model)
+
+    events = []
+    async for event in run_decision(
+        graph,
+        Initiative(title="t", description="d"),
+        Evidence(scenario="s", customer_feedback="d", product_analytics={}),
+    ):
+        events.append(event)
+
+    assert any(
+        isinstance(e, RunAbortedEvent) and e.category == "rate_limit" for e in events
+    )
+    assert not any(isinstance(e, FinishedEvent) for e in events)
