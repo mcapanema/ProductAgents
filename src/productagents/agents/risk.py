@@ -9,6 +9,7 @@ live rendering and collected into a structured list returned in graph state.
 
 from productagents.agents._format import (
     format_initiative,
+    format_recommendation,
     format_reports_brief,
     format_transcript,
 )
@@ -54,9 +55,7 @@ def _prompt(
         f"You are a {role}. Evaluate the {_FOCUS[reviewer]} of the recommendation "
         "below. Assign a risk level of low, medium, or high and justify it.\n\n"
         f"{format_initiative(initiative)}\n\n"
-        f"Recommendation: {recommendation.recommendation}\n"
-        f"Rationale: {recommendation.rationale}\n"
-        f"Expected outcomes: {recommendation.expected_outcomes}\n\n"
+        f"{format_recommendation(recommendation)}\n\n"
         f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
         f"Debate transcript:\n{format_transcript(debate)}\n"
     )
