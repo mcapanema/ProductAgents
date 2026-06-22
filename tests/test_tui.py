@@ -6,6 +6,7 @@ from productagents.graph import build_graph
 from productagents.runner import (
     DebateTurnEvent,
     FinalVerdictEvent,
+    FinishedEvent,
     GovernanceVerdictEvent,
     JudgmentEvent,
     ProgressEvent,
@@ -17,12 +18,15 @@ from productagents.schemas import (
     DebateArgument,
     Evidence,
     GovernanceFinding,
+    HumanDecision,
+    Initiative,
     JudgeFinding,
     Recommendation,
     RiskFinding,
 )
 from productagents.setup import ConfigStatus
 from productagents.tui.app import ProductAgentsApp
+from productagents.tui.degraded import DegradedRunScreen
 from productagents.tui.home_screen import HomeScreen
 from productagents.tui.setup_screen import SetupScreen
 from tests.fakes import FakeChatModel
@@ -846,3 +850,129 @@ async def test_risk_panel_runs_then_done_when_governance_arrives():
         )
         assert str(app.query_one("#risk-scroll").border_title).startswith("✓")
         assert "risk-scroll" not in app._spinning
+
+
+# ---------------------------------------------------------------------------
+# Degraded-run helpers
+# ---------------------------------------------------------------------------
+
+
+def _degraded_evidence():
+    return Evidence(
+        scenario="sample", customer_feedback="x", product_analytics={"a": 1}
+    )
+
+
+def _failed_finished():
+    rec = Recommendation(
+        recommendation="Unable to produce a recommendation due to an error.",
+        confidence=0.0,
+        rationale="Strategist failed: boom",
+        expected_outcomes=[],
+        failed=True,
+    )
+    return FinishedEvent(
+        recommendation=rec, reports=[], debate=[], risks=[], governance=None
+    )
+
+
+def _ok_finished():
+    rec = Recommendation(
+        recommendation="Build SSO",
+        confidence=0.8,
+        rationale="demand",
+        expected_outcomes=["growth"],
+    )
+    return FinishedEvent(
+        recommendation=rec, reports=[], debate=[], risks=[], governance=None
+    )
+
+
+def _runner_yielding(*events):
+    async def _runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
+        for e in events:
+            yield e
+
+    return _runner
+
+
+async def test_failed_run_is_not_auto_recorded_and_shows_modal(monkeypatch):
+    recorded = []
+    chosen = {}
+
+    app = ProductAgentsApp(
+        _runner_yielding(_failed_finished()),
+        _degraded_evidence(),
+        recorder=recorded.append,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+
+    async def fake_push_screen_wait(screen):
+        chosen["screen"] = type(screen).__name__
+        return "quit"
+
+    async with app.run_test() as pilot:
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
+        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert chosen["screen"] == "DegradedRunScreen"
+    assert recorded == []  # quit records nothing
+
+
+async def test_decide_path_records_human_decision(monkeypatch):
+    recorded = []
+
+    app = ProductAgentsApp(
+        _runner_yielding(_failed_finished()),
+        _degraded_evidence(),
+        recorder=recorded.append,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+
+    async def fake_push_screen_wait(screen):
+        if isinstance(screen, DegradedRunScreen):
+            return "decide"
+        return HumanDecision(verdict="reject", rationale="not now")
+
+    async with app.run_test() as pilot:
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
+        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert len(recorded) == 1
+    record = recorded[0]
+    assert record.governance.verdict == "reject"
+    assert record.governance.decided_by == "human"
+
+
+async def test_healthy_run_is_recorded(monkeypatch):
+    recorded = []
+
+    app = ProductAgentsApp(
+        _runner_yielding(_ok_finished()),
+        _degraded_evidence(),
+        recorder=recorded.append,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+
+    async with app.run_test() as pilot:
+        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert len(recorded) == 1
+    assert recorded[0].recommendation.recommendation == "Build SSO"

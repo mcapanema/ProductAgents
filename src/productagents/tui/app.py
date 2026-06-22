@@ -35,9 +35,10 @@ from productagents.runner import (
     RiskAssessmentEvent,
     run_decision,
 )
-from productagents.schemas import DecisionRecord, Initiative
+from productagents.schemas import DecisionRecord, GovernanceVerdict, Initiative
 from productagents.setup import check_config, write_env
 from productagents.tui.approval import ApprovalScreen
+from productagents.tui.degraded import DegradedRunScreen
 from productagents.tui.home_screen import HomeScreen
 from productagents.tui.reflection import ReflectionScreen
 from productagents.tui.setup_screen import SetupScreen
@@ -369,21 +370,45 @@ class ProductAgentsApp(App):
             self._log_status(f"run failed: {exc}", level="error")
             return
 
-        if finished is not None and finished.recommendation is not None:
-            self._recorder(
-                DecisionRecord(
-                    initiative=initiative,
-                    recommendation=finished.recommendation,
-                    reports=finished.reports,
-                    debate=finished.debate,
-                    risks=finished.risks,
-                    governance=finished.governance,
-                    judgment=finished.judgment,
-                    prior_lessons=finished.prior_lessons,
-                    evidence_sources=evidence.sources,
-                    timestamp=datetime.now(UTC).isoformat(),
-                )
+        if finished is None or finished.recommendation is None:
+            return
+        if not finished.recommendation.failed:
+            self._record(initiative, evidence, finished)
+            return
+        await self._handle_degraded(initiative, evidence, finished)
+
+    def _record(self, initiative, evidence, finished, *, governance=None) -> None:
+        self._recorder(
+            DecisionRecord(
+                initiative=initiative,
+                recommendation=finished.recommendation,
+                reports=finished.reports,
+                debate=finished.debate,
+                risks=finished.risks,
+                governance=governance
+                if governance is not None
+                else finished.governance,
+                judgment=finished.judgment,
+                prior_lessons=finished.prior_lessons,
+                evidence_sources=evidence.sources,
+                timestamp=datetime.now(UTC).isoformat(),
             )
+        )
+
+    async def _handle_degraded(self, initiative, evidence, finished) -> None:
+        choice = await self.push_screen_wait(DegradedRunScreen())
+        if choice == "retry":
+            self._reset_panels()
+            self._run(initiative, evidence)
+        elif choice == "decide":
+            decision = await self._ask_human(None)
+            governance = GovernanceVerdict(
+                verdict=decision.verdict,
+                rationale=decision.rationale,
+                decided_by="human",
+            )
+            self._record(initiative, evidence, finished, governance=governance)
+        # "quit" or dismissed: record nothing, leave the failed panels in place.
 
     def _on_progress(self, event) -> None:
         if event.node in _PANELS:
@@ -457,7 +482,17 @@ class ProductAgentsApp(App):
         self._set_state("recall", "done")
 
     def _on_finished(self, event) -> None:
-        self._render_recommendation(event.recommendation)
+        rec = event.recommendation
+        if rec is None:
+            return
+        if rec.failed:
+            self.query_one("#strategist", Static).update(
+                "[red]failed — could not synthesize a recommendation. "
+                "See Status / Errors below.[/red]"
+            )
+            self._set_state("strategist", "failed")
+            return
+        self._render_recommendation(rec)
         self._set_state("strategist", "done")
 
     def _render_recommendation(self, recommendation) -> None:
