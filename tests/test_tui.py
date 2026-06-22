@@ -976,3 +976,49 @@ async def test_healthy_run_is_recorded(monkeypatch):
 
     assert len(recorded) == 1
     assert recorded[0].recommendation.recommendation == "Build SSO"
+
+
+async def test_retry_path_reruns(monkeypatch):
+    """Choosing 'retry' from DegradedRunScreen re-runs and records the healthy result."""  # noqa: E501
+    recorded = []
+
+    # A stateful runner: first call yields a failed event, second yields a healthy one.
+    calls: list[list] = [
+        [_failed_finished()],
+        [_ok_finished()],
+    ]
+
+    async def stateful_runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
+        events = calls.pop(0)
+        for e in events:
+            yield e
+
+    app = ProductAgentsApp(
+        stateful_runner,
+        _degraded_evidence(),
+        recorder=recorded.append,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+
+    async def fake_push_screen_wait(screen):
+        if isinstance(screen, DegradedRunScreen):
+            return "retry"
+        return None  # should not be reached in this path
+
+    async with app.run_test() as pilot:
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
+        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        await pilot.pause()
+        # Wait for the first worker (failed run + modal handling) to finish.
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        # The retry spawns a second @work(exclusive=True) worker; wait for it too.
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert len(recorded) == 1
+    assert recorded[0].recommendation.recommendation == "Build SSO"
