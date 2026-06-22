@@ -7,10 +7,9 @@ emitted as a custom stream event for live rendering and collected into a
 structured transcript returned in graph state.
 """
 
-import os
-
 from productagents.agents._format import format_reports_brief, format_transcript
 from productagents.agents._stream import get_writer
+from productagents.config import env_int
 from productagents.schemas import AnalystReport, DebateArgument, DebateTurn, Initiative
 
 NODE_ID = "debate"
@@ -34,14 +33,7 @@ _PERSONA = {
 
 def get_debate_rounds() -> int:
     """Return the configured number of debate rounds (default 2)."""
-    raw = os.environ.get("PRODUCTAGENTS_DEBATE_ROUNDS")
-    if raw is None:
-        return DEFAULT_DEBATE_ROUNDS
-    try:
-        value = int(raw)
-    except ValueError:
-        return DEFAULT_DEBATE_ROUNDS
-    return value if value > 0 else DEFAULT_DEBATE_ROUNDS
+    return env_int("PRODUCTAGENTS_DEBATE_ROUNDS", DEFAULT_DEBATE_ROUNDS, minimum=1)
 
 
 def _prompt(
