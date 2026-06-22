@@ -36,3 +36,25 @@ def test_env_overrides_model_and_provider(monkeypatch):
 
     assert captured["model"] == "gpt-5.5"
     assert captured["kwargs"] == {"model_provider": "openai"}
+
+
+def test_openrouter_free_model_resolves_to_chatopenrouter(monkeypatch):
+    """An `openrouter:…:free` id resolves to a real ChatOpenRouter.
+
+    This exercises the real `init_chat_model` (no monkeypatching of it), so it
+    proves both that `langchain-openrouter` is installed and that the provider
+    prefix is split off while the `:free` suffix is preserved. Constructing the
+    model makes no network call; the dummy key is never used.
+    """
+    monkeypatch.setenv(
+        "PRODUCTAGENTS_MODEL", "openrouter:deepseek/deepseek-chat-v3-0324:free"
+    )
+    monkeypatch.delenv("PRODUCTAGENTS_MODEL_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test-not-a-real-key")
+
+    model = llm.get_model()
+
+    assert type(model).__name__ == "ChatOpenRouter"
+    # init_chat_model strips the `openrouter:` provider prefix (first colon only)
+    # and keeps the rest verbatim — including the `:free` suffix.
+    assert model.model == "deepseek/deepseek-chat-v3-0324:free"
