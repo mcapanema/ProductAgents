@@ -16,6 +16,7 @@ from productagents.config import load_env
 from productagents.evidence import EvidenceError, collect_evidence, load_scenario
 from productagents.graph import build_graph
 from productagents.llm import get_model
+from productagents.logging_config import configure_logging
 from productagents.memory import (
     read_decisions,
     read_outcomes,
@@ -542,5 +543,6 @@ def _build_app() -> ProductAgentsApp:
 
 def main() -> None:
     load_env()
+    configure_logging()
     app = _build_app()
     app.run()

@@ -4,11 +4,14 @@ Every agent obtains its model through `get_model()` so the provider can be
 swapped via configuration without touching agent code.
 """
 
+import logging
 import os
 
 from langchain.chat_models import init_chat_model
 
 from productagents.config import env_int
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "anthropic:claude-sonnet-4-6"
 # Free OpenRouter models throw transient upstream 429/5xx ("Provider returned
@@ -29,5 +32,7 @@ def get_model():
     provider = os.environ.get("PRODUCTAGENTS_MODEL_PROVIDER")
     max_retries = env_int("PRODUCTAGENTS_MAX_RETRIES", DEFAULT_MAX_RETRIES, minimum=0)
     if provider:
+        logger.info("resolved model: %s (provider=%s)", model, provider)
         return init_chat_model(model, model_provider=provider, max_retries=max_retries)
+    logger.info("resolved model: %s", model)
     return init_chat_model(model, max_retries=max_retries)
