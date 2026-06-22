@@ -62,6 +62,15 @@ uv run pytest tests/test_debate.py::test_name -x           # one test
 - `PRODUCTAGENTS_JUDGE_THRESHOLD` — judge pass threshold for both rubric dimensions (evidence grounding, rationale coherence), default 0.7.
 - `PRODUCTAGENTS_JUDGE_MAX_RETRIES` — max strategist revisions the judge can trigger, default 1. `0` makes the judge score-only (it never loops back to the strategist).
 - `PRODUCTAGENTS_MAX_RETRIES` — automatic retry budget (with backoff) for transient provider errors (e.g. free-tier OpenRouter 429/5xx), default 6.
+- `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only**: the Textual TUI owns the terminal, so nothing is written to stdout/stderr.
+- `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback.
+
+> **Structured output requires tool/function calling.** Every node calls
+> `model.with_structured_output(...)`. A model that does not support tool calling
+> (e.g. Gemma on OpenRouter) returns no structured object; the run degrades and
+> logs a `StructuredOutputError` ("the configured model likely does not support
+> tool/function calling"). Pick a tool-capable model — e.g.
+> `openrouter:deepseek/deepseek-chat-v3-0324:free`.
 
 On launch the TUI shows a **home menu** (Set up / Run a decision / Quit) and runs
 a **static readiness check** (`setup.check_config`): it derives the provider from

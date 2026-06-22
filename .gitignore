@@ -231,3 +231,7 @@ graphify-out
 
 # git worktrees (writing-plans execution)
 .worktrees/
+
+# Application log file (from logging_config.configure_logging)
+productagents.log
+productagents.log.*
