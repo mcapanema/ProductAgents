@@ -2,7 +2,7 @@
 
 import pytest
 
-from productagents.llm_errors import (
+from productagents.agents.llm_errors import (
     ErrorCategory,
     ProviderError,
     StructuredOutputError,

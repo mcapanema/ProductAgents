@@ -1,6 +1,6 @@
 """Tests for the productagents entry point wiring."""
 
-from productagents.tui import app as app_module
+from productagents.app.tui import app as app_module
 
 
 def test_main_loads_env_before_building_app(monkeypatch):

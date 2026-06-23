@@ -15,45 +15,83 @@ Everything runs live in a Textual TUI.
 
 ## Directory structure
 
+The codebase is a **uv workspace** with six member packages sharing the
+`productagents` namespace (PEP 420 namespace package — no `__init__.py` at the
+`productagents/` level):
+
 ```
-src/productagents/
-├── schemas.py            # all Pydantic models + shared Literal vocabularies
-├── evidence.py           # Layer-1 EvidenceSource protocol + scenario/dir sources
-├── llm.py                # get_model() — the only provider-agnostic factory
-├── setup.py              # config readiness check (check_config) + .env writer (write_env)
-├── graph.py              # LangGraph StateGraph assembly + GraphState
-├── runner.py             # graph→UI boundary: normalizes the stream into events
-├── memory.py             # decisions.jsonl / outcomes.jsonl + lesson retrieval
-├── agents/               # one graph node per file (see agents/CLAUDE.md)
-│   ├── _analyst.py       #   shared run_analyst() executor for the 5 analysts
-│   ├── _format.py        #   shared prompt formatters
-│   ├── _stream.py        #   get_writer() progress-event helper
-│   ├── customer_research.py · product_analytics.py · market.py
-│   ├── business.py · technical.py            # the five parallel analysts
-│   ├── recall.py · strategist.py · risk.py · governance.py
-│   ├── human_approval.py # HITL interrupt node (added only when enabled)
-│   └── reflection.py     # OUT OF GRAPH: post-hoc outcome reflection
-├── tui/                  # Textual app + modal screens (see tui/CLAUDE.md)
-│   ├── app.py · app.tcss · approval.py · reflection.py · home_screen.py · setup_screen.py
-└── data/scenarios/<name>/  # bundled mock evidence files
-tests/                    # offline suite, FakeChatModel (see tests/CLAUDE.md)
+pyproject.toml              # workspace root + umbrella (no importable code)
+packages/
+├── pa-core/                # productagents.core.*  — schemas, config, logging
+│   └── src/productagents/core/
+│       ├── schemas.py      #   all Pydantic models + shared Literal vocabularies
+│       ├── config.py       #   env-var settings (PRODUCTAGENTS_* vars)
+│       └── logging_config.py
+├── pa-agents/              # productagents.agents.*  — graph nodes + orchestration
+│   └── src/productagents/agents/
+│       ├── _analyst.py     #   shared run_analyst() executor for the 5 analysts
+│       ├── _format.py      #   shared prompt formatters
+│       ├── _stream.py      #   get_writer() progress-event helper
+│       ├── _llm_call.py    #   invoke_structured() chokepoint (logging + retry)
+│       ├── llm.py          #   get_model() — the only provider-agnostic factory
+│       ├── llm_errors.py   #   error classifier (fatal vs transient)
+│       ├── evidence.py     #   EvidenceSource protocol + scenario/dir sources
+│       ├── graph.py        #   LangGraph StateGraph assembly + GraphState
+│       ├── runner.py       #   graph→UI boundary: normalizes stream into events
+│       ├── customer_research.py · product_analytics.py · market.py
+│       ├── business.py · technical.py            # the five parallel analysts
+│       ├── recall.py · strategist.py · judge.py · risk.py · governance.py
+│       ├── human_approval.py # HITL interrupt node (added only when enabled)
+│       ├── reflection.py   #   OUT OF GRAPH: post-hoc outcome reflection
+│       └── data/scenarios/<name>/  # bundled mock evidence files
+├── pa-app/                 # productagents.app.*  — TUI + setup wizard
+│   └── src/productagents/app/
+│       ├── setup.py        #   check_config + write_env
+│       └── tui/            #   Textual app + modal screens (see tui/CLAUDE.md)
+│           ├── app.py · app.tcss · approval.py · reflection.py
+│           ├── home_screen.py · setup_screen.py · degraded.py
+│           ├── rail.py     #   PipelineRail spine widget
+│           └── _format.py  #   pure Rich-markup render helpers
+├── pa-memory/              # productagents.memory  — append-only decision log
+│   └── src/productagents/memory.py   # decisions.jsonl / outcomes.jsonl + lesson retrieval
+├── pa-knowledge/           # productagents.knowledge.*  — stub, ready for v2
+│   └── src/productagents/knowledge/__init__.py
+└── pa-connectors/          # productagents.connectors.*  — stub, ready for v2
+    └── src/productagents/connectors/__init__.py
+tests/                      # offline suite, FakeChatModel (see tests/CLAUDE.md)
+docs/design/adr/            # Architecture Decision Records
 ```
 
-Each key directory has its own `CLAUDE.md` with the local contract.
+**Import path examples:**
+```python
+from productagents.core.schemas import DecisionRecord, Recommendation
+from productagents.core.config import settings
+from productagents.agents.graph import build_graph
+from productagents.agents.runner import run_decision
+from productagents.agents.evidence import collect_evidence
+from productagents.app.setup import check_config
+from productagents.app.tui.app import main
+import productagents.memory as memory
+```
+
+Each key sub-directory has its own `CLAUDE.md` with the local contract.
 
 ## Commands
 
 This project uses **uv** (not Conda, despite the README's "Technology Stack" note). Requires Python ≥ 3.14.
 
 ```bash
-uv sync                 # install deps (incl. dev group)
+uv sync                 # install deps + all workspace members (incl. dev group)
 uv run productagents    # launch the TUI
 uv run pytest           # full suite — runs offline with a fake model, no API key
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test
+uv run lint-imports     # verify 4 import-linter layer contracts (layers + forbidden)
+uv run ruff check packages tests  # lint all source and test trees
+uv run ty check         # type check (pyright-based)
 ```
 
-`pytest` auto-runs coverage (`--cov`, configured in `pyproject.toml`) and writes `htmlcov/`. `asyncio_mode = "auto"`, so `async def test_*` functions need no decorator.
+`uv sync` resolves all six workspace members (`packages/*`) together. `pytest` auto-runs coverage (`--cov`, configured in `pyproject.toml`) and writes `htmlcov/`. `[tool.coverage.paths]` maps each member's `src/productagents/` tree back to the namespace so coverage spans all packages. `asyncio_mode = "auto"`, so `async def test_*` functions need no decorator.
 
 ### Runtime configuration (env vars)
 
@@ -89,21 +127,21 @@ new config takes effect without a restart. The check never makes a network call.
 The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `GraphState` is a `TypedDict`; the five analysts run in parallel from `START`, so `reports` is an `Annotated[list, operator.add]` reducer that merges their concurrent writes. All five fan in to `debate`, then `strategist`, `risk`, `governance`, then `END`. The compiled graph takes a chat model by dependency injection — every node is wired with `partial(node, model=model)`. **Nodes never construct their own model**; the model comes from `llm.get_model()` (the single provider-agnostic factory) and is passed down. This is what makes tests able to inject `FakeChatModel`. The model-free `recall` node runs in parallel from `START`, selects lessons from relevant past decisions (read at the UI boundary and seeded into state, like `portfolio`), and fans into `strategist` alongside `debate`, closing the Outcome-Learning loop.
 
 **Data flow / layers:**
-- `schemas.py` — all Pydantic models, shared across nodes, graph state, and the JSONL persistence. There are two flavours of model: the structured-output schemas an LLM call must return (`AnalystFindings`, `DebateArgument`, `Recommendation`) and the assembled/enriched records nodes build from them (`AnalystReport`, `DebateTurn`, `DecisionRecord`). Nodes call `model.with_structured_output(Schema)`.
-- `evidence.py` — pluggable Layer-1 evidence collection behind an `EvidenceSource` protocol (`collect() -> Evidence`). `ScenarioSource` reads a named scenario from `data/scenarios/<name>/`; `DirectorySource` reads the same five files from any folder. `collect_evidence(spec)` resolves a user-typed string (known scenario name → `ScenarioSource`; existing directory path → `DirectorySource`; blank → bundled `sample`). Every loaded field records an `EvidenceSourceRef` on `Evidence.sources` (provenance), which the TUI persists on the `DecisionRecord`. `load_scenario(name)` remains as a thin wrapper over `ScenarioSource`.
-- `agents/` — one node per file. The five analysts share a single executor (`agents/_analyst.py::run_analyst`) and
+- `productagents.core.schemas` — all Pydantic models, shared across nodes, graph state, and the JSONL persistence. There are two flavours of model: the structured-output schemas an LLM call must return (`AnalystFindings`, `DebateArgument`, `Recommendation`) and the assembled/enriched records nodes build from them (`AnalystReport`, `DebateTurn`, `DecisionRecord`). Nodes call `model.with_structured_output(Schema)`.
+- `productagents.agents.evidence` — pluggable Layer-1 evidence collection behind an `EvidenceSource` protocol (`collect() -> Evidence`). `ScenarioSource` reads a named scenario from `agents/data/scenarios/<name>/`; `DirectorySource` reads the same five files from any folder. `collect_evidence(spec)` resolves a user-typed string (known scenario name → `ScenarioSource`; existing directory path → `DirectorySource`; blank → bundled `sample`). Every loaded field records an `EvidenceSourceRef` on `Evidence.sources` (provenance), which the TUI persists on the `DecisionRecord`. `load_scenario(name)` remains as a thin wrapper over `ScenarioSource`.
+- `productagents.agents.*` — one graph node per file. The five analysts share a single executor (`_analyst.py::run_analyst`) and
   differ only in their `_prompt`; the strategist issues its own single structured
   call. `debate.py` loops rounds, alternating advocate/skeptic personas, each turn
   seeing the full transcript so far. Shared prompt formatters live in
-  `agents/_format.py`. After the strategist, the `judge` node (LLM-as-Judge) scores
+  `_format.py`. After the strategist, the `judge` node (LLM-as-Judge) scores
   the `Recommendation` on evidence grounding and rationale coherence; a deterministic
   threshold decides pass/fail. On a failing, retryable verdict the graph routes back
   to the strategist (which sees the judge's critique) up to `PRODUCTAGENTS_JUDGE_MAX_RETRIES`
   times, then proceeds to risk regardless.
-- `graph.py` — wires nodes into the StateGraph. When `human_in_the_loop=True`, `build_graph(model, human_in_the_loop=True)` appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
-- `runner.py` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge.
-- `tui/app.py` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
-- `memory.py` — append-only `decisions.jsonl` and `outcomes.jsonl` logs (the "organizational memory"). `select_relevant_lessons()` scores past decisions by lexical similarity to the current initiative and returns the lessons of the closest matches — this is the read side of Outcome Learning.
+- `productagents.agents.graph` — wires nodes into the StateGraph. When `human_in_the_loop=True`, `build_graph(model, human_in_the_loop=True)` appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
+- `productagents.agents.runner` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge.
+- `productagents.app.tui.app` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
+- `productagents.memory` — append-only `decisions.jsonl` and `outcomes.jsonl` logs (the "organizational memory"). `select_relevant_lessons()` scores past decisions by lexical similarity to the current initiative and returns the lessons of the closest matches — this is the read side of Outcome Learning.
 - **Outcome Learning has two halves.** The *injection* half runs inside the graph
   (`recall` → `strategist`). The *capture* half runs **outside** the graph:
   `agents/reflection.py::reflect()` is triggered from the TUI's reflection screen
@@ -120,4 +158,11 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 
 ## Adding a stage
 
-To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `schemas.py`, add a node in `agents/` using `get_writer()` and structured output, wire it into `graph.py` (and `GraphState`), surface it through `runner.py` as a new event, and render it in `tui/app.py`. Plans for upcoming work live in `docs/superpowers/plans/`.
+To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.schemas`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in `productagents.app.tui.app`. Plans for upcoming work live in `docs/superpowers/plans/`.
+
+**Layer rules** (enforced by `uv run lint-imports`):
+- `pa-app` may import from `pa-agents`, `pa-memory`, `pa-core` — not from `pa-connectors`.
+- `pa-agents` may import from `pa-memory`, `pa-core` — not from `pa-app`.
+- `pa-memory` and `pa-knowledge` may import from `pa-core` — not from each other or above.
+- `pa-core` is dependency-light: no httpx, langchain, langgraph, sqlalchemy, textual.
+- `requests` is banned platform-wide (async-first, use httpx).

@@ -3,8 +3,8 @@
 import pytest
 
 from productagents.agents._llm_call import StructuredOutputError, invoke_structured
-from productagents.llm_errors import ErrorCategory, ProviderError
-from productagents.schemas import AnalystFindings
+from productagents.agents.llm_errors import ErrorCategory, ProviderError
+from productagents.core.schemas import AnalystFindings
 from tests.fakes import FakeChatModel
 
 

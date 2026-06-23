@@ -44,7 +44,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Type check
-        run: uv run --frozen ty check src
+        run: uv run --frozen ty check packages
 
   security:
     runs-on: ubuntu-latest
@@ -66,7 +66,7 @@ jobs:
           uvx pip-audit@2.10.1 --no-deps -r "$RUNNER_TEMP/requirements-prod.txt"
 
       - name: Static security analysis (bandit)
-        run: uv run --frozen bandit -c pyproject.toml -r src
+        run: uv run --frozen bandit -c pyproject.toml -r packages
 
       - name: Secret scan (gitleaks)
         run: |

@@ -1,9 +1,9 @@
 from textual.app import App
 from textual.widgets import Static
 
-from productagents.schemas import Evidence
-from productagents.tui.app import ProductAgentsApp
-from productagents.tui.degraded import DegradedRunScreen
+from productagents.app.tui.app import ProductAgentsApp
+from productagents.app.tui.degraded import DegradedRunScreen
+from productagents.core.schemas import Evidence
 
 
 class _Host(App):
@@ -30,7 +30,7 @@ def _build_app(*, runner):
 
 
 async def test_run_aborted_shows_error_banner():
-    from productagents.runner import RunAbortedEvent
+    from productagents.agents.runner import RunAbortedEvent
 
     async def _fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None

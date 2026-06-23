@@ -1,0 +1,23 @@
+[project]
+name = "productagents-app"
+version = "0.1.0"
+description = "ProductAgents Textual TUI and CLI edges."
+requires-python = ">=3.14"
+dependencies = [
+    "productagents-core",
+    "productagents-agents",
+    "productagents-memory",
+    "textual>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/productagents"]
+
+[tool.uv.sources]
+productagents-core = { workspace = true }
+productagents-agents = { workspace = true }
+productagents-memory = { workspace = true }

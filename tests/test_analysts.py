@@ -5,7 +5,7 @@ from productagents.agents.customer_research import customer_research_node
 from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
 from productagents.agents.technical import technical_node
-from productagents.schemas import AnalystFindings, Evidence, Initiative
+from productagents.core.schemas import AnalystFindings, Evidence, Initiative
 from tests.fakes import FakeChatModel
 
 

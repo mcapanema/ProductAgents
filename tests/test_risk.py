@@ -1,5 +1,5 @@
 from productagents.agents.risk import REVIEWERS, risk_node
-from productagents.schemas import (
+from productagents.core.schemas import (
     AnalystReport,
     DebateTurn,
     Initiative,

@@ -3,8 +3,8 @@
 from textual.app import App
 from textual.widgets import Select
 
-from productagents.setup import ConfigStatus
-from productagents.tui.setup_screen import SetupScreen
+from productagents.app.setup import ConfigStatus
+from productagents.app.tui.setup_screen import SetupScreen
 
 
 def _missing_status():

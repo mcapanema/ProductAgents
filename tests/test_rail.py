@@ -1,7 +1,7 @@
 import pytest
 from textual.app import App, ComposeResult
 
-from productagents.tui.rail import STAGES, PipelineRail, render_rail
+from productagents.app.tui.rail import STAGES, PipelineRail, render_rail
 
 
 def test_stages_are_the_seven_pipeline_stages_in_order():

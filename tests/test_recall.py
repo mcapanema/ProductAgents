@@ -1,5 +1,5 @@
 from productagents.agents.recall import recall_node
-from productagents.schemas import (
+from productagents.core.schemas import (
     DecisionRecord,
     Initiative,
     OutcomeRecord,

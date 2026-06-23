@@ -1,14 +1,14 @@
 import pytest
 
-from productagents.graph import build_graph
-from productagents.runner import (
+from productagents.agents.graph import build_graph
+from productagents.agents.runner import (
     FinishedEvent,
     GovernanceVerdictEvent,
     JudgmentEvent,
     RiskAssessmentEvent,
     run_decision,
 )
-from productagents.schemas import (
+from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
     Evidence,

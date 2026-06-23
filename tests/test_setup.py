@@ -2,7 +2,7 @@
 
 import os
 
-from productagents.setup import (
+from productagents.app.setup import (
     PROVIDERS,
     ConfigStatus,
     ProviderInfo,

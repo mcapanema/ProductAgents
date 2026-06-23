@@ -1,5 +1,4 @@
-from productagents.schemas import Recommendation
-from productagents.tui._format import (
+from productagents.app.tui._format import (
     confidence_meter,
     format_debate_turn,
     format_governance,
@@ -8,6 +7,7 @@ from productagents.tui._format import (
     format_recommendation,
     format_risk_line,
 )
+from productagents.core.schemas import Recommendation
 
 
 def test_confidence_meter_renders_filled_blocks_and_percent():

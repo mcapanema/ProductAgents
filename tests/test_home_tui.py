@@ -3,8 +3,8 @@
 from textual.app import App
 from textual.widgets import Button
 
-from productagents.setup import ConfigStatus
-from productagents.tui.home_screen import HomeScreen
+from productagents.app.setup import ConfigStatus
+from productagents.app.tui.home_screen import HomeScreen
 
 
 def _ok_status():

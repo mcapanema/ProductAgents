@@ -5,7 +5,7 @@ from productagents.agents.judge import (
     get_judge_threshold,
     judge_node,
 )
-from productagents.schemas import (
+from productagents.core.schemas import (
     AnalystReport,
     Initiative,
     JudgeFinding,

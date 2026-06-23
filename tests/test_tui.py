@@ -2,8 +2,8 @@ from functools import partial
 
 from textual.widgets import Button, Input, Label
 
-from productagents.graph import build_graph
-from productagents.runner import (
+from productagents.agents.graph import build_graph
+from productagents.agents.runner import (
     DebateTurnEvent,
     FinalVerdictEvent,
     FinishedEvent,
@@ -13,7 +13,12 @@ from productagents.runner import (
     RiskAssessmentEvent,
     run_decision,
 )
-from productagents.schemas import (
+from productagents.app.setup import ConfigStatus
+from productagents.app.tui.app import ProductAgentsApp
+from productagents.app.tui.degraded import DegradedRunScreen
+from productagents.app.tui.home_screen import HomeScreen
+from productagents.app.tui.setup_screen import SetupScreen
+from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
     Evidence,
@@ -24,11 +29,6 @@ from productagents.schemas import (
     Recommendation,
     RiskFinding,
 )
-from productagents.setup import ConfigStatus
-from productagents.tui.app import ProductAgentsApp
-from productagents.tui.degraded import DegradedRunScreen
-from productagents.tui.home_screen import HomeScreen
-from productagents.tui.setup_screen import SetupScreen
 from tests.fakes import FakeChatModel
 
 
@@ -131,7 +131,7 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
 
 
 def test_format_recall_body_lists_lessons():
-    from productagents.tui.app import _format_recall_body
+    from productagents.app.tui.app import _format_recall_body
 
     body = _format_recall_body(["lesson one", "lesson two"])
 
@@ -140,7 +140,7 @@ def test_format_recall_body_lists_lessons():
 
 
 def test_format_recall_body_empty_state_points_to_reflection():
-    from productagents.tui.app import _format_recall_body
+    from productagents.app.tui.app import _format_recall_body
 
     body = _format_recall_body([])
 
@@ -193,7 +193,7 @@ async def test_initiative_input_is_focused_on_decision_screen():
 
 async def test_app_renders_recalled_lessons(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
-    from productagents.schemas import (
+    from productagents.core.schemas import (
         DecisionRecord,
         Initiative,
         OutcomeRecord,
@@ -262,7 +262,7 @@ async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch)
         async for event in runner(initiative, evidence, **kwargs):
             yield event
 
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     app = ProductAgentsApp(
         capturing_runner,
@@ -294,7 +294,7 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
         async for event in runner(initiative, evidence, **kwargs):
             yield event
 
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     app = ProductAgentsApp(
         tracking_runner,
@@ -350,7 +350,7 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
     (folder / "customer_feedback.md").write_text("prov feedback")
     (folder / "product_analytics.json").write_text('{"dau": 3}')
 
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     recorded = []
     app = ProductAgentsApp(
@@ -379,8 +379,8 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
 
 async def test_completion_event_without_panel_is_ignored(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
-    from productagents.runner import FinishedEvent, NodeCompleteEvent
-    from productagents.schemas import AnalystReport, Evidence, Recommendation
+    from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
+    from productagents.core.schemas import AnalystReport, Evidence, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -566,8 +566,8 @@ async def test_ctrl_h_reopens_menu_from_decision_ui():
 
 
 async def test_app_logs_node_error_and_marks_panel_failed():
-    from productagents.runner import FinishedEvent, NodeErrorEvent
-    from productagents.schemas import Evidence, Recommendation
+    from productagents.agents.runner import FinishedEvent, NodeErrorEvent
+    from productagents.core.schemas import Evidence, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -624,8 +624,8 @@ async def test_app_registers_and_applies_custom_theme():
 
 
 async def test_app_panel_titles_show_state_icons():
-    from productagents.runner import FinishedEvent, NodeCompleteEvent
-    from productagents.schemas import AnalystReport, Evidence, Recommendation
+    from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
+    from productagents.core.schemas import AnalystReport, Evidence, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -1144,8 +1144,8 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
 
 
 async def test_strategist_panel_renders_on_recommendation_event():
-    from productagents.runner import RecommendationEvent
-    from productagents.schemas import Initiative, Recommendation
+    from productagents.agents.runner import RecommendationEvent
+    from productagents.core.schemas import Initiative, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -1184,7 +1184,7 @@ async def test_strategist_panel_renders_on_recommendation_event():
 
 
 async def test_pipeline_rail_advances_during_a_run():
-    from productagents.tui.rail import PipelineRail
+    from productagents.app.tui.rail import PipelineRail
 
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
