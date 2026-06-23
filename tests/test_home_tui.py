@@ -1,9 +1,10 @@
 """HomeScreen behavior, driven through a minimal host app."""
 
-from productagents.app.setup import ConfigStatus
-from productagents.app.tui.home_screen import HomeScreen
 from textual.app import App
 from textual.widgets import Button
+
+from productagents.app.setup import ConfigStatus
+from productagents.app.tui.home_screen import HomeScreen
 
 
 def _ok_status():

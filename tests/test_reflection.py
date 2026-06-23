@@ -7,7 +7,6 @@ from productagents.core.schemas import (
     Recommendation,
     Reflection,
 )
-
 from tests.fakes import FakeChatModel
 
 

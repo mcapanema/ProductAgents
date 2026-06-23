@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from langgraph.types import Command
+
 from productagents.core.schemas import (
     AnalystReport,
     DebateTurn,

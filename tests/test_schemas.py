@@ -1,4 +1,6 @@
 import pytest
+from pydantic import ValidationError
+
 from productagents.core.schemas import (
     AnalystFindings,
     AnalystReport,
@@ -10,7 +12,6 @@ from productagents.core.schemas import (
     RiskAssessment,
     RiskFinding,
 )
-from pydantic import ValidationError
 
 
 def test_initiative_fields():

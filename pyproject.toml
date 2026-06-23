@@ -118,6 +118,15 @@ include_external_packages = true
 [tool.ruff]
 line-length = 88
 # target-version is inferred from project.requires-python (>=3.14).
+# Teach ruff where first-party source trees live (src/ was removed in Phase 0).
+src = [
+    "packages/pa-core/src",
+    "packages/pa-agents/src",
+    "packages/pa-app/src",
+    "packages/pa-memory/src",
+    "packages/pa-knowledge/src",
+    "packages/pa-connectors/src",
+]
 
 [tool.ruff.lint]
 # Curated, explicit rule set. The default ruff selection is nearly empty;

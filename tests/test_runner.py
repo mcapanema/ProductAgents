@@ -24,7 +24,6 @@ from productagents.core.schemas import (
     Recommendation,
     RiskFinding,
 )
-
 from tests.fakes import FakeChatModel
 
 
@@ -269,7 +268,6 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
         RiskFinding,
     )
     from productagents.core.schemas import JudgeFinding as _JudgeFinding
-
     from tests.fakes import FakeChatModel
 
     model = FakeChatModel(
@@ -358,7 +356,6 @@ def _base_results():
 async def test_runner_emits_node_error_for_debate(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import DebateArgument
-
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -370,7 +367,6 @@ async def test_runner_emits_node_error_for_debate(monkeypatch):
 async def test_runner_emits_node_error_for_risk(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import RiskFinding
-
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -382,7 +378,6 @@ async def test_runner_emits_node_error_for_risk(monkeypatch):
 async def test_runner_emits_node_error_for_strategist(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import Recommendation
-
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -394,7 +389,6 @@ async def test_runner_emits_node_error_for_strategist(monkeypatch):
 async def test_runner_emits_node_error_for_governance(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import GovernanceFinding
-
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -443,7 +437,6 @@ async def test_run_decision_aborts_end_to_end_on_rate_limit():
     from productagents.agents.graph import build_graph
     from productagents.agents.runner import FinishedEvent, RunAbortedEvent, run_decision
     from productagents.core.schemas import AnalystFindings, Evidence, Initiative
-
     from tests.fakes import FakeChatModel
 
     # Every analyst's structured call raises a rate-limit-shaped error.

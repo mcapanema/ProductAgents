@@ -1,10 +1,10 @@
 """Tests for the shared structured-output wrapper."""
 
 import pytest
+
 from productagents.agents._llm_call import StructuredOutputError, invoke_structured
 from productagents.agents.llm_errors import ErrorCategory, ProviderError
 from productagents.core.schemas import AnalystFindings
-
 from tests.fakes import FakeChatModel
 
 

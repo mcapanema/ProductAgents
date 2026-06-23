@@ -1,9 +1,10 @@
 """SetupScreen behavior, driven through a minimal host app."""
 
-from productagents.app.setup import ConfigStatus
-from productagents.app.tui.setup_screen import SetupScreen
 from textual.app import App
 from textual.widgets import Select
+
+from productagents.app.setup import ConfigStatus
+from productagents.app.tui.setup_screen import SetupScreen
 
 
 def _missing_status():

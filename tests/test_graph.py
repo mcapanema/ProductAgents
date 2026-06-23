@@ -1,4 +1,5 @@
 import pytest
+
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import (
     FinishedEvent,
@@ -17,7 +18,6 @@ from productagents.core.schemas import (
     Recommendation,
     RiskFinding,
 )
-
 from tests.fakes import FakeChatModel
 
 

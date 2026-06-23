@@ -1,5 +1,7 @@
 from functools import partial
 
+from textual.widgets import Button, Input, Label
+
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import (
     DebateTurnEvent,
@@ -27,8 +29,6 @@ from productagents.core.schemas import (
     Recommendation,
     RiskFinding,
 )
-from textual.widgets import Button, Input, Label
-
 from tests.fakes import FakeChatModel
 
 

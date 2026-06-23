@@ -1,6 +1,7 @@
 import json
 
 import pytest
+
 from productagents.agents.evidence import EvidenceError, list_scenarios, load_scenario
 
 

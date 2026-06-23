@@ -1,8 +1,9 @@
+from textual.app import App
+from textual.widgets import Static
+
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.degraded import DegradedRunScreen
 from productagents.core.schemas import Evidence
-from textual.app import App
-from textual.widgets import Static
 
 
 class _Host(App):

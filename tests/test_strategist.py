@@ -1,6 +1,5 @@
 from productagents.agents.strategist import strategist_node
 from productagents.core.schemas import AnalystReport, Initiative, Recommendation
-
 from tests.fakes import FakeChatModel
 
 
@@ -46,9 +45,8 @@ async def test_strategist_failure_yields_zero_confidence():
 
 
 async def test_strategist_includes_debate_in_prompt(monkeypatch):
-    from productagents.core.schemas import DebateTurn
-
     from productagents.agents import strategist as strategist_module
+    from productagents.core.schemas import DebateTurn
 
     captured = {}
 
@@ -129,9 +127,8 @@ async def test_strategist_degrades_when_model_returns_none():
 
 
 async def test_strategist_injects_judge_critique_on_retry(monkeypatch):
-    from productagents.core.schemas import JudgeVerdict
-
     from productagents.agents import strategist as strategist_module
+    from productagents.core.schemas import JudgeVerdict
 
     captured = {}
 

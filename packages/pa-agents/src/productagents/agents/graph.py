@@ -6,6 +6,7 @@ from typing import Annotated, TypedDict
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
+
 from productagents.agents.business import business_node
 from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node

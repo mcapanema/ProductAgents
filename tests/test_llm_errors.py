@@ -1,6 +1,7 @@
 """Tests for the provider-agnostic error classifier."""
 
 import pytest
+
 from productagents.agents.llm_errors import (
     ErrorCategory,
     ProviderError,

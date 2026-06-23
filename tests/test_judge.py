@@ -11,7 +11,6 @@ from productagents.core.schemas import (
     JudgeFinding,
     Recommendation,
 )
-
 from tests.fakes import FakeChatModel
 
 
