@@ -69,6 +69,13 @@ class NodeErrorEvent:
     message: str
 
 
+@dataclass(frozen=True)
+class RunAbortedEvent:
+    node: str
+    category: str
+    message: str
+
+
 @dataclass
 class FinalVerdictEvent:
     verdict: str
@@ -158,6 +165,7 @@ async def run_decision(
     | GovernanceVerdictEvent
     | JudgmentEvent
     | NodeErrorEvent
+    | RunAbortedEvent
     | FinalVerdictEvent
     | RecallEvent
     | FinishedEvent
@@ -210,6 +218,13 @@ async def run_decision(
                         break
                 else:
                     if "error" in chunk:
+                        if chunk.get("fatal"):
+                            yield RunAbortedEvent(
+                                node=chunk.get("node", ""),
+                                category=chunk.get("category", "unknown"),
+                                message=chunk["error"],
+                            )
+                            return
                         yield NodeErrorEvent(
                             node=chunk.get("node", ""), message=chunk["error"]
                         )

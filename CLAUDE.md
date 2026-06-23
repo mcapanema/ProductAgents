@@ -71,6 +71,11 @@ uv run pytest tests/test_debate.py::test_name -x           # one test
 > logs a `StructuredOutputError` ("the configured model likely does not support
 > tool/function calling"). Pick a tool-capable model — e.g.
 > `openrouter:deepseek/deepseek-chat-v3-0324:free`.
+>
+> Provider failures are now classified (`llm_errors.py`): rate-limit, auth, and
+> tool-calling-unsupported are **fatal** and stop the run early with one friendly
+> banner (a `RunAbortedEvent`); transient upstream 5xx errors degrade per-node as
+> before.
 
 On launch the TUI shows a **home menu** (Set up / Run a decision / Quit) and runs
 a **static readiness check** (`setup.check_config`): it derives the provider from
