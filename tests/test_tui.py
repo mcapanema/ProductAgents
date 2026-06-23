@@ -1079,3 +1079,43 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
             assert region.y + region.height <= screen_h, (
                 f"{widget_id} pushed off-screen"
             )
+
+
+async def test_strategist_panel_renders_on_recommendation_event():
+    from productagents.runner import RecommendationEvent
+    from productagents.schemas import Initiative, Recommendation
+
+    async def fake_runner(
+        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
+    ):
+        yield RecommendationEvent(
+            recommendation=Recommendation(
+                recommendation="Build SSO now",
+                confidence=0.82,
+                rationale="Enterprise demand is clear.",
+                expected_outcomes=["Higher enterprise conversion"],
+            )
+        )
+
+    evidence = Evidence(
+        scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
+    )
+    app = ProductAgentsApp(
+        fake_runner,
+        evidence,
+        recorder=lambda record: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        app._run(Initiative(title="Add SSO", description="Add SSO"), evidence)
+        await pilot.pause()
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        strat_text = str(pilot.app.query_one("#strategist").content)
+        strat_title = str(pilot.app.query_one("#strategist").border_title)
+
+    assert "Build SSO now" in strat_text
+    assert "82%" in strat_text
+    assert strat_title.startswith("✓")
