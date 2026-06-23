@@ -9,7 +9,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.theme import Theme
-from textual.widgets import Footer, Header, Input, Static
+from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.reflection import reflect
 from productagents.config import load_env
@@ -207,14 +207,20 @@ class ProductAgentsApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal(id="top-bar"):
-            yield Input(
-                placeholder="Describe the initiative and press Enter…",
-                id="initiative-title",
-            )
-            yield Input(
-                placeholder="Evidence source (scenario name or path; blank = sample)",
-                id="evidence-source",
-            )
+            with Vertical(id="initiative-field"):
+                yield Label("Initiative — press Enter to run", id="initiative-label")
+                yield Input(
+                    placeholder="Describe the initiative…",
+                    id="initiative-title",
+                )
+            with Vertical(id="evidence-field"):
+                yield Label(
+                    "Evidence  (scenario or path · blank = sample)", id="evidence-label"
+                )
+                yield Input(
+                    placeholder="sample",
+                    id="evidence-source",
+                )
         yield PipelineRail()
         with Horizontal(id="lanes"):
             with VerticalScroll(id="left-lane"):
@@ -271,6 +277,8 @@ class ProductAgentsApp(App):
                 self._set_state(widget_id, "idle")
         if self._show_home:
             self._open_home()
+        if not self._show_home:
+            self.query_one("#initiative-title", Input).focus()
 
     def _rail(self) -> PipelineRail:
         return self.query_one("#pipeline-rail", PipelineRail)
@@ -347,6 +355,7 @@ class ProductAgentsApp(App):
     def start_decision(self) -> None:
         if isinstance(self.screen, HomeScreen):
             self.pop_screen()
+        self.query_one("#initiative-title", Input).focus()
 
     def action_home(self) -> None:
         if not isinstance(self.screen, HomeScreen):

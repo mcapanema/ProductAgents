@@ -11,13 +11,30 @@ Screen {
     margin: 1 1 0 1;
 }
 
-#initiative-title {
+#initiative-field {
     width: 3fr;
+    height: auto;
 }
 
-#evidence-source {
+#evidence-field {
     width: 2fr;
+    height: auto;
     margin-left: 1;
+}
+
+#initiative-label {
+    color: $stage-strategy;
+    text-style: bold;
+    padding: 0 1;
+}
+
+#evidence-label {
+    color: $muted;
+    padding: 0 1;
+}
+
+#initiative-title:focus {
+    border: tall $stage-strategy;
 }
 
 #pipeline-rail {
