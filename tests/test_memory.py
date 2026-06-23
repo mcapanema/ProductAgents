@@ -231,6 +231,23 @@ def test_respects_limit():
     assert len(lessons) == 2
 
 
+def test_validated_fills_limit_excludes_derived():
+    from productagents.memory import select_relevant_lessons
+    from productagents.schemas import Initiative
+
+    # 3 validated decisions exactly fills the default limit=3.
+    decisions = [_decision(f"d{i}", "Add enterprise SSO login") for i in range(4)]
+    # Only the first 3 have outcomes; d3 has none.
+    outcomes = [_outcome_for(f"d{i}", [f"lesson {i}"]) for i in range(3)]
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+
+    lessons = select_relevant_lessons(initiative, decisions, outcomes)
+
+    # Validated fills the budget; the derived lesson from d3 is excluded.
+    assert len(lessons) == 3
+    assert all("not yet validated" not in line for line in lessons)
+
+
 def test_validated_lessons_rank_before_derived():
     from productagents.memory import select_relevant_lessons
     from productagents.schemas import Initiative

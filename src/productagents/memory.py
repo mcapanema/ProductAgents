@@ -138,6 +138,8 @@ def select_relevant_lessons(
     Scores lexical overlap between initiative texts; `limit` caps the number of
     source decisions (validated first, derived filling the remainder). Returns []
     when nothing relevant is found.
+    `decisions` must be in chronological order (oldest first) for the dedup
+    "keep most recent" guarantee to hold.
     """
     by_id = {
         outcome.decision_id: outcome

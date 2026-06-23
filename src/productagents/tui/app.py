@@ -119,7 +119,7 @@ def _format_recall_body(lessons: list[str]) -> str:
     """Render the Lessons panel body, with a discoverable empty state."""
     if not lessons:
         return (
-            "No past decisions to learn from yet.\n"
+            "No relevant past decisions found.\n"
             "Run more decisions to build memory, then press ctrl+r to "
             "reflect on their outcomes and feed validated lessons back in."
         )

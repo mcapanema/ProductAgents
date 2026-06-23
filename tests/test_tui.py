@@ -147,6 +147,7 @@ def test_format_recall_body_empty_state_points_to_reflection():
     # Empty state must guide the user toward building memory via reflection.
     assert "ctrl+r" in body
     assert "no relevant past lessons" not in body.lower()
+    assert "no relevant past decisions found" in body.lower()
 
 
 async def test_app_renders_recalled_lessons(monkeypatch):
