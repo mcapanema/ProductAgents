@@ -1200,3 +1200,25 @@ async def test_pipeline_rail_advances_during_a_run():
         # After a full healthy run the rail shows completed stages and a 5/5 count.
         assert "✓" in rail_text
         assert "5/5" in rail_text
+
+
+async def test_status_log_turns_red_only_on_error():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        status = app.query_one("#status-log")
+        assert not status.has_class("-has-error")
+        app._log_status("just info", level="info")
+        assert not status.has_class("-has-error")
+        app._log_status("boom", level="error")
+        assert status.has_class("-has-error")
+        app._reset_panels()
+        assert not status.has_class("-has-error")

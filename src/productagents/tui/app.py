@@ -410,6 +410,7 @@ class ProductAgentsApp(App):
         self.query_one("#judgment", Static).update("…")
         self._status_lines = []
         self.query_one("#status-log", Static).update("")
+        self.query_one("#status-log").remove_class("-has-error")
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 continue
@@ -639,6 +640,8 @@ class ProductAgentsApp(App):
         self._status_lines.append(f"[{color}]{icon} {ts} {message}[/{color}]")
         self._status_lines = self._status_lines[-50:]
         self.query_one("#status-log", Static).update("\n".join(self._status_lines))
+        if level == "error":
+            self.query_one("#status-log").add_class("-has-error")
 
     def _mark_failed(self, node: str) -> None:
         widget_id = _WIDGET_FOR_NODE.get(node, node)
