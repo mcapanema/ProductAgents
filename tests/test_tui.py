@@ -693,6 +693,7 @@ async def test_app_uses_three_lane_layout_with_analyst_grid():
         app.query_one("#recall")
         app.query_one("#evidence-provenance")
         app.query_one("#status-log")
+        app.query_one("#pipeline-rail")
 
 
 async def test_app_renders_and_records_judgment(monkeypatch):
@@ -1139,3 +1140,24 @@ async def test_strategist_panel_renders_on_recommendation_event():
     assert "Build SSO now" in strat_text
     assert "82%" in strat_text
     assert strat_title.startswith("✓")
+
+
+async def test_pipeline_rail_advances_during_a_run():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        rail_text = str(pilot.app.query_one("#pipeline-rail").content)
+        # After a full healthy run the rail shows completed stages and a 5/5 count.
+        assert "✓" in rail_text
+        assert "5/5" in rail_text

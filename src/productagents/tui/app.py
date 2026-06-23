@@ -52,6 +52,7 @@ from productagents.tui._format import format_recall_body as _format_recall_body
 from productagents.tui.approval import ApprovalScreen
 from productagents.tui.degraded import DegradedRunScreen
 from productagents.tui.home_screen import HomeScreen
+from productagents.tui.rail import PipelineRail
 from productagents.tui.reflection import ReflectionScreen
 from productagents.tui.setup_screen import SetupScreen
 
@@ -141,6 +142,14 @@ _WAITING_AT_START = {
     "governance",
 }
 
+_ANALYST_IDS = {
+    "customer_research",
+    "product_analytics",
+    "market",
+    "business",
+    "technical",
+}
+
 
 class ProductAgentsApp(App):
     # Don't auto-load CSS during init; load it after theme is set.
@@ -206,6 +215,7 @@ class ProductAgentsApp(App):
                 placeholder="Evidence source (scenario name or path; blank = sample)",
                 id="evidence-source",
             )
+        yield PipelineRail()
         with Horizontal(id="lanes"):
             with VerticalScroll(id="left-lane"):
                 yield Static("Waiting…", id="evidence-provenance", classes="panel")
@@ -261,6 +271,16 @@ class ProductAgentsApp(App):
                 self._set_state(widget_id, "idle")
         if self._show_home:
             self._open_home()
+
+    def _rail(self) -> PipelineRail:
+        return self.query_one("#pipeline-rail", PipelineRail)
+
+    def _completed_analysts(self) -> int:
+        return sum(
+            1
+            for node_id in _ANALYST_IDS
+            if str(self.query_one(f"#{node_id}").border_title).startswith("✓")
+        )
 
     def _set_state(self, widget_id: str, state: str) -> None:
         try:
@@ -355,6 +375,8 @@ class ProductAgentsApp(App):
         prov = "\n".join(f"• {ref.field} ← {ref.source}" for ref in evidence.sources)
         self.query_one("#evidence-provenance", Static).update(prov or "(default)")
         self._reset_panels()
+        self._rail().set_stage("evidence", "done")
+        self._rail().set_stage("analysis", "running")
         self._run(Initiative(title=title, description=title), evidence)
 
     def _reset_panels(self) -> None:
@@ -374,6 +396,7 @@ class ProductAgentsApp(App):
                 continue
             state = "waiting" if widget_id in _WAITING_AT_START else "idle"
             self._set_state(widget_id, state)
+        self._rail().reset()
 
     def action_reflect(self) -> None:
         if self._reflector is None:
@@ -473,6 +496,8 @@ class ProductAgentsApp(App):
             self.query_one(f"#{event.node}", Static).update(f"… {event.message}")
             if event.node == "strategist":
                 self._set_state("debate-scroll", "done")
+                self._rail().set_stage("debate", "done")
+                self._rail().set_stage("strategy", "running")
             self._set_state(event.node, "running")
 
     def _on_node_complete(self, event) -> None:
@@ -488,6 +513,11 @@ class ProductAgentsApp(App):
             body = "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
             self.query_one(f"#{event.node}", Static).update(body)
             self._set_state(event.node, "done")
+            if event.node in _ANALYST_IDS:
+                rail = self._rail()
+                rail.bump_analyst()
+                if self._completed_analysts() >= len(_ANALYST_IDS):
+                    rail.set_stage("analysis", "done")
 
     def _on_node_error(self, event) -> None:
         label = _TITLES.get(_WIDGET_FOR_NODE.get(event.node, event.node), event.node)
@@ -505,6 +535,8 @@ class ProductAgentsApp(App):
         )
         self.query_one("#debate", Static).update("\n\n".join(self._debate_lines))
         self._set_state("debate-scroll", "running")
+        self._rail().set_stage("analysis", "done")
+        self._rail().set_stage("debate", "running")
 
     def _on_risk_assessment(self, event) -> None:
         self._risk_lines.append(
@@ -512,6 +544,7 @@ class ProductAgentsApp(App):
         )
         self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
         self._set_state("risk-scroll", "running")
+        self._rail().set_stage("risk", "running")
 
     def _on_judgment(self, event) -> None:
         self.query_one("#judgment", Static).update(
@@ -525,6 +558,9 @@ class ProductAgentsApp(App):
         )
         self._set_state("strategist", "done")
         self._set_state("judgment", "done" if event.passed else "warning")
+        self._rail().set_stage("strategy", "done")
+        self._rail().set_stage("judge", "done" if event.passed else "warning")
+        self._rail().set_stage("risk", "running")
 
     def _on_governance_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
@@ -533,6 +569,10 @@ class ProductAgentsApp(App):
         self._set_state("risk-scroll", "done")
         state = "done" if event.verdict == "approve" else "warning"
         self._set_state("governance", state)
+        self._rail().set_stage("risk", "done")
+        self._rail().set_stage(
+            "governance", "done" if event.verdict == "approve" else "warning"
+        )
 
     def _on_final_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
@@ -542,6 +582,9 @@ class ProductAgentsApp(App):
         )
         state = "done" if event.verdict == "approve" else "warning"
         self._set_state("governance", state)
+        self._rail().set_stage(
+            "governance", "done" if event.verdict == "approve" else "warning"
+        )
 
     def _on_recall(self, event) -> None:
         self.query_one("#recall", Static).update(_format_recall_body(event.lessons))

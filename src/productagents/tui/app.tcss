@@ -20,6 +20,15 @@ Screen {
     margin-left: 1;
 }
 
+#pipeline-rail {
+    dock: top;
+    height: 1;
+    margin: 1 1 0 1;
+    padding: 0 1;
+    background: $surface;
+    color: $ink;
+}
+
 /* ---- lanes ---------------------------------------------------------- */
 #lanes {
     height: 1fr;
