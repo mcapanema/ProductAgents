@@ -477,3 +477,65 @@ async def test_run_decision_emits_recommendation_before_finished():
         i for i, e in enumerate(events) if isinstance(e, FinishedEvent)
     )
     assert rec_index < finished_index
+
+
+async def test_run_decision_emits_two_recommendation_events_on_judge_retry(monkeypatch):
+    """When the judge fails once and passes on retry, two RecommendationEvents
+    are emitted — one from the initial strategist run, one from the revision."""
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    monkeypatch.setenv("PRODUCTAGENTS_JUDGE_MAX_RETRIES", "1")
+    # Set threshold high so the first JudgeFinding (low scores) fails the gate.
+    monkeypatch.setenv("PRODUCTAGENTS_JUDGE_THRESHOLD", "0.7")
+
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            # First judge call: both scores below threshold → fails; judge routes
+            # back to strategist.  Second call: scores above threshold → passes.
+            JudgeFinding: [
+                JudgeFinding(
+                    evidence_grounding_score=0.3,
+                    rationale_coherence_score=0.3,
+                    critique="needs more evidence",
+                ),
+                JudgeFinding(
+                    evidence_grounding_score=0.9,
+                    rationale_coherence_score=0.9,
+                    critique="much better",
+                ),
+            ],
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="resources well spent"
+            ),
+        }
+    )
+    graph = build_graph(model)
+    initiative, evidence = _inputs()
+
+    events = [e async for e in run_decision(graph, initiative, evidence)]
+
+    from productagents.runner import RecommendationEvent
+
+    recs = [e for e in events if isinstance(e, RecommendationEvent)]
+    # First strategist run + one revision each emit a RecommendationEvent.
+    assert len(recs) >= 2, (
+        f"expected at least 2 RecommendationEvents on judge retry, got {len(recs)}"
+    )
+
+    # Judge should have made two attempts: first failed, second passed.
+    judgments = [e for e in events if isinstance(e, JudgmentEvent)]
+    assert len(judgments) == 2
+    assert judgments[0].passed is False
+    assert judgments[1].passed is True
+
+    finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.judgment is not None
+    assert finished.judgment.passed is True
