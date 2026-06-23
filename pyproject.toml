@@ -55,8 +55,22 @@ addopts = "--cov=productagents --cov-report=term-missing --cov-report=html --cov
 branch = true
 source = ["productagents"]
 
+[tool.coverage.paths]
+productagents = [
+    "packages/pa-core/src/productagents",
+    "packages/pa-agents/src/productagents",
+    "packages/pa-app/src/productagents",
+    "packages/pa-memory/src/productagents",
+    "packages/pa-knowledge/src/productagents",
+    "packages/pa-connectors/src/productagents",
+]
+
 [tool.coverage.report]
 show_missing = true
+omit = [
+    "*/connectors/__init__.py",
+    "*/knowledge/__init__.py",
+]
 
 [tool.bandit]
 # Scan only application source in CI (`-r src`); tests legitimately use
