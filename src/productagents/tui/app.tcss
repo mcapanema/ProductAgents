@@ -263,3 +263,31 @@ SetupScreen {
 #setup-save, #setup-cancel {
     margin: 0 1;
 }
+
+ApprovalScreen, DegradedRunScreen {
+    align: center middle;
+}
+
+#advisory, #degraded-message {
+    margin: 1 2;
+    padding: 1;
+    border: round $stage-governance;
+    background: $panel;
+    width: 80%;
+    height: auto;
+}
+
+#note {
+    margin: 0 2 1 2;
+    width: 80%;
+}
+
+#approve, #reject, #request_analysis,
+#retry, #decide, #quit {
+    margin: 0 2;
+    width: 80%;
+}
+
+#advisory {
+    color: $ink;
+}
