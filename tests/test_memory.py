@@ -169,16 +169,25 @@ def test_selects_lessons_from_matching_decision():
     assert any("50%" in line for line in lessons)
 
 
-def test_ignores_decisions_without_an_outcome():
+def test_derives_lesson_from_decision_without_outcome():
     from productagents.memory import select_relevant_lessons
     from productagents.schemas import Initiative
 
     decisions = [_decision("d1", "Add enterprise SSO login")]
     initiative = Initiative(title="Add SSO", description="Enterprise SSO")
-    assert select_relevant_lessons(initiative, decisions, outcomes=[]) == []
+
+    lessons = select_relevant_lessons(initiative, decisions, outcomes=[])
+
+    # A matching decision with no captured outcome now contributes a
+    # prediction-style lesson, clearly marked as not yet validated.
+    assert len(lessons) == 1
+    assert "not yet validated" in lessons[0]
+    assert "Add enterprise SSO login" in lessons[0]
+    # The decision's recommendation ("Build it") is surfaced as signal.
+    assert "Build it" in lessons[0]
 
 
-def test_ignores_failed_or_empty_outcomes():
+def test_failed_or_empty_outcomes_fall_back_to_derived_lessons():
     from productagents.memory import select_relevant_lessons
     from productagents.schemas import Initiative
 
@@ -191,7 +200,14 @@ def test_ignores_failed_or_empty_outcomes():
         _outcome_for("d2", []),  # no lessons captured
     ]
     initiative = Initiative(title="Add SSO", description="Enterprise SSO")
-    assert select_relevant_lessons(initiative, decisions, outcomes) == []
+
+    lessons = select_relevant_lessons(initiative, decisions, outcomes)
+
+    # Neither a failed nor an empty outcome leaks its (non-)lessons...
+    assert all("failed reflection" not in line for line in lessons)
+    # ...but both decisions still contribute a prediction-style derived lesson.
+    assert len(lessons) == 2
+    assert all("not yet validated" in line for line in lessons)
 
 
 def test_returns_empty_when_no_token_overlap():
@@ -213,6 +229,62 @@ def test_respects_limit():
     initiative = Initiative(title="Add SSO", description="Enterprise SSO")
     lessons = select_relevant_lessons(initiative, decisions, outcomes, limit=2)
     assert len(lessons) == 2
+
+
+def test_validated_lessons_rank_before_derived():
+    from productagents.memory import select_relevant_lessons
+    from productagents.schemas import Initiative
+
+    decisions = [
+        _decision("d1", "Add SSO single sign-on"),  # will be derived (no outcome)
+        _decision("d2", "Add enterprise SSO login"),  # outcome-backed
+    ]
+    outcomes = [_outcome_for("d2", ["SSO took two quarters"], accuracy=0.5)]
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+
+    lessons = select_relevant_lessons(initiative, decisions, outcomes)
+
+    # The outcome-backed (validated) lesson comes first; the derived one follows.
+    assert "SSO took two quarters" in lessons[0]
+    assert "not yet validated" in lessons[1]
+
+
+def test_dedups_repeated_runs_of_same_initiative():
+    from productagents.memory import select_relevant_lessons
+    from productagents.schemas import Initiative
+
+    # The real-world scenario: the same initiative run six times, no reflections.
+    decisions = [_decision(f"d{i}", "Add enterprise SSO") for i in range(6)]
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+
+    lessons = select_relevant_lessons(initiative, decisions, outcomes=[])
+
+    # Six identical-title decisions collapse to a single derived lesson.
+    assert len(lessons) == 1
+    assert "not yet validated" in lessons[0]
+
+
+def test_skips_derived_for_failed_recommendation():
+    from productagents.memory import select_relevant_lessons
+    from productagents.schemas import DecisionRecord, Initiative, Recommendation
+
+    failed_decision = DecisionRecord(
+        decision_id="d1",
+        initiative=Initiative(title="Add enterprise SSO login", description="d"),
+        recommendation=Recommendation(
+            recommendation="error",
+            confidence=0.0,
+            rationale="the strategist degraded",
+            expected_outcomes=[],
+            failed=True,
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+
+    # A zero-confidence failed recommendation carries no signal — no derived lesson.
+    assert select_relevant_lessons(initiative, [failed_decision], outcomes=[]) == []
 
 
 def test_read_outcomes_skips_blank_and_invalid_lines(tmp_path):
