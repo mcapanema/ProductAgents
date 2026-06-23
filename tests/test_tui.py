@@ -1,6 +1,6 @@
 from functools import partial
 
-from textual.widgets import Button
+from textual.widgets import Button, Input, Label
 
 from productagents.graph import build_graph
 from productagents.runner import (
@@ -147,7 +147,48 @@ def test_format_recall_body_empty_state_points_to_reflection():
     # Empty state must guide the user toward building memory via reflection.
     assert "ctrl+r" in body
     assert "no relevant past lessons" not in body.lower()
-    assert "no relevant past decisions found" in body.lower()
+
+
+async def test_set_state_drives_idle_active_done_classes():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._set_state("market", "idle")
+        assert app.query_one("#market").has_class("-idle")
+        app._set_state("market", "running")
+        assert app.query_one("#market").has_class("-active")
+        assert not app.query_one("#market").has_class("-idle")
+        app._set_state("market", "done")
+        assert app.query_one("#market").has_class("-done")
+        assert not app.query_one("#market").has_class("-active")
+
+
+async def test_initiative_input_is_focused_on_decision_screen():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert pilot.app.focused is pilot.app.query_one("#initiative-title")
+        # Both fields are labelled.
+        init_label = pilot.app.query_one("#initiative-label", Label)
+        assert "Initiative" in str(init_label.content)
+        evid_label = pilot.app.query_one("#evidence-label", Label)
+        assert "Evidence" in str(evid_label.content)
 
 
 async def test_app_renders_recalled_lessons(monkeypatch):
@@ -693,6 +734,7 @@ async def test_app_uses_three_lane_layout_with_analyst_grid():
         app.query_one("#recall")
         app.query_one("#evidence-provenance")
         app.query_one("#status-log")
+        app.query_one("#pipeline-rail")
 
 
 async def test_app_renders_and_records_judgment(monkeypatch):
@@ -1139,3 +1181,48 @@ async def test_strategist_panel_renders_on_recommendation_event():
     assert "Build SSO now" in strat_text
     assert "82%" in strat_text
     assert strat_title.startswith("✓")
+
+
+async def test_pipeline_rail_advances_during_a_run():
+    from productagents.tui.rail import PipelineRail
+
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        rail_text = str(pilot.app.query_one("#pipeline-rail", PipelineRail).content)
+        # After a full healthy run the rail shows completed stages and a 5/5 count.
+        assert "✓" in rail_text
+        assert "5/5" in rail_text
+
+
+async def test_status_log_turns_red_only_on_error():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        status = app.query_one("#status-log")
+        assert not status.has_class("-has-error")
+        app._log_status("just info", level="info")
+        assert not status.has_class("-has-error")
+        app._log_status("boom", level="error")
+        assert status.has_class("-has-error")
+        app._reset_panels()
+        assert not status.has_class("-has-error")

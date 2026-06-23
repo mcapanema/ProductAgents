@@ -13,6 +13,8 @@ dataclasses and knows nothing about LangGraph. `main()` (in `app.py`) is the
 | `reflection.py` | `ReflectionScreen`. Pick a past decision, describe what happened, and record an `OutcomeRecord` via the injected reflector — drives the out-of-graph reflection loop (bound to `ctrl+r`). |
 | `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. |
 | `setup_screen.py` | `SetupScreen` (`ModalScreen[bool]`). Collects model/provider/key, validates, and writes them via the injected `writer` (`setup.write_env`). Dismisses `True` on save, `False` on cancel. |
+| `rail.py` | `PipelineRail` (`#pipeline-rail`) — the one-line spine tracing the run through the 7 pipeline stages. `render_rail()` is pure; the app advances it from the same handlers that update the panels. |
+| `_format.py` | Pure Rich-markup render helpers (recommendation, judgment, debate turn, risk line, governance, recall body, `confidence_meter`). The only `.py` place markup colors live. Unit-tested in `tests/test_tui_format.py`. |
 
 ## The event loop
 

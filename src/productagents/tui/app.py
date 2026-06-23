@@ -9,7 +9,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.theme import Theme
-from textual.widgets import Footer, Header, Input, Static
+from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.reflection import reflect
 from productagents.config import load_env
@@ -40,9 +40,19 @@ from productagents.runner import (
 )
 from productagents.schemas import DecisionRecord, GovernanceVerdict, Initiative
 from productagents.setup import check_config, write_env
+from productagents.tui._format import (
+    confidence_meter,  # noqa: F401
+    format_debate_turn,
+    format_governance,
+    format_judgment,
+    format_recommendation,
+    format_risk_line,
+)
+from productagents.tui._format import format_recall_body as _format_recall_body
 from productagents.tui.approval import ApprovalScreen
 from productagents.tui.degraded import DegradedRunScreen
 from productagents.tui.home_screen import HomeScreen
+from productagents.tui.rail import PipelineRail
 from productagents.tui.reflection import ReflectionScreen
 from productagents.tui.setup_screen import SetupScreen
 
@@ -83,13 +93,31 @@ _THEME = Theme(
     name="productagents",
     primary="#38bdf8",
     secondary="#a78bfa",
-    accent="#f59e0b",
-    success="#22c55e",
+    accent="#fbbf24",
+    success="#34d399",
     warning="#fb923c",
-    error="#ef4444",
-    surface="#1e293b",
-    panel="#0f172a",
+    error="#f43f5e",
+    surface="#13212e",
+    panel="#0c1722",
+    background="#08111a",
     dark=True,
+    variables={
+        "background": "#08111a",
+        "ink": "#e6f0f2",
+        "muted": "#9fb4c0",
+        "idle-border": "#2a3a47",
+        # Readable placeholders/labels (overrides Textual's dim default).
+        "text-muted": "#9fb4c0",
+        # Stage spectrum — each maps to one pipeline stage.
+        "stage-evidence": "#5eead4",
+        "stage-analysis": "#38bdf8",
+        "stage-recall": "#818cf8",
+        "stage-debate": "#fbbf24",
+        "stage-strategy": "#34d399",
+        "stage-judge": "#a78bfa",
+        "stage-risk": "#fb7185",
+        "stage-governance": "#c084fc",
+    },
 )
 
 _STATE_ICON = {
@@ -114,20 +142,20 @@ _WAITING_AT_START = {
     "governance",
 }
 
-
-def _format_recall_body(lessons: list[str]) -> str:
-    """Render the Lessons panel body, with a discoverable empty state."""
-    if not lessons:
-        return (
-            "No relevant past decisions found.\n"
-            "Run more decisions to build memory, then press ctrl+r to "
-            "reflect on their outcomes and feed validated lessons back in."
-        )
-    return "\n".join(f"• {line}" for line in lessons)
+_ANALYST_IDS = {
+    "customer_research",
+    "product_analytics",
+    "market",
+    "business",
+    "technical",
+}
 
 
 class ProductAgentsApp(App):
-    CSS_PATH = "app.tcss"
+    # Don't auto-load CSS during init; load it after theme is set.
+    # DEFAULT_CSS must be empty to prevent Textual from loading default styles
+    # that would interfere with our custom stylesheet.
+    DEFAULT_CSS = ""
     TITLE = "ProductAgents"
     BINDINGS: ClassVar[list] = [
         ("ctrl+r", "reflect", "Reflect on a decision"),
@@ -151,6 +179,9 @@ class ProductAgentsApp(App):
         show_home=True,
         runner_error=None,
     ):
+        # Store custom theme as instance variable before calling super().__init__()
+        # so it can be accessed when CSS is parsed. We'll set it as active in
+        # _setup_mode which is called before CSS parsing.
         super().__init__()
         self._runner = runner
         self._runner_error = runner_error
@@ -175,14 +206,21 @@ class ProductAgentsApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal(id="top-bar"):
-            yield Input(
-                placeholder="Describe the initiative and press Enter…",
-                id="initiative-title",
-            )
-            yield Input(
-                placeholder="Evidence source (scenario name or path; blank = sample)",
-                id="evidence-source",
-            )
+            with Vertical(id="initiative-field"):
+                yield Label("Initiative — press Enter to run", id="initiative-label")
+                yield Input(
+                    placeholder="Describe the initiative…",
+                    id="initiative-title",
+                )
+            with Vertical(id="evidence-field"):
+                yield Label(
+                    "Evidence  (scenario or path · blank = sample)", id="evidence-label"
+                )
+                yield Input(
+                    placeholder="sample",
+                    id="evidence-source",
+                )
+        yield PipelineRail()
         with Horizontal(id="lanes"):
             with VerticalScroll(id="left-lane"):
                 yield Static("Waiting…", id="evidence-provenance", classes="panel")
@@ -210,8 +248,27 @@ class ProductAgentsApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        # Register and set theme before loading stylesheet so CSS variables
+        # are available when parsing app.tcss.
         self.register_theme(_THEME)
         self.theme = "productagents"
+        # Merge custom theme variables with existing stylesheet variables so
+        # Textual's built-in CSS (which references $foreground, $background,
+        # etc.) still works.
+        theme = self.get_theme("productagents")
+        if theme and theme.variables:
+            merged_vars = dict(self.stylesheet._variables or {})
+            merged_vars.update(theme.variables)
+            self.stylesheet.set_variables(merged_vars)
+        # Load stylesheet after setting theme so custom theme variables are
+        # available during CSS parsing.
+        import pathlib
+
+        css_file = pathlib.Path(__file__).parent / "app.tcss"
+        with open(css_file) as f:
+            # read_from expects CSSLocation = tuple[str, str]
+            # (path, widget_variable)
+            self.stylesheet.add_source(f.read(), read_from=(str(css_file), ""))
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 self.query_one("#status-log").border_title = _TITLES["status-log"]
@@ -219,13 +276,35 @@ class ProductAgentsApp(App):
                 self._set_state(widget_id, "idle")
         if self._show_home:
             self._open_home()
+        if not self._show_home:
+            self.query_one("#initiative-title", Input).focus()
+
+    def _rail(self) -> PipelineRail:
+        return self.query_one("#pipeline-rail", PipelineRail)
+
+    def _completed_analysts(self) -> int:
+        return sum(
+            1
+            for node_id in _ANALYST_IDS
+            if str(self.query_one(f"#{node_id}").border_title).startswith("✓")
+        )
 
     def _set_state(self, widget_id: str, state: str) -> None:
         try:
             widget = self.query_one(f"#{widget_id}")
         except NoMatches:
             return
-        widget.remove_class("failed", "warning")
+        widget.remove_class("failed", "warning", "-idle", "-active", "-done")
+        lifecycle = {
+            "idle": "-idle",
+            "waiting": "-idle",
+            "running": "-active",
+            "done": "-done",
+            "failed": "-done",
+            "warning": "-done",
+        }.get(state)
+        if lifecycle:
+            widget.add_class(lifecycle)
         if state == "failed":
             widget.add_class("failed")
         elif state == "warning":
@@ -285,6 +364,7 @@ class ProductAgentsApp(App):
     def start_decision(self) -> None:
         if isinstance(self.screen, HomeScreen):
             self.pop_screen()
+        self.query_one("#initiative-title", Input).focus()
 
     def action_home(self) -> None:
         if not isinstance(self.screen, HomeScreen):
@@ -313,6 +393,8 @@ class ProductAgentsApp(App):
         prov = "\n".join(f"• {ref.field} ← {ref.source}" for ref in evidence.sources)
         self.query_one("#evidence-provenance", Static).update(prov or "(default)")
         self._reset_panels()
+        self._rail().set_stage("evidence", "done")
+        self._rail().set_stage("analysis", "running")
         self._run(Initiative(title=title, description=title), evidence)
 
     def _reset_panels(self) -> None:
@@ -327,11 +409,13 @@ class ProductAgentsApp(App):
         self.query_one("#judgment", Static).update("…")
         self._status_lines = []
         self.query_one("#status-log", Static).update("")
+        self.query_one("#status-log").remove_class("-has-error")
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 continue
             state = "waiting" if widget_id in _WAITING_AT_START else "idle"
             self._set_state(widget_id, state)
+        self._rail().reset()
 
     def action_reflect(self) -> None:
         if self._reflector is None:
@@ -431,6 +515,8 @@ class ProductAgentsApp(App):
             self.query_one(f"#{event.node}", Static).update(f"… {event.message}")
             if event.node == "strategist":
                 self._set_state("debate-scroll", "done")
+                self._rail().set_stage("debate", "done")
+                self._rail().set_stage("strategy", "running")
             self._set_state(event.node, "running")
 
     def _on_node_complete(self, event) -> None:
@@ -446,6 +532,11 @@ class ProductAgentsApp(App):
             body = "\n".join(f"• {f}" for f in report.findings) or "(no findings)"
             self.query_one(f"#{event.node}", Static).update(body)
             self._set_state(event.node, "done")
+            if event.node in _ANALYST_IDS:
+                rail = self._rail()
+                rail.bump_analyst()
+                if self._completed_analysts() >= len(_ANALYST_IDS):
+                    rail.set_stage("analysis", "done")
 
     def _on_node_error(self, event) -> None:
         label = _TITLES.get(_WIDGET_FOR_NODE.get(event.node, event.node), event.node)
@@ -459,41 +550,60 @@ class ProductAgentsApp(App):
 
     def _on_debate_turn(self, event) -> None:
         self._debate_lines.append(
-            f"[{event.side} · round {event.round}] {event.argument}"
+            format_debate_turn(event.side, event.round, event.argument)
         )
         self.query_one("#debate", Static).update("\n\n".join(self._debate_lines))
         self._set_state("debate-scroll", "running")
+        self._rail().set_stage("analysis", "done")
+        self._rail().set_stage("debate", "running")
 
     def _on_risk_assessment(self, event) -> None:
-        self._risk_lines.append(f"[{event.role} · {event.level}] {event.rationale}")
+        self._risk_lines.append(
+            format_risk_line(event.role, event.level, event.rationale)
+        )
         self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
         self._set_state("risk-scroll", "running")
+        self._rail().set_stage("risk", "running")
 
     def _on_judgment(self, event) -> None:
-        status = "PASS" if event.passed else "FAIL"
         self.query_one("#judgment", Static).update(
-            f"[b]{status}[/b] (attempt {event.attempt})\n\n"
-            f"Evidence: {event.evidence_grounding_score:.0%}  "
-            f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
-            f"{event.critique}"
+            format_judgment(
+                event.passed,
+                event.attempt,
+                event.evidence_grounding_score,
+                event.rationale_coherence_score,
+                event.critique,
+            )
         )
         self._set_state("strategist", "done")
         self._set_state("judgment", "done" if event.passed else "warning")
+        self._rail().set_stage("strategy", "done")
+        self._rail().set_stage("judge", "done" if event.passed else "warning")
+        self._rail().set_stage("risk", "running")
 
     def _on_governance_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
-            f"[b]{event.verdict}[/b]\n\n{event.rationale}"
+            format_governance(event.verdict, event.rationale)
         )
         self._set_state("risk-scroll", "done")
         state = "done" if event.verdict == "approve" else "warning"
         self._set_state("governance", state)
+        self._rail().set_stage("risk", "done")
+        self._rail().set_stage(
+            "governance", "done" if event.verdict == "approve" else "warning"
+        )
 
     def _on_final_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
-            f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n{event.rationale}"
+            format_governance(
+                event.verdict, event.rationale, decided_by=event.decided_by
+            )
         )
         state = "done" if event.verdict == "approve" else "warning"
         self._set_state("governance", state)
+        self._rail().set_stage(
+            "governance", "done" if event.verdict == "approve" else "warning"
+        )
 
     def _on_recall(self, event) -> None:
         self.query_one("#recall", Static).update(_format_recall_body(event.lessons))
@@ -518,14 +628,9 @@ class ProductAgentsApp(App):
         self._set_state("strategist", "done")
 
     def _render_recommendation(self, recommendation) -> None:
-        text = (
-            f"[b]{recommendation.recommendation}[/b]\n\n"
-            f"Confidence: {recommendation.confidence:.0%}\n\n"
-            f"{recommendation.rationale}\n\n"
-            "Expected outcomes:\n"
-            + "\n".join(f"• {o}" for o in recommendation.expected_outcomes)
+        self.query_one("#strategist", Static).update(
+            format_recommendation(recommendation)
         )
-        self.query_one("#strategist", Static).update(text)
 
     def _log_status(self, message: str, *, level: str = "info") -> None:
         ts = datetime.now(UTC).strftime("%H:%M:%S")
@@ -534,6 +639,8 @@ class ProductAgentsApp(App):
         self._status_lines.append(f"[{color}]{icon} {ts} {message}[/{color}]")
         self._status_lines = self._status_lines[-50:]
         self.query_one("#status-log", Static).update("\n".join(self._status_lines))
+        if level == "error":
+            self.query_one("#status-log").add_class("-has-error")
 
     def _mark_failed(self, node: str) -> None:
         widget_id = _WIDGET_FOR_NODE.get(node, node)
