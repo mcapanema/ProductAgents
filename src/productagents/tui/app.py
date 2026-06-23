@@ -33,6 +33,7 @@ from productagents.runner import (
     NodeErrorEvent,
     ProgressEvent,
     RecallEvent,
+    RecommendationEvent,
     RiskAssessmentEvent,
     RunAbortedEvent,
     run_decision,
@@ -351,6 +352,7 @@ class ProductAgentsApp(App):
             GovernanceVerdictEvent: self._on_governance_verdict,
             FinalVerdictEvent: self._on_final_verdict,
             RecallEvent: self._on_recall,
+            RecommendationEvent: self._on_recommendation,
             FinishedEvent: self._on_finished,
         }
         finished: FinishedEvent | None = None
@@ -489,10 +491,14 @@ class ProductAgentsApp(App):
         self.query_one("#recall", Static).update(body)
         self._set_state("recall", "done")
 
+    def _on_recommendation(self, event) -> None:
+        self._render_strategist_result(event.recommendation)
+
     def _on_finished(self, event) -> None:
-        rec = event.recommendation
-        if rec is None:
-            return
+        if event.recommendation is not None:
+            self._render_strategist_result(event.recommendation)
+
+    def _render_strategist_result(self, rec) -> None:
         if rec.failed:
             self.query_one("#strategist", Static).update(
                 "[red]failed — could not synthesize a recommendation. "
