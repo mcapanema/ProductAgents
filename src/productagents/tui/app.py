@@ -40,6 +40,15 @@ from productagents.runner import (
 )
 from productagents.schemas import DecisionRecord, GovernanceVerdict, Initiative
 from productagents.setup import check_config, write_env
+from productagents.tui._format import (
+    confidence_meter,  # noqa: F401
+    format_debate_turn,
+    format_governance,
+    format_judgment,
+    format_recommendation,
+    format_risk_line,
+)
+from productagents.tui._format import format_recall_body as _format_recall_body
 from productagents.tui.approval import ApprovalScreen
 from productagents.tui.degraded import DegradedRunScreen
 from productagents.tui.home_screen import HomeScreen
@@ -131,17 +140,6 @@ _WAITING_AT_START = {
     "risk-scroll",
     "governance",
 }
-
-
-def _format_recall_body(lessons: list[str]) -> str:
-    """Render the Lessons panel body, with a discoverable empty state."""
-    if not lessons:
-        return (
-            "No relevant past decisions found.\n"
-            "Run more decisions to build memory, then press ctrl+r to "
-            "reflect on their outcomes and feed validated lessons back in."
-        )
-    return "\n".join(f"• {line}" for line in lessons)
 
 
 class ProductAgentsApp(App):
@@ -503,30 +501,34 @@ class ProductAgentsApp(App):
 
     def _on_debate_turn(self, event) -> None:
         self._debate_lines.append(
-            f"[{event.side} · round {event.round}] {event.argument}"
+            format_debate_turn(event.side, event.round, event.argument)
         )
         self.query_one("#debate", Static).update("\n\n".join(self._debate_lines))
         self._set_state("debate-scroll", "running")
 
     def _on_risk_assessment(self, event) -> None:
-        self._risk_lines.append(f"[{event.role} · {event.level}] {event.rationale}")
+        self._risk_lines.append(
+            format_risk_line(event.role, event.level, event.rationale)
+        )
         self.query_one("#risk", Static).update("\n\n".join(self._risk_lines))
         self._set_state("risk-scroll", "running")
 
     def _on_judgment(self, event) -> None:
-        status = "PASS" if event.passed else "FAIL"
         self.query_one("#judgment", Static).update(
-            f"[b]{status}[/b] (attempt {event.attempt})\n\n"
-            f"Evidence: {event.evidence_grounding_score:.0%}  "
-            f"Coherence: {event.rationale_coherence_score:.0%}\n\n"
-            f"{event.critique}"
+            format_judgment(
+                event.passed,
+                event.attempt,
+                event.evidence_grounding_score,
+                event.rationale_coherence_score,
+                event.critique,
+            )
         )
         self._set_state("strategist", "done")
         self._set_state("judgment", "done" if event.passed else "warning")
 
     def _on_governance_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
-            f"[b]{event.verdict}[/b]\n\n{event.rationale}"
+            format_governance(event.verdict, event.rationale)
         )
         self._set_state("risk-scroll", "done")
         state = "done" if event.verdict == "approve" else "warning"
@@ -534,7 +536,9 @@ class ProductAgentsApp(App):
 
     def _on_final_verdict(self, event) -> None:
         self.query_one("#governance", Static).update(
-            f"[b]FINAL ({event.decided_by}): {event.verdict}[/b]\n\n{event.rationale}"
+            format_governance(
+                event.verdict, event.rationale, decided_by=event.decided_by
+            )
         )
         state = "done" if event.verdict == "approve" else "warning"
         self._set_state("governance", state)
@@ -562,14 +566,9 @@ class ProductAgentsApp(App):
         self._set_state("strategist", "done")
 
     def _render_recommendation(self, recommendation) -> None:
-        text = (
-            f"[b]{recommendation.recommendation}[/b]\n\n"
-            f"Confidence: {recommendation.confidence:.0%}\n\n"
-            f"{recommendation.rationale}\n\n"
-            "Expected outcomes:\n"
-            + "\n".join(f"• {o}" for o in recommendation.expected_outcomes)
+        self.query_one("#strategist", Static).update(
+            format_recommendation(recommendation)
         )
-        self.query_one("#strategist", Static).update(text)
 
     def _log_status(self, message: str, *, level: str = "info") -> None:
         ts = datetime.now(UTC).strftime("%H:%M:%S")
