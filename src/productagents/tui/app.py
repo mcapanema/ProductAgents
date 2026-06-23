@@ -83,13 +83,31 @@ _THEME = Theme(
     name="productagents",
     primary="#38bdf8",
     secondary="#a78bfa",
-    accent="#f59e0b",
-    success="#22c55e",
+    accent="#fbbf24",
+    success="#34d399",
     warning="#fb923c",
-    error="#ef4444",
-    surface="#1e293b",
-    panel="#0f172a",
+    error="#f43f5e",
+    surface="#13212e",
+    panel="#0c1722",
+    background="#08111a",
     dark=True,
+    variables={
+        "background": "#08111a",
+        "ink": "#e6f0f2",
+        "muted": "#9fb4c0",
+        "idle-border": "#2a3a47",
+        # Readable placeholders/labels (overrides Textual's dim default).
+        "text-muted": "#9fb4c0",
+        # Stage spectrum — each maps to one pipeline stage.
+        "stage-evidence": "#5eead4",
+        "stage-analysis": "#38bdf8",
+        "stage-recall": "#818cf8",
+        "stage-debate": "#fbbf24",
+        "stage-strategy": "#34d399",
+        "stage-judge": "#a78bfa",
+        "stage-risk": "#fb7185",
+        "stage-governance": "#c084fc",
+    },
 )
 
 _STATE_ICON = {
@@ -127,8 +145,12 @@ def _format_recall_body(lessons: list[str]) -> str:
 
 
 class ProductAgentsApp(App):
-    CSS_PATH = "app.tcss"
+    # Don't auto-load CSS during init; load it after theme is set.
+    # DEFAULT_CSS must be empty to prevent Textual from loading default styles
+    # that would interfere with our custom stylesheet.
+    DEFAULT_CSS = ""
     TITLE = "ProductAgents"
+    THEMES: ClassVar[list[Theme]] = [_THEME]
     BINDINGS: ClassVar[list] = [
         ("ctrl+r", "reflect", "Reflect on a decision"),
         ("ctrl+h", "home", "Menu"),
@@ -151,6 +173,9 @@ class ProductAgentsApp(App):
         show_home=True,
         runner_error=None,
     ):
+        # Store custom theme as instance variable before calling super().__init__()
+        # so it can be accessed when CSS is parsed. We'll set it as active in
+        # _setup_mode which is called before CSS parsing.
         super().__init__()
         self._runner = runner
         self._runner_error = runner_error
@@ -210,8 +235,27 @@ class ProductAgentsApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        # Register and set theme before loading stylesheet so CSS variables
+        # are available when parsing app.tcss.
         self.register_theme(_THEME)
         self.theme = "productagents"
+        # Merge custom theme variables with existing stylesheet variables so
+        # Textual's built-in CSS (which references $foreground, $background,
+        # etc.) still works.
+        theme = self.get_theme("productagents")
+        if theme and theme.variables:
+            merged_vars = dict(self.stylesheet._variables or {})
+            merged_vars.update(theme.variables)
+            self.stylesheet.set_variables(merged_vars)
+        # Load stylesheet after setting theme so custom theme variables are
+        # available during CSS parsing.
+        import pathlib
+
+        css_file = pathlib.Path(__file__).parent / "app.tcss"
+        with open(css_file) as f:
+            # read_from expects CSSLocation = tuple[str, str]
+            # (path, widget_variable)
+            self.stylesheet.add_source(f.read(), read_from=(str(css_file), ""))
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 self.query_one("#status-log").border_title = _TITLES["status-log"]

@@ -1,7 +1,10 @@
 Screen {
     layout: vertical;
+    background: $background;
+    color: $ink;
 }
 
+/* ---- command bar ---------------------------------------------------- */
 #top-bar {
     dock: top;
     height: auto;
@@ -9,14 +12,15 @@ Screen {
 }
 
 #initiative-title {
-    width: 2fr;
+    width: 3fr;
 }
 
 #evidence-source {
-    width: 3fr;
+    width: 2fr;
     margin-left: 1;
 }
 
+/* ---- lanes ---------------------------------------------------------- */
 #lanes {
     height: 1fr;
 }
@@ -39,23 +43,54 @@ Screen {
     height: 2fr;
 }
 
-.analyst {
-    height: 100%;
-    overflow-y: auto;
-    border: round #38bdf8;
-}
-
+/* ---- panels: a queued panel recedes; stage hue is added on activity - */
 .panel {
-    border: round $primary;
+    border: round $idle-border;
+    background: $panel;
+    color: $ink;
     padding: 1;
     margin: 1;
     height: auto;
 }
 
+.panel.-active {
+    border: round $primary;
+}
+
+.panel.-done {
+    border: round $primary;
+}
+
+.analyst {
+    height: 100%;
+    overflow-y: auto;
+    border: round $idle-border;
+}
+
+.analyst.-active,
+.analyst.-done {
+    border: round $stage-analysis;
+}
+
+#evidence-provenance.-active,
+#evidence-provenance.-done {
+    border: round $stage-evidence;
+}
+
+#recall.-active,
+#recall.-done {
+    border: round $stage-recall;
+}
+
 #debate-scroll {
     height: 1fr;
     margin: 1;
-    border: round #f59e0b;
+    border: round $idle-border;
+}
+
+#debate-scroll.-active,
+#debate-scroll.-done {
+    border: round $stage-debate;
 }
 
 #debate {
@@ -63,20 +98,36 @@ Screen {
 }
 
 #strategist {
-    border: round #22c55e;   /* strategy — green */
+    border: round $idle-border;
     height: 1fr;
     overflow-y: auto;
+}
+
+#strategist.-active,
+#strategist.-done {
+    border: round $stage-strategy;
 }
 
 #judgment {
     height: 1fr;
     overflow-y: auto;
+    border: round $idle-border;
+}
+
+#judgment.-active,
+#judgment.-done {
+    border: round $stage-judge;
 }
 
 #risk-scroll {
     height: 1fr;
     margin: 1;
-    border: round #fb923c;
+    border: round $idle-border;
+}
+
+#risk-scroll.-active,
+#risk-scroll.-done {
+    border: round $stage-risk;
 }
 
 #risk {
@@ -84,11 +135,36 @@ Screen {
 }
 
 #governance {
-    border: round #a78bfa;   /* governance — violet */
+    border: round $idle-border;
     height: 1fr;
     overflow-y: auto;
 }
 
+#governance.-active,
+#governance.-done {
+    border: round $stage-governance;
+}
+
+/* ---- status: quiet unless it has something to say ------------------- */
+#status-log {
+    dock: bottom;
+    height: 8;
+    margin: 0 1 1 1;
+    border: round $idle-border;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+/* ---- state overrides win over stage hues ---------------------------- */
+.failed {
+    border: round $error;
+}
+
+.warning {
+    border: round $warning;
+}
+
+/* ---- modal / secondary screens (inherit theme vars) ----------------- */
 #decision-list {
     height: auto;
     max-height: 10;
@@ -136,7 +212,7 @@ SetupScreen {
 
 #setup-key-label {
     margin: 1 1 0 1;
-    color: $text-muted;
+    color: $muted;
 }
 
 #setup-feedback {
@@ -147,26 +223,4 @@ SetupScreen {
 
 #setup-save, #setup-cancel {
     margin: 0 1;
-}
-
-#status-log {
-    dock: bottom;
-    height: 8;
-    margin: 0 1 1 1;
-    border: round $error;
-    padding: 0 1;
-    overflow-y: auto;
-}
-
-.failed {
-    border: round $error;
-}
-
-.warning {
-    border: round $warning;
-}
-
-/* Per-stage accent borders are inlined above; .failed overrides all via CSS class. */
-#recall, #evidence-provenance {
-    border: round $primary;
 }
