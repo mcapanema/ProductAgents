@@ -8,7 +8,6 @@ deterministic lexical matching) and degrades to an empty list on any error.
 """
 
 from productagents.agents._stream import get_writer
-
 from productagents.memory import select_relevant_lessons
 
 NODE_ID = "recall"

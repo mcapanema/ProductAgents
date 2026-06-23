@@ -2,11 +2,10 @@
 
 from typing import Any, cast
 
+from productagents.app.setup import ConfigStatus
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
-
-from productagents.setup import ConfigStatus
 
 
 class HomeScreen(Screen):

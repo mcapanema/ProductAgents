@@ -1,3 +1,4 @@
+from productagents.agents.risk import REVIEWERS, risk_node
 from productagents.core.schemas import (
     AnalystReport,
     DebateTurn,
@@ -6,7 +7,6 @@ from productagents.core.schemas import (
     RiskFinding,
 )
 
-from productagents.agents.risk import REVIEWERS, risk_node
 from tests.fakes import FakeChatModel
 
 

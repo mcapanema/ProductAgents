@@ -4,7 +4,6 @@ from productagents.core.schemas import (
     Initiative,
     Recommendation,
 )
-
 from productagents.memory import (
     read_decisions,
     read_outcomes,
@@ -149,7 +148,6 @@ def _outcome_for(decision_id, lessons, *, accuracy=0.6, failed=False):
 
 def test_selects_lessons_from_matching_decision():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     decisions = [
@@ -173,7 +171,6 @@ def test_selects_lessons_from_matching_decision():
 
 def test_derives_lesson_from_decision_without_outcome():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     decisions = [_decision("d1", "Add enterprise SSO login")]
@@ -192,7 +189,6 @@ def test_derives_lesson_from_decision_without_outcome():
 
 def test_failed_or_empty_outcomes_fall_back_to_derived_lessons():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     decisions = [
@@ -216,7 +212,6 @@ def test_failed_or_empty_outcomes_fall_back_to_derived_lessons():
 
 def test_returns_empty_when_no_token_overlap():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     decisions = [_decision("d1", "Migrate the data warehouse")]
@@ -227,7 +222,6 @@ def test_returns_empty_when_no_token_overlap():
 
 def test_respects_limit():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     decisions = [_decision(f"d{i}", "Add SSO login support") for i in range(5)]
@@ -239,7 +233,6 @@ def test_respects_limit():
 
 def test_validated_fills_limit_excludes_derived():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     # 3 validated decisions exactly fills the default limit=3.
@@ -257,7 +250,6 @@ def test_validated_fills_limit_excludes_derived():
 
 def test_validated_lessons_rank_before_derived():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     decisions = [
@@ -276,7 +268,6 @@ def test_validated_lessons_rank_before_derived():
 
 def test_dedups_repeated_runs_of_same_initiative():
     from productagents.core.schemas import Initiative
-
     from productagents.memory import select_relevant_lessons
 
     # The real-world scenario: the same initiative run six times, no reflections.
@@ -292,7 +283,6 @@ def test_dedups_repeated_runs_of_same_initiative():
 
 def test_skips_derived_for_failed_recommendation():
     from productagents.core.schemas import DecisionRecord, Initiative, Recommendation
-
     from productagents.memory import select_relevant_lessons
 
     failed_decision = DecisionRecord(

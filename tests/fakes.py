@@ -1,6 +1,6 @@
 """Test doubles for offline agent/graph testing."""
 
-from productagents.setup import ConfigStatus
+from productagents.app.setup import ConfigStatus
 
 
 def ready_status() -> ConfigStatus:

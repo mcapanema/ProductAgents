@@ -11,6 +11,11 @@ from productagents.agents.runner import (
     RiskAssessmentEvent,
     run_decision,
 )
+from productagents.app.setup import ConfigStatus
+from productagents.app.tui.app import ProductAgentsApp
+from productagents.app.tui.degraded import DegradedRunScreen
+from productagents.app.tui.home_screen import HomeScreen
+from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
@@ -24,11 +29,6 @@ from productagents.core.schemas import (
 )
 from textual.widgets import Button, Input, Label
 
-from productagents.setup import ConfigStatus
-from productagents.tui.app import ProductAgentsApp
-from productagents.tui.degraded import DegradedRunScreen
-from productagents.tui.home_screen import HomeScreen
-from productagents.tui.setup_screen import SetupScreen
 from tests.fakes import FakeChatModel
 
 
@@ -131,7 +131,7 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
 
 
 def test_format_recall_body_lists_lessons():
-    from productagents.tui.app import _format_recall_body
+    from productagents.app.tui.app import _format_recall_body
 
     body = _format_recall_body(["lesson one", "lesson two"])
 
@@ -140,7 +140,7 @@ def test_format_recall_body_lists_lessons():
 
 
 def test_format_recall_body_empty_state_points_to_reflection():
-    from productagents.tui.app import _format_recall_body
+    from productagents.app.tui.app import _format_recall_body
 
     body = _format_recall_body([])
 
@@ -1184,7 +1184,7 @@ async def test_strategist_panel_renders_on_recommendation_event():
 
 
 async def test_pipeline_rail_advances_during_a_run():
-    from productagents.tui.rail import PipelineRail
+    from productagents.app.tui.rail import PipelineRail
 
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(

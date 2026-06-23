@@ -2,16 +2,15 @@
 
 from typing import ClassVar
 
-from textual.app import ComposeResult
-from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Select, Static
-from textual.widgets.select import NoSelection
-
-from productagents.setup import (
+from productagents.app.setup import (
     PROVIDERS,
     ConfigStatus,
     write_env,
 )
+from textual.app import ComposeResult
+from textual.screen import ModalScreen
+from textual.widgets import Button, Input, Select, Static
+from textual.widgets.select import NoSelection
 
 _PROVIDER_OPTIONS = [(info.label, pid) for pid, info in PROVIDERS.items()]
 

@@ -1,15 +1,14 @@
-from productagents.core.schemas import (
-    AnalystReport,
-    DebateTurn,
-    Initiative,
-    Recommendation,
-)
-
 from productagents.agents._format import (
     format_initiative,
     format_recommendation,
     format_reports_brief,
     format_transcript,
+)
+from productagents.core.schemas import (
+    AnalystReport,
+    DebateTurn,
+    Initiative,
+    Recommendation,
 )
 
 

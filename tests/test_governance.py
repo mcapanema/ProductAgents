@@ -1,3 +1,4 @@
+from productagents.agents.governance import _format_portfolio, governance_node
 from productagents.core.schemas import (
     DecisionRecord,
     GovernanceFinding,
@@ -7,7 +8,6 @@ from productagents.core.schemas import (
     RiskAssessment,
 )
 
-from productagents.agents.governance import _format_portfolio, governance_node
 from tests.fakes import FakeChatModel
 
 

@@ -1,6 +1,6 @@
+from productagents.agents.strategist import strategist_node
 from productagents.core.schemas import AnalystReport, Initiative, Recommendation
 
-from productagents.agents.strategist import strategist_node
 from tests.fakes import FakeChatModel
 
 

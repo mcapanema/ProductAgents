@@ -1,11 +1,10 @@
+from productagents.agents.recall import recall_node
 from productagents.core.schemas import (
     DecisionRecord,
     Initiative,
     OutcomeRecord,
     Recommendation,
 )
-
-from productagents.agents.recall import recall_node
 
 
 def _state_with_history():

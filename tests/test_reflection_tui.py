@@ -1,11 +1,10 @@
+from productagents.app.tui.app import ProductAgentsApp
 from productagents.core.schemas import (
     DecisionRecord,
     Initiative,
     OutcomeRecord,
     Recommendation,
 )
-
-from productagents.tui.app import ProductAgentsApp
 
 
 def _decision():

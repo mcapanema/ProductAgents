@@ -23,24 +23,8 @@ from productagents.agents.runner import (
     RunAbortedEvent,
     run_decision,
 )
-from productagents.core.config import load_env
-from productagents.core.logging_config import configure_logging
-from productagents.core.schemas import DecisionRecord, GovernanceVerdict, Initiative
-from textual import work
-from textual.app import App, ComposeResult
-from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
-from textual.css.query import NoMatches
-from textual.theme import Theme
-from textual.widgets import Footer, Header, Input, Label, Static
-
-from productagents.memory import (
-    read_decisions,
-    read_outcomes,
-    record_decision,
-    record_outcome,
-)
-from productagents.setup import check_config, write_env
-from productagents.tui._format import (
+from productagents.app.setup import check_config, write_env
+from productagents.app.tui._format import (
     confidence_meter,  # noqa: F401
     format_debate_turn,
     format_governance,
@@ -48,13 +32,28 @@ from productagents.tui._format import (
     format_recommendation,
     format_risk_line,
 )
-from productagents.tui._format import format_recall_body as _format_recall_body
-from productagents.tui.approval import ApprovalScreen
-from productagents.tui.degraded import DegradedRunScreen
-from productagents.tui.home_screen import HomeScreen
-from productagents.tui.rail import PipelineRail
-from productagents.tui.reflection import ReflectionScreen
-from productagents.tui.setup_screen import SetupScreen
+from productagents.app.tui._format import format_recall_body as _format_recall_body
+from productagents.app.tui.approval import ApprovalScreen
+from productagents.app.tui.degraded import DegradedRunScreen
+from productagents.app.tui.home_screen import HomeScreen
+from productagents.app.tui.rail import PipelineRail
+from productagents.app.tui.reflection import ReflectionScreen
+from productagents.app.tui.setup_screen import SetupScreen
+from productagents.core.config import load_env
+from productagents.core.logging_config import configure_logging
+from productagents.core.schemas import DecisionRecord, GovernanceVerdict, Initiative
+from productagents.memory import (
+    read_decisions,
+    read_outcomes,
+    record_decision,
+    record_outcome,
+)
+from textual import work
+from textual.app import App, ComposeResult
+from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
+from textual.theme import Theme
+from textual.widgets import Footer, Header, Input, Label, Static
 
 _TITLES = {
     "customer_research": "Customer Research Analyst",
