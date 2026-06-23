@@ -1,0 +1,27 @@
+[project]
+name = "productagents-agents"
+version = "0.1.0"
+description = "ProductAgents LangGraph nodes, graph assembly, and runner."
+requires-python = ">=3.14"
+dependencies = [
+    "productagents-core",
+    "productagents-knowledge",
+    "productagents-memory",
+    "langgraph>=0.6",
+    "langchain>=1.0",
+    "langchain-anthropic>=0.3",
+    "langchain-google-genai>=2.0",
+    "langchain-openrouter>=0.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/productagents"]
+
+[tool.uv.sources]
+productagents-core = { workspace = true }
+productagents-knowledge = { workspace = true }
+productagents-memory = { workspace = true }
