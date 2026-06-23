@@ -157,7 +157,6 @@ class ProductAgentsApp(App):
     # that would interfere with our custom stylesheet.
     DEFAULT_CSS = ""
     TITLE = "ProductAgents"
-    THEMES: ClassVar[list[Theme]] = [_THEME]
     BINDINGS: ClassVar[list] = [
         ("ctrl+r", "reflect", "Reflect on a decision"),
         ("ctrl+h", "home", "Menu"),

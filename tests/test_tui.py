@@ -1,6 +1,6 @@
 from functools import partial
 
-from textual.widgets import Button
+from textual.widgets import Button, Input, Label
 
 from productagents.graph import build_graph
 from productagents.runner import (
@@ -185,8 +185,10 @@ async def test_initiative_input_is_focused_on_decision_screen():
         await pilot.pause()
         assert pilot.app.focused is pilot.app.query_one("#initiative-title")
         # Both fields are labelled.
-        assert "Initiative" in str(pilot.app.query_one("#initiative-label").content)
-        assert "Evidence" in str(pilot.app.query_one("#evidence-label").content)
+        init_label = pilot.app.query_one("#initiative-label", Label)
+        assert "Initiative" in str(init_label.content)
+        evid_label = pilot.app.query_one("#evidence-label", Label)
+        assert "Evidence" in str(evid_label.content)
 
 
 async def test_app_renders_recalled_lessons(monkeypatch):
@@ -1182,6 +1184,8 @@ async def test_strategist_panel_renders_on_recommendation_event():
 
 
 async def test_pipeline_rail_advances_during_a_run():
+    from productagents.tui.rail import PipelineRail
+
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
         runner,
@@ -1192,11 +1196,11 @@ async def test_pipeline_rail_advances_during_a_run():
         show_home=False,
     )
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        rail_text = str(pilot.app.query_one("#pipeline-rail").content)
+        rail_text = str(pilot.app.query_one("#pipeline-rail", PipelineRail).content)
         # After a full healthy run the rail shows completed stages and a 5/5 count.
         assert "✓" in rail_text
         assert "5/5" in rail_text
