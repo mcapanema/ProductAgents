@@ -63,6 +63,44 @@ show_missing = true
 # patterns bandit flags (e.g. asserts), so exclude them from any wider scan.
 exclude_dirs = ["tests"]
 
+[tool.importlinter]
+root_packages = ["productagents"]
+include_external_packages = true
+
+# The one-way dependency DAG (higher layers may import lower, never the reverse).
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+type = "layers"
+layers = [
+    "productagents.app",
+    "productagents.agents",
+    "productagents.knowledge | productagents.memory",
+    "productagents.core",
+]
+
+# Connectors map INTO core only; nothing above imports a connector by name.
+[[tool.importlinter.contracts]]
+name = "Connectors are isolated below the platform"
+type = "forbidden"
+source_modules = ["productagents.app", "productagents.agents", "productagents.knowledge"]
+forbidden_modules = ["productagents.connectors"]
+
+# pa-core stays dependency-light: no transport, no orchestration, no DB driver.
+[[tool.importlinter.contracts]]
+name = "Core has no heavy dependencies"
+type = "forbidden"
+source_modules = ["productagents.core"]
+forbidden_modules = ["httpx", "requests", "langchain", "langgraph", "sqlalchemy", "textual"]
+include_external_packages = true
+
+# requests is banned platform-wide (async-first, httpx only).
+[[tool.importlinter.contracts]]
+name = "No requests anywhere"
+type = "forbidden"
+source_modules = ["productagents"]
+forbidden_modules = ["requests"]
+include_external_packages = true
+
 [tool.ruff]
 line-length = 88
 # target-version is inferred from project.requires-python (>=3.14).
