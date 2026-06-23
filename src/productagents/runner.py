@@ -63,6 +63,11 @@ class JudgmentEvent:
     attempt: int
 
 
+@dataclass
+class RecommendationEvent:
+    recommendation: Recommendation
+
+
 @dataclass(frozen=True)
 class NodeErrorEvent:
     node: str
@@ -168,6 +173,7 @@ async def run_decision(
     | RunAbortedEvent
     | FinalVerdictEvent
     | RecallEvent
+    | RecommendationEvent
     | FinishedEvent
 ]:
     """Stream a decision run, yielding normalized events.
@@ -251,6 +257,7 @@ async def run_decision(
                         yield RecallEvent(lessons=collected_lessons)
                     if node_state.get("recommendation") is not None:
                         recommendation = node_state["recommendation"]
+                        yield RecommendationEvent(recommendation=recommendation)
                     if node_state.get("governance") is not None:
                         governance = node_state["governance"]
                     if node_state.get("judgment") is not None:

@@ -457,3 +457,23 @@ async def test_run_decision_aborts_end_to_end_on_rate_limit():
         isinstance(e, RunAbortedEvent) and e.category == "rate_limit" for e in events
     )
     assert not any(isinstance(e, FinishedEvent) for e in events)
+
+
+async def test_run_decision_emits_recommendation_before_finished():
+    from productagents.runner import FinishedEvent, RecommendationEvent
+
+    graph = _graph()
+    initiative, evidence = _inputs()
+
+    events = [e async for e in run_decision(graph, initiative, evidence)]
+
+    recs = [e for e in events if isinstance(e, RecommendationEvent)]
+    assert recs, "expected at least one RecommendationEvent"
+    assert recs[0].recommendation.recommendation == "Build it"
+
+    # It must arrive before the terminal FinishedEvent so the panel renders live.
+    rec_index = events.index(recs[0])
+    finished_index = next(
+        i for i, e in enumerate(events) if isinstance(e, FinishedEvent)
+    )
+    assert rec_index < finished_index
