@@ -115,6 +115,17 @@ _WAITING_AT_START = {
 }
 
 
+def _format_recall_body(lessons: list[str]) -> str:
+    """Render the Lessons panel body, with a discoverable empty state."""
+    if not lessons:
+        return (
+            "No relevant past decisions found.\n"
+            "Run more decisions to build memory, then press ctrl+r to "
+            "reflect on their outcomes and feed validated lessons back in."
+        )
+    return "\n".join(f"• {line}" for line in lessons)
+
+
 class ProductAgentsApp(App):
     CSS_PATH = "app.tcss"
     TITLE = "ProductAgents"
@@ -485,10 +496,7 @@ class ProductAgentsApp(App):
         self._set_state("governance", state)
 
     def _on_recall(self, event) -> None:
-        body = "\n".join(f"• {line}" for line in event.lessons) or (
-            "(no relevant past lessons)"
-        )
-        self.query_one("#recall", Static).update(body)
+        self.query_one("#recall", Static).update(_format_recall_body(event.lessons))
         self._set_state("recall", "done")
 
     def _on_recommendation(self, event) -> None:

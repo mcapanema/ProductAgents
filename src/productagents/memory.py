@@ -104,6 +104,21 @@ def _tokens(text: str) -> set[str]:
     }
 
 
+def _derived_lesson(decision: DecisionRecord) -> str:
+    """A prediction-style lesson synthesized from a past decision with no
+    validated outcome yet.
+
+    Marked "not yet validated" so the strategist weighs it as a prior
+    *prediction* (what we decided and why), not an observed result.
+    """
+    rec = decision.recommendation
+    return (
+        f'From "{decision.initiative.title}" '
+        f'(decided "{rec.recommendation}", {rec.confidence:.0%} confidence, '
+        f"not yet validated): {rec.rationale}"
+    )
+
+
 def select_relevant_lessons(
     initiative: Initiative,
     decisions: list[DecisionRecord],
@@ -113,11 +128,18 @@ def select_relevant_lessons(
 ) -> list[str]:
     """Return formatted lessons from the past decisions most similar to `initiative`.
 
-    Pairs each prior decision with its recorded outcome (by `decision_id`), scores
-    lexical overlap between the initiative texts, and returns all lessons from the
-    top `limit` matching decisions (each decision may contribute multiple lessons).
-    Decisions whose outcome is missing, failed, or has no captured lessons are ignored.
-    Returns [] when nothing relevant is found.
+    Two kinds of lessons, validated first:
+    - **Outcome-backed**: from a prior decision's reflected `OutcomeRecord`
+      (`lessons_learned`), prefixed with its prediction accuracy.
+    - **Derived (prediction-style)**: synthesized from a matching decision that
+      has no usable outcome yet — what was decided and why, marked "not yet
+      validated". Repeated runs of the same initiative collapse to one entry.
+
+    Scores lexical overlap between initiative texts; `limit` caps the number of
+    source decisions (validated first, derived filling the remainder). Returns []
+    when nothing relevant is found.
+    `decisions` must be in chronological order (oldest first) for the dedup
+    "keep most recent" guarantee to hold.
     """
     by_id = {
         outcome.decision_id: outcome
@@ -128,24 +150,43 @@ def select_relevant_lessons(
     if not query:
         return []
 
-    scored: list[tuple[int, DecisionRecord, OutcomeRecord]] = []
+    # Split matching decisions into outcome-backed ("validated") and
+    # prediction-only ("derived"). A decision is derived when it produced no
+    # usable lesson via an outcome but still carries a real recommendation.
+    validated: list[tuple[int, DecisionRecord, OutcomeRecord]] = []
+    derived: list[tuple[int, DecisionRecord]] = []
     for decision in decisions:
-        outcome = by_id.get(decision.decision_id)
-        if outcome is None:
-            continue
         past = _tokens(f"{decision.initiative.title} {decision.initiative.description}")
         overlap = len(query & past)
         if overlap == 0:
             continue
-        scored.append((overlap, decision, outcome))
+        outcome = by_id.get(decision.decision_id)
+        if outcome is not None:
+            validated.append((overlap, decision, outcome))
+        elif not decision.recommendation.failed:
+            derived.append((overlap, decision))
 
-    scored.sort(key=lambda item: item[0], reverse=True)
+    validated.sort(key=lambda item: item[0], reverse=True)
+
+    # Collapse repeated runs of the same initiative to one derived entry,
+    # keeping the most recent (decisions arrive in chronological order, so the
+    # last occurrence wins). Then rank by overlap.
+    deduped: dict[str, tuple[int, DecisionRecord]] = {}
+    for overlap, decision in derived:
+        deduped[decision.initiative.title.lower()] = (overlap, decision)
+    derived_ranked = sorted(deduped.values(), key=lambda item: item[0], reverse=True)
 
     lessons: list[str] = []
-    for _, decision, outcome in scored[:limit]:
+    # Validated (outcome-backed) lessons rank first — observed, not predicted.
+    selected_validated = validated[:limit]
+    for _, decision, outcome in selected_validated:
         for lesson in outcome.lessons_learned:
             lessons.append(
                 f'From "{decision.initiative.title}" '
                 f"(prediction accuracy {outcome.prediction_accuracy:.0%}): {lesson}"
             )
+    # Fill the remaining decision budget with prediction-style derived lessons.
+    remaining = limit - len(selected_validated)
+    for _, decision in derived_ranked[:remaining]:
+        lessons.append(_derived_lesson(decision))
     return lessons
