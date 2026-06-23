@@ -130,6 +130,25 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
     assert "demand" in technical_text
 
 
+def test_format_recall_body_lists_lessons():
+    from productagents.tui.app import _format_recall_body
+
+    body = _format_recall_body(["lesson one", "lesson two"])
+
+    assert "• lesson one" in body
+    assert "• lesson two" in body
+
+
+def test_format_recall_body_empty_state_points_to_reflection():
+    from productagents.tui.app import _format_recall_body
+
+    body = _format_recall_body([])
+
+    # Empty state must guide the user toward building memory via reflection.
+    assert "ctrl+r" in body
+    assert "no relevant past lessons" not in body.lower()
+
+
 async def test_app_renders_recalled_lessons(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.schemas import (
