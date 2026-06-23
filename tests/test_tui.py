@@ -149,6 +149,28 @@ def test_format_recall_body_empty_state_points_to_reflection():
     assert "no relevant past lessons" not in body.lower()
 
 
+async def test_set_state_drives_idle_active_done_classes():
+    runner, evidence = _runner_and_evidence()
+    app = ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._set_state("market", "idle")
+        assert app.query_one("#market").has_class("-idle")
+        app._set_state("market", "running")
+        assert app.query_one("#market").has_class("-active")
+        assert not app.query_one("#market").has_class("-idle")
+        app._set_state("market", "done")
+        assert app.query_one("#market").has_class("-done")
+        assert not app.query_one("#market").has_class("-active")
+
+
 async def test_initiative_input_is_focused_on_decision_screen():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(

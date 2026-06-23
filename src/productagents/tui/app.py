@@ -295,7 +295,17 @@ class ProductAgentsApp(App):
             widget = self.query_one(f"#{widget_id}")
         except NoMatches:
             return
-        widget.remove_class("failed", "warning")
+        widget.remove_class("failed", "warning", "-idle", "-active", "-done")
+        lifecycle = {
+            "idle": "-idle",
+            "waiting": "-idle",
+            "running": "-active",
+            "done": "-done",
+            "failed": "-done",
+            "warning": "-done",
+        }.get(state)
+        if lifecycle:
+            widget.add_class(lifecycle)
         if state == "failed":
             widget.add_class("failed")
         elif state == "warning":
