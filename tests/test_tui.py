@@ -1022,3 +1022,60 @@ async def test_retry_path_reruns(monkeypatch):
 
     assert len(recorded) == 1
     assert recorded[0].recommendation.recommendation == "Build SSO"
+
+
+async def test_right_lane_panels_stay_on_screen_with_long_content():
+    """Regression: long strategist/judge/risk/governance content must not push
+    the lower right-lane panels off-screen. They share the lane height (1fr)
+    and scroll internally instead of growing unbounded."""
+    long_text = ("rationale text that is quite long and wraps many times " * 8).strip()
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["demand"], signals=["tickets"]),
+            DebateArgument: DebateArgument(argument=long_text),
+            Recommendation: Recommendation(
+                recommendation="Build SSO now",
+                confidence=0.81,
+                rationale=long_text,
+                expected_outcomes=[
+                    "enterprise unblock",
+                    "reduced churn",
+                    "bigger deals",
+                ],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique=long_text,
+            ),
+            RiskFinding: RiskFinding(level="medium", rationale=long_text),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale=long_text
+            ),
+        }
+    )
+    graph = build_graph(model)
+    evidence = Evidence(
+        scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
+    )
+    app = ProductAgentsApp(
+        partial(run_decision, graph),
+        evidence,
+        recorder=lambda r: None,
+        reader=lambda: [],
+        outcome_reader=lambda: [],
+        show_home=False,
+    )
+    async with app.run_test(size=(120, 40)) as pilot:
+        pilot.app.query_one("#initiative-title").value = "Add enterprise SSO"
+        await pilot.press("enter")
+        await pilot.app.workers.wait_for_complete()
+        await pilot.pause()
+        screen_h = pilot.app.screen.region.height
+        for widget_id in ("strategist", "judgment", "risk-scroll", "governance"):
+            region = pilot.app.query_one(f"#{widget_id}").region
+            assert region.height > 0, f"{widget_id} collapsed to zero height"
+            assert region.y >= 0, f"{widget_id} pushed above the screen"
+            assert region.y + region.height <= screen_h, (
+                f"{widget_id} pushed off-screen"
+            )

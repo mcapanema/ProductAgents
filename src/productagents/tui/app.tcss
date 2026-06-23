@@ -64,7 +64,13 @@ Screen {
 
 #strategist {
     border: round #22c55e;   /* strategy — green */
-    height: auto;
+    height: 1fr;
+    overflow-y: auto;
+}
+
+#judgment {
+    height: 1fr;
+    overflow-y: auto;
 }
 
 #risk-scroll {
@@ -79,7 +85,8 @@ Screen {
 
 #governance {
     border: round #a78bfa;   /* governance — violet */
-    height: auto;
+    height: 1fr;
+    overflow-y: auto;
 }
 
 #decision-list {
