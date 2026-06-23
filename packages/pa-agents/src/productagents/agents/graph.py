@@ -6,19 +6,6 @@ from typing import Annotated, TypedDict
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
-from productagents.core.schemas import (
-    AnalystReport,
-    DebateTurn,
-    DecisionRecord,
-    Evidence,
-    GovernanceVerdict,
-    Initiative,
-    JudgeVerdict,
-    OutcomeRecord,
-    Recommendation,
-    RiskAssessment,
-)
-
 from productagents.agents.business import business_node
 from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node
@@ -31,6 +18,18 @@ from productagents.agents.recall import recall_node
 from productagents.agents.risk import risk_node
 from productagents.agents.strategist import strategist_node
 from productagents.agents.technical import technical_node
+from productagents.core.schemas import (
+    AnalystReport,
+    DebateTurn,
+    DecisionRecord,
+    Evidence,
+    GovernanceVerdict,
+    Initiative,
+    JudgeVerdict,
+    OutcomeRecord,
+    Recommendation,
+    RiskAssessment,
+)
 
 
 class GraphState(TypedDict):

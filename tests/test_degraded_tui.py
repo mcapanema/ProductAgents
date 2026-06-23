@@ -30,7 +30,7 @@ def _build_app(*, runner):
 
 
 async def test_run_aborted_shows_error_banner():
-    from productagents.runner import RunAbortedEvent
+    from productagents.agents.runner import RunAbortedEvent
 
     async def _fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None

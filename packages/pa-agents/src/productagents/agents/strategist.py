@@ -1,15 +1,14 @@
 """Product Strategist node: synthesizes analyst reports and the debate."""
 
+from productagents.agents._format import format_initiative, format_transcript
+from productagents.agents._llm_call import invoke_structured
+from productagents.agents._stream import get_writer
 from productagents.core.schemas import (
     AnalystReport,
     DebateTurn,
     Initiative,
     Recommendation,
 )
-
-from productagents.agents._format import format_initiative, format_transcript
-from productagents.agents._llm_call import invoke_structured
-from productagents.agents._stream import get_writer
 
 NODE_ID = "strategist"
 

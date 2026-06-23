@@ -6,6 +6,14 @@ configurable threshold. The graph uses the verdict to route the recommendation
 forward to risk or back to the strategist for a bounded revision.
 """
 
+from productagents.agents._format import (
+    format_initiative,
+    format_recommendation,
+    format_reports_brief,
+    format_transcript,
+)
+from productagents.agents._llm_call import invoke_structured
+from productagents.agents._stream import get_writer
 from productagents.core.config import env_float, env_int
 from productagents.core.schemas import (
     AnalystReport,
@@ -15,15 +23,6 @@ from productagents.core.schemas import (
     JudgeVerdict,
     Recommendation,
 )
-
-from productagents.agents._format import (
-    format_initiative,
-    format_recommendation,
-    format_reports_brief,
-    format_transcript,
-)
-from productagents.agents._llm_call import invoke_structured
-from productagents.agents._stream import get_writer
 
 NODE_ID = "judge"
 

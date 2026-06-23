@@ -4,27 +4,11 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
 
-from productagents.core.config import load_env
-from productagents.core.logging_config import configure_logging
-from productagents.core.schemas import DecisionRecord, GovernanceVerdict, Initiative
-from textual import work
-from textual.app import App, ComposeResult
-from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
-from textual.css.query import NoMatches
-from textual.theme import Theme
-from textual.widgets import Footer, Header, Input, Label, Static
-
+from productagents.agents.evidence import EvidenceError, collect_evidence, load_scenario
+from productagents.agents.graph import build_graph
+from productagents.agents.llm import get_model
 from productagents.agents.reflection import reflect
-from productagents.evidence import EvidenceError, collect_evidence, load_scenario
-from productagents.graph import build_graph
-from productagents.llm import get_model
-from productagents.memory import (
-    read_decisions,
-    read_outcomes,
-    record_decision,
-    record_outcome,
-)
-from productagents.runner import (
+from productagents.agents.runner import (
     DebateTurnEvent,
     FinalVerdictEvent,
     FinishedEvent,
@@ -38,6 +22,22 @@ from productagents.runner import (
     RiskAssessmentEvent,
     RunAbortedEvent,
     run_decision,
+)
+from productagents.core.config import load_env
+from productagents.core.logging_config import configure_logging
+from productagents.core.schemas import DecisionRecord, GovernanceVerdict, Initiative
+from textual import work
+from textual.app import App, ComposeResult
+from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
+from textual.theme import Theme
+from textual.widgets import Footer, Header, Input, Label, Static
+
+from productagents.memory import (
+    read_decisions,
+    read_outcomes,
+    record_decision,
+    record_outcome,
 )
 from productagents.setup import check_config, write_env
 from productagents.tui._format import (

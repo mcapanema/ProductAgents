@@ -1,4 +1,12 @@
 import pytest
+from productagents.agents.graph import build_graph
+from productagents.agents.runner import (
+    FinishedEvent,
+    GovernanceVerdictEvent,
+    JudgmentEvent,
+    RiskAssessmentEvent,
+    run_decision,
+)
 from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
@@ -10,14 +18,6 @@ from productagents.core.schemas import (
     RiskFinding,
 )
 
-from productagents.graph import build_graph
-from productagents.runner import (
-    FinishedEvent,
-    GovernanceVerdictEvent,
-    JudgmentEvent,
-    RiskAssessmentEvent,
-    run_decision,
-)
 from tests.fakes import FakeChatModel
 
 

@@ -12,8 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from dotenv import find_dotenv, set_key
-
-from productagents.llm import DEFAULT_MODEL
+from productagents.agents.llm import DEFAULT_MODEL
 
 
 @dataclass(frozen=True)

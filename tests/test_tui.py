@@ -1,5 +1,16 @@
 from functools import partial
 
+from productagents.agents.graph import build_graph
+from productagents.agents.runner import (
+    DebateTurnEvent,
+    FinalVerdictEvent,
+    FinishedEvent,
+    GovernanceVerdictEvent,
+    JudgmentEvent,
+    ProgressEvent,
+    RiskAssessmentEvent,
+    run_decision,
+)
 from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
@@ -13,17 +24,6 @@ from productagents.core.schemas import (
 )
 from textual.widgets import Button, Input, Label
 
-from productagents.graph import build_graph
-from productagents.runner import (
-    DebateTurnEvent,
-    FinalVerdictEvent,
-    FinishedEvent,
-    GovernanceVerdictEvent,
-    JudgmentEvent,
-    ProgressEvent,
-    RiskAssessmentEvent,
-    run_decision,
-)
 from productagents.setup import ConfigStatus
 from productagents.tui.app import ProductAgentsApp
 from productagents.tui.degraded import DegradedRunScreen
@@ -262,7 +262,7 @@ async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch)
         async for event in runner(initiative, evidence, **kwargs):
             yield event
 
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     app = ProductAgentsApp(
         capturing_runner,
@@ -294,7 +294,7 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
         async for event in runner(initiative, evidence, **kwargs):
             yield event
 
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     app = ProductAgentsApp(
         tracking_runner,
@@ -350,7 +350,7 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
     (folder / "customer_feedback.md").write_text("prov feedback")
     (folder / "product_analytics.json").write_text('{"dau": 3}')
 
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     recorded = []
     app = ProductAgentsApp(
@@ -379,9 +379,8 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
 
 async def test_completion_event_without_panel_is_ignored(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
     from productagents.core.schemas import AnalystReport, Evidence, Recommendation
-
-    from productagents.runner import FinishedEvent, NodeCompleteEvent
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -567,9 +566,8 @@ async def test_ctrl_h_reopens_menu_from_decision_ui():
 
 
 async def test_app_logs_node_error_and_marks_panel_failed():
+    from productagents.agents.runner import FinishedEvent, NodeErrorEvent
     from productagents.core.schemas import Evidence, Recommendation
-
-    from productagents.runner import FinishedEvent, NodeErrorEvent
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -626,9 +624,8 @@ async def test_app_registers_and_applies_custom_theme():
 
 
 async def test_app_panel_titles_show_state_icons():
+    from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
     from productagents.core.schemas import AnalystReport, Evidence, Recommendation
-
-    from productagents.runner import FinishedEvent, NodeCompleteEvent
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -1147,9 +1144,8 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
 
 
 async def test_strategist_panel_renders_on_recommendation_event():
+    from productagents.agents.runner import RecommendationEvent
     from productagents.core.schemas import Initiative, Recommendation
-
-    from productagents.runner import RecommendationEvent
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None

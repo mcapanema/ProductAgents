@@ -9,15 +9,14 @@ shape; each analyst module supplies its own constants and `_prompt` builder.
 
 from collections.abc import Callable
 
+from productagents.agents._llm_call import invoke_structured
+from productagents.agents._stream import get_writer
 from productagents.core.schemas import (
     AnalystFindings,
     AnalystReport,
     Evidence,
     Initiative,
 )
-
-from productagents.agents._llm_call import invoke_structured
-from productagents.agents._stream import get_writer
 
 
 async def run_analyst(

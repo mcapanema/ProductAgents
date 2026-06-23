@@ -1,8 +1,7 @@
 import json
 
 import pytest
-
-from productagents.evidence import EvidenceError, list_scenarios, load_scenario
+from productagents.agents.evidence import EvidenceError, list_scenarios, load_scenario
 
 
 def test_loads_bundled_sample_scenario():
@@ -73,7 +72,7 @@ def test_malformed_business_metrics_raises(tmp_path):
 
 
 def test_scenario_source_populates_provenance():
-    from productagents.evidence import ScenarioSource
+    from productagents.agents.evidence import ScenarioSource
 
     evidence = ScenarioSource("sample").collect()
     assert evidence.scenario == "sample"
@@ -92,7 +91,7 @@ def test_load_scenario_still_works_and_has_provenance():
 
 
 def test_scenario_source_omits_provenance_for_absent_optional_files(tmp_path):
-    from productagents.evidence import ScenarioSource
+    from productagents.agents.evidence import ScenarioSource
 
     scenario = tmp_path / "minimal"
     scenario.mkdir()
@@ -104,7 +103,7 @@ def test_scenario_source_omits_provenance_for_absent_optional_files(tmp_path):
 
 
 def test_directory_source_reads_arbitrary_folder(tmp_path):
-    from productagents.evidence import DirectorySource
+    from productagents.agents.evidence import DirectorySource
 
     folder = tmp_path / "q3-data"
     folder.mkdir()
@@ -124,14 +123,14 @@ def test_directory_source_reads_arbitrary_folder(tmp_path):
 
 
 def test_directory_source_missing_dir_raises(tmp_path):
-    from productagents.evidence import DirectorySource
+    from productagents.agents.evidence import DirectorySource
 
     with pytest.raises(EvidenceError):
         DirectorySource(tmp_path / "nope").collect()
 
 
 def test_directory_source_missing_required_file_raises(tmp_path):
-    from productagents.evidence import DirectorySource
+    from productagents.agents.evidence import DirectorySource
 
     folder = tmp_path / "incomplete"
     folder.mkdir()
@@ -141,7 +140,7 @@ def test_directory_source_missing_required_file_raises(tmp_path):
 
 
 def test_collect_evidence_defaults_to_sample():
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     evidence = collect_evidence(None)
     assert evidence.scenario == "sample"
@@ -150,7 +149,7 @@ def test_collect_evidence_defaults_to_sample():
 
 
 def test_collect_evidence_resolves_known_scenario(tmp_path):
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     scenario = tmp_path / "alpha"
     scenario.mkdir()
@@ -162,7 +161,7 @@ def test_collect_evidence_resolves_known_scenario(tmp_path):
 
 
 def test_collect_evidence_resolves_directory_path(tmp_path):
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     folder = tmp_path / "loose-folder"
     folder.mkdir()
@@ -174,7 +173,7 @@ def test_collect_evidence_resolves_directory_path(tmp_path):
 
 
 def test_collect_evidence_unknown_spec_raises():
-    from productagents.evidence import collect_evidence
+    from productagents.agents.evidence import collect_evidence
 
     with pytest.raises(EvidenceError):
         collect_evidence("definitely-not-a-scenario-or-path")

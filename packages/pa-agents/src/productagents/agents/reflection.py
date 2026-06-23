@@ -10,10 +10,9 @@ than crashing.
 
 from datetime import UTC, datetime
 
-from productagents.core.schemas import DecisionRecord, OutcomeRecord, Reflection
-
 from productagents.agents._format import format_initiative
 from productagents.agents._llm_call import invoke_structured
+from productagents.core.schemas import DecisionRecord, OutcomeRecord, Reflection
 
 ROLE = "Outcome Reflection Analyst"
 

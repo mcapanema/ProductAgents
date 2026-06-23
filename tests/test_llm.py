@@ -1,6 +1,6 @@
 import logging
 
-import productagents.llm as llm
+import productagents.agents.llm as llm
 
 
 def test_default_model_used_when_env_unset(monkeypatch):
@@ -122,7 +122,7 @@ def test_get_model_logs_resolved_model(monkeypatch, caplog):
     monkeypatch.delenv("PRODUCTAGENTS_MAX_RETRIES", raising=False)
     monkeypatch.setattr(llm, "init_chat_model", lambda model, **kwargs: "MODEL")
 
-    with caplog.at_level(logging.INFO, logger="productagents.llm"):
+    with caplog.at_level(logging.INFO, logger="productagents.agents.llm"):
         llm.get_model()
 
     assert any("anthropic:claude-sonnet-4-6" in r.getMessage() for r in caplog.records)

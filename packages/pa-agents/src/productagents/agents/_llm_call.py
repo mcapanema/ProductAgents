@@ -4,7 +4,7 @@ Every node issues exactly one `model.with_structured_output(Schema).ainvoke(prom
 call. Routing them all through `invoke_structured` gives one chokepoint to:
 - log each call (and full tracebacks on failure) for debugging,
 - convert a raw provider exception into a classified `ProviderError` carrying a
-  friendly message (see `productagents.llm_errors`), and
+  friendly message (see `productagents.agents.llm_errors`), and
 - convert a `None` result — which a model that does not support tool/function
   calling returns instead of structured data — into a clear
   `StructuredOutputError` rather than a cryptic `AttributeError` downstream.
@@ -19,7 +19,7 @@ standardizes the call, its logging, the empty-result case, and the fatal signal.
 import logging
 
 from productagents.agents._stream import get_writer
-from productagents.llm_errors import (
+from productagents.agents.llm_errors import (
     ProviderError,
     StructuredOutputError,
     classify_provider_error,

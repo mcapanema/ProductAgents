@@ -1,3 +1,16 @@
+from productagents.agents.graph import build_graph
+from productagents.agents.runner import (
+    DebateTurnEvent,
+    FinalVerdictEvent,
+    FinishedEvent,
+    GovernanceVerdictEvent,
+    JudgmentEvent,
+    NodeCompleteEvent,
+    ProgressEvent,
+    RecallEvent,
+    RiskAssessmentEvent,
+    run_decision,
+)
 from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
@@ -12,19 +25,6 @@ from productagents.core.schemas import (
     RiskFinding,
 )
 
-from productagents.graph import build_graph
-from productagents.runner import (
-    DebateTurnEvent,
-    FinalVerdictEvent,
-    FinishedEvent,
-    GovernanceVerdictEvent,
-    JudgmentEvent,
-    NodeCompleteEvent,
-    ProgressEvent,
-    RecallEvent,
-    RiskAssessmentEvent,
-    run_decision,
-)
 from tests.fakes import FakeChatModel
 
 
@@ -257,6 +257,8 @@ async def test_run_decision_without_approver_coerces_degraded_advisory_to_approv
 
 async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.agents.graph import build_graph
+    from productagents.agents.runner import NodeErrorEvent, run_decision
     from productagents.core.schemas import (
         AnalystFindings,
         DebateArgument,
@@ -268,8 +270,6 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
     )
     from productagents.core.schemas import JudgeFinding as _JudgeFinding
 
-    from productagents.graph import build_graph
-    from productagents.runner import NodeErrorEvent, run_decision
     from tests.fakes import FakeChatModel
 
     model = FakeChatModel(
@@ -315,10 +315,9 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
 
 async def _drive_with(model, monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
+    from productagents.agents.graph import build_graph
+    from productagents.agents.runner import run_decision
     from productagents.core.schemas import Evidence, Initiative
-
-    from productagents.graph import build_graph
-    from productagents.runner import run_decision
 
     graph = build_graph(model)
     evidence = Evidence(scenario="s", customer_feedback="d", product_analytics={"x": 1})
@@ -357,9 +356,9 @@ def _base_results():
 
 
 async def test_runner_emits_node_error_for_debate(monkeypatch):
+    from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import DebateArgument
 
-    from productagents.runner import NodeErrorEvent
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -369,9 +368,9 @@ async def test_runner_emits_node_error_for_debate(monkeypatch):
 
 
 async def test_runner_emits_node_error_for_risk(monkeypatch):
+    from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import RiskFinding
 
-    from productagents.runner import NodeErrorEvent
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -381,9 +380,9 @@ async def test_runner_emits_node_error_for_risk(monkeypatch):
 
 
 async def test_runner_emits_node_error_for_strategist(monkeypatch):
+    from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import Recommendation
 
-    from productagents.runner import NodeErrorEvent
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -393,9 +392,9 @@ async def test_runner_emits_node_error_for_strategist(monkeypatch):
 
 
 async def test_runner_emits_node_error_for_governance(monkeypatch):
+    from productagents.agents.runner import NodeErrorEvent
     from productagents.core.schemas import GovernanceFinding
 
-    from productagents.runner import NodeErrorEvent
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -405,9 +404,8 @@ async def test_runner_emits_node_error_for_governance(monkeypatch):
 
 
 async def test_run_decision_aborts_on_fatal_chunk():
+    from productagents.agents.runner import FinishedEvent, RunAbortedEvent, run_decision
     from productagents.core.schemas import Evidence, Initiative
-
-    from productagents.runner import FinishedEvent, RunAbortedEvent, run_decision
 
     class _FatalGraph:
         async def astream(self, _input, _config, *, stream_mode):
@@ -442,10 +440,10 @@ async def test_run_decision_aborts_on_fatal_chunk():
 
 
 async def test_run_decision_aborts_end_to_end_on_rate_limit():
+    from productagents.agents.graph import build_graph
+    from productagents.agents.runner import FinishedEvent, RunAbortedEvent, run_decision
     from productagents.core.schemas import AnalystFindings, Evidence, Initiative
 
-    from productagents.graph import build_graph
-    from productagents.runner import FinishedEvent, RunAbortedEvent, run_decision
     from tests.fakes import FakeChatModel
 
     # Every analyst's structured call raises a rate-limit-shaped error.
@@ -469,7 +467,7 @@ async def test_run_decision_aborts_end_to_end_on_rate_limit():
 
 
 async def test_run_decision_emits_recommendation_before_finished():
-    from productagents.runner import FinishedEvent, RecommendationEvent
+    from productagents.agents.runner import FinishedEvent, RecommendationEvent
 
     graph = _graph()
     initiative, evidence = _inputs()
@@ -531,7 +529,7 @@ async def test_run_decision_emits_two_recommendation_events_on_judge_retry(monke
 
     events = [e async for e in run_decision(graph, initiative, evidence)]
 
-    from productagents.runner import RecommendationEvent
+    from productagents.agents.runner import RecommendationEvent
 
     recs = [e for e in events if isinstance(e, RecommendationEvent)]
     # First strategist run + one revision each emit a RecommendationEvent.
