@@ -1,4 +1,4 @@
 def test_package_imports():
-    import productagents
+    import importlib.metadata
 
-    assert productagents.__version__ == "0.1.0"
+    assert importlib.metadata.version("productagents") == "0.1.0"

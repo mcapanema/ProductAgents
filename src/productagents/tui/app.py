@@ -4,6 +4,9 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
 
+from productagents.core.config import load_env
+from productagents.core.logging_config import configure_logging
+from productagents.core.schemas import DecisionRecord, GovernanceVerdict, Initiative
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
@@ -12,11 +15,9 @@ from textual.theme import Theme
 from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.reflection import reflect
-from productagents.config import load_env
 from productagents.evidence import EvidenceError, collect_evidence, load_scenario
 from productagents.graph import build_graph
 from productagents.llm import get_model
-from productagents.logging_config import configure_logging
 from productagents.memory import (
     read_decisions,
     read_outcomes,
@@ -38,7 +39,6 @@ from productagents.runner import (
     RunAbortedEvent,
     run_decision,
 )
-from productagents.schemas import DecisionRecord, GovernanceVerdict, Initiative
 from productagents.setup import check_config, write_env
 from productagents.tui._format import (
     confidence_meter,  # noqa: F401

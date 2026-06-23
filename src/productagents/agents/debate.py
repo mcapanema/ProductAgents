@@ -7,6 +7,14 @@ emitted as a custom stream event for live rendering and collected into a
 structured transcript returned in graph state.
 """
 
+from productagents.core.config import env_int
+from productagents.core.schemas import (
+    AnalystReport,
+    DebateArgument,
+    DebateTurn,
+    Initiative,
+)
+
 from productagents.agents._format import (
     format_initiative,
     format_reports_brief,
@@ -14,8 +22,6 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
-from productagents.config import env_int
-from productagents.schemas import AnalystReport, DebateArgument, DebateTurn, Initiative
 
 NODE_ID = "debate"
 ADVOCATE = "advocate"

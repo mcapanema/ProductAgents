@@ -11,10 +11,7 @@ graph state. Prior decisions arrive via state (read at the UI boundary); the
 node never touches the filesystem.
 """
 
-from productagents.agents._format import format_initiative, format_recommendation
-from productagents.agents._llm_call import invoke_structured
-from productagents.agents._stream import get_writer
-from productagents.schemas import (
+from productagents.core.schemas import (
     DecisionRecord,
     GovernanceFinding,
     GovernanceVerdict,
@@ -22,6 +19,10 @@ from productagents.schemas import (
     Recommendation,
     RiskAssessment,
 )
+
+from productagents.agents._format import format_initiative, format_recommendation
+from productagents.agents._llm_call import invoke_structured
+from productagents.agents._stream import get_writer
 
 NODE_ID = "governance"
 ROLE = "Product Portfolio Manager"

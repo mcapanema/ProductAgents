@@ -7,6 +7,15 @@ level plus rationale. Each assessment is emitted as a custom stream event for
 live rendering and collected into a structured list returned in graph state.
 """
 
+from productagents.core.schemas import (
+    AnalystReport,
+    DebateTurn,
+    Initiative,
+    Recommendation,
+    RiskAssessment,
+    RiskFinding,
+)
+
 from productagents.agents._format import (
     format_initiative,
     format_recommendation,
@@ -15,14 +24,6 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
-from productagents.schemas import (
-    AnalystReport,
-    DebateTurn,
-    Initiative,
-    Recommendation,
-    RiskAssessment,
-    RiskFinding,
-)
 
 NODE_ID = "risk"
 

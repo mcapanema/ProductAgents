@@ -1,15 +1,16 @@
+from productagents.core.schemas import (
+    AnalystReport,
+    Initiative,
+    JudgeFinding,
+    Recommendation,
+)
+
 from productagents.agents.judge import (
     DEFAULT_JUDGE_MAX_RETRIES,
     DEFAULT_JUDGE_THRESHOLD,
     get_judge_max_retries,
     get_judge_threshold,
     judge_node,
-)
-from productagents.schemas import (
-    AnalystReport,
-    Initiative,
-    JudgeFinding,
-    Recommendation,
 )
 from tests.fakes import FakeChatModel
 

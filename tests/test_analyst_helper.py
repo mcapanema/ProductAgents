@@ -1,5 +1,6 @@
+from productagents.core.schemas import AnalystFindings, Evidence, Initiative
+
 from productagents.agents._analyst import run_analyst
-from productagents.schemas import AnalystFindings, Evidence, Initiative
 from tests.fakes import FakeChatModel
 
 

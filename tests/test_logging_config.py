@@ -3,7 +3,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-from productagents import logging_config
+from productagents.core import logging_config
 
 
 def _pa_file_handlers():

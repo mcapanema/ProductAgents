@@ -3,9 +3,8 @@
 import re
 from pathlib import Path
 
+from productagents.core.schemas import DecisionRecord, Initiative, OutcomeRecord
 from pydantic import ValidationError
-
-from productagents.schemas import DecisionRecord, Initiative, OutcomeRecord
 
 DEFAULT_LOG_PATH = Path("decisions.jsonl")
 DEFAULT_OUTCOME_LOG_PATH = Path("outcomes.jsonl")

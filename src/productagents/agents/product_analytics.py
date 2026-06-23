@@ -2,9 +2,10 @@
 
 import json
 
+from productagents.core.schemas import Evidence, Initiative
+
 from productagents.agents._analyst import run_analyst
 from productagents.agents._format import format_initiative
-from productagents.schemas import Evidence, Initiative
 
 ANALYST_ID = "product_analytics"
 ROLE = "Product Analytics Analyst"

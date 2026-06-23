@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from productagents.agents.reflection import reflect
-from productagents.schemas import (
+from productagents.core.schemas import (
     DecisionRecord,
     Initiative,
     Recommendation,
     Reflection,
 )
+
+from productagents.agents.reflection import reflect
 from tests.fakes import FakeChatModel
 
 

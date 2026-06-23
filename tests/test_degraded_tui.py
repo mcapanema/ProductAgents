@@ -1,7 +1,7 @@
+from productagents.core.schemas import Evidence
 from textual.app import App
 from textual.widgets import Static
 
-from productagents.schemas import Evidence
 from productagents.tui.app import ProductAgentsApp
 from productagents.tui.degraded import DegradedRunScreen
 

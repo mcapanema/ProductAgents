@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Protocol
 
-from productagents.schemas import Evidence, EvidenceSourceRef
+from productagents.core.schemas import Evidence, EvidenceSourceRef
 
 SCENARIOS_DIR = Path(__file__).parent / "data" / "scenarios"
 

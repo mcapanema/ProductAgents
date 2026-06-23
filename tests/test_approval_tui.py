@@ -1,8 +1,6 @@
 from functools import partial
 
-from productagents.graph import build_graph
-from productagents.runner import run_decision
-from productagents.schemas import (
+from productagents.core.schemas import (
     AnalystFindings,
     DebateArgument,
     Evidence,
@@ -11,6 +9,9 @@ from productagents.schemas import (
     Recommendation,
     RiskFinding,
 )
+
+from productagents.graph import build_graph
+from productagents.runner import run_decision
 from productagents.tui.app import ProductAgentsApp
 from productagents.tui.approval import ApprovalScreen
 from tests.fakes import FakeChatModel

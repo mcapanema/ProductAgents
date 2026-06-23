@@ -1,4 +1,5 @@
-from productagents.schemas import Recommendation
+from productagents.core.schemas import Recommendation
+
 from productagents.tui._format import (
     confidence_meter,
     format_debate_turn,

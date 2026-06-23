@@ -2,7 +2,7 @@
 
 import os
 
-from productagents.config import env_float, env_int, load_env
+from productagents.core.config import env_float, env_int, load_env
 
 
 def test_load_env_populates_missing_var_from_file(tmp_path, monkeypatch):
