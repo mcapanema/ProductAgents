@@ -1,24 +1,20 @@
-"""Strongly-typed schemas shared across agents, graph state, and persistence."""
+# packages/pa-core/src/productagents/core/models/decision.py
+"""Decision context: the platform-produced records of a decision run.
+
+These are NOT synced canonical entities (no vendor provenance), so they are plain
+`BaseModel`s, not `CanonicalModel` subclasses. There are two flavours: the
+structured-output schemas an LLM call must return (`AnalystFindings`,
+`DebateArgument`, `Recommendation`, …) and the assembled/enriched records nodes
+build from them (`AnalystReport`, `DebateTurn`, `DecisionRecord`, …).
+"""
 
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-# Constrained vocabularies shared across the LLM-output schemas, the assembled
-# records, and the persisted log. The assembled records widen their field by the
-# single degraded sentinel a failing node may emit ("error"/"unknown").
-Verdict = Literal["approve", "reject", "request_analysis"]
-RiskLevel = Literal["low", "medium", "high"]
-DebateSide = Literal["advocate", "skeptic"]
-DecidedBy = Literal["ai", "human"]
-
-
-class Initiative(BaseModel):
-    """A product proposal under evaluation."""
-
-    title: str
-    description: str
+from productagents.core.enums import DebateSide, DecidedBy, RiskLevel, Verdict
+from productagents.core.models.planning import Initiative
 
 
 class EvidenceSourceRef(BaseModel):

@@ -15,7 +15,7 @@ from productagents.agents._format import (
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
 from productagents.core.config import env_int
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystReport,
     DebateArgument,
     DebateTurn,

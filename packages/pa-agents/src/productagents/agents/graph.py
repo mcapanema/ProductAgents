@@ -19,7 +19,7 @@ from productagents.agents.recall import recall_node
 from productagents.agents.risk import risk_node
 from productagents.agents.strategist import strategist_node
 from productagents.agents.technical import technical_node
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystReport,
     DebateTurn,
     DecisionRecord,

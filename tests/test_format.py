@@ -4,7 +4,7 @@ from productagents.agents._format import (
     format_reports_brief,
     format_transcript,
 )
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystReport,
     DebateTurn,
     Initiative,

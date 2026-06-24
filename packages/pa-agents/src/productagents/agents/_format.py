@@ -7,7 +7,7 @@ reports are context rather than the subject; the strategist keeps its own
 detailed, failure-annotated rendering locally because it is the only consumer.
 """
 
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystReport,
     DebateTurn,
     Initiative,

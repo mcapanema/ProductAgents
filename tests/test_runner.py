@@ -11,7 +11,7 @@ from productagents.agents.runner import (
     RiskAssessmentEvent,
     run_decision,
 )
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystFindings,
     DebateArgument,
     DecisionRecord,
@@ -258,7 +258,7 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.agents.graph import build_graph
     from productagents.agents.runner import NodeErrorEvent, run_decision
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         AnalystFindings,
         DebateArgument,
         Evidence,
@@ -267,7 +267,7 @@ async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
         Recommendation,
         RiskFinding,
     )
-    from productagents.core.schemas import JudgeFinding as _JudgeFinding
+    from productagents.core.models import JudgeFinding as _JudgeFinding
     from tests.fakes import FakeChatModel
 
     model = FakeChatModel(
@@ -315,7 +315,7 @@ async def _drive_with(model, monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.agents.graph import build_graph
     from productagents.agents.runner import run_decision
-    from productagents.core.schemas import Evidence, Initiative
+    from productagents.core.models import Evidence, Initiative
 
     graph = build_graph(model)
     evidence = Evidence(scenario="s", customer_feedback="d", product_analytics={"x": 1})
@@ -328,7 +328,7 @@ async def _drive_with(model, monkeypatch):
 
 
 def _base_results():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         AnalystFindings,
         DebateArgument,
         GovernanceFinding,
@@ -355,7 +355,7 @@ def _base_results():
 
 async def test_runner_emits_node_error_for_debate(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
-    from productagents.core.schemas import DebateArgument
+    from productagents.core.models import DebateArgument
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -366,7 +366,7 @@ async def test_runner_emits_node_error_for_debate(monkeypatch):
 
 async def test_runner_emits_node_error_for_risk(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
-    from productagents.core.schemas import RiskFinding
+    from productagents.core.models import RiskFinding
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -377,7 +377,7 @@ async def test_runner_emits_node_error_for_risk(monkeypatch):
 
 async def test_runner_emits_node_error_for_strategist(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
-    from productagents.core.schemas import Recommendation
+    from productagents.core.models import Recommendation
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -388,7 +388,7 @@ async def test_runner_emits_node_error_for_strategist(monkeypatch):
 
 async def test_runner_emits_node_error_for_governance(monkeypatch):
     from productagents.agents.runner import NodeErrorEvent
-    from productagents.core.schemas import GovernanceFinding
+    from productagents.core.models import GovernanceFinding
     from tests.fakes import FakeChatModel
 
     results = _base_results()
@@ -399,7 +399,7 @@ async def test_runner_emits_node_error_for_governance(monkeypatch):
 
 async def test_run_decision_aborts_on_fatal_chunk():
     from productagents.agents.runner import FinishedEvent, RunAbortedEvent, run_decision
-    from productagents.core.schemas import Evidence, Initiative
+    from productagents.core.models import Evidence, Initiative
 
     class _FatalGraph:
         async def astream(self, _input, _config, *, stream_mode):
@@ -436,7 +436,7 @@ async def test_run_decision_aborts_on_fatal_chunk():
 async def test_run_decision_aborts_end_to_end_on_rate_limit():
     from productagents.agents.graph import build_graph
     from productagents.agents.runner import FinishedEvent, RunAbortedEvent, run_decision
-    from productagents.core.schemas import AnalystFindings, Evidence, Initiative
+    from productagents.core.models import AnalystFindings, Evidence, Initiative
     from tests.fakes import FakeChatModel
 
     # Every analyst's structured call raises a rate-limit-shaped error.

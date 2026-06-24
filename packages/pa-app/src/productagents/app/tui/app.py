@@ -48,7 +48,7 @@ from productagents.app.tui.reflection import ReflectionScreen
 from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
-from productagents.core.schemas import DecisionRecord, GovernanceVerdict, Initiative
+from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
 from productagents.memory import (
     read_decisions,
     read_outcomes,

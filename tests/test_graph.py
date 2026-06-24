@@ -8,7 +8,7 @@ from productagents.agents.runner import (
     RiskAssessmentEvent,
     run_decision,
 )
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystFindings,
     DebateArgument,
     Evidence,

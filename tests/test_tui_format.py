@@ -7,7 +7,7 @@ from productagents.app.tui._format import (
     format_recommendation,
     format_risk_line,
 )
-from productagents.core.schemas import Recommendation
+from productagents.core.models import Recommendation
 
 
 def test_confidence_meter_renders_filled_blocks_and_percent():

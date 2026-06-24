@@ -22,9 +22,15 @@ The codebase is a **uv workspace** with six member packages sharing the
 ```
 pyproject.toml              # workspace root + umbrella (no importable code)
 packages/
-├── pa-core/                # productagents.core.*  — schemas, config, logging
+├── pa-core/                # productagents.core.*  — canonical models, config, logging
 │   └── src/productagents/core/
-│       ├── schemas.py      #   all Pydantic models + shared Literal vocabularies
+│       ├── models/         #   canonical models by bounded context (see core/CLAUDE.md)
+│       │   ├── _base.py · discovery.py · planning.py · strategy.py
+│       │   ├── measurement.py · decision.py   # decision.py = migrated v1 schemas
+│       │   └── __init__.py #   public re-export surface (import from here)
+│       ├── enums.py        #   shared Literal vocabularies
+│       ├── ids.py          #   branded NewType identifiers
+│       ├── refs.py         #   SourceRef / ExternalRef lineage
 │       ├── config.py       #   env-var settings (PRODUCTAGENTS_* vars)
 │       └── logging_config.py
 ├── pa-agents/              # productagents.agents.*  — graph nodes + orchestration
@@ -64,7 +70,8 @@ docs/design/adr/            # Architecture Decision Records
 
 **Import path examples:**
 ```python
-from productagents.core.schemas import DecisionRecord, Recommendation
+from productagents.core.models import DecisionRecord, Recommendation, Initiative
+from productagents.core.models import CustomerFeedback, Feature, ProductMetric
 from productagents.core.config import settings
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
@@ -127,7 +134,9 @@ new config takes effect without a restart. The check never makes a network call.
 The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `GraphState` is a `TypedDict`; the five analysts run in parallel from `START`, so `reports` is an `Annotated[list, operator.add]` reducer that merges their concurrent writes. All five fan in to `debate`, then `strategist`, `risk`, `governance`, then `END`. The compiled graph takes a chat model by dependency injection — every node is wired with `partial(node, model=model)`. **Nodes never construct their own model**; the model comes from `llm.get_model()` (the single provider-agnostic factory) and is passed down. This is what makes tests able to inject `FakeChatModel`. The model-free `recall` node runs in parallel from `START`, selects lessons from relevant past decisions (read at the UI boundary and seeded into state, like `portfolio`), and fans into `strategist` alongside `debate`, closing the Outcome-Learning loop.
 
 **Data flow / layers:**
-- `productagents.core.schemas` — all Pydantic models, shared across nodes, graph state, and the JSONL persistence. There are two flavours of model: the structured-output schemas an LLM call must return (`AnalystFindings`, `DebateArgument`, `Recommendation`) and the assembled/enriched records nodes build from them (`AnalystReport`, `DebateTurn`, `DecisionRecord`). Nodes call `model.with_structured_output(Schema)`.
+- `productagents.core.models` — all Pydantic models, split by bounded context
+(`discovery`/`planning`/`strategy`/`measurement` synced canonical models +
+`decision` decision-run records); import from the `core.models` package surface. There are two flavours of model: the structured-output schemas an LLM call must return (`AnalystFindings`, `DebateArgument`, `Recommendation`) and the assembled/enriched records nodes build from them (`AnalystReport`, `DebateTurn`, `DecisionRecord`). Nodes call `model.with_structured_output(Schema)`.
 - `productagents.agents.evidence` — pluggable Layer-1 evidence collection behind an `EvidenceSource` protocol (`collect() -> Evidence`). `ScenarioSource` reads a named scenario from `agents/data/scenarios/<name>/`; `DirectorySource` reads the same five files from any folder. `collect_evidence(spec)` resolves a user-typed string (known scenario name → `ScenarioSource`; existing directory path → `DirectorySource`; blank → bundled `sample`). Every loaded field records an `EvidenceSourceRef` on `Evidence.sources` (provenance), which the TUI persists on the `DecisionRecord`. `load_scenario(name)` remains as a thin wrapper over `ScenarioSource`.
 - `productagents.agents.*` — one graph node per file. The five analysts share a single executor (`_analyst.py::run_analyst`) and
   differ only in their `_prompt`; the strategist issues its own single structured
@@ -158,7 +167,7 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 
 ## Adding a stage
 
-To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.schemas`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in `productagents.app.tui.app`. Plans for upcoming work live in `docs/superpowers/plans/`.
+To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.models`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in `productagents.app.tui.app`. Plans for upcoming work live in `docs/superpowers/plans/`.
 
 **Layer rules** (enforced by `uv run lint-imports`):
 - `pa-app` may import from `pa-agents`, `pa-memory`, `pa-core` — not from `pa-connectors`.

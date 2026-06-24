@@ -1,5 +1,5 @@
 from productagents.agents.human_approval import _final_verdict
-from productagents.core.schemas import GovernanceVerdict
+from productagents.core.models import GovernanceVerdict
 
 
 def _advisory(verdict="approve", rationale="strong demand"):

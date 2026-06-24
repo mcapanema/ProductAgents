@@ -2,7 +2,7 @@
 
 from productagents.agents._analyst import run_analyst
 from productagents.agents._format import format_initiative
-from productagents.core.schemas import Evidence, Initiative
+from productagents.core.models import Evidence, Initiative
 
 ANALYST_ID = "market"
 ROLE = "Market Analyst"
