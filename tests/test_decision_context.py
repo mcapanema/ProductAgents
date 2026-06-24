@@ -1,4 +1,4 @@
-"""Decision-context models live in core.models.decision and reuse planning.Initiative."""
+"""Decision-context models: core.models.decision reuses planning.Initiative."""
 
 from productagents.core.models.decision import DecisionRecord, Recommendation
 from productagents.core.models.planning import Initiative
