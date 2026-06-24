@@ -1,9 +1,9 @@
 """Canonical product-domain models — the platform's public vocabulary.
 
 Import models from here (`from productagents.core.models import Initiative`), not
-from the per-context submodules. This package replaces the v1 `core.schemas`
-module and re-exports the same symbol names so existing call sites need only a
-module-path change.
+from the per-context submodules. This package is the v2 replacement for the v1
+schemas module and re-exports the same symbol names so existing call sites need
+only a module-path change.
 """
 
 from productagents.core.enums import (
