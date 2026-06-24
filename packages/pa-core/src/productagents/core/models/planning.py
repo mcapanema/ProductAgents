@@ -41,4 +41,4 @@ class RoadmapItem(CanonicalModel):
     title: str
     initiative_id: InitiativeId | None = None
     quarter: str | None = None
-    status: str | None = None
+    status: str | None = None  # free string pending a Phase-2 RoadmapStatus vocabulary

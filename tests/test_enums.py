@@ -33,4 +33,4 @@ def test_literal_is_enforced_by_pydantic():
 
     assert M(p="high").p == "high"
     with pytest.raises(ValidationError):
-        M(p="urgent")
+        M(p="urgent")  # ty: ignore[invalid-argument-type]
