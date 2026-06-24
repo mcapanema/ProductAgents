@@ -18,7 +18,7 @@ from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.degraded import DegradedRunScreen
 from productagents.app.tui.home_screen import HomeScreen
 from productagents.app.tui.setup_screen import SetupScreen
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystFindings,
     DebateArgument,
     Evidence,
@@ -193,7 +193,7 @@ async def test_initiative_input_is_focused_on_decision_screen():
 
 async def test_app_renders_recalled_lessons(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Initiative,
         OutcomeRecord,
@@ -380,7 +380,7 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
 async def test_completion_event_without_panel_is_ignored(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
-    from productagents.core.schemas import AnalystReport, Evidence, Recommendation
+    from productagents.core.models import AnalystReport, Evidence, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -567,7 +567,7 @@ async def test_ctrl_h_reopens_menu_from_decision_ui():
 
 async def test_app_logs_node_error_and_marks_panel_failed():
     from productagents.agents.runner import FinishedEvent, NodeErrorEvent
-    from productagents.core.schemas import Evidence, Recommendation
+    from productagents.core.models import Evidence, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -625,7 +625,7 @@ async def test_app_registers_and_applies_custom_theme():
 
 async def test_app_panel_titles_show_state_icons():
     from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
-    from productagents.core.schemas import AnalystReport, Evidence, Recommendation
+    from productagents.core.models import AnalystReport, Evidence, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
@@ -1145,7 +1145,7 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
 
 async def test_strategist_panel_renders_on_recommendation_event():
     from productagents.agents.runner import RecommendationEvent
-    from productagents.core.schemas import Initiative, Recommendation
+    from productagents.core.models import Initiative, Recommendation
 
     async def fake_runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None

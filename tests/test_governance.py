@@ -1,5 +1,5 @@
 from productagents.agents.governance import _format_portfolio, governance_node
-from productagents.core.schemas import (
+from productagents.core.models import (
     DecisionRecord,
     GovernanceFinding,
     GovernanceVerdict,

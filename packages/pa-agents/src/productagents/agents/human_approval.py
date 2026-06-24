@@ -11,7 +11,7 @@ graph only when `build_graph(model, human_in_the_loop=True)`.
 from langgraph.types import interrupt
 
 from productagents.agents._stream import get_writer
-from productagents.core.schemas import GovernanceVerdict
+from productagents.core.models import GovernanceVerdict
 
 NODE_ID = "human_approval"
 

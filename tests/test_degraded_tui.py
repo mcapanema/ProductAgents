@@ -3,7 +3,7 @@ from textual.widgets import Static
 
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.degraded import DegradedRunScreen
-from productagents.core.schemas import Evidence
+from productagents.core.models import Evidence
 
 
 class _Host(App):

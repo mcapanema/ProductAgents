@@ -10,7 +10,7 @@ from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
-from productagents.core.schemas import GovernanceVerdict, HumanDecision
+from productagents.core.models import GovernanceVerdict, HumanDecision
 
 
 class ApprovalScreen(ModalScreen[HumanDecision]):

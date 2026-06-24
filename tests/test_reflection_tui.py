@@ -1,5 +1,5 @@
 from productagents.app.tui.app import ProductAgentsApp
-from productagents.core.schemas import (
+from productagents.core.models import (
     DecisionRecord,
     Initiative,
     OutcomeRecord,

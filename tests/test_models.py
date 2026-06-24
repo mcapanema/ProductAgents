@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystFindings,
     AnalystReport,
     DecisionRecord,
@@ -71,7 +71,7 @@ def test_analyst_findings_holds_lists():
 
 
 def test_debate_turn_fields():
-    from productagents.core.schemas import DebateTurn
+    from productagents.core.models import DebateTurn
 
     turn = DebateTurn(round=1, side="advocate", argument="We should build it.")
     assert turn.round == 1
@@ -80,14 +80,14 @@ def test_debate_turn_fields():
 
 
 def test_debate_argument_holds_text():
-    from productagents.core.schemas import DebateArgument
+    from productagents.core.models import DebateArgument
 
     arg = DebateArgument(argument="Risk is too high.")
     assert arg.argument == "Risk is too high."
 
 
 def test_decision_record_defaults_to_empty_debate():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Initiative,
         Recommendation,
@@ -105,7 +105,7 @@ def test_decision_record_defaults_to_empty_debate():
 
 
 def test_decision_record_round_trips_with_debate():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DebateTurn,
         DecisionRecord,
         Initiative,
@@ -130,7 +130,7 @@ def test_decision_record_round_trips_with_debate():
 
 
 def test_risk_finding_holds_level_and_rationale():
-    from productagents.core.schemas import RiskFinding
+    from productagents.core.models import RiskFinding
 
     finding = RiskFinding(level="high", rationale="tight deadline")
     assert finding.level == "high"
@@ -138,7 +138,7 @@ def test_risk_finding_holds_level_and_rationale():
 
 
 def test_risk_assessment_defaults_not_failed():
-    from productagents.core.schemas import RiskAssessment
+    from productagents.core.models import RiskAssessment
 
     assessment = RiskAssessment(
         reviewer="delivery",
@@ -151,7 +151,7 @@ def test_risk_assessment_defaults_not_failed():
 
 
 def test_decision_record_defaults_to_empty_risks():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Initiative,
         Recommendation,
@@ -169,7 +169,7 @@ def test_decision_record_defaults_to_empty_risks():
 
 
 def test_decision_record_round_trips_with_risks():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Initiative,
         Recommendation,
@@ -198,7 +198,7 @@ def test_decision_record_round_trips_with_risks():
 
 
 def test_governance_finding_holds_verdict_and_rationale():
-    from productagents.core.schemas import GovernanceFinding
+    from productagents.core.models import GovernanceFinding
 
     finding = GovernanceFinding(verdict="approve", rationale="best use of budget")
     assert finding.verdict == "approve"
@@ -206,7 +206,7 @@ def test_governance_finding_holds_verdict_and_rationale():
 
 
 def test_governance_verdict_defaults_not_failed():
-    from productagents.core.schemas import GovernanceVerdict
+    from productagents.core.models import GovernanceVerdict
 
     verdict = GovernanceVerdict(verdict="reject", rationale="too risky right now")
     assert verdict.verdict == "reject"
@@ -214,7 +214,7 @@ def test_governance_verdict_defaults_not_failed():
 
 
 def test_decision_record_defaults_to_none_governance():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Initiative,
         Recommendation,
@@ -232,7 +232,7 @@ def test_decision_record_defaults_to_none_governance():
 
 
 def test_decision_record_round_trips_with_governance():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         GovernanceVerdict,
         Initiative,
@@ -256,7 +256,7 @@ def test_decision_record_round_trips_with_governance():
 
 
 def test_reflection_holds_outcome_fields():
-    from productagents.core.schemas import Reflection
+    from productagents.core.models import Reflection
 
     r = Reflection(
         actual_outcomes=["slow adoption"],
@@ -269,14 +269,14 @@ def test_reflection_holds_outcome_fields():
 
 
 def test_reflection_accuracy_must_be_in_range():
-    from productagents.core.schemas import Reflection
+    from productagents.core.models import Reflection
 
     with pytest.raises(ValidationError):
         Reflection(actual_outcomes=[], prediction_accuracy=1.5, lessons_learned=[])
 
 
 def test_outcome_record_accuracy_must_be_in_range():
-    from productagents.core.schemas import OutcomeRecord
+    from productagents.core.models import OutcomeRecord
 
     with pytest.raises(ValidationError):
         OutcomeRecord(
@@ -289,7 +289,7 @@ def test_outcome_record_accuracy_must_be_in_range():
 
 
 def test_outcome_record_defaults_not_failed():
-    from productagents.core.schemas import OutcomeRecord
+    from productagents.core.models import OutcomeRecord
 
     o = OutcomeRecord(
         decision_id="d1",
@@ -303,7 +303,7 @@ def test_outcome_record_defaults_not_failed():
 
 
 def test_outcome_record_round_trips():
-    from productagents.core.schemas import OutcomeRecord
+    from productagents.core.models import OutcomeRecord
 
     o = OutcomeRecord(
         decision_id="d1",
@@ -317,7 +317,7 @@ def test_outcome_record_round_trips():
 
 
 def test_decision_record_keeps_explicit_id():
-    from productagents.core.schemas import DecisionRecord, Initiative, Recommendation
+    from productagents.core.models import DecisionRecord, Initiative, Recommendation
 
     rec = DecisionRecord(
         decision_id="fixed-id",
@@ -333,7 +333,7 @@ def test_decision_record_keeps_explicit_id():
 
 
 def test_decision_record_generates_id_by_default():
-    from productagents.core.schemas import DecisionRecord, Initiative, Recommendation
+    from productagents.core.models import DecisionRecord, Initiative, Recommendation
 
     rec = DecisionRecord(
         initiative=Initiative(title="t", description="d"),
@@ -357,7 +357,7 @@ def test_decision_record_generates_id_by_default():
 
 
 def test_governance_verdict_defaults_are_ai_authored():
-    from productagents.core.schemas import GovernanceVerdict
+    from productagents.core.models import GovernanceVerdict
 
     v = GovernanceVerdict(verdict="approve", rationale="worth it")
     assert v.decided_by == "ai"
@@ -367,7 +367,7 @@ def test_governance_verdict_defaults_are_ai_authored():
 
 
 def test_governance_verdict_records_human_override():
-    from productagents.core.schemas import GovernanceVerdict
+    from productagents.core.models import GovernanceVerdict
 
     v = GovernanceVerdict(
         verdict="reject",
@@ -381,7 +381,7 @@ def test_governance_verdict_records_human_override():
 
 
 def test_human_decision_defaults_blank_rationale():
-    from productagents.core.schemas import HumanDecision
+    from productagents.core.models import HumanDecision
 
     d = HumanDecision(verdict="approve")
     assert d.verdict == "approve"
@@ -389,7 +389,7 @@ def test_human_decision_defaults_blank_rationale():
 
 
 def test_evidence_source_ref_and_provenance_defaults():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Evidence,
         EvidenceSourceRef,
@@ -467,7 +467,7 @@ def test_risk_assessment_allows_unknown_sentinel():
 
 
 def test_judge_finding_and_verdict_construct():
-    from productagents.core.schemas import JudgeFinding, JudgeVerdict
+    from productagents.core.models import JudgeFinding, JudgeVerdict
 
     finding = JudgeFinding(
         evidence_grounding_score=0.9,
@@ -489,7 +489,7 @@ def test_judge_finding_and_verdict_construct():
 
 
 def test_decision_record_round_trips_with_judgment():
-    from productagents.core.schemas import (
+    from productagents.core.models import (
         DecisionRecord,
         Initiative,
         JudgeVerdict,
@@ -521,7 +521,7 @@ def test_decision_record_round_trips_with_judgment():
 
 
 def test_decision_record_judgment_defaults_to_none():
-    from productagents.core.schemas import DecisionRecord, Initiative, Recommendation
+    from productagents.core.models import DecisionRecord, Initiative, Recommendation
 
     record = DecisionRecord(
         initiative=Initiative(title="t", description="d"),

@@ -4,7 +4,7 @@ from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.approval import ApprovalScreen
-from productagents.core.schemas import (
+from productagents.core.models import (
     AnalystFindings,
     DebateArgument,
     Evidence,

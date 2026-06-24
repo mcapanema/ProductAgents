@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from productagents.agents.reflection import reflect
-from productagents.core.schemas import (
+from productagents.core.models import (
     DecisionRecord,
     Initiative,
     Recommendation,

@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from productagents.agents._format import format_initiative
 from productagents.agents._llm_call import invoke_structured
-from productagents.core.schemas import DecisionRecord, OutcomeRecord, Reflection
+from productagents.core.models import DecisionRecord, OutcomeRecord, Reflection
 
 ROLE = "Outcome Reflection Analyst"
 
