@@ -59,7 +59,7 @@ single lock file and a single `uv sync`.
 
 - `uv sync` resolves all six members together from one lock file.
 - All tests remain in a single `tests/` tree (no per-package test dirs); imports
-  use the new namespace paths (`productagents.core.schemas`, etc.).
+  use the new namespace paths (`productagents.core.models`, etc.).
 - `[tool.coverage.paths]` in the root `pyproject.toml` maps each member's
   `src/productagents/` tree back to the `productagents` namespace so coverage
   spans all packages without duplication.
