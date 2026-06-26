@@ -8,7 +8,9 @@ dependencies = [
     "productagents-agents",
     "productagents-knowledge",
     "productagents-memory",
+    "productagents-connectors",
     "textual>=4.0",
+    "pyyaml>=6",
 ]
 
 [build-system]
@@ -23,3 +25,4 @@ productagents-core = { workspace = true }
 productagents-agents = { workspace = true }
 productagents-knowledge = { workspace = true }
 productagents-memory = { workspace = true }
+productagents-connectors = { workspace = true }
