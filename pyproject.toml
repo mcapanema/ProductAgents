@@ -42,6 +42,7 @@ dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",
+    "respx>=0.21",
     "ruff>=0.15.18",
     "ty==0.0.51",
 ]
@@ -97,6 +98,23 @@ name = "Connectors are isolated below the platform"
 type = "forbidden"
 source_modules = ["productagents.app", "productagents.agents", "productagents.knowledge"]
 forbidden_modules = ["productagents.connectors"]
+
+# Connectors depend only on core (+ httpx). Never the storage/agent/app layers.
+[[tool.importlinter.contracts]]
+name = "Connectors depend only on core"
+type = "forbidden"
+source_modules = ["productagents.connectors"]
+forbidden_modules = [
+    "productagents.knowledge",
+    "productagents.memory",
+    "productagents.agents",
+    "productagents.app",
+    "sqlalchemy",
+    "sqlmodel",
+    "langchain",
+    "langgraph",
+]
+include_external_packages = true
 
 # pa-core stays dependency-light: no transport, no orchestration, no DB driver.
 [[tool.importlinter.contracts]]

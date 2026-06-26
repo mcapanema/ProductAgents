@@ -62,8 +62,10 @@ packages/
 │   └── src/productagents/memory.py   # decisions.jsonl / outcomes.jsonl + lesson retrieval
 ├── pa-knowledge/           # productagents.knowledge.*  — stub, ready for v2
 │   └── src/productagents/knowledge/__init__.py
-└── pa-connectors/          # productagents.connectors.*  — stub, ready for v2
-    └── src/productagents/connectors/__init__.py
+└── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
+    └── src/productagents/connectors/
+        ├── base.py · http.py · registry.py · runtime.py  # the framework
+        └── github/         #   first connector: issues → CustomerFeedback
 tests/                      # offline suite, FakeChatModel (see tests/CLAUDE.md)
 docs/design/adr/            # Architecture Decision Records
 ```
