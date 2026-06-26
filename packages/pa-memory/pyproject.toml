@@ -3,7 +3,12 @@ name = "productagents-memory"
 version = "0.1.0"
 description = "ProductAgents organizational memory subsystem."
 requires-python = ">=3.14"
-dependencies = ["productagents-core"]
+dependencies = [
+    "productagents-core",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+]
 
 [build-system]
 requires = ["hatchling"]

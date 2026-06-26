@@ -1125,11 +1125,19 @@ name = "productagents-memory"
 version = "0.1.0"
 source = { editable = "packages/pa-memory" }
 dependencies = [
+    { name = "aiosqlite" },
+    { name = "alembic" },
     { name = "productagents-core" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "productagents-core", editable = "packages/pa-core" }]
+requires-dist = [
+    { name = "aiosqlite", specifier = ">=0.20" },
+    { name = "alembic", specifier = ">=1.14" },
+    { name = "productagents-core", editable = "packages/pa-core" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+]
 
 [[package]]
 name = "pyasn1"
