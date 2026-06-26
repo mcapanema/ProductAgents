@@ -1,4 +1,5 @@
 from productagents.agents.governance import _format_portfolio, governance_node
+from productagents.core.enums import Verdict
 from productagents.core.models import (
     DecisionRecord,
     GovernanceFinding,
@@ -31,7 +32,7 @@ def _state():
     }
 
 
-def _prior_record(title: str, verdict: str) -> DecisionRecord:
+def _prior_record(title: str, verdict: Verdict) -> DecisionRecord:
     return DecisionRecord(
         initiative=Initiative(title=title, description="d"),
         recommendation=Recommendation(
