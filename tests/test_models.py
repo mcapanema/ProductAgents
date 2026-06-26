@@ -252,6 +252,7 @@ def test_decision_record_round_trips_with_governance():
     )
     restored = DecisionRecord.model_validate_json(record.model_dump_json())
     assert restored == record
+    assert restored.governance is not None
     assert restored.governance.verdict == "request_analysis"
 
 
@@ -437,12 +438,12 @@ def test_evidence_source_ref_and_provenance_defaults():
 
 def test_governance_finding_rejects_unknown_verdict():
     with pytest.raises(ValidationError):
-        GovernanceFinding(verdict="maybe", rationale="x")
+        GovernanceFinding(verdict="maybe", rationale="x")  # ty: ignore[invalid-argument-type]  # invalid value under test
 
 
 def test_risk_finding_rejects_unknown_level():
     with pytest.raises(ValidationError):
-        RiskFinding(level="catastrophic", rationale="x")
+        RiskFinding(level="catastrophic", rationale="x")  # ty: ignore[invalid-argument-type]  # invalid value under test
 
 
 def test_governance_verdict_allows_error_sentinel():
@@ -452,7 +453,7 @@ def test_governance_verdict_allows_error_sentinel():
 
 def test_governance_verdict_rejects_arbitrary_value():
     with pytest.raises(ValidationError):
-        GovernanceVerdict(verdict="nope", rationale="x")
+        GovernanceVerdict(verdict="nope", rationale="x")  # ty: ignore[invalid-argument-type]  # invalid value under test
 
 
 def test_risk_assessment_allows_unknown_sentinel():
@@ -516,6 +517,7 @@ def test_decision_record_round_trips_with_judgment():
     )
     dumped = record.model_dump_json()
     restored = DecisionRecord.model_validate_json(dumped)
+    assert restored.judgment is not None
     assert restored.judgment.passed is False
     assert restored.judgment.attempt == 2
 
