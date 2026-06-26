@@ -1,4 +1,4 @@
-"""Decision-context models: core.models.decision reuses planning.Initiative."""
+"""Decision-context: core.models.decision tests + app.decision_context tests."""
 
 from productagents.core.models.decision import DecisionRecord, Recommendation
 from productagents.core.models.planning import Initiative
@@ -32,3 +32,37 @@ def test_decision_record_generates_id_by_default():
         )
 
     assert make().decision_id != make().decision_id
+
+
+# ---------------------------------------------------------------------------
+# app.decision_context boundary tests
+# ---------------------------------------------------------------------------
+
+
+async def test_open_agent_context_wires_store_feedback():
+    from productagents.app.decision_context import open_agent_context
+    from productagents.core.models import CustomerFeedback
+    from productagents.knowledge import DbCanonicalSink, FeedbackQuery
+    from tests.storage_fixtures import memory_store
+
+    async with memory_store() as (sessionmaker, _engine):
+        await DbCanonicalSink(sessionmaker).write(
+            CustomerFeedback(body="STORE feedback")
+        )
+        async with open_agent_context("model", session_factory=sessionmaker) as ctx:
+            page = await ctx.feedback.search(FeedbackQuery())
+            assert [f.body for f in page.items] == ["STORE feedback"]
+            assert ctx.model == "model"
+
+
+async def test_open_agent_context_returns_agent_context():
+    from productagents.agents.context import AgentContext
+    from productagents.app.decision_context import open_agent_context
+    from tests.storage_fixtures import memory_store
+
+    async with (
+        memory_store() as (sessionmaker, _engine),
+        open_agent_context("my-model", session_factory=sessionmaker) as ctx,
+    ):
+        assert isinstance(ctx, AgentContext)
+        assert ctx.model == "my-model"

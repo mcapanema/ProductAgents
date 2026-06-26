@@ -12,7 +12,6 @@ from textual.theme import Theme
 from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.evidence import EvidenceError, collect_evidence, load_scenario
-from productagents.agents.graph import build_graph
 from productagents.agents.llm import get_model
 from productagents.agents.reflection import reflect
 from productagents.agents.runner import (
@@ -28,8 +27,8 @@ from productagents.agents.runner import (
     RecommendationEvent,
     RiskAssessmentEvent,
     RunAbortedEvent,
-    run_decision,
 )
+from productagents.app.decision_context import make_decision_runner
 from productagents.app.setup import check_config, write_env
 from productagents.app.tui._format import (
     confidence_meter,  # noqa: F401
@@ -650,8 +649,8 @@ class ProductAgentsApp(App):
 def _build_app() -> ProductAgentsApp:
     def rebuild():
         model = get_model()
-        graph = build_graph(model, human_in_the_loop=True)
-        return partial(run_decision, graph), partial(reflect, model=model)
+        runner = make_decision_runner(model, human_in_the_loop=True)
+        return runner, partial(reflect, model=model)
 
     try:
         runner, reflector = rebuild()

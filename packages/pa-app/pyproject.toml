@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 dependencies = [
     "productagents-core",
     "productagents-agents",
+    "productagents-knowledge",
     "productagents-memory",
     "textual>=4.0",
 ]
@@ -20,4 +21,5 @@ packages = ["src/productagents"]
 [tool.uv.sources]
 productagents-core = { workspace = true }
 productagents-agents = { workspace = true }
+productagents-knowledge = { workspace = true }
 productagents-memory = { workspace = true }
