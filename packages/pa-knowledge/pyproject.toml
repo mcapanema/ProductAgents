@@ -3,7 +3,13 @@ name = "productagents-knowledge"
 version = "0.1.0"
 description = "ProductAgents knowledge services (the platform API)."
 requires-python = ">=3.14"
-dependencies = ["productagents-core"]
+dependencies = [
+    "productagents-core",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "sqlmodel>=0.0.24",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+]
 
 [build-system]
 requires = ["hatchling"]
