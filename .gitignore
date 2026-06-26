@@ -244,3 +244,6 @@ graphify-out
 # Application log file (from logging_config.configure_logging)
 productagents.log
 productagents.log.*
+
+# SQLite scratch databases (Alembic checks, tests)
+*.db
