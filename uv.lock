@@ -1055,6 +1055,7 @@ source = { editable = "packages/pa-app" }
 dependencies = [
     { name = "productagents-agents" },
     { name = "productagents-core" },
+    { name = "productagents-knowledge" },
     { name = "productagents-memory" },
     { name = "textual" },
 ]
@@ -1063,6 +1064,7 @@ dependencies = [
 requires-dist = [
     { name = "productagents-agents", editable = "packages/pa-agents" },
     { name = "productagents-core", editable = "packages/pa-core" },
+    { name = "productagents-knowledge", editable = "packages/pa-knowledge" },
     { name = "productagents-memory", editable = "packages/pa-memory" },
     { name = "textual", specifier = ">=4.0" },
 ]

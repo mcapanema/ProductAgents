@@ -1,6 +1,6 @@
 from productagents.agents._analyst import run_analyst
 from productagents.core.models import AnalystFindings, Evidence, Initiative
-from tests.fakes import FakeChatModel
+from tests.fakes import FakeChatModel, fake_context
 
 
 def _state():
@@ -24,7 +24,7 @@ async def test_run_analyst_returns_report():
     )
     result = await run_analyst(
         _state(),
-        model,
+        fake_context(model),
         analyst_id="demo",
         role="Demo Analyst",
         start_status="working…",
@@ -42,7 +42,7 @@ async def test_run_analyst_degrades_on_failure():
     model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
     result = await run_analyst(
         _state(),
-        model,
+        fake_context(model),
         analyst_id="demo",
         role="Demo Analyst",
         start_status="working…",
@@ -61,7 +61,7 @@ async def test_run_analyst_degrades_when_model_returns_none():
     model = FakeChatModel({AnalystFindings: None})
     result = await run_analyst(
         _state(),
-        model,
+        fake_context(model),
         analyst_id="demo",
         role="Demo Analyst",
         start_status="working…",

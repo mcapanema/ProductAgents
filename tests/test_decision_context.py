@@ -1,4 +1,4 @@
-"""Decision-context models: core.models.decision reuses planning.Initiative."""
+"""Decision-context: core.models.decision tests + app.decision_context tests."""
 
 from productagents.core.models.decision import DecisionRecord, Recommendation
 from productagents.core.models.planning import Initiative
@@ -32,3 +32,93 @@ def test_decision_record_generates_id_by_default():
         )
 
     assert make().decision_id != make().decision_id
+
+
+# ---------------------------------------------------------------------------
+# app.decision_context boundary tests
+# ---------------------------------------------------------------------------
+
+
+async def test_open_agent_context_wires_store_feedback():
+    from productagents.app.decision_context import open_agent_context
+    from productagents.core.models import CustomerFeedback
+    from productagents.knowledge import DbCanonicalSink, FeedbackQuery
+    from tests.storage_fixtures import memory_store
+
+    async with memory_store() as (sessionmaker, _engine):
+        await DbCanonicalSink(sessionmaker).write(
+            CustomerFeedback(body="STORE feedback")
+        )
+        async with open_agent_context("model", session_factory=sessionmaker) as ctx:
+            page = await ctx.feedback.search(FeedbackQuery())
+            assert [f.body for f in page.items] == ["STORE feedback"]
+            assert ctx.model == "model"
+
+
+async def test_open_agent_context_returns_agent_context():
+    from productagents.agents.context import AgentContext
+    from productagents.app.decision_context import open_agent_context
+    from tests.storage_fixtures import memory_store
+
+    async with (
+        memory_store() as (sessionmaker, _engine),
+        open_agent_context("my-model", session_factory=sessionmaker) as ctx,
+    ):
+        assert isinstance(ctx, AgentContext)
+        assert ctx.model == "my-model"
+
+
+async def test_make_decision_runner_yields_events():
+    from contextlib import asynccontextmanager
+
+    from productagents.agents.runner import FinishedEvent
+    from productagents.app.decision_context import make_decision_runner
+    from productagents.core.models import (
+        AnalystFindings,
+        DebateArgument,
+        Evidence,
+        GovernanceFinding,
+        Initiative,
+        JudgeFinding,
+        Recommendation,
+        RiskFinding,
+    )
+    from tests.fakes import FakeChatModel, fake_context
+
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["finding"], signals=["signal"]),
+            DebateArgument: DebateArgument(argument="my argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.75,
+                rationale="evidence supports it",
+                expected_outcomes=["growth"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="well grounded",
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="minimal risk"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="good call"
+            ),
+        }
+    )
+
+    @asynccontextmanager
+    async def stub_opener(_model):
+        yield fake_context(_model)
+
+    runner = make_decision_runner(
+        model, context_opener=stub_opener, human_in_the_loop=False
+    )
+
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+    evidence = Evidence(
+        scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
+    )
+
+    events = [event async for event in runner(initiative, evidence)]
+    assert any(isinstance(e, FinishedEvent) for e in events)

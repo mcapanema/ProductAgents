@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from productagents.agents.business import business_node
+from productagents.agents.context import AgentContext
 from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node
 from productagents.agents.governance import governance_node
@@ -66,21 +67,32 @@ def _route_after_judge(state) -> str:
     return "strategist"
 
 
-def build_graph(model, *, human_in_the_loop: bool = False):
-    """Compile the decision graph using the injected chat model.
+def build_graph(model_or_context, *, human_in_the_loop: bool = False):
+    """Compile the decision graph using the injected AgentContext.
 
-    When `human_in_the_loop` is True, a `human_approval` node is appended after
-    `governance` (whose verdict becomes advisory) and the graph is compiled with
-    an in-memory checkpointer so it can pause on `interrupt()` and resume.
+    Accepts an `AgentContext` (model + service slices) or, for test ergonomics, a
+    bare chat model — which is wrapped in a context with no store wired, so the
+    Customer Research node degrades to its scenario evidence.
+
+    Analyst nodes receive the full `ctx` (the seam through which any analyst may
+    reach a service); the LLM-only nodes receive `ctx.model` — least privilege,
+    and their tests stay untouched.
     """
+    ctx = (
+        model_or_context
+        if isinstance(model_or_context, AgentContext)
+        else AgentContext(model=model_or_context)
+    )
+    model = ctx.model
+
     # NOTE: GraphState is a valid TypedDict; langgraph's StateT bound stub is
     # too narrow to recognize it. Suppress narrowly rather than weakening the type.
     graph = StateGraph(GraphState)  # ty: ignore[invalid-argument-type]
-    graph.add_node("customer_research", partial(customer_research_node, model=model))
-    graph.add_node("product_analytics", partial(product_analytics_node, model=model))
-    graph.add_node("market", partial(market_node, model=model))
-    graph.add_node("business", partial(business_node, model=model))
-    graph.add_node("technical", partial(technical_node, model=model))
+    graph.add_node("customer_research", partial(customer_research_node, ctx=ctx))
+    graph.add_node("product_analytics", partial(product_analytics_node, ctx=ctx))
+    graph.add_node("market", partial(market_node, ctx=ctx))
+    graph.add_node("business", partial(business_node, ctx=ctx))
+    graph.add_node("technical", partial(technical_node, ctx=ctx))
     graph.add_node("recall", recall_node)
     graph.add_node("debate", partial(debate_node, model=model))
     graph.add_node("strategist", partial(strategist_node, model=model))

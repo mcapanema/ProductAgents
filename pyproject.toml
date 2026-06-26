@@ -132,6 +132,13 @@ source_modules = ["productagents"]
 forbidden_modules = ["requests"]
 include_external_packages = true
 
+# Agents reach the store only through Knowledge Services, never raw SQL/ORM.
+[[tool.importlinter.contracts]]
+name = "Agents reach storage only through services"
+type = "forbidden"
+source_modules = ["productagents.agents"]
+forbidden_modules = ["sqlalchemy", "sqlmodel", "aiosqlite", "alembic"]
+
 [tool.ruff]
 line-length = 88
 # target-version is inferred from project.requires-python (>=3.14).

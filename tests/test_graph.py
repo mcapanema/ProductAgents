@@ -169,6 +169,23 @@ async def test_graph_judge_score_only_when_retries_zero(monkeypatch):
     assert final["governance"].verdict == "approve"
 
 
+async def test_build_graph_threads_context_feedback_to_customer_research():
+    from productagents.agents.context import AgentContext
+    from productagents.core.models import CustomerFeedback
+    from productagents.knowledge import FeedbackService
+    from tests.knowledge_fakes import FakeRepository
+
+    feedback = FeedbackService(
+        FakeRepository([CustomerFeedback(body="STORE-SOURCED demand for SSO")])
+    )
+    ctx = AgentContext(model=_model(), feedback=feedback)
+    graph = build_graph(ctx)
+    # Smoke: the graph compiles with a context and runs without raising.
+    state = _initial_state()
+    result = await graph.ainvoke(state)
+    assert result["recommendation"] is not None
+
+
 @pytest.fixture
 def _failed_strategist_model():
     return FakeChatModel(

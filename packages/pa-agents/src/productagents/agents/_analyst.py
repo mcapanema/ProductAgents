@@ -21,7 +21,7 @@ from productagents.core.models import (
 
 async def run_analyst(
     state: dict,
-    model,
+    ctx,
     *,
     analyst_id: str,
     role: str,
@@ -31,13 +31,14 @@ async def run_analyst(
     """Run one analyst's structured call, degrading to a failed report on error.
 
     Returns the `{"reports": [AnalystReport]}` partial state every analyst node
-    contributes to the `reports` reducer.
+    contributes to the `reports` reducer. The chat model comes from `ctx.model`;
+    nodes that read services reach them through other `ctx` fields.
     """
     writer = get_writer()
     writer({"node": analyst_id, "status": start_status})
     try:
         findings = await invoke_structured(
-            model,
+            ctx.model,
             AnalystFindings,
             prompt(state["initiative"], state["evidence"]),
             node=analyst_id,
