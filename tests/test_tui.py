@@ -1,6 +1,6 @@
 from functools import partial
 
-from textual.widgets import Button, Input, Label
+from textual.widgets import Button, Input, Label, Static
 
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import (
@@ -81,14 +81,14 @@ async def test_app_renders_recommendation_records_debate_and_risk(
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        debate_text = str(pilot.app.query_one("#debate").content)
-        risk_text = str(pilot.app.query_one("#risk").content)
-        gov_text = str(pilot.app.query_one("#governance").content)
-        strat_text = str(pilot.app.query_one("#strategist").content)
+        debate_text = str(pilot.app.query_one("#debate", Static).content)
+        risk_text = str(pilot.app.query_one("#risk", Static).content)
+        gov_text = str(pilot.app.query_one("#governance", Static).content)
+        strat_text = str(pilot.app.query_one("#strategist", Static).content)
         assert "an argument" in debate_text
         assert "advocate" in debate_text
         assert "Delivery Risk Reviewer" in risk_text
@@ -117,13 +117,13 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        market_text = str(pilot.app.query_one("#market").content)
-        business_text = str(pilot.app.query_one("#business").content)
-        technical_text = str(pilot.app.query_one("#technical").content)
+        market_text = str(pilot.app.query_one("#market", Static).content)
+        business_text = str(pilot.app.query_one("#business", Static).content)
+        technical_text = str(pilot.app.query_one("#technical", Static).content)
 
     assert "demand" in market_text
     assert "demand" in business_text
@@ -233,11 +233,11 @@ async def test_app_renders_recalled_lessons(monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        recall_text = str(pilot.app.query_one("#recall").content)
+        recall_text = str(pilot.app.query_one("#recall", Static).content)
 
     assert "take longer than predicted" in recall_text
     assert len(recorded) == 1
@@ -275,8 +275,8 @@ async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch)
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#evidence-source").value = str(folder)
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#evidence-source", Input).value = str(folder)
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
@@ -307,11 +307,11 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#evidence-source").value = "/no/such/source/xyz"
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#evidence-source", Input).value = "/no/such/source/xyz"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.pause()
-        status_text = str(pilot.app.query_one("#status-log").content)
+        status_text = str(pilot.app.query_one("#status-log", Static).content)
 
     assert ran["called"] is False
     assert "Evidence" in status_text or "evidence" in status_text
@@ -333,10 +333,10 @@ async def test_app_surfaces_runner_unavailable(monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.pause()
-        status_text = str(pilot.app.query_one("#status-log").content)
+        status_text = str(pilot.app.query_one("#status-log", Static).content)
 
     assert "langchain-google-genai" in status_text
 
@@ -364,12 +364,12 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#evidence-source").value = str(folder)
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#evidence-source", Input).value = str(folder)
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        prov_text = str(pilot.app.query_one("#evidence-provenance").content)
+        prov_text = str(pilot.app.query_one("#evidence-provenance", Static).content)
 
     assert "customer_feedback" in prov_text
     assert "directory:" in prov_text
@@ -422,11 +422,11 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        strat_text = str(pilot.app.query_one("#strategist").content)
+        strat_text = str(pilot.app.query_one("#strategist", Static).content)
 
     # The unknown-node completion was skipped, so the run reached FinishedEvent
     # and rendered the recommendation.
@@ -599,11 +599,11 @@ async def test_app_logs_node_error_and_marks_panel_failed():
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        status_text = str(pilot.app.query_one("#status-log").content)
+        status_text = str(pilot.app.query_one("#status-log", Static).content)
         assert "429 rate limit reached" in status_text
         assert pilot.app.query_one("#technical").has_class("failed")
 
@@ -664,7 +664,7 @@ async def test_app_panel_titles_show_state_icons():
         await pilot.pause()
         # Idle on mount.
         assert str(app.query_one("#technical").border_title).startswith("·")
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
@@ -750,11 +750,11 @@ async def test_app_renders_and_records_judgment(monkeypatch):
         show_home=False,
     )
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        judge_text = str(pilot.app.query_one("#judgment").content)
+        judge_text = str(pilot.app.query_one("#judgment", Static).content)
 
     assert "PASS" in judge_text
     assert len(recorded) == 1
@@ -1129,7 +1129,7 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
         show_home=False,
     )
     async with app.run_test(size=(120, 40)) as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add enterprise SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add enterprise SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
@@ -1175,7 +1175,7 @@ async def test_strategist_panel_renders_on_recommendation_event():
         await pilot.pause()
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
-        strat_text = str(pilot.app.query_one("#strategist").content)
+        strat_text = str(pilot.app.query_one("#strategist", Static).content)
         strat_title = str(pilot.app.query_one("#strategist").border_title)
 
     assert "Build SSO now" in strat_text
