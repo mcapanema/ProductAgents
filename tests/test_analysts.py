@@ -6,7 +6,7 @@ from productagents.agents.market import market_node
 from productagents.agents.product_analytics import product_analytics_node
 from productagents.agents.technical import technical_node
 from productagents.core.models import AnalystFindings, Evidence, Initiative
-from tests.fakes import FakeChatModel
+from tests.fakes import FakeChatModel, fake_context
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ async def test_customer_research_returns_report(state):
             )
         }
     )
-    result = await customer_research_node(state, model)
+    result = await customer_research_node(state, fake_context(model))
     reports = result["reports"]
     assert len(reports) == 1
     report = reports[0]
@@ -48,7 +48,7 @@ async def test_product_analytics_returns_report(state):
             )
         }
     )
-    result = await product_analytics_node(state, model)
+    result = await product_analytics_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "product_analytics"
     assert report.role == "Product Analytics Analyst"
@@ -57,7 +57,7 @@ async def test_product_analytics_returns_report(state):
 
 async def test_analyst_failure_yields_degraded_report(state):
     model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
-    result = await customer_research_node(state, model)
+    result = await customer_research_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.failed is True
     assert report.findings == []
@@ -73,7 +73,7 @@ async def test_market_returns_report(state):
             )
         }
     )
-    result = await market_node(state, model)
+    result = await market_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "market"
     assert report.role == "Market Analyst"
@@ -83,7 +83,7 @@ async def test_market_returns_report(state):
 
 async def test_market_degrades_on_failure(state):
     model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
-    result = await market_node(state, model)
+    result = await market_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "market"
     assert report.failed is True
@@ -99,7 +99,7 @@ async def test_business_returns_report(state):
             )
         }
     )
-    result = await business_node(state, model)
+    result = await business_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "business"
     assert report.role == "Business Analyst"
@@ -109,7 +109,7 @@ async def test_business_returns_report(state):
 
 async def test_business_degrades_on_failure(state):
     model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
-    result = await business_node(state, model)
+    result = await business_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "business"
     assert report.failed is True
@@ -125,7 +125,7 @@ async def test_technical_returns_report(state):
             )
         }
     )
-    result = await technical_node(state, model)
+    result = await technical_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "technical"
     assert report.role == "Technical Analyst"
@@ -135,7 +135,7 @@ async def test_technical_returns_report(state):
 
 async def test_technical_degrades_on_failure(state):
     model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})
-    result = await technical_node(state, model)
+    result = await technical_node(state, fake_context(model))
     report = result["reports"][0]
     assert report.analyst == "technical"
     assert report.failed is True

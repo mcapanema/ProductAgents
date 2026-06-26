@@ -74,3 +74,16 @@ class FakeChatModel:
         if schema not in self._structured:
             raise KeyError(f"FakeChatModel has no result for schema {schema!r}")
         return self._structured[schema]
+
+
+def fake_context(model, *, feedback=None):
+    """Wrap a (fake) model into an AgentContext for node/graph tests.
+
+    `feedback` defaults to the context's own `_NullFeedback` (empty store), so
+    analyst tests exercise scenario evidence unless they opt into a store.
+    """
+    from productagents.agents.context import AgentContext
+
+    if feedback is None:
+        return AgentContext(model=model)
+    return AgentContext(model=model, feedback=feedback)

@@ -19,10 +19,10 @@ def _prompt(initiative: Initiative, evidence: Evidence) -> str:
     )
 
 
-async def customer_research_node(state: dict, model) -> dict:
+async def customer_research_node(state: dict, ctx) -> dict:
     return await run_analyst(
         state,
-        model,
+        ctx,
         analyst_id=ANALYST_ID,
         role=ROLE,
         start_status=_START_STATUS,

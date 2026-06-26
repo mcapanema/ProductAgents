@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from productagents.agents.business import business_node
+from productagents.agents.context import AgentContext
 from productagents.agents.customer_research import customer_research_node
 from productagents.agents.debate import debate_node
 from productagents.agents.governance import governance_node
@@ -76,11 +77,14 @@ def build_graph(model, *, human_in_the_loop: bool = False):
     # NOTE: GraphState is a valid TypedDict; langgraph's StateT bound stub is
     # too narrow to recognize it. Suppress narrowly rather than weakening the type.
     graph = StateGraph(GraphState)  # ty: ignore[invalid-argument-type]
-    graph.add_node("customer_research", partial(customer_research_node, model=model))
-    graph.add_node("product_analytics", partial(product_analytics_node, model=model))
-    graph.add_node("market", partial(market_node, model=model))
-    graph.add_node("business", partial(business_node, model=model))
-    graph.add_node("technical", partial(technical_node, model=model))
+    ctx = AgentContext(
+        model=model
+    )  # ponytail: bare model → context; Task 5 adds service fields
+    graph.add_node("customer_research", partial(customer_research_node, ctx=ctx))
+    graph.add_node("product_analytics", partial(product_analytics_node, ctx=ctx))
+    graph.add_node("market", partial(market_node, ctx=ctx))
+    graph.add_node("business", partial(business_node, ctx=ctx))
+    graph.add_node("technical", partial(technical_node, ctx=ctx))
     graph.add_node("recall", recall_node)
     graph.add_node("debate", partial(debate_node, model=model))
     graph.add_node("strategist", partial(strategist_node, model=model))
