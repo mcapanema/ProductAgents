@@ -34,9 +34,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_canonical_record_model_type", "canonical_record", ["model_type"]
     )
-    op.create_index(
-        "ix_canonical_record_vendor_id", "canonical_record", ["vendor_id"]
-    )
+    op.create_index("ix_canonical_record_vendor_id", "canonical_record", ["vendor_id"])
 
 
 def downgrade() -> None:

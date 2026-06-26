@@ -69,7 +69,6 @@ productagents = [
 show_missing = true
 omit = [
     "*/connectors/__init__.py",
-    "*/knowledge/__init__.py",
 ]
 
 [tool.bandit]

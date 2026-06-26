@@ -43,3 +43,28 @@ async def test_file_engine_and_drop_all(tmp_path):
     await create_all(engine)
     await drop_all(engine)
     await engine.dispose()
+
+
+def test_public_surface_is_importable():
+    from productagents.knowledge import (
+        CanonicalRepository,
+        CanonicalSink,
+        DbCanonicalSink,
+        Repository,
+        database_url,
+        make_engine,
+        make_sessionmaker,
+    )
+
+    assert all(
+        x is not None
+        for x in (
+            CanonicalRepository,
+            CanonicalSink,
+            DbCanonicalSink,
+            Repository,
+            database_url,
+            make_engine,
+            make_sessionmaker,
+        )
+    )
