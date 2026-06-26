@@ -3,6 +3,85 @@
 from productagents.core.models.decision import DecisionRecord, Recommendation
 from productagents.core.models.planning import Initiative
 
+# ---------------------------------------------------------------------------
+# DB-backed recorder / reader round-trip (Task 9)
+# ---------------------------------------------------------------------------
+
+
+async def test_recorder_then_reader_round_trip():
+    from productagents.app.decision_context import make_decision_reader, make_recorder
+    from productagents.core.models import OutcomeRecord  # noqa: F401
+    from productagents.knowledge.repositories.sqlmodel.engine import make_engine
+    from productagents.memory import store as store_mod
+
+    def _decision():
+        return DecisionRecord(
+            decision_id="d1",
+            initiative=Initiative(title="Add SSO", description="enterprise auth"),
+            recommendation=Recommendation(
+                recommendation="Build",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            timestamp="2026-06-19T12:00:00+00:00",
+        )
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await store_mod.create_all(engine)
+    record = make_recorder(engine=engine)
+    read = make_decision_reader(engine=engine)
+    await record(_decision())
+    decisions = await read()
+    assert [d.decision_id for d in decisions] == ["d1"]
+    await engine.dispose()
+
+
+async def test_outcome_recorder_persists():
+    from productagents.app.decision_context import (
+        make_decision_reader,
+        make_outcome_recorder,
+        make_recorder,
+    )
+    from productagents.core.models import OutcomeRecord
+    from productagents.knowledge.repositories.sqlmodel.engine import make_engine
+    from productagents.memory import store as store_mod
+
+    def _decision():
+        return DecisionRecord(
+            decision_id="d1",
+            initiative=Initiative(title="Add SSO", description="enterprise auth"),
+            recommendation=Recommendation(
+                recommendation="Build",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            timestamp="2026-06-19T12:00:00+00:00",
+        )
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await store_mod.create_all(engine)
+    record = make_recorder(engine=engine)
+    record_outcome = make_outcome_recorder(engine=engine)
+    read = make_decision_reader(engine=engine)
+    await record(_decision())
+    await record_outcome(
+        OutcomeRecord(
+            decision_id="d1",
+            actual_outcomes=["ok"],
+            prediction_accuracy=0.8,
+            lessons_learned=["lesson"],
+            reflected_at="2026-06-20T00:00:00+00:00",
+        )
+    )
+    decisions = await read()
+    assert decisions
+    assert decisions[0].decision_id == "d1"
+    await engine.dispose()
+
 
 def test_decision_record_uses_planning_initiative():
     rec = DecisionRecord(

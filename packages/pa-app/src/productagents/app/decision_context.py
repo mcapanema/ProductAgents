@@ -17,10 +17,17 @@ from productagents.knowledge.repositories.sqlmodel.engine import (
     make_engine,
     make_sessionmaker,
 )
+from productagents.memory.embedding import HashingEmbedder
+from productagents.memory.service import LearningService
+from productagents.memory.store import DecisionStore
 
 # ponytail: one process-wide engine over the local SQLite file. Pool/replace per
 # request if this ever serves concurrent decision runs.
 _engine = None
+
+# ponytail: one process-wide placeholder embedder. Swap for a real model behind
+# the Embedder protocol in Phase 7; no caller changes.
+_EMBEDDER = HashingEmbedder()
 
 
 def get_engine():
@@ -39,7 +46,8 @@ async def open_agent_context(
     factory = session_factory or make_sessionmaker(get_engine())
     async with factory() as session:
         services = build_services(session)
-        yield AgentContext(model=model, feedback=services.feedback)
+        learning = LearningService(DecisionStore(session), _EMBEDDER)
+        yield AgentContext(model=model, feedback=services.feedback, learning=learning)
 
 
 def make_decision_runner(
@@ -51,9 +59,7 @@ def make_decision_runner(
     `self._runner(...)` seam the TUI (and its tests) use is unchanged.
     """
 
-    async def runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def runner(initiative, evidence, *, approver=None):
         # ponytail: session stays open across human_approval interrupt; fine for
         # local SQLite, becomes a held connection under Postgres concurrency —
         # upgrade path: open a fresh session after the interrupt resumes.
@@ -68,3 +74,44 @@ def make_decision_runner(
                 yield event
 
     return runner
+
+
+def _sessionmaker(engine):
+    return make_sessionmaker(engine or get_engine())
+
+
+def make_recorder(*, engine=None):
+    """Async recorder: persist a full DecisionRecord to the memory store."""
+    maker = _sessionmaker(engine)
+
+    async def recorder(record) -> None:
+        async with maker() as session:
+            await LearningService(DecisionStore(session), _EMBEDDER).record_decision(
+                record
+            )
+
+    return recorder
+
+
+def make_outcome_recorder(*, engine=None):
+    """Async outcome recorder: persist a reflected OutcomeRecord."""
+    maker = _sessionmaker(engine)
+
+    async def outcome_recorder(outcome) -> None:
+        async with maker() as session:
+            await LearningService(DecisionStore(session), _EMBEDDER).record_outcome(
+                outcome
+            )
+
+    return outcome_recorder
+
+
+def make_decision_reader(*, engine=None):
+    """Async reader: list persisted decisions (for the reflection picker)."""
+    maker = _sessionmaker(engine)
+
+    async def reader() -> list:
+        async with maker() as session:
+            return await DecisionStore(session).decisions()
+
+    return reader
