@@ -1,5 +1,7 @@
 from functools import partial
 
+from textual.widgets import Input, Static
+
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
 from productagents.app.tui.app import ProductAgentsApp
@@ -60,7 +62,7 @@ async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeyp
     )
 
     async with app.run_test() as pilot:
-        pilot.app.query_one("#initiative-title").value = "Add SSO"
+        pilot.app.query_one("#initiative-title", Input).value = "Add SSO"
         await pilot.press("enter")
         # Let the graph run to the governance interrupt, which pushes the modal.
         for _ in range(50):
@@ -74,7 +76,7 @@ async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeyp
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
 
-        gov_text = str(pilot.app.query_one("#governance").content)
+        gov_text = str(pilot.app.query_one("#governance", Static).content)
         assert "reject" in gov_text
         assert "human" in gov_text
 
