@@ -1,7 +1,9 @@
 """HomeScreen behavior, driven through a minimal host app."""
 
+from typing import cast
+
 from textual.app import App
-from textual.widgets import Button
+from textual.widgets import Button, Static
 
 from productagents.app.setup import ConfigStatus
 from productagents.app.tui.home_screen import HomeScreen
@@ -47,7 +49,7 @@ async def test_home_run_enabled_and_dispatches_when_ready():
     async with app.run_test() as pilot:
         await pilot.pause()
         assert app.screen.query_one("#home-run", Button).disabled is False
-        status_text = str(app.screen.query_one("#home-status").content)
+        status_text = str(app.screen.query_one("#home-status", Static).content)
         assert "Ready" in status_text
         await pilot.click("#home-run")
         await pilot.pause()
@@ -59,7 +61,7 @@ async def test_home_run_disabled_when_setup_needed():
     async with app.run_test() as pilot:
         await pilot.pause()
         assert app.screen.query_one("#home-run", Button).disabled is True
-        status_text = str(app.screen.query_one("#home-status").content)
+        status_text = str(app.screen.query_one("#home-status", Static).content)
         assert "Setup needed" in status_text
 
 
@@ -77,6 +79,6 @@ async def test_home_refresh_status_enables_run():
     async with app.run_test() as pilot:
         await pilot.pause()
         assert app.screen.query_one("#home-run", Button).disabled is True
-        app.screen.refresh_status(_ok_status())
+        cast(HomeScreen, app.screen).refresh_status(_ok_status())
         await pilot.pause()
         assert app.screen.query_one("#home-run", Button).disabled is False

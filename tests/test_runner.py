@@ -96,6 +96,8 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     ]
     assert [g.verdict for g in governance_events] == ["approve"]
     assert len(finished) == 1
+    assert finished[0].recommendation is not None
+    assert finished[0].governance is not None
     assert finished[0].recommendation.recommendation == "Build it"
     assert len(finished[0].reports) == 5
     assert len(finished[0].debate) == 4
@@ -200,6 +202,7 @@ async def test_run_decision_human_override_becomes_final_verdict(monkeypatch):
     assert finals[0].decided_by == "human"
 
     finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.governance is not None
     assert finished.governance.verdict == "reject"
     assert finished.governance.decided_by == "human"
     assert finished.governance.advisory_verdict == "approve"
@@ -213,6 +216,7 @@ async def test_run_decision_without_approver_auto_accepts_advisory(monkeypatch):
     events = [e async for e in run_decision(graph, initiative, evidence)]
 
     finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.governance is not None
     assert finished.governance.verdict == "approve"
 
 
@@ -249,6 +253,7 @@ async def test_run_decision_without_approver_coerces_degraded_advisory_to_approv
     events = [e async for e in run_decision(graph, initiative, evidence)]
 
     finished = next(e for e in events if isinstance(e, FinishedEvent))
+    assert finished.governance is not None
     # Governance degraded to verdict="error"; the no-approver fallback must coerce it.
     assert finished.governance.verdict == "approve"
     assert finished.governance.decided_by == "human"
