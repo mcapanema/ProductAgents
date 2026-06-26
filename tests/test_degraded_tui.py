@@ -15,6 +15,14 @@ class _Host(App):
         self.push_screen(DegradedRunScreen(), self._results.append)
 
 
+async def _noop_recorder(r):
+    pass
+
+
+async def _empty_reader():
+    return []
+
+
 def _build_app(*, runner):
     evidence = Evidence(
         scenario="sample", customer_feedback="x", product_analytics={"a": 1}
@@ -22,9 +30,8 @@ def _build_app(*, runner):
     return ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -32,9 +39,7 @@ def _build_app(*, runner):
 async def test_run_aborted_shows_error_banner():
     from productagents.agents.runner import RunAbortedEvent
 
-    async def _fake_runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def _fake_runner(initiative, evidence, *, approver=None):
         yield RunAbortedEvent(
             node="customer_research",
             category="rate_limit",

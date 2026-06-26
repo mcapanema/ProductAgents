@@ -118,7 +118,7 @@ Roadmap prioritization · opportunity assessment · product strategy reviews · 
 
 ## Getting Started
 
-The repository currently implements an end-to-end **slice** of the architecture above: five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the TUI. Every stage runs live and is saved (with full transcript, judge verdict, risk assessments, and human decision) to `decisions.jsonl`.
+The repository currently implements an end-to-end **slice** of the architecture above: five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the TUI. Every stage runs live and is saved (with full transcript, judge verdict, risk assessments, and human decision) to the organizational-memory DB (`DecisionStore`).
 
 ### Setup
 
@@ -168,11 +168,11 @@ export PRODUCTAGENTS_MAX_RETRIES=6      # retry budget (with backoff) for transi
 uv run productagents
 ```
 
-Type an initiative (e.g. "Add enterprise SSO") and press Enter. Analyst panels update live and the strategist panel shows the final recommendation; each run appends a record to `decisions.jsonl`.
+Type an initiative (e.g. "Add enterprise SSO") and press Enter. Analyst panels update live and the strategist panel shows the final recommendation; each run appends a record to the organizational-memory DB.
 
 **Evidence is pluggable.** A second input lets you point a run at a source: another bundled scenario name, or a path to a folder containing the evidence files (`customer_feedback.md` and `product_analytics.json` required; `market_intelligence.md`, `business_metrics.json`, `technical_context.md` optional). Each piece of evidence records its provenance, shown in the TUI and saved on the decision record. The default is the bundled `sample` scenario.
 
-**Outcome learning.** After a decision, press `Ctrl+R` to open reflection mode, pick a past decision, and describe what happened. An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to `outcomes.jsonl`. Those reflections are automatically retrieved by relevance and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
+**Outcome learning.** After a decision, press `Ctrl+R` to open reflection mode, pick a past decision, and describe what happened. An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
 
 ### Test
 

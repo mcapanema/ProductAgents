@@ -1,3 +1,4 @@
+from productagents.agents.context import AgentContext
 from productagents.agents.governance import _format_portfolio, governance_node
 from productagents.core.enums import Verdict
 from productagents.core.models import (
@@ -28,7 +29,6 @@ def _state():
                 rationale="some integration work",
             )
         ],
-        "portfolio": [],
     }
 
 
@@ -41,6 +41,31 @@ def _prior_record(title: str, verdict: Verdict) -> DecisionRecord:
         reports=[],
         governance=GovernanceVerdict(verdict=verdict, rationale="prior"),
         timestamp="2026-06-19T12:00:00+00:00",
+    )
+
+
+class _FakeLearning:
+    """Minimal LessonReader for governance tests."""
+
+    def __init__(self, decisions=None, raise_on_decisions=False):
+        self._decisions = decisions or []
+        self._raise = raise_on_decisions
+
+    async def relevant_lessons(self, initiative):
+        return []
+
+    async def decisions(self):
+        if self._raise:
+            raise RuntimeError("store unavailable")
+        return self._decisions
+
+
+def _ctx(model, decisions=None, raise_on_decisions=False):
+    return AgentContext(
+        model=model,
+        learning=_FakeLearning(
+            decisions=decisions, raise_on_decisions=raise_on_decisions
+        ),
     )
 
 
@@ -58,7 +83,7 @@ async def test_governance_node_produces_verdict():
     model = FakeChatModel(
         {GovernanceFinding: GovernanceFinding(verdict="approve", rationale="worth it")}
     )
-    result = await governance_node(_state(), model)
+    result = await governance_node(_state(), model, _ctx(model))
     verdict = result["governance"]
     assert verdict.verdict == "approve"
     assert verdict.rationale == "worth it"
@@ -67,7 +92,7 @@ async def test_governance_node_produces_verdict():
 
 async def test_governance_node_degrades_on_failure():
     model = FakeChatModel({GovernanceFinding: RuntimeError("LLM down")})
-    result = await governance_node(_state(), model)
+    result = await governance_node(_state(), model, _ctx(model))
     verdict = result["governance"]
     assert verdict.failed is True
     assert verdict.verdict == "error"
@@ -82,9 +107,56 @@ async def test_governance_degrades_when_model_returns_none():
             recommendation="ship", confidence=0.5, rationale="r", expected_outcomes=[]
         ),
         "risks": [],
-        "portfolio": [],
     }
-    result = await governance_node(state, model)
+    result = await governance_node(state, model, _ctx(model))
     verdict = result["governance"]
     assert verdict.failed is True
     assert verdict.verdict == "error"
+
+
+async def test_governance_receives_portfolio_from_learning_service(monkeypatch):
+    """The node passes the portfolio it fetched from ctx.learning into _prompt."""
+    import productagents.agents.governance as gov
+
+    prior = _prior_record("Old Feature", "approve")
+    model = FakeChatModel(
+        {GovernanceFinding: GovernanceFinding(verdict="approve", rationale="ok")}
+    )
+    ctx = _ctx(model, decisions=[prior])
+
+    captured = {}
+    real_prompt = gov._prompt
+
+    def _capture(initiative, recommendation, risks, portfolio):
+        captured["portfolio"] = portfolio
+        return real_prompt(initiative, recommendation, risks, portfolio)
+
+    monkeypatch.setattr(gov, "_prompt", _capture)
+    result = await governance_node(_state(), model, ctx)
+
+    assert result["governance"].verdict == "approve"
+    # End-to-end: the fetched portfolio reached _prompt (not [] or discarded).
+    assert captured["portfolio"] == [prior]
+    assert "Old Feature" in _format_portfolio(captured["portfolio"])
+
+
+async def test_governance_degrades_portfolio_when_learning_raises():
+    """A storage failure on decisions() is swallowed; node still produces a verdict."""
+    model = FakeChatModel(
+        {GovernanceFinding: GovernanceFinding(verdict="reject", rationale="too risky")}
+    )
+    ctx = _ctx(model, raise_on_decisions=True)
+    result = await governance_node(_state(), model, ctx)
+    # Node must not crash and portfolio falls back to empty (no prior decisions).
+    assert result["governance"].failed is False
+    assert result["governance"].verdict == "reject"
+
+
+async def test_null_learning_yields_no_prior_decisions():
+    """_NullLearning (default AgentContext) returns [] for decisions()."""
+    model = FakeChatModel(
+        {GovernanceFinding: GovernanceFinding(verdict="approve", rationale="fine")}
+    )
+    ctx = AgentContext(model=model)  # _NullLearning default
+    result = await governance_node(_state(), model, ctx)
+    assert result["governance"].verdict == "approve"

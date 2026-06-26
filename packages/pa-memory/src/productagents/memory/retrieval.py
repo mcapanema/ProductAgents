@@ -1,67 +1,7 @@
-"""Append-only logs (decisions and outcomes) — the organizational-memory stub."""
-
+import math
 import re
-from pathlib import Path
-
-from pydantic import ValidationError
 
 from productagents.core.models import DecisionRecord, Initiative, OutcomeRecord
-
-DEFAULT_LOG_PATH = Path("decisions.jsonl")
-DEFAULT_OUTCOME_LOG_PATH = Path("outcomes.jsonl")
-
-
-def _path(path: Path | None, default: Path) -> Path:
-    return path if path is not None else default
-
-
-def _append_jsonl(record, path: Path) -> None:
-    """Append one pydantic record as a JSON line."""
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json() + "\n")
-
-
-def _read_jsonl(path: Path, model_cls):
-    """Read+validate every JSON line into `model_cls`, skipping malformed lines.
-
-    Returns [] if the file does not exist. Blank lines and schema-incompatible
-    lines (e.g. legacy records that predate a schema tightening) are skipped
-    rather than aborting the read — "degrade, never crash" at the persistence
-    boundary.
-    """
-    if not path.is_file():
-        return []
-    records = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            records.append(model_cls.model_validate_json(line))
-        except ValidationError:
-            continue
-    return records
-
-
-def record_decision(record: DecisionRecord, path: Path | None = None) -> None:
-    """Append one decision record as a JSON line."""
-    _append_jsonl(record, _path(path, DEFAULT_LOG_PATH))
-
-
-def read_decisions(path: Path | None = None) -> list[DecisionRecord]:
-    """Read all decision records; return [] if the log does not exist."""
-    return _read_jsonl(_path(path, DEFAULT_LOG_PATH), DecisionRecord)
-
-
-def record_outcome(outcome: OutcomeRecord, path: Path | None = None) -> None:
-    """Append one outcome record as a JSON line."""
-    _append_jsonl(outcome, _path(path, DEFAULT_OUTCOME_LOG_PATH))
-
-
-def read_outcomes(path: Path | None = None) -> list[OutcomeRecord]:
-    """Read all outcome records; return [] if the log does not exist."""
-    return _read_jsonl(_path(path, DEFAULT_OUTCOME_LOG_PATH), OutcomeRecord)
-
 
 # Short, ubiquitous words carry no signal for matching past initiatives.
 _STOPWORDS = frozenset(
@@ -119,12 +59,45 @@ def _derived_lesson(decision: DecisionRecord) -> str:
     )
 
 
+def cosine(a: list[float], b: list[float]) -> float:
+    """Cosine similarity; 0.0 when either vector is empty or zero-length."""
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def semantic_matches(
+    query: list[float],
+    embeddings: dict[str, list[float]],
+    *,
+    k: int = 5,
+    threshold: float = 0.1,
+) -> set[str]:
+    """Decision ids whose embedding is closest to ``query`` (top-k over threshold).
+
+    ponytail: linear scan + Python cosine — honest at local-first scale. Upgrade
+    path is a vector index (sqlite-vec / pgvector) behind this same signature.
+    """
+    scored = [
+        (cosine(query, vec), decision_id) for decision_id, vec in embeddings.items()
+    ]
+    scored = [
+        (score, decision_id) for score, decision_id in scored if score >= threshold
+    ]
+    scored.sort(reverse=True)
+    return {decision_id for _, decision_id in scored[:k]}
+
+
 def select_relevant_lessons(
     initiative: Initiative,
     decisions: list[DecisionRecord],
     outcomes: list[OutcomeRecord],
     *,
     limit: int = 3,
+    also_relevant: frozenset[str] = frozenset(),
 ) -> list[str]:
     """Return formatted lessons from the past decisions most similar to `initiative`.
 
@@ -158,8 +131,12 @@ def select_relevant_lessons(
     for decision in decisions:
         past = _tokens(f"{decision.initiative.title} {decision.initiative.description}")
         overlap = len(query & past)
-        if overlap == 0:
+        if overlap == 0 and decision.decision_id not in also_relevant:
             continue
+        if overlap == 0:
+            # Semantic-only match: floor the score so it ranks below any lexical
+            # overlap but still participates in selection/dedup.
+            overlap = 1
         outcome = by_id.get(decision.decision_id)
         if outcome is not None:
             validated.append((overlap, decision, outcome))

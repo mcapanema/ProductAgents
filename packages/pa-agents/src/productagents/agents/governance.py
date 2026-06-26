@@ -71,9 +71,13 @@ def _prompt(
     )
 
 
-async def governance_node(state: dict, model) -> dict:
+async def governance_node(state: dict, model, ctx) -> dict:
     writer = get_writer()
     writer({"node": NODE_ID, "status": f"{ROLE} reviewing…"})
+    try:
+        portfolio = await ctx.learning.decisions()
+    except Exception:  # noqa: BLE001 - degrade, never crash
+        portfolio = []
     try:
         finding = await invoke_structured(
             model,
@@ -82,7 +86,7 @@ async def governance_node(state: dict, model) -> dict:
                 state["initiative"],
                 state.get("recommendation"),
                 state.get("risks", []),
-                state.get("portfolio", []),
+                portfolio,
             ),
             node=NODE_ID,
         )

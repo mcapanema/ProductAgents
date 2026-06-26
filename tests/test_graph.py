@@ -57,8 +57,6 @@ def _initial_state():
         "debate": [],
         "recommendation": None,
         "risks": [],
-        "portfolio": [],
-        "outcomes": [],
         "prior_lessons": [],
         "governance": None,
         "judgment": None,

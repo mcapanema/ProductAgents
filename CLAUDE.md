@@ -8,7 +8,7 @@ ProductAgents is a multi-agent framework for product decision-making under uncer
 
 ```
 evidence → [customer_research ∥ product_analytics ∥ market ∥ business ∥ technical] → debate (advocate vs skeptic) ┐
-                                                                  recall (past lessons) ┴→ strategist → judge → risk → governance (advisory) → human_approval → decisions.jsonl
+                                                                  recall (past lessons) ┴→ strategist → judge → risk → governance (advisory) → human_approval → DecisionStore (DB)
 ```
 
 Everything runs live in a Textual TUI.
@@ -60,8 +60,8 @@ packages/
 │           ├── home_screen.py · setup_screen.py · degraded.py
 │           ├── rail.py     #   PipelineRail spine widget
 │           └── _format.py  #   pure Rich-markup render helpers
-├── pa-memory/              # productagents.memory  — append-only decision log
-│   └── src/productagents/memory.py   # decisions.jsonl / outcomes.jsonl + lesson retrieval
+├── pa-memory/              # productagents.memory  — organizational-memory subsystem (DB store + hybrid retrieval + LearningService)
+│   └── src/productagents/memory/     # store.py · tables.py · retrieval.py · service.py · embedding.py · jsonl.py (export/audit)
 ├── pa-knowledge/           # productagents.knowledge.*  — stub, ready for v2
 │   └── src/productagents/knowledge/__init__.py
 └── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
@@ -154,14 +154,14 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - `productagents.agents.graph` — wires nodes into the StateGraph. `build_graph(context_or_model, *, human_in_the_loop=False)` accepts an `AgentContext` (in production) or a bare model (in tests wrapped by a context fixture); when `human_in_the_loop=True`, appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
 - `productagents.agents.runner` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge.
 - `productagents.app.tui.app` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
-- `productagents.memory` — append-only `decisions.jsonl` and `outcomes.jsonl` logs (the "organizational memory"). `select_relevant_lessons()` scores past decisions by lexical similarity to the current initiative and returns the lessons of the closest matches — this is the read side of Outcome Learning.
+- `productagents.memory` — DB-backed organizational-memory subsystem. `DecisionStore` persists `DecisionRecord` and `OutcomeRecord` rows in SQLite/Postgres via an injected async session; `LessonRetriever` combines lexical scoring (`LexicalRetriever`) with cosine similarity over hashing embeddings (`SemanticRetriever`) for hybrid retrieval. `LearningService` is the Knowledge-Layer face: `relevant_lessons(initiative)` → lesson strings injected into the strategist, `record_decision` / `record_outcome` on the write side. JSONL (`jsonl.py`) is export/audit only — the DB is the system of record. The `recall` node retrieves lessons through `AgentContext.learning` (a `LessonReader` slice), keeping agents free of sqlalchemy.
 - **Outcome Learning has two halves.** The *injection* half runs inside the graph
-  (`recall` → `strategist`). The *capture* half runs **outside** the graph:
+  (`recall` → `strategist`): `recall` calls `ctx.learning.relevant_lessons(initiative)` and seeds the lessons into graph state. The *capture* half runs **outside** the graph:
   `agents/reflection.py::reflect()` is triggered from the TUI's reflection screen
   (`ctrl+r`, `tui/reflection.py`), compares a past `DecisionRecord`'s predicted
-  outcomes against a free-text note, and appends an `OutcomeRecord` to
-  `outcomes.jsonl` via `memory.record_outcome`. `recall` later reads those
-  outcomes back. The reflection agent is the one agent not wired into `graph.py`.
+  outcomes against a free-text note, and calls `ctx.learning.record_outcome` (which
+  delegates to `LearningService` → `DecisionStore`). `recall` later reads those
+  outcomes back via hybrid retrieval. The reflection agent is the one agent not wired into `graph.py`.
 
 ### Conventions that matter
 
