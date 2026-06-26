@@ -9,6 +9,9 @@ Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services*
 - `sink.py` — `CanonicalSink` protocol + `DbCanonicalSink`. **Connectors write
   here** and stay storage-ignorant; the sink routes each model to a repository
   by `type(model)`.
+- `sync_state.py` — `SyncStateStore(session)`: per-connector incremental cursor
+  persistence (`sync_state` table). Cursors are **plain strings**, never
+  `SyncCursor`, so storage never imports a connector type. The app converts.
 - `repositories/_base.py` — `Repository[T]` protocol (`get`/`upsert`/`list`).
   Services depend on this, never on a concrete impl, so SQLite↔Postgres is a
   driver swap and tests inject fakes.
