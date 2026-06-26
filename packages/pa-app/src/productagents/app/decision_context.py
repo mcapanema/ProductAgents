@@ -63,8 +63,6 @@ def make_decision_runner(
                 graph,
                 initiative,
                 evidence,
-                portfolio=portfolio,
-                outcomes=outcomes,
                 approver=approver,
             ):
                 yield event

@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+
+from productagents.agents.context import AgentContext
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import (
     DebateTurnEvent,
@@ -14,13 +17,11 @@ from productagents.agents.runner import (
 from productagents.core.models import (
     AnalystFindings,
     DebateArgument,
-    DecisionRecord,
     Evidence,
     GovernanceFinding,
     HumanDecision,
     Initiative,
     JudgeFinding,
-    OutcomeRecord,
     Recommendation,
     RiskFinding,
 )
@@ -111,37 +112,46 @@ async def test_run_decision_emits_all_event_types(monkeypatch):
     assert finished[0].judgment.passed is True
 
 
+@dataclass
+class _FakeLearning:
+    lessons: list[str]
+
+    async def relevant_lessons(self, initiative):
+        return self.lessons
+
+
 async def test_run_decision_recalls_and_emits_lessons(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
-    graph = _graph()
     initiative, evidence = _inputs()
 
-    prior = DecisionRecord(
-        decision_id="d1",
-        initiative=Initiative(title="Add enterprise SSO login", description="d"),
-        recommendation=Recommendation(
-            recommendation="Build it",
-            confidence=0.7,
-            rationale="r",
-            expected_outcomes=["o"],
-        ),
-        reports=[],
-        timestamp="2026-06-19T12:00:00+00:00",
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="resources well spent"
+            ),
+        }
     )
-    outcome = OutcomeRecord(
-        decision_id="d1",
-        actual_outcomes=["shipped late"],
-        prediction_accuracy=0.5,
-        lessons_learned=["SSO integrations take longer than predicted"],
-        reflected_at="2026-06-20T00:00:00+00:00",
+    ctx = AgentContext(
+        model=model,
+        learning=_FakeLearning(["SSO integrations take longer than predicted"]),
     )
+    graph = build_graph(ctx)
 
-    events = [
-        e
-        async for e in run_decision(
-            graph, initiative, evidence, portfolio=[prior], outcomes=[outcome]
-        )
-    ]
+    events = [e async for e in run_decision(graph, initiative, evidence)]
 
     recalls = [e for e in events if isinstance(e, RecallEvent)]
     finished = [e for e in events if isinstance(e, FinishedEvent)]

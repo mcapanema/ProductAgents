@@ -9,13 +9,11 @@ from langgraph.types import Command
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
-    DecisionRecord,
     Evidence,
     GovernanceVerdict,
     HumanDecision,
     Initiative,
     JudgeVerdict,
-    OutcomeRecord,
     Recommendation,
     RiskAssessment,
 )
@@ -158,8 +156,6 @@ async def run_decision(
     graph,
     initiative: Initiative,
     evidence: Evidence,
-    portfolio: list[DecisionRecord] | None = None,
-    outcomes: list[OutcomeRecord] | None = None,
     *,
     approver=None,
 ) -> AsyncIterator[
@@ -182,10 +178,10 @@ async def run_decision(
     a `(mode, chunk)` tuple. `custom` chunks carry a debate `turn` dict, a risk
     `assessment` dict, a governance `verdict` dict, a governance `final_verdict` dict
     after human approval, or a progress `status`; `updates` chunks map a node name to
-    the partial state it returned. Recent prior decisions are passed in as `portfolio`
-    and seeded into graph state for the governance node. An `__interrupt__` update
-    pauses the run until the injected `approver` returns a `HumanDecision`, which
-    resumes the graph via `Command(resume=...)`.
+    the partial state it returned. Lessons from past decisions are retrieved inside the
+    graph by the recall node via the LearningService wired into the AgentContext. An
+    `__interrupt__` update pauses the run until the injected `approver` returns a
+    `HumanDecision`, which resumes the graph via `Command(resume=...)`.
     """
     initial_state = {
         "initiative": initiative,
@@ -194,8 +190,6 @@ async def run_decision(
         "debate": [],
         "recommendation": None,
         "risks": [],
-        "portfolio": portfolio or [],
-        "outcomes": outcomes or [],
         "prior_lessons": [],
         "governance": None,
         "judgment": None,

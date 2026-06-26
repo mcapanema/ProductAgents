@@ -450,14 +450,10 @@ class ProductAgentsApp(App):
             FinishedEvent: self._on_finished,
         }
         finished: FinishedEvent | None = None
-        portfolio = self._reader()
-        outcomes = self._outcome_reader()
         try:
             async for event in self._runner(
                 initiative,
                 evidence,
-                portfolio=portfolio,
-                outcomes=outcomes,
                 approver=self._ask_human,
             ):
                 handler = handlers.get(type(event))

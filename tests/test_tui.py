@@ -193,42 +193,55 @@ async def test_initiative_input_is_focused_on_decision_screen():
 
 async def test_app_renders_recalled_lessons(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
-    from productagents.core.models import (
-        DecisionRecord,
-        Initiative,
-        OutcomeRecord,
-        Recommendation,
-    )
+    from dataclasses import dataclass
 
-    runner, evidence = _runner_and_evidence()
+    from productagents.agents.context import AgentContext
 
-    prior = DecisionRecord(
-        decision_id="d1",
-        initiative=Initiative(title="Add enterprise SSO login", description="d"),
-        recommendation=Recommendation(
-            recommendation="Build it",
-            confidence=0.7,
-            rationale="r",
-            expected_outcomes=["o"],
-        ),
-        reports=[],
-        timestamp="2026-06-19T12:00:00+00:00",
+    @dataclass
+    class _FakeLearning:
+        lessons: list[str]
+
+        async def relevant_lessons(self, initiative):
+            return self.lessons
+
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["demand"], signals=["tickets"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: Recommendation(
+                recommendation="Build SSO now",
+                confidence=0.81,
+                rationale="strong demand",
+                expected_outcomes=["enterprise unblock"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
+            ),
+            RiskFinding: RiskFinding(level="medium", rationale="some delivery risk"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="best use of resources"
+            ),
+        }
     )
-    outcome = OutcomeRecord(
-        decision_id="d1",
-        actual_outcomes=["shipped late"],
-        prediction_accuracy=0.5,
-        lessons_learned=["SSO integrations take longer than predicted"],
-        reflected_at="2026-06-20T00:00:00+00:00",
+    ctx = AgentContext(
+        model=model,
+        learning=_FakeLearning(["SSO integrations take longer than predicted"]),
     )
+    graph = build_graph(ctx)
+    evidence = Evidence(
+        scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
+    )
+    runner = partial(run_decision, graph)
 
     recorded = []
     app = ProductAgentsApp(
         runner,
         evidence,
         recorder=recorded.append,
-        reader=lambda: [prior],
-        outcome_reader=lambda: [outcome],
+        reader=lambda: [],
+        outcome_reader=lambda: [],
         show_home=False,
     )
 

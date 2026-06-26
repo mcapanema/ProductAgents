@@ -9,7 +9,7 @@ inject fakes, exactly as they do for the model.
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from productagents.core.models import CustomerFeedback
+from productagents.core.models import CustomerFeedback, Initiative
 from productagents.knowledge.services._page import Page
 from productagents.knowledge.services.feedback_service import FeedbackQuery
 
@@ -31,6 +31,19 @@ class _NullFeedback:
         return Page(items=[], total=0, limit=query.limit, offset=query.offset)
 
 
+class LessonReader(Protocol):
+    """The slice of the LearningService the recall node may use."""
+
+    async def relevant_lessons(self, initiative: Initiative) -> list[str]: ...
+
+
+class _NullLearning:
+    """Default for a context with no memory store wired (tests, bare-model graphs)."""
+
+    async def relevant_lessons(self, initiative: Initiative) -> list[str]:
+        return []
+
+
 @dataclass(frozen=True)
 class AgentContext:
     """Model + the service slices nodes may use. The platform's DI seam.
@@ -42,3 +55,4 @@ class AgentContext:
 
     model: object
     feedback: FeedbackReader = field(default_factory=_NullFeedback)
+    learning: LessonReader = field(default_factory=_NullLearning)

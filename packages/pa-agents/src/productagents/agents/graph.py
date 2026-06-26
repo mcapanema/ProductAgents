@@ -23,12 +23,10 @@ from productagents.agents.technical import technical_node
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
-    DecisionRecord,
     Evidence,
     GovernanceVerdict,
     Initiative,
     JudgeVerdict,
-    OutcomeRecord,
     Recommendation,
     RiskAssessment,
 )
@@ -41,8 +39,6 @@ class GraphState(TypedDict):
     debate: list[DebateTurn]
     recommendation: Recommendation | None
     risks: list[RiskAssessment]
-    portfolio: list[DecisionRecord]
-    outcomes: list[OutcomeRecord]
     prior_lessons: list[str]
     governance: GovernanceVerdict | None
     judgment: JudgeVerdict | None
@@ -93,7 +89,7 @@ def build_graph(model_or_context, *, human_in_the_loop: bool = False):
     graph.add_node("market", partial(market_node, ctx=ctx))
     graph.add_node("business", partial(business_node, ctx=ctx))
     graph.add_node("technical", partial(technical_node, ctx=ctx))
-    graph.add_node("recall", recall_node)
+    graph.add_node("recall", partial(recall_node, ctx=ctx))
     graph.add_node("debate", partial(debate_node, model=model))
     graph.add_node("strategist", partial(strategist_node, model=model))
     graph.add_node("judge", partial(judge_node, model=model))
