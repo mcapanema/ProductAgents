@@ -12,7 +12,11 @@ from contextlib import asynccontextmanager
 from productagents.agents.context import AgentContext
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
-from productagents.knowledge import build_services, make_engine, make_sessionmaker
+from productagents.knowledge import build_services
+from productagents.knowledge.repositories.sqlmodel.engine import (
+    make_engine,
+    make_sessionmaker,
+)
 
 # ponytail: one process-wide engine over the local SQLite file. Pool/replace per
 # request if this ever serves concurrent decision runs.

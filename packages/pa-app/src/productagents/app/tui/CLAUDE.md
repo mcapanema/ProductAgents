@@ -34,7 +34,7 @@ including during judge-retry revisions, before `FinishedEvent` arrives),
 `ProductAgentsApp.__init__` takes every external collaborator as a parameter so
 the app is testable headless (see `tests/test_tui.py`):
 
-- `runner` — normally `partial(run_decision, graph)`.
+- `runner` — normally `make_decision_runner(model)` (opens a per-run `AgentContext` session and builds the graph per run); call signature is unchanged so tests still inject a fake runner.
 - `collector` — `collect_evidence` (resolves the evidence-source input per run).
 - `recorder` / `reader` — `record_decision` / `read_decisions` (decision log).
 - `outcome_reader` / `outcome_recorder` — `read_outcomes` / `record_outcome`.

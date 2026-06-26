@@ -9,7 +9,7 @@ from productagents.agents._analyst import run_analyst
 from productagents.agents._format import format_initiative
 from productagents.agents._stream import get_writer
 from productagents.core.models import Evidence, Initiative
-from productagents.knowledge import FeedbackQuery
+from productagents.knowledge.services.feedback_service import FeedbackQuery
 
 ANALYST_ID = "customer_research"
 ROLE = "Customer Research Analyst"

@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from productagents.core.models import CustomerFeedback
-from productagents.knowledge import FeedbackQuery, Page
+from productagents.knowledge.services._page import Page
+from productagents.knowledge.services.feedback_service import FeedbackQuery
 
 
 class FeedbackReader(Protocol):

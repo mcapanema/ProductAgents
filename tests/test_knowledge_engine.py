@@ -47,11 +47,18 @@ async def test_file_engine_and_drop_all(tmp_path):
 
 def test_public_surface_is_importable():
     from productagents.knowledge import (
-        CanonicalRepository,
         CanonicalSink,
         DbCanonicalSink,
+        Page,
+        Query,
         Repository,
+        build_services,
         database_url,
+    )
+    from productagents.knowledge.repositories.sqlmodel.canonical_repository import (
+        CanonicalRepository,
+    )
+    from productagents.knowledge.repositories.sqlmodel.engine import (
         make_engine,
         make_sessionmaker,
     )
@@ -62,7 +69,10 @@ def test_public_surface_is_importable():
             CanonicalRepository,
             CanonicalSink,
             DbCanonicalSink,
+            Page,
+            Query,
             Repository,
+            build_services,
             database_url,
             make_engine,
             make_sessionmaker,

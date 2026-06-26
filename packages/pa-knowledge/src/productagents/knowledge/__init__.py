@@ -9,15 +9,6 @@ canonical models, assembled by ``build_services``.
 from productagents.knowledge.config import database_url
 from productagents.knowledge.container import KnowledgeServices, build_services
 from productagents.knowledge.repositories._base import Repository
-from productagents.knowledge.repositories.sqlmodel.canonical_repository import (
-    CanonicalRepository,
-)
-from productagents.knowledge.repositories.sqlmodel.engine import (
-    create_all,
-    drop_all,
-    make_engine,
-    make_sessionmaker,
-)
 from productagents.knowledge.services._page import Page
 from productagents.knowledge.services._query import Query
 from productagents.knowledge.services.feedback_service import (
@@ -35,7 +26,6 @@ from productagents.knowledge.services.metrics_service import (
 from productagents.knowledge.sink import CanonicalSink, DbCanonicalSink
 
 __all__ = [
-    "CanonicalRepository",
     "CanonicalSink",
     "DbCanonicalSink",
     "FeedbackQuery",
@@ -49,9 +39,5 @@ __all__ = [
     "Query",
     "Repository",
     "build_services",
-    "create_all",
     "database_url",
-    "drop_all",
-    "make_engine",
-    "make_sessionmaker",
 ]

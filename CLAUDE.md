@@ -39,6 +39,7 @@ packages/
 │       ├── _format.py      #   shared prompt formatters
 │       ├── _stream.py      #   get_writer() progress-event helper
 │       ├── _llm_call.py    #   invoke_structured() chokepoint (logging + retry)
+│       ├── context.py      #   AgentContext DI container (model + knowledge service slices)
 │       ├── llm.py          #   get_model() — the only provider-agnostic factory
 │       ├── llm_errors.py   #   error classifier (fatal vs transient)
 │       ├── evidence.py     #   EvidenceSource protocol + scenario/dir sources
@@ -53,6 +54,7 @@ packages/
 ├── pa-app/                 # productagents.app.*  — TUI + setup wizard
 │   └── src/productagents/app/
 │       ├── setup.py        #   check_config + write_env
+│       ├── decision_context.py #   per-run AgentContext session opener (DB + services)
 │       └── tui/            #   Textual app + modal screens (see tui/CLAUDE.md)
 │           ├── app.py · app.tcss · approval.py · reflection.py
 │           ├── home_screen.py · setup_screen.py · degraded.py
@@ -95,7 +97,7 @@ uv run productagents    # launch the TUI
 uv run pytest           # full suite — runs offline with a fake model, no API key
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test
-uv run lint-imports     # verify 4 import-linter layer contracts (layers + forbidden)
+uv run lint-imports     # verify 6 import-linter layer contracts (layers + forbidden)
 uv run ruff check packages tests  # lint all source and test trees
 uv run ty check         # type check (pyright-based)
 ```
@@ -149,7 +151,7 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
   threshold decides pass/fail. On a failing, retryable verdict the graph routes back
   to the strategist (which sees the judge's critique) up to `PRODUCTAGENTS_JUDGE_MAX_RETRIES`
   times, then proceeds to risk regardless.
-- `productagents.agents.graph` — wires nodes into the StateGraph. When `human_in_the_loop=True`, `build_graph(model, human_in_the_loop=True)` appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
+- `productagents.agents.graph` — wires nodes into the StateGraph. `build_graph(context_or_model, *, human_in_the_loop=False)` accepts an `AgentContext` (in production) or a bare model (in tests wrapped by a context fixture); when `human_in_the_loop=True`, appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
 - `productagents.agents.runner` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge.
 - `productagents.app.tui.app` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
 - `productagents.memory` — append-only `decisions.jsonl` and `outcomes.jsonl` logs (the "organizational memory"). `select_relevant_lessons()` scores past decisions by lexical similarity to the current initiative and returns the lessons of the closest matches — this is the read side of Outcome Learning.
@@ -166,6 +168,7 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - **Nodes degrade, never crash.** Every node wraps its LLM call in `try/except` and returns a fallback (a `failed=True` report, a placeholder debate turn, or a zero-confidence recommendation) so one failure can't abort the graph.
 - **Streaming from nodes** goes through `agents/_stream.get_writer()`, not `langgraph.config.get_stream_writer()` directly. The latter raises `RuntimeError` when called outside an active graph run (e.g. a unit test invoking a node directly), so the helper returns a no-op writer in that case. Use `get_writer()` in any new node.
 - **Testing is fully offline.** `tests/fakes.py::FakeChatModel` maps a schema class → the instance (or `Exception`) its `with_structured_output(schema).ainvoke()` should return. Test nodes by calling them directly with a `FakeChatModel`; test the graph by building it with one.
+- **Nodes receive an `AgentContext`, not just a model.** `build_graph(context)` injects `ctx` into the analysts (so any analyst may reach a Knowledge Service) and `ctx.model` into the LLM-only nodes. The Customer Research analyst reads synced `CustomerFeedback` from the local store via `ctx.feedback`, degrading to the scenario evidence text when the store is empty/unavailable. The per-run DB session is opened at the app boundary (`app/decision_context.py`), keeping nodes engine-free — the same pattern `recall` uses for the decision log.
 
 ## Adding a stage
 
