@@ -113,3 +113,22 @@ def test_static_connector_plan_uses_injected_registry(tmp_path, monkeypatch):
     plan = static_connector_plan(config_path=str(path), registry=_REGISTRY, env={})
     assert set(plan.configs) == {"github"}
     assert plan.problems == []
+
+
+def test_static_connector_plan_malformed_yaml_degrades(tmp_path):
+    from productagents.app.sync import static_connector_plan
+
+    path = tmp_path / "bad.yaml"
+    path.write_text("connectors: [unclosed\n")  # deliberate YAML syntax error
+    plan = static_connector_plan(config_path=str(path), registry=_REGISTRY, env={})
+    assert plan.problems
+    assert plan.configs == {}
+
+
+def test_plan_connectors_non_mapping_block_degrades():
+    from productagents.app.sync import plan_connectors
+
+    raw = cast(dict[str, dict], {"github": "not-a-dict"})  # intentional type-violation
+    plan = plan_connectors(raw, _REGISTRY, {})
+    assert any("github" in p for p in plan.problems)
+    assert "github" not in plan.configs

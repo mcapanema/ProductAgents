@@ -85,9 +85,16 @@ def plan_connectors(
     Never touches the network or the database. A connector with any problem is
     omitted from ``configs`` so a misconfigured connector can never run.
     """
+    if not isinstance(raw, Mapping):
+        return ConnectorPlan(
+            problems=["connectors config: 'connectors' must be a mapping"]
+        )
     configs: dict[str, ConnectorConfig] = {}
     problems: list[str] = []
     for key, block in raw.items():
+        if block and not isinstance(block, Mapping):
+            problems.append(f"connector '{key}': config must be a mapping")
+            continue
         block = block or {}
         if not block.get("enabled", True):
             continue
@@ -99,6 +106,7 @@ def plan_connectors(
         if secret_problems:
             problems.extend(secret_problems)
             continue
+        resolved.pop("enabled", None)  # ponytail: drop meta-key before Pydantic sees it
         try:
             configs[key] = connector_cls.config_cls.model_validate(resolved)
         except ValidationError as exc:
@@ -183,7 +191,10 @@ def static_connector_plan(
     """The fail-fast preflight: load + validate config without running a sync."""
     env = env if env is not None else dict(os.environ)
     registry = registry if registry is not None else discover()
-    raw = load_raw_config(config_path or connectors_file())
+    try:
+        raw = load_raw_config(config_path or connectors_file())
+    except (yaml.YAMLError, OSError) as exc:
+        return ConnectorPlan(problems=[f"connectors config: {exc}"])
     return plan_connectors(raw, registry, env)
 
 

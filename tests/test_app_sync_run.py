@@ -51,24 +51,18 @@ async def test_build_connectors_instantiates_from_registry():
     assert built[0].sink is sink
 
 
-async def test_run_connector_sync_writes_store_and_persists_cursor():
+async def test_run_connector_sync_writes_store_and_persists_cursor(tmp_path):
     from productagents.app.sync import run_connector_sync
 
     _RecordingConnector.seen_cursor = "UNSET"
     engine = make_engine("sqlite+aiosqlite://")
     await create_all(engine)
 
-    # Inject everything: a config dict via a temp file is overkill; pass registry
-    # + engine, and a config path that does not exist so load returns {} — then
-    # we drive plan via a monkeypatched-free path: use a real YAML temp file.
-    import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
-        fh.write("connectors:\n  rec:\n    enabled: true\n")
-        path = fh.name
+    path = tmp_path / "connectors.yaml"
+    path.write_text("connectors:\n  rec:\n    enabled: true\n")
 
     report = await run_connector_sync(
-        config_path=path,
+        config_path=str(path),
         registry={"rec": _RecordingConnector},
         engine=engine,
         env={},
@@ -84,7 +78,7 @@ async def test_run_connector_sync_writes_store_and_persists_cursor():
     await engine.dispose()
 
 
-async def test_run_connector_sync_threads_stored_cursor_into_connector():
+async def test_run_connector_sync_threads_stored_cursor_into_connector(tmp_path):
     from productagents.app.sync import run_connector_sync
 
     engine = make_engine("sqlite+aiosqlite://")
@@ -93,15 +87,15 @@ async def test_run_connector_sync_threads_stored_cursor_into_connector():
     async with sessionmaker() as session:
         await SyncStateStore(session).save("rec", "cursor-1")
 
-    import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
-        fh.write("connectors:\n  rec:\n    enabled: true\n")
-        path = fh.name
+    path = tmp_path / "connectors.yaml"
+    path.write_text("connectors:\n  rec:\n    enabled: true\n")
 
     _RecordingConnector.seen_cursor = "UNSET"
     await run_connector_sync(
-        config_path=path, registry={"rec": _RecordingConnector}, engine=engine, env={}
+        config_path=str(path),
+        registry={"rec": _RecordingConnector},
+        engine=engine,
+        env={},
     )
     assert _RecordingConnector.seen_cursor == "cursor-1"
     await engine.dispose()
