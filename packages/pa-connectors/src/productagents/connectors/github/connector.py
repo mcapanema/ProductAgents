@@ -54,6 +54,7 @@ class GitHubConnector(Connector):
 
     key: ClassVar[str] = "github"
     produces: ClassVar[frozenset[type]] = frozenset({CustomerFeedback})
+    config_cls: ClassVar[type[ConnectorConfig]] = GitHubConfig
 
     def __init__(self, config: GitHubConfig, sink: CanonicalSink) -> None:
         super().__init__(config, sink)

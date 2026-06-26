@@ -65,6 +65,10 @@ class Connector(ABC):
 
     key: ClassVar[str]
     produces: ClassVar[frozenset[type[CanonicalModel]]]
+    # The typed config schema this connector accepts. The app's YAML loader
+    # validates a connector's config block against this, so adding a connector
+    # needs no loader change. Defaults to the base so a no-config connector works.
+    config_cls: ClassVar[type[ConnectorConfig]] = ConnectorConfig
 
     def __init__(self, config: ConnectorConfig, sink: CanonicalSink) -> None:
         self.config = config

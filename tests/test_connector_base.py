@@ -51,3 +51,20 @@ async def test_minimal_concrete_connector_roundtrips():
     assert isinstance(sink.written[0], CustomerFeedback)
     assert sink.written[0].body == "hi"
     assert Echo.produces == frozenset({CustomerFeedback})
+
+
+def test_connector_declares_config_class():
+    from productagents.connectors.base import Connector, ConnectorConfig
+
+    # The ABC defaults to the base config so a connector that takes no extra
+    # config still has a valid, generically-loadable schema.
+    assert Connector.config_cls is ConnectorConfig
+
+
+def test_github_connector_config_class_is_github_config():
+    from productagents.connectors.github.connector import (
+        GitHubConfig,
+        GitHubConnector,
+    )
+
+    assert GitHubConnector.config_cls is GitHubConfig
