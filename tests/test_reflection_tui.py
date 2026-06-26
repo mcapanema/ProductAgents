@@ -22,10 +22,6 @@ def _decision():
     )
 
 
-async def _decisions_reader(decisions):
-    return decisions
-
-
 def _app(reflector, reader, outcome_recorder):
     return ProductAgentsApp(
         None,

@@ -1152,7 +1152,7 @@ async def test_strategist_panel_renders_on_recommendation_event():
     app = ProductAgentsApp(
         fake_runner,
         evidence,
-        recorder=lambda record: None,
+        recorder=_noop_recorder,
         reader=_empty_reader,
         show_home=False,
     )
