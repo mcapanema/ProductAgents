@@ -35,6 +35,12 @@ from productagents.app.decision_context import (
     make_recorder,
 )
 from productagents.app.setup import check_config, write_env
+from productagents.app.sync import (
+    describe_plan,
+    describe_report,
+    run_connector_sync,
+    static_connector_plan,
+)
 from productagents.app.tui._format import (
     confidence_meter,  # noqa: F401
     format_debate_turn,
@@ -172,6 +178,8 @@ class ProductAgentsApp(App):
         outcome_recorder=None,
         config_checker=check_config,
         env_writer=write_env,
+        connector_syncer=run_connector_sync,
+        connector_planner=static_connector_plan,
         rebuild=None,
         show_home=True,
         runner_error=None,
@@ -190,6 +198,8 @@ class ProductAgentsApp(App):
         self._outcome_recorder = outcome_recorder
         self._config_checker = config_checker
         self._env_writer = env_writer
+        self._connector_syncer = connector_syncer
+        self._connector_planner = connector_planner
         self._rebuild = rebuild
         self._show_home = show_home
         self._debate_lines: list[str] = []
@@ -335,7 +345,8 @@ class ProductAgentsApp(App):
 
     def _open_home(self) -> None:
         status = self._config_checker()
-        self.push_screen(HomeScreen(status))
+        line = describe_plan(self._connector_planner())
+        self.push_screen(HomeScreen(status, line))
         if not status.ok:
             self.open_setup()
 
@@ -361,6 +372,20 @@ class ProductAgentsApp(App):
         if isinstance(self.screen, HomeScreen):
             self.pop_screen()
         self.query_one("#initiative-title", Input).focus()
+
+    @work(exclusive=True)
+    async def sync_sources(self) -> None:
+        """Run a connector sync, then show the outcome on the home menu."""
+        try:
+            report = await self._connector_syncer()
+        except Exception as exc:  # noqa: BLE001 - degrade visibly, never crash
+            self._log_status(f"sync failed: {exc}", level="error")
+            return
+        line = describe_report(report)
+        self._log_status(f"sync: {line}")
+        screen = self.screen
+        if isinstance(screen, HomeScreen):
+            screen.refresh_connectors(line)
 
     def action_home(self) -> None:
         if not isinstance(self.screen, HomeScreen):

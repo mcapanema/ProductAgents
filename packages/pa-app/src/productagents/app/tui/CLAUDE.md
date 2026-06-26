@@ -11,7 +11,7 @@ dataclasses and knows nothing about LangGraph. `main()` (in `app.py`) is the
 | `app.py` | `ProductAgentsApp` + `main()`. Builds the model/graph once (`_build_app`), runs a decision in a `@work(exclusive=True)` worker, and updates one panel per event. `app.tcss` is the stylesheet. |
 | `approval.py` | `ApprovalScreen` (`ModalScreen[HumanDecision]`). Shows the advisory verdict; the button id (`approve`/`reject`/`request_analysis`) becomes the `HumanDecision.verdict`. |
 | `reflection.py` | `ReflectionScreen`. Pick a past decision, describe what happened, and record an `OutcomeRecord` via the injected reflector — drives the out-of-graph reflection loop (bound to `ctrl+r`). |
-| `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. |
+| `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. Now also shows a connector-config line and a "Sync data sources" button that calls `app.sync_sources()`. |
 | `setup_screen.py` | `SetupScreen` (`ModalScreen[bool]`). Collects model/provider/key, validates, and writes them via the injected `writer` (`setup.write_env`). Dismisses `True` on save, `False` on cancel. |
 | `rail.py` | `PipelineRail` (`#pipeline-rail`) — the one-line spine tracing the run through the 7 pipeline stages. `render_rail()` is pure; the app advances it from the same handlers that update the panels. |
 | `_format.py` | Pure Rich-markup render helpers (recommendation, judgment, debate turn, risk line, governance, recall body, `confidence_meter`). The only `.py` place markup colors live. Unit-tested in `tests/test_tui_format.py`. |
@@ -40,6 +40,11 @@ the app is testable headless (see `tests/test_tui.py`):
 - `reader` — **async** `make_decision_reader()` closure (reads past decisions for the reflection picker). Default `None`; `_build_app` injects the DB-backed closure.
 - `outcome_recorder` — **async** `make_outcome_recorder()` closure (persists an `OutcomeRecord`). Default `None`; `_build_app` injects the DB-backed closure.
 - `reflector` — `partial(reflect, model=model)`; `None` disables `ctrl+r`.
+- `connector_syncer` — async `run_connector_sync` (loads YAML config, syncs
+  enabled connectors into the canonical store, persists cursors). Injectable for
+  headless tests.
+- `connector_planner` — `static_connector_plan` (fail-fast config preflight, no
+  I/O); the home screen renders `describe_plan(...)` of its result.
 
 The `outcome_reader` seam and the `portfolio`/`outcomes` run-seeding are **removed** — lessons are now retrieved inside the graph by the `recall` node via `AgentContext.learning` (the `LearningService`). JSONL helpers in `productagents.memory` remain available for export/audit only.
 
