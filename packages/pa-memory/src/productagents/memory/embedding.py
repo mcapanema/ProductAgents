@@ -24,8 +24,10 @@ class Embedder(Protocol):
 
 
 def _bucket(token: str, dim: int) -> int:
-    # hashlib (not built-in hash()) so the vector is stable across processes.
-    return int(hashlib.md5(token.encode("utf-8")).hexdigest(), 16) % dim
+    # hashlib (not built-in hash()) so the vector is stable across processes;
+    # usedforsecurity=False — this is a bucketing hash, not a security primitive.
+    digest = hashlib.md5(token.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return int(digest, 16) % dim
 
 
 class HashingEmbedder:
