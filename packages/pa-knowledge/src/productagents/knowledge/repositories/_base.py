@@ -22,6 +22,6 @@ class Repository[T: CanonicalModel](Protocol):
         stable id of a pre-existing vendor record). Idempotent on re-sync."""
         ...
 
-    async def list(self, *, limit: int = 100, offset: int = 0) -> list[T]:
+    async def list(self, *, limit: int = 100, offset: int = 0) -> list[T]:  # ty: ignore[invalid-type-form]
         """Return a page of entities of this repository's type."""
         ...

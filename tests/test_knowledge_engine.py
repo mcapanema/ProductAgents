@@ -27,11 +27,11 @@ async def test_in_memory_engine_persists_across_sessions():
     await create_all(engine)
     sessionmaker = make_sessionmaker(engine)
     async with sessionmaker() as session:
-        await session.execute(text("CREATE TABLE probe (x INTEGER)"))
-        await session.execute(text("INSERT INTO probe VALUES (1)"))
+        await session.execute(text("CREATE TABLE probe (x INTEGER)"))  # ty: ignore[deprecated]
+        await session.execute(text("INSERT INTO probe VALUES (1)"))  # ty: ignore[deprecated]
         await session.commit()
     async with sessionmaker() as session:
-        rows = (await session.execute(text("SELECT x FROM probe"))).all()
+        rows = (await session.execute(text("SELECT x FROM probe"))).all()  # ty: ignore[deprecated]
     assert rows == [(1,)]
     await engine.dispose()
 
