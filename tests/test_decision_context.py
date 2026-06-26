@@ -66,3 +66,59 @@ async def test_open_agent_context_returns_agent_context():
     ):
         assert isinstance(ctx, AgentContext)
         assert ctx.model == "my-model"
+
+
+async def test_make_decision_runner_yields_events():
+    from contextlib import asynccontextmanager
+
+    from productagents.agents.runner import FinishedEvent
+    from productagents.app.decision_context import make_decision_runner
+    from productagents.core.models import (
+        AnalystFindings,
+        DebateArgument,
+        Evidence,
+        GovernanceFinding,
+        Initiative,
+        JudgeFinding,
+        Recommendation,
+        RiskFinding,
+    )
+    from tests.fakes import FakeChatModel, fake_context
+
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["finding"], signals=["signal"]),
+            DebateArgument: DebateArgument(argument="my argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.75,
+                rationale="evidence supports it",
+                expected_outcomes=["growth"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="well grounded",
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="minimal risk"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="good call"
+            ),
+        }
+    )
+
+    @asynccontextmanager
+    async def stub_opener(_model):
+        yield fake_context(_model)
+
+    runner = make_decision_runner(
+        model, context_opener=stub_opener, human_in_the_loop=False
+    )
+
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+    evidence = Evidence(
+        scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
+    )
+
+    events = [event async for event in runner(initiative, evidence)]
+    assert any(isinstance(e, FinishedEvent) for e in events)

@@ -54,6 +54,9 @@ def make_decision_runner(
     async def runner(
         initiative, evidence, *, portfolio=None, outcomes=None, approver=None
     ):
+        # ponytail: session stays open across human_approval interrupt; fine for
+        # local SQLite, becomes a held connection under Postgres concurrency —
+        # upgrade path: open a fresh session after the interrupt resumes.
         async with context_opener(model) as ctx:
             graph = build_graph(ctx, human_in_the_loop=human_in_the_loop)
             async for event in run_decision(
