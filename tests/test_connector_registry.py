@@ -39,3 +39,11 @@ def test_discover_maps_key_to_class(monkeypatch):
 def test_discover_empty_when_no_entry_points(monkeypatch):
     monkeypatch.setattr(registry, "entry_points", lambda group: [])
     assert registry.discover() == {}
+
+
+def test_discover_finds_real_github_connector():
+    from productagents.connectors.github.connector import GitHubConnector
+
+    found = registry.discover()
+
+    assert found.get("github") is GitHubConnector
