@@ -218,6 +218,9 @@ async def test_app_renders_recalled_lessons(monkeypatch):
         async def relevant_lessons(self, initiative):
             return self.lessons
 
+        async def decisions(self):
+            return []
+
     model = FakeChatModel(
         {
             AnalystFindings: AnalystFindings(findings=["demand"], signals=["tickets"]),
@@ -1031,6 +1034,29 @@ async def test_healthy_run_is_recorded(monkeypatch):
 
     assert len(recorded) == 1
     assert recorded[0].recommendation.recommendation == "Build SSO"
+
+
+async def test_recorder_failure_shows_error_status_and_does_not_crash(monkeypatch):
+    """A recorder that raises shows an error status line and does not crash the app."""
+
+    async def raising_recorder(r):
+        raise RuntimeError("DB unavailable")
+
+    app = ProductAgentsApp(
+        _runner_yielding(_ok_finished()),
+        _degraded_evidence(),
+        recorder=raising_recorder,
+        reader=_empty_reader,
+        show_home=False,
+    )
+
+    async with app.run_test() as pilot:
+        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        status = str(app.query_one("#status-log", Static).content)
+        assert "failed to save decision" in status
 
 
 async def test_retry_path_reruns(monkeypatch):

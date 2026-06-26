@@ -119,6 +119,9 @@ class _FakeLearning:
     async def relevant_lessons(self, initiative):
         return self.lessons
 
+    async def decisions(self):
+        return []
+
 
 async def test_run_decision_recalls_and_emits_lessons(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")

@@ -465,7 +465,10 @@ class ProductAgentsApp(App):
         if finished is None or finished.recommendation is None:
             return
         if not finished.recommendation.failed:
-            await self._record(initiative, evidence, finished)
+            try:
+                await self._record(initiative, evidence, finished)
+            except Exception as exc:  # noqa: BLE001 - degrade visibly, never crash
+                self._log_status(f"failed to save decision: {exc}", level="error")
             return
         await self._handle_degraded(initiative, evidence, finished)
 
@@ -501,7 +504,12 @@ class ProductAgentsApp(App):
                 rationale=decision.rationale,
                 decided_by="human",
             )
-            await self._record(initiative, evidence, finished, governance=governance)
+            try:
+                await self._record(
+                    initiative, evidence, finished, governance=governance
+                )
+            except Exception as exc:  # noqa: BLE001 - degrade visibly, never crash
+                self._log_status(f"failed to save decision: {exc}", level="error")
         # "quit" or dismissed: record nothing, leave the failed panels in place.
 
     def _on_progress(self, event) -> None:

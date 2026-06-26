@@ -94,7 +94,7 @@ def build_graph(model_or_context, *, human_in_the_loop: bool = False):
     graph.add_node("strategist", partial(strategist_node, model=model))
     graph.add_node("judge", partial(judge_node, model=model))
     graph.add_node("risk", partial(risk_node, model=model))
-    graph.add_node("governance", partial(governance_node, model=model))
+    graph.add_node("governance", partial(governance_node, model=model, ctx=ctx))
 
     graph.add_edge(START, "customer_research")
     graph.add_edge(START, "product_analytics")
