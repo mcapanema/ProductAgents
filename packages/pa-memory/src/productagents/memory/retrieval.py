@@ -1,3 +1,4 @@
+import math
 import re
 
 from productagents.core.models import DecisionRecord, Initiative, OutcomeRecord
@@ -58,12 +59,45 @@ def _derived_lesson(decision: DecisionRecord) -> str:
     )
 
 
+def cosine(a: list[float], b: list[float]) -> float:
+    """Cosine similarity; 0.0 when either vector is empty or zero-length."""
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def semantic_matches(
+    query: list[float],
+    embeddings: dict[str, list[float]],
+    *,
+    k: int = 5,
+    threshold: float = 0.1,
+) -> set[str]:
+    """Decision ids whose embedding is closest to ``query`` (top-k over threshold).
+
+    ponytail: linear scan + Python cosine — honest at local-first scale. Upgrade
+    path is a vector index (sqlite-vec / pgvector) behind this same signature.
+    """
+    scored = [
+        (cosine(query, vec), decision_id) for decision_id, vec in embeddings.items()
+    ]
+    scored = [
+        (score, decision_id) for score, decision_id in scored if score >= threshold
+    ]
+    scored.sort(reverse=True)
+    return {decision_id for _, decision_id in scored[:k]}
+
+
 def select_relevant_lessons(
     initiative: Initiative,
     decisions: list[DecisionRecord],
     outcomes: list[OutcomeRecord],
     *,
     limit: int = 3,
+    also_relevant: frozenset[str] = frozenset(),
 ) -> list[str]:
     """Return formatted lessons from the past decisions most similar to `initiative`.
 
@@ -97,8 +131,12 @@ def select_relevant_lessons(
     for decision in decisions:
         past = _tokens(f"{decision.initiative.title} {decision.initiative.description}")
         overlap = len(query & past)
-        if overlap == 0:
+        if overlap == 0 and decision.decision_id not in also_relevant:
             continue
+        if overlap == 0:
+            # Semantic-only match: floor the score so it ranks below any lexical
+            # overlap but still participates in selection/dedup.
+            overlap = 1
         outcome = by_id.get(decision.decision_id)
         if outcome is not None:
             validated.append((overlap, decision, outcome))
