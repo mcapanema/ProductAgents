@@ -47,6 +47,17 @@ def _hitl_runner_and_evidence():
     return partial(run_decision, graph), evidence
 
 
+async def _empty_reader():
+    return []
+
+
+def _list_recorder(lst):
+    async def _record(r):
+        lst.append(r)
+
+    return _record
+
+
 async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     runner, evidence = _hitl_runner_and_evidence()
@@ -55,9 +66,8 @@ async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeyp
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 

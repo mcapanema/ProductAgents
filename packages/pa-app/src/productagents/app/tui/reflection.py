@@ -29,8 +29,11 @@ class ReflectionScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        # Most recent decisions first.
-        self._decisions = list(reversed(self._reader()))
+        self._load_decisions()
+
+    @work(exclusive=True)
+    async def _load_decisions(self) -> None:
+        self._decisions = list(reversed(await self._reader()))
         option_list = self.query_one("#decision-list", OptionList)
         for decision in self._decisions:
             option_list.add_option(
@@ -67,6 +70,6 @@ class ReflectionScreen(Screen):
                 f"Actual outcomes:\n{outcomes}\n\n"
                 f"Lessons learned:\n{lessons}"
             )
-            self._outcome_recorder(outcome)
+            await self._outcome_recorder(outcome)
         except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash
             self.query_one("#reflection", Static).update(f"Reflection failed: {exc}")

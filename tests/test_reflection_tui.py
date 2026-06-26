@@ -22,6 +22,10 @@ def _decision():
     )
 
 
+async def _decisions_reader(decisions):
+    return decisions
+
+
 def _app(reflector, reader, outcome_recorder):
     return ProductAgentsApp(
         None,
@@ -46,11 +50,18 @@ async def test_reflection_mode_records_outcome():
             reflected_at="2026-06-20T00:00:00+00:00",
         )
 
-    app = _app(fake_reflector, lambda: [decision], recorded.append)
+    async def fake_reader():
+        return [decision]
+
+    async def fake_outcome_recorder(outcome):
+        recorded.append(outcome)
+
+    app = _app(fake_reflector, fake_reader, fake_outcome_recorder)
 
     async with app.run_test() as pilot:
         await pilot.press("ctrl+r")
         await pilot.pause()
+        await pilot.app.workers.wait_for_complete()  # wait for _load_decisions
         # After push_screen, pilot.app.screen is the active ReflectionScreen.
         note = pilot.app.screen.query_one("#outcome-note")
         note.focus()
@@ -73,11 +84,18 @@ async def test_reflection_mode_no_decisions_does_nothing():
     async def fake_reflector(d, note):  # pragma: no cover - must never be called
         raise AssertionError("reflector should not run without a selected decision")
 
-    app = _app(fake_reflector, lambda: [], recorded.append)
+    async def fake_reader():
+        return []
+
+    async def fake_outcome_recorder(outcome):
+        recorded.append(outcome)
+
+    app = _app(fake_reflector, fake_reader, fake_outcome_recorder)
 
     async with app.run_test() as pilot:
         await pilot.press("ctrl+r")
         await pilot.pause()
+        await pilot.app.workers.wait_for_complete()  # wait for _load_decisions
         # After push_screen, pilot.app.screen is the active ReflectionScreen.
         note = pilot.app.screen.query_one("#outcome-note")
         note.focus()
@@ -98,11 +116,18 @@ async def test_reflection_mode_reflector_raises_shows_error():
     async def boom(d, note):
         raise RuntimeError("LLM down")
 
-    app = _app(boom, lambda: [decision], recorded.append)
+    async def fake_reader():
+        return [decision]
+
+    async def fake_outcome_recorder(outcome):
+        recorded.append(outcome)
+
+    app = _app(boom, fake_reader, fake_outcome_recorder)
 
     async with app.run_test() as pilot:
         await pilot.press("ctrl+r")
         await pilot.pause()
+        await pilot.app.workers.wait_for_complete()  # wait for _load_decisions
         # After push_screen, pilot.app.screen is the active ReflectionScreen.
         note = pilot.app.screen.query_one("#outcome-note")
         note.focus()

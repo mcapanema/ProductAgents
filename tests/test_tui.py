@@ -32,6 +32,24 @@ from productagents.core.models import (
 from tests.fakes import FakeChatModel
 
 
+# Module-level async fakes shared across tests that don't assert on recordings.
+async def _noop_recorder(r):
+    pass
+
+
+async def _empty_reader():
+    return []
+
+
+def _list_recorder(lst):
+    """Return an async recorder that appends to lst (for assertion tests)."""
+
+    async def _record(r):
+        lst.append(r)
+
+    return _record
+
+
 def _runner_and_evidence():
     model = FakeChatModel(
         {
@@ -68,15 +86,14 @@ async def test_app_renders_recommendation_records_debate_and_risk(
     runner, evidence = _runner_and_evidence()
     recorded = []
 
-    def recorder(record):
+    async def recorder(record):
         recorded.append(record)
 
     app = ProductAgentsApp(
         runner,
         evidence,
         recorder=recorder,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -110,9 +127,8 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -154,9 +170,8 @@ async def test_set_state_drives_idle_active_done_classes():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -176,9 +191,8 @@ async def test_initiative_input_is_focused_on_decision_screen():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -239,9 +253,8 @@ async def test_app_renders_recalled_lessons(monkeypatch):
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -281,9 +294,8 @@ async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch)
         capturing_runner,
         default_evidence,
         collector=collect_evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -313,9 +325,8 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
         tracking_runner,
         default_evidence,
         collector=collect_evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -338,9 +349,8 @@ async def test_app_surfaces_runner_unavailable(monkeypatch):
     app = ProductAgentsApp(
         None,
         default_evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
         runner_error="ImportError: requires the langchain-google-genai package",
     )
@@ -370,9 +380,8 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
         runner,
         default_evidence,
         collector=collect_evidence,
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -395,9 +404,7 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
     from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
     from productagents.core.models import AnalystReport, Evidence, Recommendation
 
-    async def fake_runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def fake_runner(initiative, evidence, *, approver=None):
         # A completion event for a node id that has no matching panel must be
         # skipped, not crash the worker with NoMatches before the run finishes.
         yield NodeCompleteEvent(
@@ -428,9 +435,8 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
     app = ProductAgentsApp(
         fake_runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -470,9 +476,8 @@ async def test_app_shows_home_menu_when_config_ready():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         config_checker=_ok_status,
     )
     async with app.run_test() as pilot:
@@ -486,9 +491,8 @@ async def test_app_auto_opens_setup_when_config_incomplete():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         config_checker=_missing_status,
     )
     async with app.run_test() as pilot:
@@ -501,9 +505,8 @@ async def test_app_run_from_menu_reveals_decision_ui():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         config_checker=_ok_status,
     )
     async with app.run_test() as pilot:
@@ -537,9 +540,8 @@ async def test_setup_save_rebuilds_runner_and_refreshes_home():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         config_checker=checker,
         env_writer=writer,
         rebuild=rebuild,
@@ -564,9 +566,8 @@ async def test_ctrl_h_reopens_menu_from_decision_ui():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         config_checker=_ok_status,
     )
     async with app.run_test() as pilot:
@@ -582,9 +583,7 @@ async def test_app_logs_node_error_and_marks_panel_failed():
     from productagents.agents.runner import FinishedEvent, NodeErrorEvent
     from productagents.core.models import Evidence, Recommendation
 
-    async def fake_runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def fake_runner(initiative, evidence, *, approver=None):
         yield NodeErrorEvent(node="technical", message="429 rate limit reached")
         yield FinishedEvent(
             recommendation=Recommendation(
@@ -605,9 +604,8 @@ async def test_app_logs_node_error_and_marks_panel_failed():
     app = ProductAgentsApp(
         fake_runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -626,9 +624,8 @@ async def test_app_registers_and_applies_custom_theme():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -640,9 +637,7 @@ async def test_app_panel_titles_show_state_icons():
     from productagents.agents.runner import FinishedEvent, NodeCompleteEvent
     from productagents.core.models import AnalystReport, Evidence, Recommendation
 
-    async def fake_runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def fake_runner(initiative, evidence, *, approver=None):
         yield NodeCompleteEvent(
             node="market",
             report=AnalystReport(
@@ -668,9 +663,8 @@ async def test_app_panel_titles_show_state_icons():
     app = ProductAgentsApp(
         fake_runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -690,9 +684,8 @@ async def test_reset_panels_marks_downstream_waiting():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -717,9 +710,8 @@ async def test_app_uses_three_lane_layout_with_analyst_grid():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -757,9 +749,8 @@ async def test_app_renders_and_records_judgment(monkeypatch):
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -780,9 +771,8 @@ async def test_running_state_shows_advancing_spinner_that_stops_on_done():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -807,9 +797,8 @@ async def test_judgment_failure_shows_warning():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -833,9 +822,8 @@ async def test_governance_non_approve_warns_then_approval_clears_it():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -859,9 +847,8 @@ async def test_debate_panel_runs_then_done_when_strategist_starts():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -880,9 +867,8 @@ async def test_strategist_done_when_judgment_arrives():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -907,9 +893,8 @@ async def test_risk_panel_runs_then_done_when_governance_arrives():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -964,9 +949,7 @@ def _ok_finished():
 
 
 def _runner_yielding(*events):
-    async def _runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def _runner(initiative, evidence, *, approver=None):
         for e in events:
             yield e
 
@@ -980,9 +963,8 @@ async def test_failed_run_is_not_auto_recorded_and_shows_modal(monkeypatch):
     app = ProductAgentsApp(
         _runner_yielding(_failed_finished()),
         _degraded_evidence(),
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -1007,9 +989,8 @@ async def test_decide_path_records_human_decision(monkeypatch):
     app = ProductAgentsApp(
         _runner_yielding(_failed_finished()),
         _degraded_evidence(),
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -1037,9 +1018,8 @@ async def test_healthy_run_is_recorded(monkeypatch):
     app = ProductAgentsApp(
         _runner_yielding(_ok_finished()),
         _degraded_evidence(),
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -1063,9 +1043,7 @@ async def test_retry_path_reruns(monkeypatch):
         [_ok_finished()],
     ]
 
-    async def stateful_runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def stateful_runner(initiative, evidence, *, approver=None):
         events = calls.pop(0)
         for e in events:
             yield e
@@ -1073,9 +1051,8 @@ async def test_retry_path_reruns(monkeypatch):
     app = ProductAgentsApp(
         stateful_runner,
         _degraded_evidence(),
-        recorder=recorded.append,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
         show_home=False,
     )
 
@@ -1136,9 +1113,8 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
     app = ProductAgentsApp(
         partial(run_decision, graph),
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test(size=(120, 40)) as pilot:
@@ -1160,9 +1136,7 @@ async def test_strategist_panel_renders_on_recommendation_event():
     from productagents.agents.runner import RecommendationEvent
     from productagents.core.models import Initiative, Recommendation
 
-    async def fake_runner(
-        initiative, evidence, *, portfolio=None, outcomes=None, approver=None
-    ):
+    async def fake_runner(initiative, evidence, *, approver=None):
         yield RecommendationEvent(
             recommendation=Recommendation(
                 recommendation="Build SSO now",
@@ -1179,8 +1153,7 @@ async def test_strategist_panel_renders_on_recommendation_event():
         fake_runner,
         evidence,
         recorder=lambda record: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -1203,9 +1176,8 @@ async def test_pipeline_rail_advances_during_a_run():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
@@ -1224,9 +1196,8 @@ async def test_status_log_turns_red_only_on_error():
     app = ProductAgentsApp(
         runner,
         evidence,
-        recorder=lambda r: None,
-        reader=lambda: [],
-        outcome_reader=lambda: [],
+        recorder=_noop_recorder,
+        reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:

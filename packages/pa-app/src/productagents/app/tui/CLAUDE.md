@@ -36,12 +36,14 @@ the app is testable headless (see `tests/test_tui.py`):
 
 - `runner` — normally `make_decision_runner(model)` (opens a per-run `AgentContext` session and builds the graph per run); call signature is unchanged so tests still inject a fake runner.
 - `collector` — `collect_evidence` (resolves the evidence-source input per run).
-- `recorder` / `reader` — `record_decision` / `read_decisions` (decision log).
-- `outcome_reader` / `outcome_recorder` — `read_outcomes` / `record_outcome`.
+- `recorder` — **async** `make_recorder()` closure (persists a `DecisionRecord` to the DB via `LearningService`). Default `None`; `_build_app` injects the DB-backed closure.
+- `reader` — **async** `make_decision_reader()` closure (reads past decisions for the reflection picker). Default `None`; `_build_app` injects the DB-backed closure.
+- `outcome_recorder` — **async** `make_outcome_recorder()` closure (persists an `OutcomeRecord`). Default `None`; `_build_app` injects the DB-backed closure.
 - `reflector` — `partial(reflect, model=model)`; `None` disables `ctrl+r`.
 
-`portfolio` and `outcomes` are read from the logs **here** and passed into
-`run_decision`, keeping the graph nodes filesystem-free.
+The `outcome_reader` seam and the `portfolio`/`outcomes` run-seeding are **removed** — lessons are now retrieved inside the graph by the `recall` node via `AgentContext.learning` (the `LearningService`). JSONL helpers in `productagents.memory` remain available for export/audit only.
+
+`_record` is `async`; it is `await`ed in the `_run` worker (after `FinishedEvent`) and in `_handle_degraded` (on the "decide" path). `ReflectionScreen` loads decisions via a `@work(exclusive=True)` worker (`_load_decisions`) so the async reader is safe from `on_mount`.
 
 ## HITL pause
 

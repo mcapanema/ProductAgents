@@ -28,7 +28,12 @@ from productagents.agents.runner import (
     RiskAssessmentEvent,
     RunAbortedEvent,
 )
-from productagents.app.decision_context import make_decision_runner
+from productagents.app.decision_context import (
+    make_decision_reader,
+    make_decision_runner,
+    make_outcome_recorder,
+    make_recorder,
+)
 from productagents.app.setup import check_config, write_env
 from productagents.app.tui._format import (
     confidence_meter,  # noqa: F401
@@ -48,12 +53,6 @@ from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
-from productagents.memory import (
-    read_decisions,
-    read_outcomes,
-    record_decision,
-    record_outcome,
-)
 
 _TITLES = {
     "customer_research": "Customer Research Analyst",
@@ -167,11 +166,10 @@ class ProductAgentsApp(App):
         evidence,
         *,
         collector=collect_evidence,
-        recorder=record_decision,
-        reader=read_decisions,
-        outcome_reader=read_outcomes,
+        recorder=None,
+        reader=None,
         reflector=None,
-        outcome_recorder=record_outcome,
+        outcome_recorder=None,
         config_checker=check_config,
         env_writer=write_env,
         rebuild=None,
@@ -188,7 +186,6 @@ class ProductAgentsApp(App):
         self._collector = collector
         self._recorder = recorder
         self._reader = reader
-        self._outcome_reader = outcome_reader
         self._reflector = reflector
         self._outcome_recorder = outcome_recorder
         self._config_checker = config_checker
@@ -468,12 +465,14 @@ class ProductAgentsApp(App):
         if finished is None or finished.recommendation is None:
             return
         if not finished.recommendation.failed:
-            self._record(initiative, evidence, finished)
+            await self._record(initiative, evidence, finished)
             return
         await self._handle_degraded(initiative, evidence, finished)
 
-    def _record(self, initiative, evidence, finished, *, governance=None) -> None:
-        self._recorder(
+    async def _record(self, initiative, evidence, finished, *, governance=None) -> None:
+        if self._recorder is None:
+            return
+        await self._recorder(
             DecisionRecord(
                 initiative=initiative,
                 recommendation=finished.recommendation,
@@ -502,7 +501,7 @@ class ProductAgentsApp(App):
                 rationale=decision.rationale,
                 decided_by="human",
             )
-            self._record(initiative, evidence, finished, governance=governance)
+            await self._record(initiative, evidence, finished, governance=governance)
         # "quit" or dismissed: record nothing, leave the failed panels in place.
 
     def _on_progress(self, event) -> None:
@@ -658,6 +657,9 @@ def _build_app() -> ProductAgentsApp:
     return ProductAgentsApp(
         runner,
         evidence,
+        recorder=make_recorder(),
+        reader=make_decision_reader(),
+        outcome_recorder=make_outcome_recorder(),
         reflector=reflector,
         rebuild=rebuild,
         runner_error=build_error,
