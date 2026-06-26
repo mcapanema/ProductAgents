@@ -59,7 +59,8 @@ async def test_manual_upsert_updates_in_place_by_id():
         rows = await repo.list()
         fetched = await repo.get(str(initiative.id))
     assert len(rows) == 1  # updated in place, not duplicated
-    assert fetched.title == "v2"  # ty: ignore[unresolved-attribute]
+    assert fetched is not None
+    assert fetched.title == "v2"
 
 
 async def test_vendor_upsert_preserves_original_platform_id():

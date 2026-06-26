@@ -29,11 +29,11 @@ class CanonicalRepository[T: CanonicalModel]:
             return None
         return from_row(row, self._model_type)
 
-    async def list(self, *, limit: int = 100, offset: int = 0) -> list[T]:  # ty: ignore[invalid-type-form]
+    async def list(self, *, limit: int = 100, offset: int = 0) -> list[T]:  # ty: ignore[invalid-type-form]  # shadowed-builtin
         stmt = (
             select(CanonicalRecord)
             .where(CanonicalRecord.model_type == self._type_name)
-            .order_by(CanonicalRecord.ingested_at)  # ty: ignore[invalid-argument-type]
+            .order_by(CanonicalRecord.ingested_at)  # ty: ignore[invalid-argument-type]  # sqlalchemy-typing
             .limit(limit)
             .offset(offset)
         )
