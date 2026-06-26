@@ -14,7 +14,20 @@ from dataclasses import dataclass, field
 import yaml
 from pydantic import ValidationError
 
-from productagents.connectors import Connector, ConnectorConfig, discover
+from productagents.connectors import (
+    CanonicalSink,
+    Connector,
+    ConnectorConfig,
+    SyncCursor,
+    SyncResult,
+    discover,
+    run_sync,
+)
+from productagents.knowledge import DbCanonicalSink, SyncStateStore
+from productagents.knowledge.repositories.sqlmodel.engine import (
+    create_all,
+    make_sessionmaker,
+)
 
 DEFAULT_CONNECTORS_FILE = "connectors.yaml"
 
@@ -92,6 +105,73 @@ def plan_connectors(
             msg = f"connector '{key}': invalid config — {exc.errors()[0]['msg']}"
             problems.append(msg)
     return ConnectorPlan(configs=configs, problems=problems)
+
+
+def build_connectors(
+    configs: dict[str, ConnectorConfig],
+    registry: dict[str, type[Connector]],
+    sink: CanonicalSink,
+) -> list[Connector]:
+    """Instantiate each validated connector against the shared sink."""
+    return [registry[key](config, sink) for key, config in configs.items()]
+
+
+@dataclass(frozen=True)
+class SyncReport:
+    """The result of one sync pass: per-connector results + config problems."""
+
+    results: list[SyncResult] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+
+
+async def run_connector_sync(
+    *,
+    config_path: str | None = None,
+    registry: dict[str, type[Connector]] | None = None,
+    engine=None,
+    env: dict | None = None,
+) -> SyncReport:
+    """Load config, sync every enabled connector, persist returned cursors.
+
+    Reads canonical/sync-state schema into existence first (idempotent local
+    bootstrap; Alembic remains the migration source of truth). Connectors write
+    to the shared canonical store via ``DbCanonicalSink``; cursors round-trip
+    through ``SyncStateStore`` as strings.
+    """
+    # Imported lazily so importing this module for the static planner does not
+    # pull in the (heavier) decision_context graph wiring.
+    from productagents.app.decision_context import get_engine
+
+    env = env if env is not None else dict(os.environ)
+    registry = registry if registry is not None else discover()
+    engine = engine if engine is not None else get_engine()
+    sessionmaker = make_sessionmaker(engine)
+    await create_all(engine)  # bootstrap canonical_record + sync_state locally
+
+    raw = load_raw_config(config_path or connectors_file())
+    plan = plan_connectors(raw, registry, env)
+    if not plan.configs:
+        return SyncReport(results=[], problems=plan.problems)
+
+    sink = DbCanonicalSink(sessionmaker)
+    connectors = build_connectors(plan.configs, registry, sink)
+
+    async with sessionmaker() as session:
+        stored = await SyncStateStore(session).cursors()
+    cursor_map: dict[str, SyncCursor | None] = {
+        key: SyncCursor(value=value)
+        for key, value in stored.items()
+        if value is not None
+    }
+
+    results = await run_sync(connectors, cursor_map)
+
+    async with sessionmaker() as session:
+        store = SyncStateStore(session)
+        for result in results:
+            if result.ok and result.cursor is not None:
+                await store.save(result.connector, result.cursor.value)
+    return SyncReport(results=results, problems=plan.problems)
 
 
 def static_connector_plan(
