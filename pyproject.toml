@@ -99,6 +99,23 @@ type = "forbidden"
 source_modules = ["productagents.app", "productagents.agents", "productagents.knowledge"]
 forbidden_modules = ["productagents.connectors"]
 
+# Connectors depend only on core (+ httpx). Never the storage/agent/app layers.
+[[tool.importlinter.contracts]]
+name = "Connectors depend only on core"
+type = "forbidden"
+source_modules = ["productagents.connectors"]
+forbidden_modules = [
+    "productagents.knowledge",
+    "productagents.memory",
+    "productagents.agents",
+    "productagents.app",
+    "sqlalchemy",
+    "sqlmodel",
+    "langchain",
+    "langgraph",
+]
+include_external_packages = true
+
 # pa-core stays dependency-light: no transport, no orchestration, no DB driver.
 [[tool.importlinter.contracts]]
 name = "Core has no heavy dependencies"
