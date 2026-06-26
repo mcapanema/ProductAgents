@@ -185,3 +185,29 @@ def static_connector_plan(
     registry = registry if registry is not None else discover()
     raw = load_raw_config(config_path or connectors_file())
     return plan_connectors(raw, registry, env)
+
+
+def describe_plan(plan: ConnectorPlan) -> str:
+    """A one-line connector-config readiness summary for the home screen."""
+    parts: list[str] = []
+    if plan.configs:
+        names = ", ".join(sorted(plan.configs))
+        parts.append(f"{len(plan.configs)} connector(s) enabled: {names}")
+    else:
+        parts.append("No connectors configured")
+    if plan.problems:
+        parts.append("⚠ " + "; ".join(plan.problems))
+    return " · ".join(parts)
+
+
+def describe_report(report: SyncReport) -> str:
+    """A one-line summary of a completed sync pass."""
+    parts: list[str] = []
+    for result in report.results:
+        if result.ok:
+            parts.append(f"{result.connector}: ✓ {result.written} written")
+        else:
+            parts.append(f"{result.connector}: ✗ {result.error}")
+    if report.problems:
+        parts.append("⚠ " + "; ".join(report.problems))
+    return " · ".join(parts) if parts else "No connectors configured"
