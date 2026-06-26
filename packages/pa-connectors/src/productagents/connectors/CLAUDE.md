@@ -39,7 +39,9 @@ the only place that knows a vendor exists.
 
 ## Deferred (YAGNI, named upgrade paths)
 
-- Cursor **persistence** (a `sync_state` store) — Phase 7, when a scheduler exists.
-- A `connector_errors.py` category classifier — Phase 7, when observability
+- **YAML** connector config — SHIPPED in Phase 7a (`pa-app/sync.py` loads
+  `connectors.yaml`; each connector declares `config_cls` and the app validates
+  blocks generically). Cursor **persistence** (`sync_state` table +
+  `SyncStateStore`) also shipped in Phase 7a.
+- A `connector_errors.py` category classifier — Phase 7c, when observability
   surfaces categories. Today: a transient-status set in `http.py`.
-- **YAML** connector config — Phase 7 config UX. Today: `*.from_env()`.

@@ -162,6 +162,28 @@ export PRODUCTAGENTS_JUDGE_MAX_RETRIES=1 # times the judge can loop back to the 
 export PRODUCTAGENTS_MAX_RETRIES=6      # retry budget (with backoff) for transient provider errors
 ```
 
+### Connecting data sources
+
+ProductAgents syncs external systems into its local canonical store *before* a
+decision runs (no network calls happen during agent execution). Connectors are
+configured in a YAML file — `connectors.yaml` by default, or the path in
+`PRODUCTAGENTS_CONNECTORS_FILE`. Copy `connectors.yaml.example` to start:
+
+```yaml
+connectors:
+  github:
+    enabled: true
+    owner: your-org
+    repo: your-repo
+    token_env: GITHUB_TOKEN   # token read from $GITHUB_TOKEN, never inlined
+```
+
+Each connector block is validated against that connector's typed schema at
+startup; a missing referenced env var or an unknown connector is reported on the
+home menu (fail-fast) rather than at sync time. Choose **Sync data sources** in
+the home menu to run a sync; per-connector cursors are persisted so each run only
+pulls records changed since the last sync.
+
 ### Run
 
 ```bash

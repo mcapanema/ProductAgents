@@ -1,0 +1,9 @@
+# ProductAgents connector configuration.
+# Copy to connectors.yaml (or set PRODUCTAGENTS_CONNECTORS_FILE) and edit.
+# Secrets are referenced by env var via a `<field>_env` key — never inline tokens.
+connectors:
+  github:
+    enabled: true
+    owner: your-org
+    repo: your-repo
+    token_env: GITHUB_TOKEN   # reads $GITHUB_TOKEN at sync time
