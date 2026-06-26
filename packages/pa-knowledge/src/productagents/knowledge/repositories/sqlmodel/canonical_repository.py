@@ -53,7 +53,11 @@ class CanonicalRepository[T: CanonicalModel]:
         existing.model_type = incoming.model_type
         existing.raw_fingerprint = incoming.raw_fingerprint
         existing.updated_at = incoming.updated_at
-        existing.payload = {**incoming.payload, "id": stable_id}
+        existing.payload = {
+            **incoming.payload,
+            "id": stable_id,
+            "ingested_at": existing.payload["ingested_at"],  # first-seen time is stable
+        }
         self._session.add(existing)
         await self._session.commit()
         return from_row(existing, self._model_type)

@@ -78,3 +78,4 @@ async def test_vendor_upsert_preserves_original_platform_id():
     assert len(rows) == 1
     assert returned.id == first.id  # original id wins
     assert returned.body == "sync 2"  # newer payload wins
+    assert returned.ingested_at == first.ingested_at  # first-seen time is stable
