@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from productagents.agents.context import AgentContext
@@ -588,6 +589,23 @@ async def test_run_decision_warns_on_unhandled_custom_chunk(caplog):
     assert any("unhandled custom chunk" in r.message for r in caplog.records)
     # The run still finishes cleanly (the unknown chunk is skipped, not fatal).
     assert any(isinstance(e, FinishedEvent) for e in events)
+
+
+async def test_run_decision_logs_a_decision_run_span(caplog):
+    graph = _graph()
+    initiative, evidence = _inputs()
+    with caplog.at_level(logging.INFO, logger="productagents.observability"):
+        async for _ in run_decision(graph, initiative, evidence):
+            pass
+    run_lines = [
+        rec.getMessage()
+        for rec in caplog.records
+        if rec.getMessage().startswith("decision.run ")
+    ]
+    assert len(run_lines) == 1
+    assert "duration_ms=" in run_lines[0]
+    assert "status=ok" in run_lines[0]
+    assert "reports=" in run_lines[0]
 
 
 async def test_run_decision_still_emits_progress_for_status_chunks():
