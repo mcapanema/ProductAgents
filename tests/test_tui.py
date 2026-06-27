@@ -1236,3 +1236,33 @@ async def test_status_log_turns_red_only_on_error():
         assert status.has_class("-has-error")
         app._reset_panels()
         assert not status.has_class("-has-error")
+
+
+# ---------------------------------------------------------------------------
+# Scheduler tests
+# ---------------------------------------------------------------------------
+
+
+def _make_app():
+    runner, evidence = _runner_and_evidence()
+    return ProductAgentsApp(
+        runner,
+        evidence,
+        recorder=_noop_recorder,
+        reader=_empty_reader,
+        show_home=False,
+    )
+
+
+async def test_scheduler_timer_started_when_interval_set(monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_SYNC_INTERVAL", "30")
+    app = _make_app()
+    async with app.run_test():
+        assert app._sync_timer is not None
+
+
+async def test_scheduler_timer_absent_when_interval_unset(monkeypatch):
+    monkeypatch.delenv("PRODUCTAGENTS_SYNC_INTERVAL", raising=False)
+    app = _make_app()
+    async with app.run_test():
+        assert app._sync_timer is None

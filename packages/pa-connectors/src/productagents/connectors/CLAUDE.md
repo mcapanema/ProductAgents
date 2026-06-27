@@ -21,10 +21,10 @@ the only place that knows a vendor exists.
   `ErrorCategory` (`auth`/`rate_limit`/`not_found`/`upstream`/`transport`/
   `unknown`) + a `transient` flag. Owns `TRANSIENT_STATUSES`; `http.py` and the
   connectors' degrade-paths both consume it. Returns, never raises.
-- `observability.py` — `span(name, **fields)`: a context manager that logs one
-  structured line (`name duration_ms=… status=… <ctx>`) per timed block through
-  the `productagents.connectors` logger. No OTel dependency — a logging shim with
-  a swap-ready call surface.
+- `observability.py` — re-export of `productagents.core.observability.span`. The
+  shim itself moved to `pa-core` so the agent graph can trace decision runs too;
+  it logs one structured line (`name duration_ms=… status=… <ctx>`) per timed
+  block through the `productagents.observability` logger. No OTel dependency.
 - `runtime.py` — `run_sync()`: runs enabled connectors concurrently under a
   `TaskGroup`, catching each failure into a degraded `SyncResult` (never aborts
   the batch). Each sync runs in a `connector.sync` span and a raised failure is

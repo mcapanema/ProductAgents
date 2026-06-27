@@ -1,6 +1,8 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
+import asyncio
 import pathlib
+import sys
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -75,7 +77,7 @@ from productagents.app.tui.home_screen import HomeScreen
 from productagents.app.tui.rail import PipelineRail
 from productagents.app.tui.reflection import ReflectionScreen
 from productagents.app.tui.setup_screen import SetupScreen
-from productagents.core.config import load_env
+from productagents.core.config import env_int, load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
 
@@ -130,6 +132,7 @@ class ProductAgentsApp(App):
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
         self._indicator = PanelIndicator(self)
+        self._sync_timer = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -197,6 +200,11 @@ class ProductAgentsApp(App):
             self._open_home()
         if not self._show_home:
             self.query_one("#initiative-title", Input).focus()
+        interval = env_int("PRODUCTAGENTS_SYNC_INTERVAL", 0, minimum=0)
+        if interval > 0:
+            # ponytail: Textual's own timer IS the in-process scheduler — no thread,
+            # auto-cancelled on exit. Reuses the same worker as the manual button.
+            self._sync_timer = self.set_interval(interval, self.sync_sources)
 
     def _rail(self) -> PipelineRail:
         return self.query_one("#pipeline-rail", PipelineRail)
@@ -581,8 +589,24 @@ def _build_app() -> ProductAgentsApp:
     )
 
 
+def sync_command(*, syncer=run_connector_sync) -> int:
+    """Run one connector sync headlessly, print the report, return an exit code.
+
+    For cron/launchd: ``productagents sync``. Reuses the same composition root the
+    TUI button uses. Returns 1 if any connector failed or the config had problems
+    so the scheduler/CI surfaces it; 0 otherwise. ponytail: print (not the file
+    logger) because no TUI owns the terminal in this path.
+    """
+    report = asyncio.run(syncer())
+    print(describe_report(report))
+    failed = any(not r.ok for r in report.results) or bool(report.problems)
+    return 1 if failed else 0
+
+
 def main() -> None:
     load_env()
     configure_logging()
+    if sys.argv[1:2] == ["sync"]:  # ponytail: one subcommand, argparse is overkill
+        raise SystemExit(sync_command())
     app = _build_app()
     app.run()

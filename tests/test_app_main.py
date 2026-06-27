@@ -1,6 +1,37 @@
 """Tests for the productagents entry point wiring."""
 
+from productagents.app.sync import SyncReport
 from productagents.app.tui import app as app_module
+from productagents.connectors.base import SyncResult
+
+
+async def _ok_syncer():
+    return SyncReport(
+        results=[SyncResult(connector="github", ok=True, written=3)], problems=[]
+    )
+
+
+async def _bad_syncer():
+    return SyncReport(
+        results=[SyncResult(connector="github", ok=False, error="auth: 401")],
+        problems=[],
+    )
+
+
+def test_sync_command_returns_zero_and_prints_on_success(capsys):
+    from productagents.app.tui.app import sync_command
+
+    code = sync_command(syncer=_ok_syncer)
+    assert code == 0
+    assert "github" in capsys.readouterr().out
+
+
+def test_sync_command_returns_one_when_a_connector_fails(capsys):
+    from productagents.app.tui.app import sync_command
+
+    code = sync_command(syncer=_bad_syncer)
+    assert code == 1
+    assert "github" in capsys.readouterr().out
 
 
 def test_main_loads_env_before_building_app(monkeypatch):

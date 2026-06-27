@@ -30,6 +30,24 @@ from productagents.core.models import (
     Recommendation,
     RiskAssessment,
 )
+from productagents.core.observability import span
+
+
+def _traced(name: str, fn):
+    """Wrap a node callable so each invocation logs a ``decision.<name>`` span.
+
+    LangGraph passes the state (and sometimes a runtime/config arg); the wrapper
+    forwards everything verbatim and returns the node's partial-state dict. Nodes
+    degrade internally, so ``status`` is almost always ``ok`` — the value here is
+    per-node ``duration_ms``. ponytail: flat log lines, not nested OTel spans;
+    when a collector exists, ``span``'s body changes, not these call sites.
+    """
+
+    async def traced(state, *args, **kwargs):
+        with span(f"decision.{name}"):
+            return await fn(state, *args, **kwargs)
+
+    return traced
 
 
 class GraphState(TypedDict):
@@ -84,17 +102,28 @@ def build_graph(model_or_context, *, human_in_the_loop: bool = False):
     # NOTE: GraphState is a valid TypedDict; langgraph's StateT bound stub is
     # too narrow to recognize it. Suppress narrowly rather than weakening the type.
     graph = StateGraph(GraphState)  # ty: ignore[invalid-argument-type]
-    graph.add_node("customer_research", partial(customer_research_node, ctx=ctx))
-    graph.add_node("product_analytics", partial(product_analytics_node, ctx=ctx))
-    graph.add_node("market", partial(market_node, ctx=ctx))
-    graph.add_node("business", partial(business_node, ctx=ctx))
-    graph.add_node("technical", partial(technical_node, ctx=ctx))
-    graph.add_node("recall", partial(recall_node, ctx=ctx))
-    graph.add_node("debate", partial(debate_node, model=model))
-    graph.add_node("strategist", partial(strategist_node, model=model))
-    graph.add_node("judge", partial(judge_node, model=model))
-    graph.add_node("risk", partial(risk_node, model=model))
-    graph.add_node("governance", partial(governance_node, model=model, ctx=ctx))
+    graph.add_node(
+        "customer_research",
+        _traced("customer_research", partial(customer_research_node, ctx=ctx)),
+    )
+    graph.add_node(
+        "product_analytics",
+        _traced("product_analytics", partial(product_analytics_node, ctx=ctx)),
+    )
+    graph.add_node("market", _traced("market", partial(market_node, ctx=ctx)))
+    graph.add_node("business", _traced("business", partial(business_node, ctx=ctx)))
+    graph.add_node("technical", _traced("technical", partial(technical_node, ctx=ctx)))
+    graph.add_node("recall", _traced("recall", partial(recall_node, ctx=ctx)))
+    graph.add_node("debate", _traced("debate", partial(debate_node, model=model)))
+    graph.add_node(
+        "strategist", _traced("strategist", partial(strategist_node, model=model))
+    )
+    graph.add_node("judge", _traced("judge", partial(judge_node, model=model)))
+    graph.add_node("risk", _traced("risk", partial(risk_node, model=model)))
+    graph.add_node(
+        "governance",
+        _traced("governance", partial(governance_node, model=model, ctx=ctx)),
+    )
 
     graph.add_edge(START, "customer_research")
     graph.add_edge(START, "product_analytics")

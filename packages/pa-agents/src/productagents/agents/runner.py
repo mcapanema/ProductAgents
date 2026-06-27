@@ -19,6 +19,7 @@ from productagents.core.models import (
     Recommendation,
     RiskAssessment,
 )
+from productagents.core.observability import span
 
 logger = logging.getLogger(__name__)
 
@@ -232,72 +233,79 @@ async def run_decision(
     config = {"configurable": {"thread_id": uuid4().hex}}
     stream_input: dict | Command = initial_state
 
-    while True:
-        pending_interrupt: dict | None = None
-        async for mode, chunk in graph.astream(
-            stream_input, config, stream_mode=["updates", "custom"]
-        ):
-            if mode == "custom":
-                event = _event_from_custom(chunk)
-                if event is None:
-                    logger.warning(
-                        "runner: unhandled custom chunk keys=%s", sorted(chunk)
-                    )
-                elif isinstance(event, RunAbortedEvent):
-                    yield event
-                    return
-                else:
-                    yield event
-            elif mode == "updates":
-                if "__interrupt__" in chunk:
-                    pending_interrupt = chunk["__interrupt__"][0].value
-                    continue
-                for node_name, node_state in chunk.items():
-                    if not node_state:
+    # ponytail: one flat span per run — "one trace = one decision". An early
+    # consumer break closes the generator (GeneratorExit) and logs status=error,
+    # which is fine/rare. Per-node breakdown comes from graph.py's decision.<node>.
+    with span("decision.run", initiative=initiative.title) as trace:
+        while True:
+            pending_interrupt: dict | None = None
+            async for mode, chunk in graph.astream(
+                stream_input, config, stream_mode=["updates", "custom"]
+            ):
+                if mode == "custom":
+                    event = _event_from_custom(chunk)
+                    if event is None:
+                        logger.warning(
+                            "runner: unhandled custom chunk keys=%s", sorted(chunk)
+                        )
+                    elif isinstance(event, RunAbortedEvent):
+                        trace["aborted"] = True
+                        yield event
+                        return
+                    else:
+                        yield event
+                elif mode == "updates":
+                    if "__interrupt__" in chunk:
+                        pending_interrupt = chunk["__interrupt__"][0].value
                         continue
-                    for report in node_state.get("reports", []) or []:
-                        collected_reports.append(report)
-                        yield NodeCompleteEvent(node=node_name, report=report)
-                    if node_state.get("debate"):
-                        collected_debate = node_state["debate"]
-                    if node_state.get("risks"):
-                        collected_risks = node_state["risks"]
-                    if "prior_lessons" in node_state:
-                        collected_lessons = node_state["prior_lessons"]
-                        yield RecallEvent(lessons=collected_lessons)
-                    if node_state.get("recommendation") is not None:
-                        recommendation = node_state["recommendation"]
-                        yield RecommendationEvent(recommendation=recommendation)
-                    if node_state.get("governance") is not None:
-                        governance = node_state["governance"]
-                    if node_state.get("judgment") is not None:
-                        judgment = node_state["judgment"]
+                    for node_name, node_state in chunk.items():
+                        if not node_state:
+                            continue
+                        for report in node_state.get("reports", []) or []:
+                            collected_reports.append(report)
+                            yield NodeCompleteEvent(node=node_name, report=report)
+                        if node_state.get("debate"):
+                            collected_debate = node_state["debate"]
+                        if node_state.get("risks"):
+                            collected_risks = node_state["risks"]
+                        if "prior_lessons" in node_state:
+                            collected_lessons = node_state["prior_lessons"]
+                            yield RecallEvent(lessons=collected_lessons)
+                        if node_state.get("recommendation") is not None:
+                            recommendation = node_state["recommendation"]
+                            yield RecommendationEvent(recommendation=recommendation)
+                        if node_state.get("governance") is not None:
+                            governance = node_state["governance"]
+                        if node_state.get("judgment") is not None:
+                            judgment = node_state["judgment"]
 
-        if pending_interrupt is None:
-            break
+            if pending_interrupt is None:
+                break
 
-        advisory_dump = pending_interrupt.get("advisory")
-        advisory = GovernanceVerdict(**advisory_dump) if advisory_dump else None
-        if approver is not None:
-            decision = await approver(advisory)
-        else:
-            advisory_verdict = (
-                advisory.verdict
-                if advisory and advisory.verdict != "error"
-                else "approve"
-            )
-            decision = HumanDecision(
-                verdict=advisory_verdict,
-                rationale=advisory.rationale if advisory else "",
-            )
-        stream_input = Command(resume=decision.model_dump())
+            advisory_dump = pending_interrupt.get("advisory")
+            advisory = GovernanceVerdict(**advisory_dump) if advisory_dump else None
+            if approver is not None:
+                decision = await approver(advisory)
+            else:
+                advisory_verdict = (
+                    advisory.verdict
+                    if advisory and advisory.verdict != "error"
+                    else "approve"
+                )
+                decision = HumanDecision(
+                    verdict=advisory_verdict,
+                    rationale=advisory.rationale if advisory else "",
+                )
+            stream_input = Command(resume=decision.model_dump())
 
-    yield FinishedEvent(
-        recommendation=recommendation,
-        reports=collected_reports,
-        debate=collected_debate,
-        risks=collected_risks,
-        governance=governance,
-        prior_lessons=collected_lessons,
-        judgment=judgment,
-    )
+        trace["reports"] = len(collected_reports)
+        trace["verdict"] = governance.verdict if governance else "none"
+        yield FinishedEvent(
+            recommendation=recommendation,
+            reports=collected_reports,
+            debate=collected_debate,
+            risks=collected_risks,
+            governance=governance,
+            prior_lessons=collected_lessons,
+            judgment=judgment,
+        )

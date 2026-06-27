@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from productagents.agents.graph import build_graph
@@ -193,6 +195,49 @@ def _failed_strategist_model():
             Recommendation: RuntimeError("Provider returned error"),
         }
     )
+
+
+def _full_model() -> FakeChatModel:
+    return FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="an argument"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: GovernanceFinding(
+                verdict="approve", rationale="resources well spent"
+            ),
+        }
+    )
+
+
+async def test_graph_logs_a_span_per_node(caplog):
+    graph = build_graph(_full_model())
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+    evidence = Evidence(
+        scenario="sample", customer_feedback="d", product_analytics={"x": 1}
+    )
+    with caplog.at_level(logging.INFO, logger="productagents.observability"):
+        async for _ in run_decision(graph, initiative, evidence):
+            pass
+    names = {
+        rec.getMessage().split(" ", 1)[0]
+        for rec in caplog.records
+        if rec.getMessage().startswith("decision.")
+    }
+    assert "decision.debate" in names
+    assert "decision.strategist" in names
+    assert "decision.customer_research" in names
 
 
 async def test_failed_recommendation_ends_run_before_governance(
