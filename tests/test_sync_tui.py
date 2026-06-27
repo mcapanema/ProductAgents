@@ -32,6 +32,31 @@ async def test_home_shows_connector_plan_line():
         assert "github" in line
 
 
+async def test_health_button_runs_checker_and_logs_report():
+    from productagents.app.sync import HealthReport
+    from productagents.connectors.base import HealthStatus
+
+    plan = ConnectorPlan(configs={"github": ConnectorConfig()}, problems=[])
+    report = HealthReport(statuses={"github": HealthStatus(ok=True)}, problems=[])
+
+    async def fake_health():
+        return report
+
+    app = ProductAgentsApp(
+        runner=None,
+        evidence=None,
+        config_checker=_ok_status,
+        connector_planner=lambda: plan,
+        connector_health_checker=fake_health,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.click("#home-health")
+        await pilot.pause()
+        line = str(app.screen.query_one("#home-connectors", Static).content)
+        assert "github: ✓ healthy" in line
+
+
 async def test_sync_button_runs_syncer_and_logs_report():
     plan = ConnectorPlan(configs={"github": ConnectorConfig()}, problems=[])
     report = SyncReport(
