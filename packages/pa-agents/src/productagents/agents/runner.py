@@ -1,11 +1,13 @@
 """Normalize LangGraph's streamed chunks into plain UI-facing events."""
 
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from uuid import uuid4
 
 from langgraph.types import Command
 
+from productagents.agents import stream_events as ev
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
@@ -17,6 +19,8 @@ from productagents.core.models import (
     Recommendation,
     RiskAssessment,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -144,12 +148,34 @@ def _build_governance_verdict(chunk: dict) -> GovernanceVerdictEvent:
 
 # Ordered so the first matching key wins, mirroring the original elif chain.
 _CUSTOM_BUILDERS = (
-    ("turn", _build_debate_turn),
-    ("assessment", _build_risk_assessment),
-    ("final_verdict", _build_final_verdict),
-    ("judgment", _build_judgment),
-    ("verdict", _build_governance_verdict),
+    (ev.TURN, _build_debate_turn),
+    (ev.ASSESSMENT, _build_risk_assessment),
+    (ev.FINAL_VERDICT, _build_final_verdict),
+    (ev.JUDGMENT, _build_judgment),
+    (ev.VERDICT, _build_governance_verdict),
 )
+
+
+def _event_from_custom(chunk: dict):
+    """Translate one `custom`-mode chunk into a UI event, or `None` if unknown.
+
+    A `None` return means the chunk matched no known shape — the caller logs it
+    rather than synthesizing a bogus event (the old silent-drop footgun).
+    """
+    for key, builder in _CUSTOM_BUILDERS:
+        if key in chunk:
+            return builder(chunk)
+    if ev.ERROR in chunk:
+        if chunk.get(ev.FATAL):
+            return RunAbortedEvent(
+                node=chunk.get(ev.NODE, ""),
+                category=chunk.get(ev.CATEGORY, "unknown"),
+                message=chunk[ev.ERROR],
+            )
+        return NodeErrorEvent(node=chunk.get(ev.NODE, ""), message=chunk[ev.ERROR])
+    if ev.STATUS in chunk:
+        return ProgressEvent(node=chunk.get(ev.NODE, ""), message=chunk[ev.STATUS])
+    return None
 
 
 async def run_decision(
@@ -212,26 +238,16 @@ async def run_decision(
             stream_input, config, stream_mode=["updates", "custom"]
         ):
             if mode == "custom":
-                for key, builder in _CUSTOM_BUILDERS:
-                    if key in chunk:
-                        yield builder(chunk)
-                        break
+                event = _event_from_custom(chunk)
+                if event is None:
+                    logger.warning(
+                        "runner: unhandled custom chunk keys=%s", sorted(chunk)
+                    )
+                elif isinstance(event, RunAbortedEvent):
+                    yield event
+                    return
                 else:
-                    if "error" in chunk:
-                        if chunk.get("fatal"):
-                            yield RunAbortedEvent(
-                                node=chunk.get("node", ""),
-                                category=chunk.get("category", "unknown"),
-                                message=chunk["error"],
-                            )
-                            return
-                        yield NodeErrorEvent(
-                            node=chunk.get("node", ""), message=chunk["error"]
-                        )
-                    else:
-                        yield ProgressEvent(
-                            node=chunk.get("node", ""), message=chunk.get("status", "")
-                        )
+                    yield event
             elif mode == "updates":
                 if "__interrupt__" in chunk:
                     pending_interrupt = chunk["__interrupt__"][0].value
