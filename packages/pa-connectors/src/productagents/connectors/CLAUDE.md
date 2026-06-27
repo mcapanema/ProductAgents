@@ -16,9 +16,20 @@ the only place that knows a vendor exists.
   Provider-agnostic; every connector shares it.
 - `registry.py` — `discover()`: entry-point (`productagents.connectors`) lookup,
   `key → class`. A `pip install`ed third-party connector self-registers here.
+- `connector_errors.py` — `classify_connector_error()`: httpx-aware failure
+  classifier (mirror of `agents/llm_errors.py`). Maps any exception to an
+  `ErrorCategory` (`auth`/`rate_limit`/`not_found`/`upstream`/`transport`/
+  `unknown`) + a `transient` flag. Owns `TRANSIENT_STATUSES`; `http.py` and the
+  connectors' degrade-paths both consume it. Returns, never raises.
+- `observability.py` — `span(name, **fields)`: a context manager that logs one
+  structured line (`name duration_ms=… status=… <ctx>`) per timed block through
+  the `productagents.connectors` logger. No OTel dependency — a logging shim with
+  a swap-ready call surface.
 - `runtime.py` — `run_sync()`: runs enabled connectors concurrently under a
   `TaskGroup`, catching each failure into a degraded `SyncResult` (never aborts
-  the batch). Cursors are threaded, **not persisted** (no scheduler yet — Phase 7).
+  the batch). Each sync runs in a `connector.sync` span and a raised failure is
+  classified for a friendly `SyncResult.error`. Cursors are threaded;
+  `app/sync.py` persists them.
 - `github/` — the first connector: `connector.py` (`GitHubConfig` +
   `GitHubConnector`), `client.py` (paginated issue fetch, `since` cursor),
   `mappers.py` (`issue_to_feedback`).
@@ -47,5 +58,6 @@ the only place that knows a vendor exists.
   `connectors.yaml`; each connector declares `config_cls` and the app validates
   blocks generically). Cursor **persistence** (`sync_state` table +
   `SyncStateStore`) also shipped in Phase 7a.
-- A `connector_errors.py` category classifier — Phase 7c, when observability
-  surfaces categories. Today: a transient-status set in `http.py`.
+- **`connector_errors.py` category classifier** — SHIPPED in Phase 7c
+  (`classify_connector_error`, `ErrorCategory`, `TRANSIENT_STATUSES`; consumed
+  by `http.py` and connector degrade-paths).
