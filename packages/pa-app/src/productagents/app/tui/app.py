@@ -7,7 +7,6 @@ from typing import ClassVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
-from textual.css.query import NoMatches
 from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.evidence import EvidenceError, collect_evidence, load_scenario
@@ -49,12 +48,6 @@ from productagents.app.tui._constants import (
     PANELS as _PANELS,
 )
 from productagents.app.tui._constants import (
-    SPINNER_FRAMES as _SPINNER_FRAMES,
-)
-from productagents.app.tui._constants import (
-    STATE_ICON as _STATE_ICON,
-)
-from productagents.app.tui._constants import (
     THEME as _THEME,
 )
 from productagents.app.tui._constants import (
@@ -74,6 +67,7 @@ from productagents.app.tui._format import (
     format_risk_line,
 )
 from productagents.app.tui._format import format_recall_body as _format_recall_body
+from productagents.app.tui._indicator import PanelIndicator
 from productagents.app.tui.approval import ApprovalScreen
 from productagents.app.tui.degraded import DegradedRunScreen
 from productagents.app.tui.home_screen import HomeScreen
@@ -137,9 +131,7 @@ class ProductAgentsApp(App):
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
-        self._spinning: set[str] = set()
-        self._spinner_frame: int = 0
-        self._spinner_timer = None
+        self._indicator = PanelIndicator(self)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -227,53 +219,15 @@ class ProductAgentsApp(App):
             if str(self.query_one(f"#{node_id}").border_title).startswith("✓")
         )
 
+    @property
+    def _spinning(self) -> set[str]:  # ponytail: test-compat shim
+        return self._indicator._spinning
+
+    def _advance_spinner(self) -> None:  # ponytail: test-compat shim
+        self._indicator._advance()
+
     def _set_state(self, widget_id: str, state: str) -> None:
-        try:
-            widget = self.query_one(f"#{widget_id}")
-        except NoMatches:
-            return
-        widget.remove_class("failed", "warning", "-idle", "-active", "-done")
-        lifecycle = {
-            "idle": "-idle",
-            "waiting": "-idle",
-            "running": "-active",
-            "done": "-done",
-            "failed": "-done",
-            "warning": "-done",
-        }.get(state)
-        if lifecycle:
-            widget.add_class(lifecycle)
-        if state == "failed":
-            widget.add_class("failed")
-        elif state == "warning":
-            widget.add_class("warning")
-        if state == "running":
-            self._spinning.add(widget_id)
-            self._ensure_spinner()
-            self._paint_state(widget_id, _SPINNER_FRAMES[self._spinner_frame])
-        else:
-            self._spinning.discard(widget_id)
-            self._paint_state(widget_id, _STATE_ICON[state])
-
-    def _paint_state(self, widget_id: str, icon: str) -> None:
-        try:
-            widget = self.query_one(f"#{widget_id}")
-        except NoMatches:
-            return
-        base = _TITLES.get(widget_id, widget_id)
-        widget.border_title = f"{icon} {base}"
-
-    def _ensure_spinner(self) -> None:
-        if self._spinner_timer is None:
-            self._spinner_timer = self.set_interval(0.12, self._advance_spinner)
-
-    def _advance_spinner(self) -> None:
-        if not self._spinning:
-            return
-        self._spinner_frame = (self._spinner_frame + 1) % len(_SPINNER_FRAMES)
-        frame = _SPINNER_FRAMES[self._spinner_frame]
-        for widget_id in self._spinning:
-            self._paint_state(widget_id, frame)
+        self._indicator.set_state(widget_id, state)
 
     def _open_home(self) -> None:
         status = self._config_checker()
