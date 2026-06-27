@@ -5,9 +5,10 @@ vendors over ``httpx``, so — unlike the LLM classifier, which spans many SDKs 
 must sniff strings — this one inspects ``httpx`` types directly: an
 ``HTTPStatusError`` carries a response status; a ``TransportError`` is a
 connect/read failure. It maps any exception to a small set of actionable
-categories plus a ``transient`` flag that the retry layer and the health surface
-both consume. Like its LLM sibling, ``classify_connector_error`` *returns* a
-``ConnectorError`` — it never raises — because connectors degrade, never crash.
+categories. ``http.py`` consumes ``is_transient_status`` (status-level) for retry
+decisions; the ``transient`` flag mirrors the ``llm_errors`` sibling and is
+available for future routing. Like that sibling, ``classify_connector_error``
+*returns* a ``ConnectorError`` — it never raises — connectors degrade, never crash.
 """
 
 from __future__ import annotations
