@@ -1,5 +1,6 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
+import pathlib
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -7,8 +8,6 @@ from typing import ClassVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
-from textual.css.query import NoMatches
-from textual.theme import Theme
 from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.evidence import EvidenceError, collect_evidence, load_scenario
@@ -43,8 +42,25 @@ from productagents.app.sync import (
     run_connector_sync,
     static_connector_plan,
 )
+from productagents.app.tui._constants import (
+    ANALYST_IDS as _ANALYST_IDS,
+)
+from productagents.app.tui._constants import (
+    PANELS as _PANELS,
+)
+from productagents.app.tui._constants import (
+    THEME as _THEME,
+)
+from productagents.app.tui._constants import (
+    TITLES as _TITLES,
+)
+from productagents.app.tui._constants import (
+    WAITING_AT_START as _WAITING_AT_START,
+)
+from productagents.app.tui._constants import (
+    WIDGET_FOR_NODE as _WIDGET_FOR_NODE,
+)
 from productagents.app.tui._format import (
-    confidence_meter,  # noqa: F401
     format_debate_turn,
     format_governance,
     format_judgment,
@@ -52,6 +68,7 @@ from productagents.app.tui._format import (
     format_risk_line,
 )
 from productagents.app.tui._format import format_recall_body as _format_recall_body
+from productagents.app.tui._indicator import PanelIndicator
 from productagents.app.tui.approval import ApprovalScreen
 from productagents.app.tui.degraded import DegradedRunScreen
 from productagents.app.tui.home_screen import HomeScreen
@@ -62,105 +79,8 @@ from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
 
-_TITLES = {
-    "customer_research": "Customer Research Analyst",
-    "product_analytics": "Product Analytics Analyst",
-    "market": "Market Analyst",
-    "business": "Business Analyst",
-    "technical": "Technical Analyst",
-    "recall": "Lessons from Past Decisions",
-    "strategist": "Product Strategist",
-    "judgment": "Quality Judge",
-    "evidence-provenance": "Evidence Sources",
-    "debate-scroll": "Advocate vs Skeptic Debate",
-    "risk-scroll": "Risk Team",
-    "governance": "Portfolio Manager (Governance)",
-    "status-log": "Status / Errors",
-}
-
-# Runner node names whose live widget differs from the node id.
-_WIDGET_FOR_NODE = {
-    "debate": "debate-scroll",
-    "risk": "risk-scroll",
-}
-
-# Analyst node ids that have a dedicated panel widget (used to gate updates).
-_PANELS = {
-    "customer_research",
-    "product_analytics",
-    "market",
-    "business",
-    "technical",
-    "recall",
-    "strategist",
-}
-
-_THEME = Theme(
-    name="productagents",
-    primary="#38bdf8",
-    secondary="#a78bfa",
-    accent="#fbbf24",
-    success="#34d399",
-    warning="#fb923c",
-    error="#f43f5e",
-    surface="#13212e",
-    panel="#0c1722",
-    background="#08111a",
-    dark=True,
-    variables={
-        "background": "#08111a",
-        "ink": "#e6f0f2",
-        "muted": "#9fb4c0",
-        "idle-border": "#2a3a47",
-        # Readable placeholders/labels (overrides Textual's dim default).
-        "text-muted": "#9fb4c0",
-        # Stage spectrum — each maps to one pipeline stage.
-        "stage-evidence": "#5eead4",
-        "stage-analysis": "#38bdf8",
-        "stage-recall": "#818cf8",
-        "stage-debate": "#fbbf24",
-        "stage-strategy": "#34d399",
-        "stage-judge": "#a78bfa",
-        "stage-risk": "#fb7185",
-        "stage-governance": "#c084fc",
-    },
-)
-
-_STATE_ICON = {
-    "idle": "·",
-    "waiting": "◌",
-    "running": "●",
-    "done": "✓",
-    "failed": "✗",
-    "warning": "⚠",
-}
-
-# Spinner frames for the "running" state (a rotating filled circle).
-_SPINNER_FRAMES = "◐◓◑◒"
-
-# Downstream panels that depend on upstream output; they show "waiting" at the
-# start of a run until their first event flips them to running.
-_WAITING_AT_START = {
-    "debate-scroll",
-    "strategist",
-    "judgment",
-    "risk-scroll",
-    "governance",
-}
-
-_ANALYST_IDS = {
-    "customer_research",
-    "product_analytics",
-    "market",
-    "business",
-    "technical",
-}
-
 
 class ProductAgentsApp(App):
-    # Don't auto-load CSS during init; load it after theme is set.
-    # DEFAULT_CSS must be empty to prevent Textual from loading default styles
-    # that would interfere with our custom stylesheet.
     DEFAULT_CSS = ""
     TITLE = "ProductAgents"
     BINDINGS: ClassVar[list] = [
@@ -209,9 +129,7 @@ class ProductAgentsApp(App):
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
-        self._spinning: set[str] = set()
-        self._spinner_frame: int = 0
-        self._spinner_timer = None
+        self._indicator = PanelIndicator(self)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -258,27 +176,18 @@ class ProductAgentsApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        # Register and set theme before loading stylesheet so CSS variables
-        # are available when parsing app.tcss.
+        # Register and activate the theme before loading stylesheet so its custom
+        # variables ($stage-evidence, etc.) are defined when app.tcss is parsed.
         self.register_theme(_THEME)
         self.theme = "productagents"
-        # Merge custom theme variables with existing stylesheet variables so
-        # Textual's built-in CSS (which references $foreground, $background,
-        # etc.) still works.
-        theme = self.get_theme("productagents")
-        if theme and theme.variables:
-            merged_vars = dict(self.stylesheet._variables or {})
-            merged_vars.update(theme.variables)
-            self.stylesheet.set_variables(merged_vars)
-        # Load stylesheet after setting theme so custom theme variables are
-        # available during CSS parsing.
-        import pathlib
-
+        # Publish the active theme's variables via the public API
+        # (replaces the old poke into stylesheet._variables).
+        self.stylesheet.set_variables(self.get_css_variables())
+        # Load stylesheet after the theme is active so $stage-* variables resolve.
+        # ponytail: explicit load kept because Textual resolves CSS_PATH variables
+        # before on_mount fires; upgrade to CSS_PATH if Textual adds a post-mount hook.
         css_file = pathlib.Path(__file__).parent / "app.tcss"
-        with open(css_file) as f:
-            # read_from expects CSSLocation = tuple[str, str]
-            # (path, widget_variable)
-            self.stylesheet.add_source(f.read(), read_from=(str(css_file), ""))
+        self.stylesheet.add_source(css_file.read_text(), read_from=(str(css_file), ""))
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 self.query_one("#status-log").border_title = _TITLES["status-log"]
@@ -300,52 +209,7 @@ class ProductAgentsApp(App):
         )
 
     def _set_state(self, widget_id: str, state: str) -> None:
-        try:
-            widget = self.query_one(f"#{widget_id}")
-        except NoMatches:
-            return
-        widget.remove_class("failed", "warning", "-idle", "-active", "-done")
-        lifecycle = {
-            "idle": "-idle",
-            "waiting": "-idle",
-            "running": "-active",
-            "done": "-done",
-            "failed": "-done",
-            "warning": "-done",
-        }.get(state)
-        if lifecycle:
-            widget.add_class(lifecycle)
-        if state == "failed":
-            widget.add_class("failed")
-        elif state == "warning":
-            widget.add_class("warning")
-        if state == "running":
-            self._spinning.add(widget_id)
-            self._ensure_spinner()
-            self._paint_state(widget_id, _SPINNER_FRAMES[self._spinner_frame])
-        else:
-            self._spinning.discard(widget_id)
-            self._paint_state(widget_id, _STATE_ICON[state])
-
-    def _paint_state(self, widget_id: str, icon: str) -> None:
-        try:
-            widget = self.query_one(f"#{widget_id}")
-        except NoMatches:
-            return
-        base = _TITLES.get(widget_id, widget_id)
-        widget.border_title = f"{icon} {base}"
-
-    def _ensure_spinner(self) -> None:
-        if self._spinner_timer is None:
-            self._spinner_timer = self.set_interval(0.12, self._advance_spinner)
-
-    def _advance_spinner(self) -> None:
-        if not self._spinning:
-            return
-        self._spinner_frame = (self._spinner_frame + 1) % len(_SPINNER_FRAMES)
-        frame = _SPINNER_FRAMES[self._spinner_frame]
-        for widget_id in self._spinning:
-            self._paint_state(widget_id, frame)
+        self._indicator.set_state(widget_id, state)
 
     def _open_home(self) -> None:
         status = self._config_checker()

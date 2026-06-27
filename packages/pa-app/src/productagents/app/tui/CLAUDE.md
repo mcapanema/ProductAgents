@@ -15,6 +15,8 @@ dataclasses and knows nothing about LangGraph. `main()` (in `app.py`) is the
 | `setup_screen.py` | `SetupScreen` (`ModalScreen[bool]`). Collects model/provider/key, validates, and writes them via the injected `writer` (`setup.write_env`). Dismisses `True` on save, `False` on cancel. |
 | `rail.py` | `PipelineRail` (`#pipeline-rail`) — the one-line spine tracing the run through the 7 pipeline stages. `render_rail()` is pure; the app advances it from the same handlers that update the panels. |
 | `_format.py` | Pure Rich-markup render helpers (recommendation, judgment, debate turn, risk line, governance, recall body, `confidence_meter`). The only `.py` place markup colors live. Unit-tested in `tests/test_tui_format.py`. |
+| `_constants.py` | Layout/theme tables (TITLES, PANELS, STATE_ICON, SPINNER_FRAMES, WAITING_AT_START, ANALYST_IDS, WIDGET_FOR_NODE, THEME), split out of `app.py`. |
+| `_indicator.py` | `PanelIndicator` — the panel state-icon + spinner state machine (set_state/_paint/_advance), split out of `app.py`; `app._set_state` delegates to it. |
 
 ## The event loop
 
@@ -27,7 +29,8 @@ strategist panel (rendered live each time the strategist produces a recommendati
 including during judge-retry revisions, before `FinishedEvent` arrives),
 `FinishedEvent` → finalise the recommendation panel and persist a `DecisionRecord`
 (now including `judgment`). Any new event type needs a branch here **and** (usually) a
-`_PANELS` entry, or it is silently dropped.
+`_PANELS` entry; unrecognized custom chunks are logged with a warning ("unhandled custom chunk")
+by the runner, so unknown event shapes are surfaced rather than silently dropping.
 
 ## Dependency-injection seams
 

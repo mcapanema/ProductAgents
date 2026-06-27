@@ -14,6 +14,12 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import (
+    JUDGMENT,
+    emit_error,
+    emit_payload,
+    emit_status,
+)
 from productagents.core.config import env_float, env_int
 from productagents.core.models import (
     AnalystReport,
@@ -74,7 +80,7 @@ def _prompt(
 
 async def judge_node(state: dict, model) -> dict:
     writer = get_writer()
-    writer({"node": NODE_ID, "status": "judging recommendation..."})
+    writer(emit_status(NODE_ID, "judging recommendation..."))
     attempt = state.get("judge_attempts", 0) + 1
     threshold = get_judge_threshold()
     try:
@@ -101,7 +107,7 @@ async def judge_node(state: dict, model) -> dict:
             attempt=attempt,
         )
     except Exception as exc:  # noqa: BLE001 - degrade: a broken judge never blocks
-        writer({"node": NODE_ID, "error": str(exc)})
+        writer(emit_error(NODE_ID, str(exc)))
         verdict = JudgeVerdict(
             evidence_grounding_score=0.0,
             rationale_coherence_score=0.0,
@@ -110,5 +116,5 @@ async def judge_node(state: dict, model) -> dict:
             attempt=attempt,
             failed=True,
         )
-    writer({"node": NODE_ID, "judgment": verdict.model_dump()})
+    writer(emit_payload(NODE_ID, JUDGMENT, verdict))
     return {"judgment": verdict, "judge_attempts": attempt}

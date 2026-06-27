@@ -15,6 +15,12 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import (
+    ASSESSMENT,
+    emit_error,
+    emit_payload,
+    emit_status,
+)
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
@@ -66,7 +72,7 @@ async def risk_node(state: dict, model) -> dict:
     writer = get_writer()
     assessments: list[RiskAssessment] = []
     for reviewer, role in REVIEWERS:
-        writer({"node": NODE_ID, "status": f"{role} assessing…"})
+        writer(emit_status(NODE_ID, f"{role} assessing…"))
         try:
             finding = await invoke_structured(
                 model,
@@ -88,7 +94,7 @@ async def risk_node(state: dict, model) -> dict:
                 rationale=finding.rationale,
             )
         except Exception as exc:  # noqa: BLE001 - degrade one reviewer, never crash
-            writer({"node": NODE_ID, "error": str(exc)})
+            writer(emit_error(NODE_ID, str(exc)))
             assessment = RiskAssessment(
                 reviewer=reviewer,
                 role=role,
@@ -97,5 +103,5 @@ async def risk_node(state: dict, model) -> dict:
                 failed=True,
             )
         assessments.append(assessment)
-        writer({"node": NODE_ID, "assessment": assessment.model_dump()})
+        writer(emit_payload(NODE_ID, ASSESSMENT, assessment))
     return {"risks": assessments}

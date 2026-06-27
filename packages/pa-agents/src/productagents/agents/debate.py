@@ -14,6 +14,12 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import (
+    TURN,
+    emit_error,
+    emit_payload,
+    emit_status,
+)
 from productagents.core.config import env_int
 from productagents.core.models import (
     AnalystReport,
@@ -79,13 +85,13 @@ async def debate_node(state: dict, model) -> dict:
     turns: list[DebateTurn] = []
     for rnd in range(1, rounds + 1):
         for side in (ADVOCATE, SKEPTIC):
-            writer({"node": NODE_ID, "status": f"round {rnd}: {side} arguing…"})
+            writer(emit_status(NODE_ID, f"round {rnd}: {side} arguing…"))
             try:
                 argument = await _argue(side, state, turns, model)
             except Exception as exc:  # noqa: BLE001 - degrade one turn, never crash
-                writer({"node": NODE_ID, "error": str(exc)})
+                writer(emit_error(NODE_ID, str(exc)))
                 argument = f"({side} unavailable: {exc})"
             turn = DebateTurn(round=rnd, side=side, argument=argument)
             turns.append(turn)
-            writer({"node": NODE_ID, "turn": turn.model_dump()})
+            writer(emit_payload(NODE_ID, TURN, turn))
     return {"debate": turns}

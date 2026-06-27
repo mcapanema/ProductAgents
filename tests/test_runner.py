@@ -557,3 +557,57 @@ async def test_run_decision_emits_two_recommendation_events_on_judge_retry(monke
     finished = next(e for e in events if isinstance(e, FinishedEvent))
     assert finished.judgment is not None
     assert finished.judgment.passed is True
+
+
+async def test_run_decision_warns_on_unhandled_custom_chunk(caplog):
+    import logging
+
+    from productagents.agents.runner import FinishedEvent, ProgressEvent, run_decision
+    from productagents.core.models import Evidence, Initiative
+
+    class _MysteryGraph:
+        async def astream(self, _input, _config, *, stream_mode):
+            # A chunk whose only payload key is unknown: previously this became an
+            # empty ProgressEvent (silently dropped); now it must be logged, not
+            # turned into a bogus event.
+            yield "custom", {"node": "mystery", "surprise": {"x": 1}}
+
+    with caplog.at_level(logging.WARNING, logger="productagents.agents.runner"):
+        events = [
+            e
+            async for e in run_decision(
+                _MysteryGraph(),
+                Initiative(title="t", description="d"),
+                Evidence(scenario="s", customer_feedback="d", product_analytics={}),
+            )
+        ]
+
+    # No bogus event was synthesized for the unknown chunk...
+    assert not any(isinstance(e, ProgressEvent) and e.node == "mystery" for e in events)
+    # ...and the drop was surfaced in the log.
+    assert any("unhandled custom chunk" in r.message for r in caplog.records)
+    # The run still finishes cleanly (the unknown chunk is skipped, not fatal).
+    assert any(isinstance(e, FinishedEvent) for e in events)
+
+
+async def test_run_decision_still_emits_progress_for_status_chunks():
+    from productagents.agents.runner import FinishedEvent, ProgressEvent, run_decision
+    from productagents.core.models import Evidence, Initiative
+
+    class _StatusGraph:
+        async def astream(self, _input, _config, *, stream_mode):
+            yield "custom", {"node": "customer_research", "status": "working…"}
+
+    events = [
+        e
+        async for e in run_decision(
+            _StatusGraph(),
+            Initiative(title="t", description="d"),
+            Evidence(scenario="s", customer_feedback="d", product_analytics={}),
+        )
+    ]
+    progress = [e for e in events if isinstance(e, ProgressEvent)]
+    assert any(
+        p.node == "customer_research" and p.message == "working…" for p in progress
+    )
+    assert any(isinstance(e, FinishedEvent) for e in events)

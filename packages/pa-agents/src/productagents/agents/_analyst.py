@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import emit_error, emit_status
 from productagents.core.models import (
     AnalystFindings,
     AnalystReport,
@@ -35,7 +36,7 @@ async def run_analyst(
     nodes that read services reach them through other `ctx` fields.
     """
     writer = get_writer()
-    writer({"node": analyst_id, "status": start_status})
+    writer(emit_status(analyst_id, start_status))
     try:
         findings = await invoke_structured(
             ctx.model,
@@ -49,9 +50,9 @@ async def run_analyst(
             findings=findings.findings,
             signals=findings.signals,
         )
-        writer({"node": analyst_id, "status": "done"})
+        writer(emit_status(analyst_id, "done"))
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph
-        writer({"node": analyst_id, "error": str(exc)})
+        writer(emit_error(analyst_id, str(exc)))
         report = AnalystReport(
             analyst=analyst_id, role=role, findings=[], signals=[], failed=True
         )

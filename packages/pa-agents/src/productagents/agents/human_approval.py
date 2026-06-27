@@ -11,6 +11,7 @@ graph only when `build_graph(model, human_in_the_loop=True)`.
 from langgraph.types import interrupt
 
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import FINAL_VERDICT, emit_payload
 from productagents.core.models import GovernanceVerdict
 
 NODE_ID = "human_approval"
@@ -41,5 +42,5 @@ async def human_approval_node(state: dict) -> dict:
     decision = interrupt(payload)
     verdict = _final_verdict(advisory, decision)
     writer = get_writer()
-    writer({"node": NODE_ID, "final_verdict": verdict.model_dump()})
+    writer(emit_payload(NODE_ID, FINAL_VERDICT, verdict))
     return {"governance": verdict}
