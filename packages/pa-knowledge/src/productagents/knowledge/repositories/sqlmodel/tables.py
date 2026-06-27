@@ -30,3 +30,18 @@ class CanonicalRecord(SQLModel, table=True):
     ingested_at: datetime
     updated_at: datetime
     payload: dict = Field(sa_column=Column(JSON))  # model_dump(mode="json")
+
+
+class SyncStateRecord(SQLModel, table=True):
+    """One row per connector: its last persisted incremental-sync cursor.
+
+    The cursor is stored as a plain string (the opaque vendor token's ``value``),
+    not a ``SyncCursor`` — the storage layer must not import a connector type
+    (the connectors-isolation contract). The app converts to/from ``SyncCursor``.
+    """
+
+    __tablename__ = "sync_state"
+
+    connector_key: str = Field(primary_key=True)
+    cursor_value: str | None = Field(default=None)
+    updated_at: datetime

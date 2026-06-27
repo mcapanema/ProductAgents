@@ -24,6 +24,7 @@ from productagents.knowledge.services.metrics_service import (
     MetricsService,
 )
 from productagents.knowledge.sink import CanonicalSink, DbCanonicalSink
+from productagents.knowledge.sync_state import SyncStateStore
 
 __all__ = [
     "CanonicalSink",
@@ -38,6 +39,7 @@ __all__ = [
     "Page",
     "Query",
     "Repository",
+    "SyncStateStore",
     "build_services",
     "database_url",
 ]

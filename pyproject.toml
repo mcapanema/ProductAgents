@@ -96,7 +96,7 @@ layers = [
 [[tool.importlinter.contracts]]
 name = "Connectors are isolated below the platform"
 type = "forbidden"
-source_modules = ["productagents.app", "productagents.agents", "productagents.knowledge"]
+source_modules = ["productagents.agents", "productagents.knowledge"]
 forbidden_modules = ["productagents.connectors"]
 
 # Connectors depend only on core (+ httpx). Never the storage/agent/app layers.
