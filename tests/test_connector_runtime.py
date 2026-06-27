@@ -63,7 +63,7 @@ async def test_run_sync_logs_a_span_per_connector(caplog):
     import logging
 
     sink = FakeSink()
-    with caplog.at_level(logging.INFO, logger="productagents.connectors"):
+    with caplog.at_level(logging.INFO, logger="productagents.observability"):
         await run_sync(cast(list[Connector], [WritingConnector("a", 2, sink)]))
     messages = [r.getMessage() for r in caplog.records]
     assert any(
