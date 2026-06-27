@@ -115,6 +115,7 @@ uv run ty check         # type check (pyright-based)
 - `PRODUCTAGENTS_MAX_RETRIES` — automatic retry budget (with backoff) for transient provider errors (e.g. free-tier OpenRouter 429/5xx), default 6.
 - `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only**: the Textual TUI owns the terminal, so nothing is written to stdout/stderr.
 - `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback.
+- `PRODUCTAGENTS_SYNC_INTERVAL` — seconds between automatic in-process connector syncs while the TUI is running (default `0` = disabled; manual "Sync data sources" always works). For unattended hosts prefer cron/launchd calling `productagents sync` instead.
 
 > **Structured output requires tool/function calling.** Every node calls
 > `model.with_structured_output(...)`. A model that does not support tool calling

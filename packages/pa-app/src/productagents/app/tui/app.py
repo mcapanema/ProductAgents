@@ -77,7 +77,7 @@ from productagents.app.tui.home_screen import HomeScreen
 from productagents.app.tui.rail import PipelineRail
 from productagents.app.tui.reflection import ReflectionScreen
 from productagents.app.tui.setup_screen import SetupScreen
-from productagents.core.config import load_env
+from productagents.core.config import env_int, load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
 
@@ -132,6 +132,7 @@ class ProductAgentsApp(App):
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
         self._indicator = PanelIndicator(self)
+        self._sync_timer = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -199,6 +200,11 @@ class ProductAgentsApp(App):
             self._open_home()
         if not self._show_home:
             self.query_one("#initiative-title", Input).focus()
+        interval = env_int("PRODUCTAGENTS_SYNC_INTERVAL", 0, minimum=0)
+        if interval > 0:
+            # ponytail: Textual's own timer IS the in-process scheduler — no thread,
+            # auto-cancelled on exit. Reuses the same worker as the manual button.
+            self._sync_timer = self.set_interval(interval, self.sync_sources)
 
     def _rail(self) -> PipelineRail:
         return self.query_one("#pipeline-rail", PipelineRail)
