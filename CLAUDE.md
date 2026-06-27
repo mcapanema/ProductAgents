@@ -95,6 +95,7 @@ This project uses **uv** (not Conda, despite the README's "Technology Stack" not
 ```bash
 uv sync                 # install deps + all workspace members (incl. dev group)
 uv run productagents    # launch the TUI
+uv run productagents sync   # headless one-shot connector sync (for cron/launchd); exits non-zero on failure
 uv run pytest           # full suite — runs offline with a fake model, no API key
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test

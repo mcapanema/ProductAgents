@@ -1,6 +1,8 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
+import asyncio
 import pathlib
+import sys
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -581,8 +583,24 @@ def _build_app() -> ProductAgentsApp:
     )
 
 
+def sync_command(*, syncer=run_connector_sync) -> int:
+    """Run one connector sync headlessly, print the report, return an exit code.
+
+    For cron/launchd: ``productagents sync``. Reuses the same composition root the
+    TUI button uses. Returns 1 if any connector failed or the config had problems
+    so the scheduler/CI surfaces it; 0 otherwise. ponytail: print (not the file
+    logger) because no TUI owns the terminal in this path.
+    """
+    report = asyncio.run(syncer())
+    print(describe_report(report))
+    failed = any(not r.ok for r in report.results) or bool(report.problems)
+    return 1 if failed else 0
+
+
 def main() -> None:
     load_env()
     configure_logging()
+    if sys.argv[1:2] == ["sync"]:  # ponytail: one subcommand, argparse is overkill
+        raise SystemExit(sync_command())
     app = _build_app()
     app.run()
