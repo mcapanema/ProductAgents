@@ -47,3 +47,11 @@ def test_discover_finds_real_github_connector():
     found = registry.discover()
 
     assert found.get("github") is GitHubConnector
+
+
+def test_discover_finds_real_jira_connector():
+    from productagents.connectors.jira.connector import JiraConnector
+
+    found = registry.discover()
+
+    assert found.get("jira") is JiraConnector

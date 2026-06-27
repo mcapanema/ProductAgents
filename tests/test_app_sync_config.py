@@ -132,3 +132,47 @@ def test_plan_connectors_non_mapping_block_degrades():
     plan = plan_connectors(raw, _REGISTRY, {})
     assert any("github" in p for p in plan.problems)
     assert "github" not in plan.configs
+
+
+def test_plan_validates_jira_block_with_no_app_change():
+    from productagents.app.sync import plan_connectors
+    from productagents.connectors.jira.connector import JiraConfig, JiraConnector
+
+    raw = {
+        "jira": {
+            "enabled": True,
+            "base_url": "https://acme.atlassian.net",
+            "email": "me@acme.com",
+            "token_env": "JIRA_API_TOKEN",
+            "project": "PROJ",
+        }
+    }
+    registry = {"jira": JiraConnector}
+    env = {"JIRA_API_TOKEN": "secret-token"}
+
+    plan = plan_connectors(raw, registry, env)
+
+    assert plan.problems == []
+    config = plan.configs["jira"]
+    assert isinstance(config, JiraConfig)
+    assert config.base_url == "https://acme.atlassian.net"
+    assert config.token == "secret-token"  # resolved from token_env
+    assert config.project == "PROJ"
+
+
+def test_plan_reports_jira_missing_secret_env():
+    from productagents.app.sync import plan_connectors
+    from productagents.connectors.jira.connector import JiraConnector
+
+    raw = {
+        "jira": {
+            "enabled": True,
+            "base_url": "https://acme.atlassian.net",
+            "email": "me@acme.com",
+            "token_env": "JIRA_API_TOKEN",
+        }
+    }
+    plan = plan_connectors(raw, {"jira": JiraConnector}, env={})
+
+    assert plan.configs == {}
+    assert any("JIRA_API_TOKEN" in p for p in plan.problems)

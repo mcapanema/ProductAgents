@@ -176,6 +176,12 @@ connectors:
     owner: your-org
     repo: your-repo
     token_env: GITHUB_TOKEN   # token read from $GITHUB_TOKEN, never inlined
+  jira:
+    enabled: true
+    base_url: https://your-site.atlassian.net
+    email: you@your-org.com
+    token_env: JIRA_API_TOKEN  # Jira API token read from $JIRA_API_TOKEN
+    project: PROJ              # optional: limit to one project key
 ```
 
 Each connector block is validated against that connector's typed schema at

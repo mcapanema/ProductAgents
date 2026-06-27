@@ -7,3 +7,9 @@ connectors:
     owner: your-org
     repo: your-repo
     token_env: GITHUB_TOKEN   # reads $GITHUB_TOKEN at sync time
+  jira:
+    enabled: true
+    base_url: https://your-site.atlassian.net
+    email: you@your-org.com
+    token_env: JIRA_API_TOKEN  # reads $JIRA_API_TOKEN at sync time
+    project: PROJ              # optional: limit to one project key
