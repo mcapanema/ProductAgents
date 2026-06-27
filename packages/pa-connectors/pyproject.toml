@@ -7,6 +7,7 @@ dependencies = ["productagents-core", "httpx>=0.27"]
 
 [project.entry-points."productagents.connectors"]
 github = "productagents.connectors.github.connector:GitHubConnector"
+jira = "productagents.connectors.jira.connector:JiraConnector"
 
 [build-system]
 requires = ["hatchling"]

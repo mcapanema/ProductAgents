@@ -22,6 +22,10 @@ the only place that knows a vendor exists.
 - `github/` — the first connector: `connector.py` (`GitHubConfig` +
   `GitHubConnector`), `client.py` (paginated issue fetch, `since` cursor),
   `mappers.py` (`issue_to_feedback`).
+- `jira/` — the second connector: `connector.py` (`JiraConfig` + `JiraConnector`,
+  Basic auth via the `make_client(headers=...)` seam), `client.py` (`/rest/api/3/search`
+  enhanced search, `nextPageToken` pagination, JQL `updated` cursor), `mappers.py`
+  (`issue_to_feedback`, ADF-description flattening).
 
 ## Rules that matter
 
