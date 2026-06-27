@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ProductAgents is a multi-agent framework for product decision-making under uncertainty. The README describes a target seven-stage / six-layer architecture, but the repository currently implements a **thin end-to-end slice** of it. Keep that distinction in mind: the README is the vision; the code is the slice. The implemented slice is:
+ProductAgents is a multi-agent framework for product decision-making under uncertainty. The README describes a target seven-stage / six-layer architecture. The code now implements the **full advisory pipeline** on a real **V2 platform substrate** — canonical models, a durable canonical store, knowledge services, live connectors (GitHub, Jira), a DB-backed organizational memory, and connector observability. What remains on the road to the README's full vision is breadth (more evidence connectors and the planned layers), not the core loop. The pipeline is:
 
 ```
 evidence → [customer_research ∥ product_analytics ∥ market ∥ business ∥ technical] → debate (advocate vs skeptic) ┐
