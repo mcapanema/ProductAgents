@@ -8,7 +8,6 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
-from textual.theme import Theme
 from textual.widgets import Footer, Header, Input, Label, Static
 
 from productagents.agents.evidence import EvidenceError, collect_evidence, load_scenario
@@ -43,8 +42,31 @@ from productagents.app.sync import (
     run_connector_sync,
     static_connector_plan,
 )
+from productagents.app.tui._constants import (
+    ANALYST_IDS as _ANALYST_IDS,
+)
+from productagents.app.tui._constants import (
+    PANELS as _PANELS,
+)
+from productagents.app.tui._constants import (
+    SPINNER_FRAMES as _SPINNER_FRAMES,
+)
+from productagents.app.tui._constants import (
+    STATE_ICON as _STATE_ICON,
+)
+from productagents.app.tui._constants import (
+    THEME as _THEME,
+)
+from productagents.app.tui._constants import (
+    TITLES as _TITLES,
+)
+from productagents.app.tui._constants import (
+    WAITING_AT_START as _WAITING_AT_START,
+)
+from productagents.app.tui._constants import (
+    WIDGET_FOR_NODE as _WIDGET_FOR_NODE,
+)
 from productagents.app.tui._format import (
-    confidence_meter,  # noqa: F401
     format_debate_turn,
     format_governance,
     format_judgment,
@@ -61,100 +83,6 @@ from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
-
-_TITLES = {
-    "customer_research": "Customer Research Analyst",
-    "product_analytics": "Product Analytics Analyst",
-    "market": "Market Analyst",
-    "business": "Business Analyst",
-    "technical": "Technical Analyst",
-    "recall": "Lessons from Past Decisions",
-    "strategist": "Product Strategist",
-    "judgment": "Quality Judge",
-    "evidence-provenance": "Evidence Sources",
-    "debate-scroll": "Advocate vs Skeptic Debate",
-    "risk-scroll": "Risk Team",
-    "governance": "Portfolio Manager (Governance)",
-    "status-log": "Status / Errors",
-}
-
-# Runner node names whose live widget differs from the node id.
-_WIDGET_FOR_NODE = {
-    "debate": "debate-scroll",
-    "risk": "risk-scroll",
-}
-
-# Analyst node ids that have a dedicated panel widget (used to gate updates).
-_PANELS = {
-    "customer_research",
-    "product_analytics",
-    "market",
-    "business",
-    "technical",
-    "recall",
-    "strategist",
-}
-
-_THEME = Theme(
-    name="productagents",
-    primary="#38bdf8",
-    secondary="#a78bfa",
-    accent="#fbbf24",
-    success="#34d399",
-    warning="#fb923c",
-    error="#f43f5e",
-    surface="#13212e",
-    panel="#0c1722",
-    background="#08111a",
-    dark=True,
-    variables={
-        "background": "#08111a",
-        "ink": "#e6f0f2",
-        "muted": "#9fb4c0",
-        "idle-border": "#2a3a47",
-        # Readable placeholders/labels (overrides Textual's dim default).
-        "text-muted": "#9fb4c0",
-        # Stage spectrum — each maps to one pipeline stage.
-        "stage-evidence": "#5eead4",
-        "stage-analysis": "#38bdf8",
-        "stage-recall": "#818cf8",
-        "stage-debate": "#fbbf24",
-        "stage-strategy": "#34d399",
-        "stage-judge": "#a78bfa",
-        "stage-risk": "#fb7185",
-        "stage-governance": "#c084fc",
-    },
-)
-
-_STATE_ICON = {
-    "idle": "·",
-    "waiting": "◌",
-    "running": "●",
-    "done": "✓",
-    "failed": "✗",
-    "warning": "⚠",
-}
-
-# Spinner frames for the "running" state (a rotating filled circle).
-_SPINNER_FRAMES = "◐◓◑◒"
-
-# Downstream panels that depend on upstream output; they show "waiting" at the
-# start of a run until their first event flips them to running.
-_WAITING_AT_START = {
-    "debate-scroll",
-    "strategist",
-    "judgment",
-    "risk-scroll",
-    "governance",
-}
-
-_ANALYST_IDS = {
-    "customer_research",
-    "product_analytics",
-    "market",
-    "business",
-    "technical",
-}
 
 
 class ProductAgentsApp(App):
