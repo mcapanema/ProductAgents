@@ -8,6 +8,7 @@ store read is local — it honors "no external fetch during agent execution".
 from productagents.agents._analyst import run_analyst
 from productagents.agents._format import format_initiative
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import emit_status
 from productagents.core.models import Evidence, Initiative
 from productagents.knowledge.services.feedback_service import FeedbackQuery
 
@@ -41,13 +42,13 @@ async def _resolve_evidence(state: dict, ctx) -> dict:
         page = await ctx.feedback.search(FeedbackQuery())
     except Exception as exc:  # noqa: BLE001 - store unavailable → scenario fallback
         get_writer()(
-            {"node": ANALYST_ID, "status": f"store unavailable ({exc}); using scenario"}
+            emit_status(ANALYST_ID, f"store unavailable ({exc}); using scenario")
         )
         return state
     if not page.items:
         return state
     get_writer()(
-        {"node": ANALYST_ID, "status": f"{len(page.items)} feedback items from store"}
+        emit_status(ANALYST_ID, f"{len(page.items)} feedback items from store")
     )
     enriched = evidence.model_copy(
         update={"customer_feedback": _render_feedback(page.items)}
