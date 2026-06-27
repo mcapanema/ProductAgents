@@ -14,6 +14,7 @@ from productagents.connectors.base import (
     SyncCursor,
     SyncResult,
 )
+from productagents.connectors.observability import span
 from productagents.connectors.registry import discover
 from productagents.connectors.runtime import run_sync
 
@@ -26,4 +27,5 @@ __all__ = [
     "SyncResult",
     "discover",
     "run_sync",
+    "span",
 ]

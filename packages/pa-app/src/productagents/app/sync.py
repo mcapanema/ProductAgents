@@ -7,6 +7,7 @@ config is read from a YAML file whose secrets are *referenced* (a ``*_env`` key
 names an env var), never inlined.
 """
 
+import asyncio
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -18,10 +19,12 @@ from productagents.connectors import (
     CanonicalSink,
     Connector,
     ConnectorConfig,
+    HealthStatus,
     SyncCursor,
     SyncResult,
     discover,
     run_sync,
+    span,
 )
 from productagents.knowledge import DbCanonicalSink, SyncStateStore
 from productagents.knowledge.repositories.sqlmodel.engine import (
@@ -219,6 +222,68 @@ def describe_report(report: SyncReport) -> str:
             parts.append(f"{result.connector}: ✓ {result.written} written")
         else:
             parts.append(f"{result.connector}: ✗ {result.error}")
+    if report.problems:
+        parts.append("⚠ " + "; ".join(report.problems))
+    return " · ".join(parts) if parts else "No connectors configured"
+
+
+class _NullSink:
+    """A no-op ``CanonicalSink`` for health probes — nothing is written."""
+
+    async def write(self, model) -> None:
+        return None
+
+    async def write_many(self, models) -> None:
+        return None
+
+
+@dataclass(frozen=True)
+class HealthReport:
+    """Per-connector readiness, plus any static config problems."""
+
+    statuses: dict[str, HealthStatus] = field(default_factory=dict)
+    problems: list[str] = field(default_factory=list)
+
+
+async def check_connector_health(
+    *,
+    config_path: str | None = None,
+    registry: dict[str, type[Connector]] | None = None,
+    env: dict | None = None,
+) -> HealthReport:
+    """Probe every enabled connector's readiness (auth + reachability).
+
+    No database or engine — health is config + a no-op sink + each connector's
+    own ``health_check`` (which never raises). Each probe runs in a
+    ``connector.health`` span and concurrently with its siblings.
+    """
+    env = env if env is not None else dict(os.environ)
+    registry = registry if registry is not None else discover()
+    raw = load_raw_config(config_path or connectors_file())
+    plan = plan_connectors(raw, registry, env)
+    if not plan.configs:
+        return HealthReport(problems=plan.problems)
+
+    connectors = build_connectors(plan.configs, registry, _NullSink())
+
+    async def _probe(connector: Connector) -> tuple[str, HealthStatus]:
+        with span("connector.health", connector=connector.key) as attrs:
+            status = await connector.health_check()
+            attrs["status"] = "ok" if status.ok else "error"
+        return connector.key, status
+
+    pairs = await asyncio.gather(*(_probe(c) for c in connectors))
+    return HealthReport(statuses=dict(pairs), problems=plan.problems)
+
+
+def describe_health(report: HealthReport) -> str:
+    """A one-line connector-health summary for the home screen."""
+    parts: list[str] = []
+    for key, status in report.statuses.items():
+        if status.ok:
+            parts.append(f"{key}: ✓ healthy")
+        else:
+            parts.append(f"{key}: ✗ {status.detail}")
     if report.problems:
         parts.append("⚠ " + "; ".join(report.problems))
     return " · ".join(parts) if parts else "No connectors configured"
