@@ -36,6 +36,8 @@ from productagents.app.decision_context import (
 )
 from productagents.app.setup import check_config, write_env
 from productagents.app.sync import (
+    check_connector_health,
+    describe_health,
     describe_plan,
     describe_report,
     run_connector_sync,
@@ -179,6 +181,7 @@ class ProductAgentsApp(App):
         config_checker=check_config,
         env_writer=write_env,
         connector_syncer=run_connector_sync,
+        connector_health_checker=check_connector_health,
         connector_planner=static_connector_plan,
         rebuild=None,
         show_home=True,
@@ -199,6 +202,7 @@ class ProductAgentsApp(App):
         self._config_checker = config_checker
         self._env_writer = env_writer
         self._connector_syncer = connector_syncer
+        self._connector_health_checker = connector_health_checker
         self._connector_planner = connector_planner
         self._rebuild = rebuild
         self._show_home = show_home
@@ -383,6 +387,20 @@ class ProductAgentsApp(App):
             return
         line = describe_report(report)
         self._log_status(f"sync: {line}")
+        screen = self.screen
+        if isinstance(screen, HomeScreen):
+            screen.refresh_connectors(line)
+
+    @work(exclusive=True)
+    async def check_health(self) -> None:
+        """Probe connector health, then show the outcome on the home menu."""
+        try:
+            report = await self._connector_health_checker()
+        except Exception as exc:  # noqa: BLE001 - degrade visibly, never crash
+            self._log_status(f"health check failed: {exc}", level="error")
+            return
+        line = describe_health(report)
+        self._log_status(f"health: {line}")
         screen = self.screen
         if isinstance(screen, HomeScreen):
             screen.refresh_connectors(line)

@@ -97,3 +97,19 @@ async def test_sync_degrades_on_transport_failure():
     assert result.ok is False
     assert result.error
     assert result.connector == "jira"
+
+
+async def test_health_check_returns_friendly_message_on_auth_failure():
+    config = JiraConfig(
+        base_url="https://acme.atlassian.net",
+        email="a@b.com",
+        token="bad",
+    )
+    connector = JiraConnector(config, sink=FakeSink())
+    with respx.mock:
+        respx.get("https://acme.atlassian.net/rest/api/3/myself").mock(
+            return_value=httpx.Response(401)
+        )
+        status = await connector.health_check()
+    assert status.ok is False
+    assert "Authentication failed" in status.detail

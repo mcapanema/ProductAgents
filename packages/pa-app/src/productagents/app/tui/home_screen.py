@@ -23,6 +23,7 @@ class HomeScreen(Screen):
         yield Static("", id="home-connectors", classes="panel")
         yield Button("Set up provider & API key", id="home-setup")
         yield Button("Sync data sources", id="home-sync")
+        yield Button("Check connector health", id="home-health")
         yield Button("Run a decision", id="home-run", variant="primary")
         yield Button("Quit", id="home-quit", variant="error")
         yield Footer()
@@ -51,6 +52,8 @@ class HomeScreen(Screen):
             app.open_setup()
         elif event.button.id == "home-sync":
             app.sync_sources()
+        elif event.button.id == "home-health":
+            app.check_health()
         elif event.button.id == "home-run":
             app.start_decision()
         elif event.button.id == "home-quit":

@@ -11,7 +11,7 @@ dataclasses and knows nothing about LangGraph. `main()` (in `app.py`) is the
 | `app.py` | `ProductAgentsApp` + `main()`. Builds the model/graph once (`_build_app`), runs a decision in a `@work(exclusive=True)` worker, and updates one panel per event. `app.tcss` is the stylesheet. |
 | `approval.py` | `ApprovalScreen` (`ModalScreen[HumanDecision]`). Shows the advisory verdict; the button id (`approve`/`reject`/`request_analysis`) becomes the `HumanDecision.verdict`. |
 | `reflection.py` | `ReflectionScreen`. Pick a past decision, describe what happened, and record an `OutcomeRecord` via the injected reflector — drives the out-of-graph reflection loop (bound to `ctrl+r`). |
-| `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. Now also shows a connector-config line and a "Sync data sources" button that calls `app.sync_sources()`. |
+| `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. Now also shows a connector-config line, a "Sync data sources" button (`app.sync_sources()`), and a **"Check connector health"** button (`#home-health` → `app.check_health()`) that calls `sync.check_connector_health()` and renders the per-connector health result on the connectors line. |
 | `setup_screen.py` | `SetupScreen` (`ModalScreen[bool]`). Collects model/provider/key, validates, and writes them via the injected `writer` (`setup.write_env`). Dismisses `True` on save, `False` on cancel. |
 | `rail.py` | `PipelineRail` (`#pipeline-rail`) — the one-line spine tracing the run through the 7 pipeline stages. `render_rail()` is pure; the app advances it from the same handlers that update the panels. |
 | `_format.py` | Pure Rich-markup render helpers (recommendation, judgment, debate turn, risk line, governance, recall body, `confidence_meter`). The only `.py` place markup colors live. Unit-tested in `tests/test_tui_format.py`. |
@@ -43,6 +43,9 @@ the app is testable headless (see `tests/test_tui.py`):
 - `connector_syncer` — async `run_connector_sync` (loads YAML config, syncs
   enabled connectors into the canonical store, persists cursors). Injectable for
   headless tests.
+- `connector_health_checker` — async `check_connector_health` (DB-free probe of
+  each enabled connector's `health_check()` in a `connector.health` span; returns
+  a `HealthReport`). Injectable for headless tests; the home-menu button binds to it.
 - `connector_planner` — `static_connector_plan` (fail-fast config preflight, no
   I/O); the home screen renders `describe_plan(...)` of its result.
 

@@ -87,3 +87,15 @@ async def test_sync_degrades_on_transport_failure():
     assert result.ok is False
     assert result.error
     assert result.connector == "github"
+
+
+async def test_health_check_returns_friendly_auth_message():
+    config = GitHubConfig(owner="o", repo="r", token="bad")
+    connector = GitHubConnector(config, sink=FakeSink())  # sink unused by health
+    with respx.mock:
+        respx.get("https://api.github.com/repos/o/r").mock(
+            return_value=httpx.Response(401)
+        )
+        status = await connector.health_check()
+    assert status.ok is False
+    assert "Authentication failed" in status.detail

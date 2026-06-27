@@ -17,6 +17,7 @@ from productagents.connectors.base import (
     SyncCursor,
     SyncResult,
 )
+from productagents.connectors.connector_errors import classify_connector_error
 from productagents.connectors.github.client import (
     GITHUB_API,
     GITHUB_HEADERS,
@@ -73,7 +74,7 @@ class GitHubConnector(Connector):
                 )
             response.raise_for_status()
         except Exception as exc:  # noqa: BLE001 — probe never raises
-            return HealthStatus(ok=False, detail=str(exc))
+            return HealthStatus(ok=False, detail=str(classify_connector_error(exc)))
         return HealthStatus(ok=True)
 
     async def sync(self, cursor: SyncCursor | None) -> SyncResult:
@@ -91,7 +92,10 @@ class GitHubConnector(Connector):
                         latest = updated
         except Exception as exc:  # noqa: BLE001 — degrade-don't-crash
             return SyncResult(
-                connector=self.key, written=written, ok=False, error=str(exc)
+                connector=self.key,
+                written=written,
+                ok=False,
+                error=str(classify_connector_error(exc)),
             )
         return SyncResult(
             connector=self.key, written=written, cursor=SyncCursor(value=latest)

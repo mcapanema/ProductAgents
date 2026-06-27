@@ -21,6 +21,7 @@ from productagents.connectors.base import (
     SyncCursor,
     SyncResult,
 )
+from productagents.connectors.connector_errors import classify_connector_error
 from productagents.connectors.http import make_client
 from productagents.connectors.jira.client import JIRA_HEADERS, JiraClient
 from productagents.connectors.jira.mappers import issue_to_feedback
@@ -59,7 +60,7 @@ class JiraConnector(Connector):
                 response = await http.get("/rest/api/3/myself")
             response.raise_for_status()
         except Exception as exc:  # noqa: BLE001 — probe never raises
-            return HealthStatus(ok=False, detail=str(exc))
+            return HealthStatus(ok=False, detail=str(classify_connector_error(exc)))
         return HealthStatus(ok=True)
 
     async def sync(self, cursor: SyncCursor | None) -> SyncResult:
@@ -79,7 +80,10 @@ class JiraConnector(Connector):
                         latest = updated
         except Exception as exc:  # noqa: BLE001 — degrade-don't-crash
             return SyncResult(
-                connector=self.key, written=written, ok=False, error=str(exc)
+                connector=self.key,
+                written=written,
+                ok=False,
+                error=str(classify_connector_error(exc)),
             )
         return SyncResult(
             connector=self.key, written=written, cursor=SyncCursor(value=latest)

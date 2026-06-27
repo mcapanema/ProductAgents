@@ -1,19 +1,20 @@
 """The shared, provider-agnostic async HTTP layer for connectors.
 
 One place owns timeouts, bearer auth, and transient-error retry so every
-connector inherits the same resilience. ponytail: transient detection is a small
-status set, not a full category classifier — a ``connector_errors.py`` mirroring
-``llm_errors.py`` is deferred until observability (Phase 7) needs categories.
+connector inherits the same resilience. Transient detection delegates to
+``connector_errors`` (the single source of truth for which statuses are worth
+retrying).
 """
 
 import asyncio
+import logging
 from typing import Any
 
 import httpx
 
-# Statuses worth retrying: rate-limit + upstream 5xx. A 4xx other than 429 is a
-# hard client error (bad request, missing repo, bad token) — retrying is futile.
-_TRANSIENT_STATUS = frozenset({429, 500, 502, 503, 504})
+from productagents.connectors.connector_errors import is_transient_status
+
+logger = logging.getLogger("productagents.connectors")
 
 
 def make_client(
@@ -53,7 +54,14 @@ async def request_with_retry(
             if last:
                 raise
         else:
-            if response.status_code in _TRANSIENT_STATUS and not last:
+            if is_transient_status(response.status_code) and not last:
+                logger.warning(
+                    "http retry method=%s url=%s status=%d attempt=%d",
+                    method,
+                    url,
+                    response.status_code,
+                    attempt,
+                )
                 await asyncio.sleep(base_delay * (2**attempt))
                 continue
             response.raise_for_status()

@@ -57,3 +57,25 @@ async def test_cursor_is_threaded_per_connector():
     assert seen["a"] is not None
     assert seen["a"].value == "since-a"
     assert seen["b"] is None
+
+
+async def test_run_sync_logs_a_span_per_connector(caplog):
+    import logging
+
+    sink = FakeSink()
+    with caplog.at_level(logging.INFO, logger="productagents.connectors"):
+        await run_sync(cast(list[Connector], [WritingConnector("a", 2, sink)]))
+    messages = [r.getMessage() for r in caplog.records]
+    assert any(
+        m.startswith("connector.sync ") and "connector=a" in m and "written=2" in m
+        for m in messages
+    )
+
+
+async def test_raised_failure_gets_classified_friendly_message():
+    sink = FakeSink()
+    results = await run_sync(cast(list[Connector], [FailingConnector("b", sink)]))
+    # FailingConnector raises RuntimeError("boom") → UNKNOWN category friendly text.
+    assert results[0].ok is False
+    assert results[0].error is not None
+    assert "The connector call failed" in results[0].error
