@@ -67,3 +67,19 @@ async def test_retry_exhausts_budget_on_transport_error():
     async with make_client(base_url="https://api.example.com") as client:
         with pytest.raises(httpx.ConnectError):
             await request_with_retry(client, "GET", "/x", max_retries=2, base_delay=0)
+
+
+@respx.mock
+async def test_retry_logs_a_warning_per_transient_attempt(caplog):
+    import logging
+
+    with respx.mock:
+        respx.get("https://api.example.com/x").mock(
+            side_effect=[httpx.Response(503), httpx.Response(200, json={})]
+        )
+        with caplog.at_level(logging.WARNING, logger="productagents.connectors"):
+            async with make_client(base_url="https://api.example.com") as client:
+                await request_with_retry(
+                    client, "GET", "/x", max_retries=3, base_delay=0
+                )
+    assert any("retry" in r.getMessage() for r in caplog.records)
