@@ -19,13 +19,13 @@ def test_build_jql_adds_project_filter():
 
 def test_build_jql_adds_since_in_minute_format():
     jql = build_jql(project=None, since="2026-01-16T10:30:45.000+0000")
-    assert jql == 'updated >= "2026-01-16 10:30" ORDER BY updated ASC'
+    assert jql == 'updated >= "2026-01-15 10:30" ORDER BY updated ASC'
 
 
 def test_build_jql_combines_project_and_since():
     jql = build_jql(project="PROJ", since="2026-01-16T10:30:45.000+0000")
     assert jql == (
-        'project = "PROJ" AND updated >= "2026-01-16 10:30" ORDER BY updated ASC'
+        'project = "PROJ" AND updated >= "2026-01-15 10:30" ORDER BY updated ASC'
     )
 
 
@@ -64,6 +64,17 @@ async def test_sends_jql_with_since_param():
 
     params = route.calls.last.request.url.params
     assert params["jql"] == (
-        'project = "PROJ" AND updated >= "2026-01-01 00:00" ORDER BY updated ASC'
+        'project = "PROJ" AND updated >= "2025-12-31 00:00" ORDER BY updated ASC'
     )
     assert params["maxResults"] == "100"
+
+
+@respx.mock
+async def test_requests_enhanced_search_jql_endpoint():
+    route = respx.get(url__startswith=f"{_BASE}/rest/api/3/search").mock(
+        return_value=httpx.Response(200, json={"issues": []})
+    )
+
+    await _collect(since=None)
+
+    assert route.calls.last.request.url.path == "/rest/api/3/search/jql"

@@ -7,20 +7,28 @@ next run dedupe on ``(connector, vendor_type, vendor_id)`` in the sink.
 """
 
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
 from productagents.connectors.http import request_with_retry
 
 JIRA_HEADERS = {"Accept": "application/json"}
-_SEARCH_PATH = "/rest/api/3/search"
+# Jira Cloud's enhanced search: nextPageToken scrolling pagination. The legacy
+# offset-based /rest/api/3/search is being removed — do not revert to it.
+_SEARCH_PATH = "/rest/api/3/search/jql"
 _FIELDS = "summary,description,reporter,created,updated,labels"
 
 
 def _jql_since(since: str) -> str:
-    """Format an ISO8601 cursor as JQL's ``yyyy-MM-dd HH:mm`` minute precision."""
-    return datetime.fromisoformat(since).strftime("%Y-%m-%d %H:%M")
+    """Format an ISO8601 cursor as JQL's ``yyyy-MM-dd HH:mm`` minute precision.
+
+    JQL interprets a bare literal in the Jira account's timezone, not UTC; the
+    cursor is UTC. Subtract a 1-day buffer so a non-UTC account can never skip
+    issues in the offset gap — re-fetched issues dedupe in the sink.
+    """
+    anchor = datetime.fromisoformat(since) - timedelta(days=1)
+    return anchor.strftime("%Y-%m-%d %H:%M")
 
 
 def build_jql(*, project: str | None, since: str | None) -> str:
