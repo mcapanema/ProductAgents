@@ -219,13 +219,6 @@ class ProductAgentsApp(App):
             if str(self.query_one(f"#{node_id}").border_title).startswith("✓")
         )
 
-    @property
-    def _spinning(self) -> set[str]:  # ponytail: test-compat shim
-        return self._indicator._spinning
-
-    def _advance_spinner(self) -> None:  # ponytail: test-compat shim
-        self._indicator._advance()
-
     def _set_state(self, widget_id: str, state: str) -> None:
         self._indicator.set_state(widget_id, state)
 
