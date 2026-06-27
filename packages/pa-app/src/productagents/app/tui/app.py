@@ -1,5 +1,6 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
+import pathlib
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -80,9 +81,6 @@ from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiat
 
 
 class ProductAgentsApp(App):
-    # Don't auto-load CSS during init; load it after theme is set.
-    # DEFAULT_CSS must be empty to prevent Textual from loading default styles
-    # that would interfere with our custom stylesheet.
     DEFAULT_CSS = ""
     TITLE = "ProductAgents"
     BINDINGS: ClassVar[list] = [
@@ -178,27 +176,18 @@ class ProductAgentsApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        # Register and set theme before loading stylesheet so CSS variables
-        # are available when parsing app.tcss.
+        # Register and activate the theme before loading stylesheet so its custom
+        # variables ($stage-evidence, etc.) are defined when app.tcss is parsed.
         self.register_theme(_THEME)
         self.theme = "productagents"
-        # Merge custom theme variables with existing stylesheet variables so
-        # Textual's built-in CSS (which references $foreground, $background,
-        # etc.) still works.
-        theme = self.get_theme("productagents")
-        if theme and theme.variables:
-            merged_vars = dict(self.stylesheet._variables or {})
-            merged_vars.update(theme.variables)
-            self.stylesheet.set_variables(merged_vars)
-        # Load stylesheet after setting theme so custom theme variables are
-        # available during CSS parsing.
-        import pathlib
-
+        # Publish the active theme's variables via the public API
+        # (replaces the old poke into stylesheet._variables).
+        self.stylesheet.set_variables(self.get_css_variables())
+        # Load stylesheet after the theme is active so $stage-* variables resolve.
+        # ponytail: explicit load kept because Textual resolves CSS_PATH variables
+        # before on_mount fires; upgrade to CSS_PATH if Textual adds a post-mount hook.
         css_file = pathlib.Path(__file__).parent / "app.tcss"
-        with open(css_file) as f:
-            # read_from expects CSSLocation = tuple[str, str]
-            # (path, widget_variable)
-            self.stylesheet.add_source(f.read(), read_from=(str(css_file), ""))
+        self.stylesheet.add_source(css_file.read_text(), read_from=(str(css_file), ""))
         for widget_id in _TITLES:
             if widget_id == "status-log":
                 self.query_one("#status-log").border_title = _TITLES["status-log"]
