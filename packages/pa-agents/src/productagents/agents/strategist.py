@@ -3,6 +3,7 @@
 from productagents.agents._format import format_initiative, format_transcript
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import emit_error, emit_status
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
@@ -68,7 +69,7 @@ def _prompt(
 
 async def strategist_node(state: dict, model) -> dict:
     writer = get_writer()
-    writer({"node": NODE_ID, "status": "synthesizing recommendation…"})
+    writer(emit_status(NODE_ID, "synthesizing recommendation…"))
     try:
         recommendation = await invoke_structured(
             model,
@@ -82,9 +83,9 @@ async def strategist_node(state: dict, model) -> dict:
             ),
             node=NODE_ID,
         )
-        writer({"node": NODE_ID, "status": "done"})
+        writer(emit_status(NODE_ID, "done"))
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph
-        writer({"node": NODE_ID, "error": str(exc)})
+        writer(emit_error(NODE_ID, str(exc)))
         recommendation = Recommendation(
             recommendation="Unable to produce a recommendation due to an error.",
             confidence=0.0,

@@ -24,6 +24,7 @@ from productagents.agents.llm_errors import (
     StructuredOutputError,
     classify_provider_error,
 )
+from productagents.agents.stream_events import emit_fatal
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +35,7 @@ __all__ = ["ProviderError", "StructuredOutputError", "invoke_structured"]
 
 def _emit_fatal(node: str, error: ProviderError) -> None:
     """Tell the runner this failure is systemic so it can stop the run early."""
-    get_writer()(
-        {
-            "node": node,
-            "error": str(error),
-            "fatal": True,
-            "category": error.category,
-        }
-    )
+    get_writer()(emit_fatal(node, str(error), error.category))
 
 
 async def invoke_structured(model, schema, prompt, *, node):

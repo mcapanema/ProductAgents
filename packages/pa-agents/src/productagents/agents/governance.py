@@ -14,6 +14,12 @@ node never touches the filesystem.
 from productagents.agents._format import format_initiative, format_recommendation
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.stream_events import (
+    VERDICT,
+    emit_error,
+    emit_payload,
+    emit_status,
+)
 from productagents.core.models import (
     DecisionRecord,
     GovernanceFinding,
@@ -73,7 +79,7 @@ def _prompt(
 
 async def governance_node(state: dict, model, ctx) -> dict:
     writer = get_writer()
-    writer({"node": NODE_ID, "status": f"{ROLE} reviewing…"})
+    writer(emit_status(NODE_ID, f"{ROLE} reviewing…"))
     try:
         portfolio = await ctx.learning.decisions()
     except Exception:  # noqa: BLE001 - degrade, never crash
@@ -94,13 +100,13 @@ async def governance_node(state: dict, model, ctx) -> dict:
             verdict=finding.verdict,
             rationale=finding.rationale,
         )
-        writer({"node": NODE_ID, "status": "done"})
+        writer(emit_status(NODE_ID, "done"))
     except Exception as exc:  # noqa: BLE001 - degrade gracefully, never crash the graph
-        writer({"node": NODE_ID, "error": str(exc)})
+        writer(emit_error(NODE_ID, str(exc)))
         verdict = GovernanceVerdict(
             verdict="error",
             rationale=f"({ROLE} unavailable: {exc})",
             failed=True,
         )
-    writer({"node": NODE_ID, "verdict": verdict.model_dump()})
+    writer(emit_payload(NODE_ID, VERDICT, verdict))
     return {"governance": verdict}
