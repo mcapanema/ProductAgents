@@ -31,7 +31,7 @@ imports only `productagents.platform.*` and `productagents.core.*`.
   relocated to `pa-platform.context` (composition root).
 - **Connector composition root relocated** — YAML loading, sync runtime, and
   health-check logic moved from `pa-app.sync` into `pa-platform.connectors`;
-  `ConnectorService` exposes `sync()` and `check_health()`.
+  `ConnectorService` exposes `sync()` and `health()`.
 - **Presentation→platform boundary contract** — an import-linter forbidden
   contract enforces that `productagents.app` never directly imports agents,
   memory, connectors, langgraph, langchain, or sqlalchemy (7 total contracts now

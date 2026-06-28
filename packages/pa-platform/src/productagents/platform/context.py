@@ -10,8 +10,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from productagents.agents.context import AgentContext
-from productagents.agents.graph import build_graph
-from productagents.agents.runner import run_decision
 from productagents.knowledge import build_services
 from productagents.knowledge.repositories.sqlmodel.engine import (
     make_engine,
@@ -48,32 +46,6 @@ async def open_agent_context(
         services = build_services(session)
         learning = LearningService(DecisionStore(session), _EMBEDDER)
         yield AgentContext(model=model, feedback=services.feedback, learning=learning)
-
-
-def make_decision_runner(
-    model, *, context_opener=open_agent_context, human_in_the_loop=True
-):
-    """Build a runner with `run_decision`'s call signature.
-
-    Each call opens a fresh AgentContext + graph inside one session scope, so the
-    `self._runner(...)` seam the TUI (and its tests) use is unchanged.
-    """
-
-    async def runner(initiative, evidence, *, approver=None):
-        # ponytail: session stays open across human_approval interrupt; fine for
-        # local SQLite, becomes a held connection under Postgres concurrency —
-        # upgrade path: open a fresh session after the interrupt resumes.
-        async with context_opener(model) as ctx:
-            graph = build_graph(ctx, human_in_the_loop=human_in_the_loop)
-            async for event in run_decision(
-                graph,
-                initiative,
-                evidence,
-                approver=approver,
-            ):
-                yield event
-
-    return runner
 
 
 def _sessionmaker(engine):
