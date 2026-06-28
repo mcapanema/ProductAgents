@@ -29,13 +29,14 @@ def _missing_status():
 
 
 class _Host(App):
-    def __init__(self, status):
+    def __init__(self, status, workspace_name="default"):
         super().__init__()
         self._status = status
+        self._workspace_name = workspace_name
         self.events = []
 
     def on_mount(self):
-        self.push_screen(HomeScreen(self._status))
+        self.push_screen(HomeScreen(self._status, workspace_name=self._workspace_name))
 
     def open_setup(self):
         self.events.append("setup")
@@ -82,3 +83,11 @@ async def test_home_refresh_status_enables_run():
         cast(HomeScreen, app.screen).refresh_status(_ok_status())
         await pilot.pause()
         assert app.screen.query_one("#home-run", Button).disabled is False
+
+
+async def test_home_shows_active_workspace_name():
+    app = _Host(_ok_status(), workspace_name="acme")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        text = str(app.screen.query_one("#home-workspace", Static).content)
+        assert "acme" in text

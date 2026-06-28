@@ -79,6 +79,7 @@ packages/
         ├── serialization.py     #   platform Event <-> Event-Store row bridge (pydantic TypeAdapter)
         ├── session_service.py   #   SessionService — list/get/replay persisted sessions
         ├── workflow.py          #   WorkflowService — registry over the decision pipeline (evaluate_initiative)
+        ├── workspace.py         #   WorkspaceService — a workspace is a directory of local state (DB/connectors/.env/logs)
         ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
         ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)
         ├── evidence.py     #   re-exports collect_evidence / load_scenario / EvidenceError
@@ -97,6 +98,7 @@ from productagents.agents.runner import run_decision
 from productagents.agents.evidence import collect_evidence
 from productagents.platform import DecisionService, ConnectorService, SessionService
 from productagents.platform import WorkflowService
+from productagents.platform import Workspace, WorkspaceService
 from productagents.platform.events import SessionFinished, SessionFailed
 from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.platform.serialization import serialize_event, deserialize_event
@@ -136,6 +138,8 @@ uv run ty check         # type check (pyright-based)
 - `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only**: the Textual TUI owns the terminal, so nothing is written to stdout/stderr.
 - `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback.
 - `PRODUCTAGENTS_SYNC_INTERVAL` — seconds between automatic in-process connector syncs while the TUI is running (default `0` = disabled; manual "Sync data sources" always works). For unattended hosts prefer cron/launchd calling `productagents sync` instead.
+- `PRODUCTAGENTS_HOME` — directory holding all workspaces (default `~/.productagents`; workspaces live under `<home>/workspaces/<name>/`).
+- `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). On launch the platform resolves this workspace, creates its directory if absent, and **activates** it: the workspace's `productagents.db`, `connectors.yaml`, `.env`, and `productagents.log` become the defaults by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the workspace `.env`.
 
 > **Structured output requires tool/function calling.** Every node calls
 > `model.with_structured_output(...)`. A model that does not support tool calling

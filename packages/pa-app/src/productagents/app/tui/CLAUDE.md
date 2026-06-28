@@ -86,6 +86,8 @@ decision UI; `ctrl+h` re-opens the menu. New DI seams on `ProductAgentsApp`:
 `setup.write_env`), `rebuild` (default `None`; `main` injects the real builder),
 and `show_home`.
 
+`main()` resolves and activates the active workspace (`WorkspaceService().resolve()` → `.activate(ws)`) before `load_env()`/`configure_logging()`, then passes `workspace_name=ws.name` to `_build_app`. `ProductAgentsApp` takes `workspace_name` (default `DEFAULT_WORKSPACE`) and `HomeScreen` renders it on a `#home-workspace` line.
+
 ## Testing
 
 Drive the app with Textual's `run_test()` pilot and fakes for every seam; assert

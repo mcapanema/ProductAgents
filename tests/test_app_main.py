@@ -34,8 +34,19 @@ def test_sync_command_returns_one_when_a_connector_fails(capsys):
     assert "github" in capsys.readouterr().out
 
 
-def test_main_loads_env_before_building_app(monkeypatch):
+def test_main_activates_workspace_then_loads_env_before_building_app(monkeypatch):
     calls = []
+
+    class _FakeWorkspace:
+        name = "default"
+
+    class _FakeWorkspaceService:
+        def resolve(self, name=None):
+            calls.append("workspace")
+            return _FakeWorkspace()
+
+        def activate(self, workspace):
+            calls.append("activate")
 
     def fake_load_env():
         calls.append("load_env")
@@ -49,17 +60,26 @@ def test_main_loads_env_before_building_app(monkeypatch):
         def run(self):
             calls.append("run")
 
-    def fake_build_app():
+    def fake_build_app(*, workspace_name="default"):
         calls.append("build_app")
+        assert workspace_name == "default"
         return _StubApp()
 
+    monkeypatch.setattr(app_module, "WorkspaceService", _FakeWorkspaceService)
     monkeypatch.setattr(app_module, "load_env", fake_load_env)
     monkeypatch.setattr(app_module, "configure_logging", fake_configure_logging)
     monkeypatch.setattr(app_module, "_build_app", fake_build_app)
 
     app_module.main()
 
-    assert calls == ["load_env", "configure_logging", "build_app", "run"]
+    assert calls == [
+        "workspace",
+        "activate",
+        "load_env",
+        "configure_logging",
+        "build_app",
+        "run",
+    ]
 
 
 def test_build_app_is_resilient_when_model_init_fails(monkeypatch):

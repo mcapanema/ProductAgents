@@ -76,6 +76,7 @@ from productagents.platform.evidence import (
 from productagents.platform.llm import get_model
 from productagents.platform.reflection import reflect
 from productagents.platform.workflow import WorkflowService
+from productagents.platform.workspace import DEFAULT_WORKSPACE, WorkspaceService
 
 
 class ProductAgentsApp(App):
@@ -103,6 +104,7 @@ class ProductAgentsApp(App):
         connector_planner=static_connector_plan,
         rebuild=None,
         show_home=True,
+        workspace_name=DEFAULT_WORKSPACE,
         runner_error=None,
     ):
         # Store custom theme as instance variable before calling super().__init__()
@@ -124,6 +126,7 @@ class ProductAgentsApp(App):
         self._connector_planner = connector_planner
         self._rebuild = rebuild
         self._show_home = show_home
+        self._workspace_name = workspace_name
         self._debate_lines: list[str] = []
         self._risk_lines: list[str] = []
         self._status_lines: list[str] = []
@@ -218,7 +221,7 @@ class ProductAgentsApp(App):
     def _open_home(self) -> None:
         status = self._config_checker()
         line = describe_plan(self._connector_planner())
-        self.push_screen(HomeScreen(status, line))
+        self.push_screen(HomeScreen(status, line, workspace_name=self._workspace_name))
         if not status.ok:
             self.open_setup()
 
@@ -601,7 +604,7 @@ class ProductAgentsApp(App):
         self._set_state(widget_id, "failed")
 
 
-def _build_app() -> ProductAgentsApp:
+def _build_app(*, workspace_name: str = DEFAULT_WORKSPACE) -> ProductAgentsApp:
     def rebuild():
         model = get_model()
         service = WorkflowService.for_model(
@@ -624,6 +627,7 @@ def _build_app() -> ProductAgentsApp:
         outcome_recorder=make_outcome_recorder(),
         reflector=reflector,
         rebuild=rebuild,
+        workspace_name=workspace_name,
         runner_error=build_error,
     )
 
@@ -643,9 +647,12 @@ def sync_command(*, syncer=run_connector_sync) -> int:
 
 
 def main() -> None:
+    workspaces = WorkspaceService()
+    workspace = workspaces.resolve()
+    workspaces.activate(workspace)
     load_env()
     configure_logging()
     if sys.argv[1:2] == ["sync"]:  # ponytail: one subcommand, argparse is overkill
         raise SystemExit(sync_command())
-    app = _build_app()
+    app = _build_app(workspace_name=workspace.name)
     app.run()
