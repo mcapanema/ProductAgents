@@ -92,17 +92,20 @@ class DecisionService:
         # subscribe() registers synchronously — no events lost before iteration.
         stream = bus.subscribe()  # the caller's (UI) stream
         if self._event_store_opener is not None:
-            # The Event Store is just another subscriber on the same bus.
-            self._spawn(self._persist(session, bus.subscribe()))
+            # The Event Store is just another subscriber on the same bus. Pass the
+            # (now-narrowed non-None) opener in so _persist needs no None check.
+            opener = self._event_store_opener
+            self._spawn(self._persist(session, bus.subscribe(), opener))
         self._spawn(self._run(session, bus, initiative, evidence_spec, approver))
         return session, stream
 
-    async def _persist(self, session: Session, stream: AsyncIterator[ev.Event]) -> None:
+    async def _persist(
+        self, session: Session, stream: AsyncIterator[ev.Event], opener
+    ) -> None:
         """Drain the bus into the Event Store. Never let a storage failure abort a
         run — the DB stays the system of record; this is an execution log."""
-        assert self._event_store_opener is not None  # only spawned when opener is set
         try:
-            async with self._event_store_opener() as store:
+            async with opener() as store:
                 await store.start_session(
                     session.id,
                     session.workflow,
