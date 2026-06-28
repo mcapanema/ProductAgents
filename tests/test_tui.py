@@ -21,13 +21,13 @@ from productagents.core.models import (
     RiskFinding,
 )
 from productagents.platform import events as ev
-from tests.fakes import FakeChatModel, FakeDecisionService
+from tests.fakes import FakeChatModel, fake_workflow_service
 
 
 def _service(runner, evidence, recorder=None, *, collector=None):
-    """Wrap a runner (old run_decision contract) in a FakeDecisionService."""
+    """Wrap a runner (old run_decision contract) in a real WorkflowService."""
     kw = {} if collector is None else {"collector": collector}
-    return FakeDecisionService(runner, recorder=recorder, evidence=evidence, **kw)
+    return fake_workflow_service(runner, recorder=recorder, evidence=evidence, **kw)
 
 
 # Module-level async fakes shared across tests that don't assert on recordings.
