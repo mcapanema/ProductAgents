@@ -4,7 +4,10 @@ import pytest
 
 from productagents.app import cli as cli_module
 from productagents.connectors.base import SyncResult
+from productagents.core.models import Initiative, Recommendation
+from productagents.platform import events as ev
 from productagents.platform.connectors import SyncReport
+from productagents.platform.session import Session
 
 
 async def _ok_syncer():
@@ -85,3 +88,109 @@ def test_main_sync_dispatches_to_sync_command(monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         cli_module.main(["sync"])
     assert exc_info.value.code == 0
+
+
+def _rec(text="Ship it", conf=0.8):
+    return Recommendation(
+        recommendation=text,
+        confidence=conf,
+        rationale="because",
+        expected_outcomes=["growth"],
+    )
+
+
+def test_render_event_session_started_and_recommended():
+    started = ev.SessionStarted(session_id="s1", seq=0, workflow="evaluate_initiative")
+    rec = ev.Recommended(session_id="s1", seq=1, recommendation=_rec())
+    started_line = cli_module.render_event(started)
+    assert started_line is not None
+    assert "s1" in started_line
+    rec_line = cli_module.render_event(rec)
+    assert rec_line is not None
+    assert "Ship it" in rec_line
+    assert "80%" in rec_line
+
+
+def test_render_event_session_failed_marks_abort():
+    failed = ev.SessionFailed(
+        session_id="s1", seq=9, node="strategist", category="auth", message="401"
+    )
+    line = cli_module.render_event(failed)
+    assert line is not None
+    assert "strategist" in line
+    assert "auth" in line
+
+
+class _StubService:
+    """Stands in for a real WorkflowService: yields a fixed platform stream."""
+
+    def __init__(self, events):
+        self._events = events
+
+    def run(self, name, initiative, evidence_spec):
+        session = Session(id="s1", workflow=name)
+
+        async def _stream():
+            for e in self._events:
+                yield e
+
+        return session, _stream()
+
+
+async def test_run_workflow_prints_stream_and_returns_zero(capsys):
+    events = [
+        ev.SessionStarted(session_id="s1", seq=0, workflow="evaluate_initiative"),
+        ev.Recommended(session_id="s1", seq=1, recommendation=_rec()),
+        ev.SessionFinished(
+            session_id="s1",
+            seq=2,
+            recommendation=_rec(),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+            prior_lessons=[],
+            judgment=None,
+        ),
+    ]
+    code = await cli_module.run_workflow(
+        "evaluate_initiative", "New onboarding", "", service=_StubService(events)
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "s1" in out
+    assert "Ship it" in out
+
+
+async def test_run_workflow_returns_one_on_session_failed():
+    events = [
+        ev.SessionStarted(session_id="s1", seq=0, workflow="evaluate_initiative"),
+        ev.SessionFailed(
+            session_id="s1", seq=1, node="strategist", category="auth", message="401"
+        ),
+    ]
+    code = await cli_module.run_workflow(
+        "evaluate_initiative", "x", "", service=_StubService(events)
+    )
+    assert code == 1
+
+
+def test_run_workflow_uses_title_as_initiative(monkeypatch, capsys):
+    captured = {}
+
+    class _Capturing(_StubService):
+        def run(self, name, initiative, evidence_spec):
+            captured["initiative"] = initiative
+            captured["spec"] = evidence_spec
+            return super().run(name, initiative, evidence_spec)
+
+    import asyncio
+
+    asyncio.run(
+        cli_module.run_workflow(
+            "evaluate_initiative", "Title here", "scenario-x", service=_Capturing([])
+        )
+    )
+    assert isinstance(captured["initiative"], Initiative)
+    assert captured["initiative"].title == "Title here"
+    assert captured["spec"] == "scenario-x"
