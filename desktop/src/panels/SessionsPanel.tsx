@@ -13,8 +13,12 @@ export function SessionsPanel() {
 
   async function open(id: string) {
     if (!ipc) return;
-    const detail = await ipc.sessionsShow(id);
-    setEvents(detail.events);
+    try {
+      const detail = await ipc.sessionsShow(id);
+      setEvents(detail.events);
+    } catch {
+      setEvents(null);
+    }
   }
 
   return (

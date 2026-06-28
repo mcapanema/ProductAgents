@@ -14,7 +14,11 @@ export function DecisionsPanel() {
 
   async function open(id: string) {
     if (!ipc) return;
-    setDetail(await ipc.decisionsShow(id));
+    try {
+      setDetail(await ipc.decisionsShow(id));
+    } catch {
+      setDetail(null);
+    }
   }
 
   return (
