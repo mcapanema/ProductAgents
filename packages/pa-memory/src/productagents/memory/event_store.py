@@ -68,6 +68,10 @@ class EventStore:
 
     async def sessions(self) -> list[dict]:
         """All sessions, newest first."""
+        # ponytail: orders by the ISO `created_at` string. Correct because every
+        # value is `datetime.now(UTC).isoformat()` (same +00:00 offset), so
+        # lexicographic == chronological. Sort on a real datetime column if
+        # mixed-offset timestamps ever get stored.
         rows = (
             (
                 await self._session.execute(

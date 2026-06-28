@@ -3,6 +3,11 @@
 The read face of the Event Store. Presentation lists sessions and replays a
 session's events through this service, reconstructing typed platform Events —
 never touching pa-memory or the EventStore directly.
+
+Note: the Event Store is an execution log, not the system of record. If event
+persistence crashes mid-run (the write is logged and swallowed), a session's
+status row can stay stuck at ``"running"``; the DecisionStore remains
+authoritative for whether a decision actually completed.
 """
 
 from __future__ import annotations
