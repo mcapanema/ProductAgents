@@ -8,6 +8,7 @@ from productagents.core.models import Initiative, Recommendation
 from productagents.platform import events as ev
 from productagents.platform.connectors import SyncReport
 from productagents.platform.session import Session
+from productagents.platform.workspace import WorkspaceService
 
 
 async def _ok_syncer():
@@ -194,3 +195,38 @@ def test_run_workflow_uses_title_as_initiative(monkeypatch, capsys):
     assert isinstance(captured["initiative"], Initiative)
     assert captured["initiative"].title == "Title here"
     assert captured["spec"] == "scenario-x"
+
+
+def test_workspace_list_marks_active(tmp_path, capsys):
+    (tmp_path / "default").mkdir()
+    (tmp_path / "acme").mkdir()
+    service = WorkspaceService(home=tmp_path)
+
+    code = cli_module.workspace_list(service=service, active_name="acme")
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "acme" in out
+    assert "default" in out
+    # the active one is flagged
+    active_line = next(line for line in out.splitlines() if "acme" in line)
+    assert "*" in active_line
+
+
+def test_workspace_list_empty_home_prints_nothing_and_returns_zero(tmp_path, capsys):
+    service = WorkspaceService(home=tmp_path / "missing")
+    code = cli_module.workspace_list(service=service, active_name="default")
+    assert code == 0
+    assert capsys.readouterr().out.strip() == ""
+
+
+def test_workspace_show_prints_paths(tmp_path, capsys):
+    service = WorkspaceService(home=tmp_path)
+
+    code = cli_module.workspace_show("acme", service=service)
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "acme" in out
+    assert "productagents.db" in out  # db_url path surfaced
+    assert "connectors.yaml" in out

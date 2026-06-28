@@ -109,7 +109,33 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("title", help="initiative title / description")
     p_run.add_argument("--evidence", default="", help="scenario name or directory path")
 
+    p_ws = sub.add_parser("workspace", help="list or show workspaces")
+    ws_sub = p_ws.add_subparsers(dest="ws_command")
+    ws_sub.add_parser("list", help="list workspaces")
+    p_ws_show = ws_sub.add_parser("show", help="show a workspace's paths")
+    p_ws_show.add_argument("name", nargs="?", default=None, help="defaults to active")
+
     return parser
+
+
+def workspace_list(*, service: WorkspaceService, active_name: str) -> int:
+    """Print one workspace name per line; mark the active one with ``*``."""
+    for ws in service.list():
+        marker = "*" if ws.name == active_name else " "
+        print(f"{marker} {ws.name}")
+    return 0
+
+
+def workspace_show(name: str | None, *, service: WorkspaceService) -> int:
+    """Print the resolved workspace's name and on-disk paths."""
+    ws = service.resolve(name)
+    print(f"name:        {ws.name}")
+    print(f"root:        {ws.root}")
+    print(f"db_url:      {ws.db_url}")
+    print(f"connectors:  {ws.connectors_file}")
+    print(f"env:         {ws.env_file}")
+    print(f"log:         {ws.log_file}")
+    return 0
 
 
 def sync_command(*, syncer=run_connector_sync) -> int:
@@ -139,6 +165,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "sync":
         raise SystemExit(sync_command())
+    if args.command == "workspace":
+        if args.ws_command == "show":
+            raise SystemExit(workspace_show(args.name, service=workspaces))
+        raise SystemExit(  # bare `workspace` or `workspace list`
+            workspace_list(service=workspaces, active_name=workspace.name)
+        )
     if args.command == "run":
         try:
             service = _build_run_service()
