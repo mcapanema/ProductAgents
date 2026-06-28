@@ -128,7 +128,7 @@ uv run productagents --workspace <name> ...  # run any of the above against a na
 uv run pytest           # full suite — runs offline with a fake model, no API key
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test
-uv run lint-imports     # verify 6 import-linter layer contracts (layers + forbidden)
+uv run lint-imports     # verify 7 import-linter layer contracts (layers + forbidden)
 uv run ruff check packages tests  # lint all source and test trees
 uv run ty check         # type check (pyright-based)
 ```
