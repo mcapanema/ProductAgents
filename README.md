@@ -252,6 +252,30 @@ Packaging into a single installable binary (with a bundled Python sidecar) is a
 later phase; for now the app shells out to `uv run productagents ipc` from the
 repo root in dev mode.
 
+#### Browser-based testing (Playwright + WS bridge)
+
+The native Tauri window can't be browser-automated (on macOS there's no WKWebView
+WebDriver). For automated UI testing we run the **React frontend in a real
+browser** instead. A dev-only WebSocket bridge exposes the *same* Application
+Layer the sidecar does, so the in-browser app reaches live data:
+
+```bash
+# 1. dev WebSocket bridge — same IPC methods as `productagents ipc`, on localhost
+uv run productagents serve-ws            # ws://127.0.0.1:7420 (Ctrl+C to stop)
+
+# 2. Playwright e2e — starts Vite + the bridge automatically, drives headless Chromium
+cd desktop
+npx playwright install chromium          # first time
+npm run e2e                              # runs e2e/*.spec.ts
+```
+
+`npm run e2e` is self-contained: its `webServer` config launches both `npm run
+dev` (the frontend) and `productagents serve-ws` (the bridge) before the specs.
+When *not* inside Tauri, the frontend's transport (`createClient`) automatically
+falls back from the Tauri sidecar to `ws://127.0.0.1:7420`. The bridge is a
+**development affordance only** — localhost-bound and never bundled into the
+shipped app; it is not a client/server product surface.
+
 ### Test
 
 ```bash

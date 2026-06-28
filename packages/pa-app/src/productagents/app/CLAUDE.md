@@ -12,6 +12,7 @@ or `connectors`.
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → `launch_tui`. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `prompts list/show/diff/save/rollback`. |
 | `tui/` | The Textual GUI (see `tui/CLAUDE.md`). `launch_tui(workspace_name)` builds and runs the app; `_build_app` is the composition root. |
 | `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 | `setup.py` | `check_config` / `write_env` readiness + `.env` writer, shared by both adapters. |
 
 ## CLI contract
@@ -50,8 +51,13 @@ The `error` values in `{id, error}` responses are human-facing strings (not a ma
 
 Deferred (YAGNI): human-in-the-loop approval over the wire (the seam is a
 server→client `approval_request` message + a client `approve` method; headless
-`run` is `human_in_the_loop=False`); concurrent in-flight requests; an HTTP/WebSocket
-transport (add only at a real client/server split).
+`run` is `human_in_the_loop=False`); concurrent in-flight requests.
+
+A **dev-only** WebSocket transport now exists in `devbridge.py` (`productagents
+serve-ws`) for browser/Playwright UI testing — it reuses `ipc.handle` +
+`ipc.build_services`, so a new method/event needs no bridge change. It is a
+localhost dev affordance, not the product client/server split (which remains
+deferred); the shipped Tauri app still talks NDJSON over stdio.
 
 `decisions.list` → `[{id, title, recommendation, confidence, created_at}]` (summaries
 from the DecisionStore via `DecisionReadService`). `decisions.show {decision_id}` →

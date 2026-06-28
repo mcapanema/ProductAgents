@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { IpcClient } from "../ipc/client";
-import { createTauriClient } from "../ipc/transport";
+import { createClient } from "../ipc/transport";
 
 const IpcContext = createContext<IpcClient | null>(null);
 
@@ -23,9 +23,14 @@ export function IpcProvider({
   useEffect(() => {
     if (client) return;
     let active = true;
-    createTauriClient().then((c) => {
-      if (active) setResolved(c);
-    });
+    createClient()
+      .then((c) => {
+        if (active) setResolved(c);
+      })
+      .catch(() => {
+        // No transport available (e.g. dev bridge not running) — leave the
+        // client null so panels show their loading/empty states, not a crash.
+      });
     return () => {
       active = false;
     };
