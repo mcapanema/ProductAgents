@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from productagents.agents import runner as rn
-from productagents.agents.context import AgentContext
 from productagents.agents.evidence import collect_evidence
 from productagents.agents.graph import build_graph
 from productagents.core.models import DecisionRecord, HumanDecision, Initiative
@@ -29,15 +28,32 @@ Recorder = Callable[[DecisionRecord], Awaitable[None]]
 class DecisionService:
     def __init__(
         self,
-        context: AgentContext,
+        context_opener,
         *,
         recorder: Recorder | None = None,
         human_in_the_loop: bool = False,
     ) -> None:
-        self._ctx = context
+        # context_opener: Callable[[], AbstractAsyncContextManager[AgentContext]]
+        self._context_opener = context_opener
         self._recorder = recorder
         self._hitl = human_in_the_loop
         self._tasks: set[asyncio.Task] = set()
+
+    @classmethod
+    def for_model(
+        cls,
+        model,
+        *,
+        recorder: Recorder | None = None,
+        human_in_the_loop: bool = False,
+    ) -> DecisionService:
+        from productagents.platform.context import open_agent_context
+
+        return cls(
+            lambda: open_agent_context(model),
+            recorder=recorder,
+            human_in_the_loop=human_in_the_loop,
+        )
 
     def start_session(
         self,
@@ -79,21 +95,25 @@ class DecisionService:
                 )
             )
             evidence = collect_evidence(evidence_spec)
-            graph = build_graph(self._ctx, human_in_the_loop=self._hitl)
             runner_approver = self._wrap_approver(session, emit, approver)
 
-            async for r in rn.run_decision(
-                graph, initiative, evidence, approver=runner_approver
-            ):
-                translated = self._translate(session, r)
-                if translated is not None:
-                    emit(translated)
-                if isinstance(r, rn.RunAbortedEvent):
-                    session.status = "failed"
-                    return
-                if isinstance(r, rn.FinishedEvent):
-                    await self._record(session, initiative, evidence, r)
-                    session.status = "finished"
+            # Open a fresh context per run; session stays open across the full
+            # event stream including any human-approval interrupt.
+            async with self._context_opener() as ctx:
+                graph = build_graph(ctx, human_in_the_loop=self._hitl)
+
+                async for r in rn.run_decision(
+                    graph, initiative, evidence, approver=runner_approver
+                ):
+                    translated = self._translate(session, r)
+                    if translated is not None:
+                        emit(translated)
+                    if isinstance(r, rn.RunAbortedEvent):
+                        session.status = "failed"
+                        return
+                    if isinstance(r, rn.FinishedEvent):
+                        await self._record(session, initiative, evidence, r)
+                        session.status = "finished"
         except Exception:
             logger.exception("decision session %s crashed", session.id)
             session.status = "failed"
@@ -212,12 +232,14 @@ class DecisionService:
         await self._recorder(record)
 
     async def list_decisions(self) -> list[DecisionRecord]:
-        return await self._ctx.learning.decisions()
+        async with self._context_opener() as ctx:
+            return await ctx.learning.decisions()
 
     async def get_decision(self, decision_id: str) -> DecisionRecord | None:
-        for record in await self._ctx.learning.decisions():
-            if record.decision_id == decision_id:
-                return record
+        async with self._context_opener() as ctx:
+            for record in await ctx.learning.decisions():
+                if record.decision_id == decision_id:
+                    return record
         return None
 
     def _build_record(self, session, initiative, evidence, finished) -> DecisionRecord:

@@ -15,13 +15,13 @@ async def _collect(stream):
 async def test_start_session_streams_platform_events_and_records(decision_inputs):
     """A decision run yields a SessionStarted ... SessionFinished sequence and
     persists exactly one DecisionRecord via the injected recorder."""
-    initiative, evidence_spec, context = decision_inputs
+    initiative, evidence_spec, context_opener = decision_inputs
     recorded = []
 
     async def recorder(record):
         recorded.append(record)
 
-    service = DecisionService(context, recorder=recorder)
+    service = DecisionService(context_opener, recorder=recorder)
     session, stream = service.start_session(initiative, evidence_spec)
 
     received = await _collect(stream)
@@ -35,7 +35,7 @@ async def test_start_session_streams_platform_events_and_records(decision_inputs
 
 
 async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
-    initiative, evidence_spec, context = decision_inputs_hitl
+    initiative, evidence_spec, context_opener = decision_inputs_hitl
     seen_request = {}
 
     async def approver(request):
@@ -44,7 +44,7 @@ async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
 
         return HumanDecision(verdict="approve", rationale="ok")
 
-    service = DecisionService(context, human_in_the_loop=True)
+    service = DecisionService(context_opener, human_in_the_loop=True)
     _session, stream = service.start_session(
         initiative, evidence_spec, approver=approver
     )
