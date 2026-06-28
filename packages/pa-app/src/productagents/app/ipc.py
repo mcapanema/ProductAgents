@@ -17,12 +17,43 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+from productagents.core.models import Initiative
+from productagents.platform import events as ev
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 from productagents.platform.workflow import Workflow, WorkflowService
 from productagents.platform.workspace import Workspace, WorkspaceService
 
 Emit = Callable[[dict], Awaitable[None]]
+
+
+async def _run(rid, params: dict, *, workflows: WorkflowService, emit: Emit) -> None:
+    """Run a workflow and stream its events, then a terminal status result.
+
+    Mirrors the CLI's headless ``run``: governance stays advisory (no
+    human-in-the-loop over the wire — see deferred items). A ``SessionFailed``
+    event flips the terminal status to ``"failed"``.
+    """
+    title = params["title"]
+    initiative = Initiative(title=title, description=title)
+    session, stream = workflows.run(
+        params["workflow"], initiative, params.get("evidence", "")
+    )
+    failed = False
+    async for event in stream:
+        if isinstance(event, ev.SessionFailed):
+            failed = True
+        etype, payload = serialize_event(event)
+        await emit({"id": rid, "event": {"type": etype, "payload": payload}})
+    await emit(
+        {
+            "id": rid,
+            "result": {
+                "status": "failed" if failed else "finished",
+                "session_id": session.id,
+            },
+        }
+    )
 
 
 def _workflow_dict(w: Workflow) -> dict:
@@ -108,6 +139,8 @@ async def handle(
                     },
                 }
             )
+        elif method == "run":
+            await _run(rid, params, workflows=workflows, emit=emit)
         else:
             await emit({"id": rid, "error": f"unknown method: {method!r}"})
     except Exception as exc:  # noqa: BLE001 — one bad request must not kill the loop

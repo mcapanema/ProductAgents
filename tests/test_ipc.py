@@ -194,3 +194,102 @@ async def test_workspaces_show_resolves_workspace(tmp_path):
     )
     assert sink[0]["result"]["name"] == "default"
     assert sink[0]["result"]["active"] is True
+
+
+from productagents.agents import runner as rn  # noqa: E402
+from productagents.core.models import Recommendation  # noqa: E402
+from tests.fakes import fake_workflow_service  # noqa: E402
+
+
+def _rec(text="ship it"):
+    return Recommendation(
+        recommendation=text,
+        confidence=0.8,
+        rationale="because",
+        expected_outcomes=["outcome"],
+        failed=False,
+    )
+
+
+async def test_run_streams_events_then_finished_result():
+    async def runner(initiative, evidence, *, approver=None):
+        yield rn.ProgressEvent(node="market", message="scanning")
+        yield rn.FinishedEvent(
+            recommendation=_rec(),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+            prior_lessons=[],
+            judgment=None,
+        )
+
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 5,
+            "method": "run",
+            "params": {
+                "workflow": "evaluate_initiative",
+                "title": "New API",
+                "evidence": "sample",
+            },
+        },
+        workflows=fake_workflow_service(runner),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+
+    event_msgs = [m for m in sink if "event" in m]
+    assert event_msgs[0]["event"]["type"] == "SessionStarted"
+    assert any(m["event"]["type"] == "NodeProgress" for m in event_msgs)
+    terminal = sink[-1]
+    assert terminal["id"] == 5
+    assert terminal["result"]["status"] == "finished"
+    assert isinstance(terminal["result"]["session_id"], str)
+
+
+async def test_run_reports_failed_status_on_abort():
+    async def runner(initiative, evidence, *, approver=None):
+        yield rn.RunAbortedEvent(node="market", category="rate_limit", message="429")
+
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 6,
+            "method": "run",
+            "params": {
+                "workflow": "evaluate_initiative",
+                "title": "X",
+                "evidence": "sample",
+            },
+        },
+        workflows=fake_workflow_service(runner),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[-1] == {
+        "id": 6,
+        "result": {
+            "status": "failed",
+            "session_id": sink[-1]["result"]["session_id"],
+        },
+    }
+
+
+async def test_run_unknown_workflow_emits_error():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 8, "method": "run", "params": {"workflow": "nope", "title": "X"}},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 8
+    assert "error" in sink[0]

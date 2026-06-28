@@ -44,6 +44,10 @@ class FakeDecisionService:
         from productagents.agents import runner as rn
 
         seq = 0
+        yield ev.SessionStarted(
+            session_id=session.id, seq=seq, workflow=session.workflow
+        )
+        seq += 1
         runner_approver = self._wrap_approver(session, approver)
         async for r in self._runner(initiative, evidence, approver=runner_approver):
             make = self._svc._translate(session, r)
