@@ -210,6 +210,8 @@ def main(argv: list[str] | None = None) -> None:
             service = _build_run_service()
         except Exception as exc:
             raise SystemExit(f"cannot start run: {exc}") from exc
+        if service.get(args.workflow) is None:
+            raise SystemExit(f"unknown workflow: {args.workflow!r}")
         code = asyncio.run(
             run_workflow(args.workflow, args.title, args.evidence, service=service)
         )

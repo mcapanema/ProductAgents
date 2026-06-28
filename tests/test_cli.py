@@ -309,3 +309,23 @@ async def test_sessions_show_unknown_id_returns_one(capsys):
     code = await cli_module.sessions_show("missing", service=svc)
     assert code == 1
     assert "missing" in capsys.readouterr().out
+
+
+def test_main_run_unknown_workflow_exits_friendly(monkeypatch):
+    calls = []
+    _patch_bootstrap(monkeypatch, calls)
+
+    class _Svc:
+        def get(self, name):
+            return None  # nothing registered → unknown
+
+        def run(self, *a, **k):  # must NOT be reached
+            raise AssertionError("run() should not be called for unknown workflow")
+
+    monkeypatch.setattr(cli_module, "_build_run_service", lambda: _Svc())
+
+    with pytest.raises(SystemExit) as exc:
+        cli_module.main(["run", "bogus_workflow", "Some title"])
+    # friendly: non-zero/str message, not a KeyError traceback
+    assert exc.value.code is not None
+    assert "bogus_workflow" in str(exc.value.code)
