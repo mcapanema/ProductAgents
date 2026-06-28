@@ -4,6 +4,7 @@ from textual.widgets import Static
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.degraded import DegradedRunScreen
 from productagents.core.models import Evidence
+from tests.fakes import FakeDecisionService
 
 
 class _Host(App):
@@ -28,7 +29,7 @@ def _build_app(*, runner):
         scenario="sample", customer_feedback="x", product_analytics={"a": 1}
     )
     return ProductAgentsApp(
-        runner,
+        FakeDecisionService(runner, recorder=_noop_recorder, evidence=evidence),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -36,7 +37,7 @@ def _build_app(*, runner):
     )
 
 
-async def test_run_aborted_shows_error_banner():
+async def test_run_aborted_shows_error_banner(monkeypatch):
     from productagents.agents.runner import RunAbortedEvent
 
     async def _fake_runner(initiative, evidence, *, approver=None):
@@ -47,7 +48,14 @@ async def test_run_aborted_shows_error_banner():
         )
 
     app = _build_app(runner=_fake_runner)
+
+    # A fatal abort now also offers the degraded retry/decide/quit screen; quit
+    # past it so the worker completes while we assert on the error banner.
+    async def fake_push_screen_wait(screen):
+        return "quit"
+
     async with app.run_test() as pilot:
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
         pilot.app.query_one("#initiative-title").value = "Add SSO"
         await pilot.press("enter")
         await pilot.app.workers.wait_for_complete()

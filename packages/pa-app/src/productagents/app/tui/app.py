@@ -12,23 +12,6 @@ from textual.app import App, ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.widgets import Footer, Header, Input, Label, Static
 
-from productagents.agents.evidence import EvidenceError, collect_evidence, load_scenario
-from productagents.agents.llm import get_model
-from productagents.agents.reflection import reflect
-from productagents.agents.runner import (
-    DebateTurnEvent,
-    FinalVerdictEvent,
-    FinishedEvent,
-    GovernanceVerdictEvent,
-    JudgmentEvent,
-    NodeCompleteEvent,
-    NodeErrorEvent,
-    ProgressEvent,
-    RecallEvent,
-    RecommendationEvent,
-    RiskAssessmentEvent,
-    RunAbortedEvent,
-)
 from productagents.app.setup import check_config, write_env
 from productagents.app.tui._constants import (
     ANALYST_IDS as _ANALYST_IDS,
@@ -65,7 +48,13 @@ from productagents.app.tui.reflection import ReflectionScreen
 from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.config import env_int, load_env
 from productagents.core.logging_config import configure_logging
-from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
+from productagents.core.models import (
+    DecisionRecord,
+    GovernanceVerdict,
+    Initiative,
+    Recommendation,
+)
+from productagents.platform import events as ev
 from productagents.platform.connectors import (
     check_connector_health,
     describe_health,
@@ -76,10 +65,17 @@ from productagents.platform.connectors import (
 )
 from productagents.platform.context import (
     make_decision_reader,
-    make_decision_runner,
     make_outcome_recorder,
     make_recorder,
 )
+from productagents.platform.decision_service import DecisionService
+from productagents.platform.evidence import (
+    EvidenceError,
+    collect_evidence,
+    load_scenario,
+)
+from productagents.platform.llm import get_model
+from productagents.platform.reflection import reflect
 
 
 class ProductAgentsApp(App):
@@ -92,7 +88,7 @@ class ProductAgentsApp(App):
 
     def __init__(
         self,
-        runner,
+        decision_service,
         evidence,
         *,
         collector=collect_evidence,
@@ -113,7 +109,7 @@ class ProductAgentsApp(App):
         # so it can be accessed when CSS is parsed. We'll set it as active in
         # _setup_mode which is called before CSS parsing.
         super().__init__()
-        self._runner = runner
+        self._decision_service = decision_service
         self._runner_error = runner_error
         self._evidence = evidence
         self._collector = collector
@@ -235,10 +231,10 @@ class ProductAgentsApp(App):
     def _after_setup(self, saved: bool | None) -> None:
         if saved and self._rebuild is not None:
             try:
-                self._runner, self._reflector = self._rebuild()
+                self._decision_service, self._reflector = self._rebuild()
                 self._runner_error = None
             except Exception as exc:  # noqa: BLE001 - keep the menu usable
-                self._runner, self._reflector = None, None
+                self._decision_service, self._reflector = None, None
                 self._runner_error = str(exc)
         screen = self.screen
         if isinstance(screen, HomeScreen):
@@ -287,7 +283,7 @@ class ProductAgentsApp(App):
         title = message.value.strip()
         if not title:
             return
-        if self._runner is None:
+        if self._decision_service is None:
             reason = self._runner_error or "model not configured"
             self._log_status(
                 f"Cannot run — {reason}. Open the menu (ctrl+h) to fix your "
@@ -297,6 +293,10 @@ class ProductAgentsApp(App):
             return
         spec = self.query_one("#evidence-source", Input).value.strip()
         try:
+            # Resolve for the provenance panel only; the DecisionService resolves
+            # the spec again internally.
+            # ponytail: resolved twice, harmless for local; unify via an
+            # EvidenceService later.
             evidence = self._collector(spec) if spec else self._evidence
         except EvidenceError as exc:
             self._log_status(f"Evidence error: {exc}", level="error")
@@ -306,7 +306,7 @@ class ProductAgentsApp(App):
         self._reset_panels()
         self._rail().set_stage("evidence", "done")
         self._rail().set_stage("analysis", "running")
-        self._run(Initiative(title=title, description=title), evidence)
+        self._run(Initiative(title=title, description=title), spec, evidence)
 
     def _reset_panels(self) -> None:
         """Clear every live panel back to its pre-run placeholder."""
@@ -339,79 +339,113 @@ class ProductAgentsApp(App):
             )
         )
 
-    async def _ask_human(self, advisory):
-        """Pause for a human governance decision; returns a HumanDecision."""
+    async def _ask_human(self, request=None):
+        """Pause for a human governance decision; returns a HumanDecision.
+
+        ``request`` is an ``ev.ApprovalRequested`` (from a HITL run) or ``None``
+        (the degraded "decide" path, where there is no advisory verdict).
+        """
+        advisory = (
+            GovernanceVerdict(
+                verdict=request.advisory_verdict,
+                rationale=request.advisory_rationale,
+            )
+            if request is not None
+            else None
+        )
         return await self.push_screen_wait(ApprovalScreen(advisory))
 
     @work(exclusive=True)
-    async def _run(self, initiative: Initiative, evidence) -> None:
-        if self._runner is None:
+    async def _run(self, initiative: Initiative, evidence_spec: str, evidence) -> None:
+        if self._decision_service is None:
             return
         handlers = {
-            ProgressEvent: self._on_progress,
-            NodeCompleteEvent: self._on_node_complete,
-            NodeErrorEvent: self._on_node_error,
-            RunAbortedEvent: self._on_run_aborted,
-            DebateTurnEvent: self._on_debate_turn,
-            RiskAssessmentEvent: self._on_risk_assessment,
-            JudgmentEvent: self._on_judgment,
-            GovernanceVerdictEvent: self._on_governance_verdict,
-            FinalVerdictEvent: self._on_final_verdict,
-            RecallEvent: self._on_recall,
-            RecommendationEvent: self._on_recommendation,
-            FinishedEvent: self._on_finished,
+            ev.NodeProgress: self._on_progress,
+            ev.AnalystCompleted: self._on_node_complete,
+            ev.NodeFailed: self._on_node_error,
+            ev.SessionFailed: self._on_session_failed,
+            ev.DebateTurnEmitted: self._on_debate_turn,
+            ev.RiskAssessed: self._on_risk_assessment,
+            ev.Judged: self._on_judgment,
+            ev.GovernanceAdvised: self._on_governance_verdict,
+            ev.FinalVerdict: self._on_final_verdict,
+            ev.LessonsRecalled: self._on_recall,
+            ev.Recommended: self._on_recommendation,
+            ev.SessionFinished: self._on_finished,
         }
-        finished: FinishedEvent | None = None
+        finished: ev.SessionFinished | None = None
+        aborted = False
         try:
-            async for event in self._runner(
-                initiative,
-                evidence,
-                approver=self._ask_human,
-            ):
+            _session, stream = self._decision_service.start_session(
+                initiative, evidence_spec, approver=self._ask_human
+            )
+            async for event in stream:
                 handler = handlers.get(type(event))
                 if handler is not None:
                     handler(event)
-                if isinstance(event, FinishedEvent):
+                if isinstance(event, ev.SessionFinished):
                     finished = event
+                elif isinstance(event, ev.SessionFailed):
+                    aborted = True
         except Exception as exc:  # noqa: BLE001 - never crash the worker
             self._log_status(f"run failed: {exc}", level="error")
             return
 
-        if finished is None or finished.recommendation is None:
+        # The DecisionService already recorded a healthy run. The TUI only steps
+        # in for the degraded paths: a fatal abort, or a finished-but-failed run.
+        if aborted:
+            await self._handle_degraded(initiative, evidence_spec, evidence, None)
             return
-        if not finished.recommendation.failed:
-            try:
-                await self._record(initiative, evidence, finished)
-            except Exception as exc:  # noqa: BLE001 - degrade visibly, never crash
-                self._log_status(f"failed to save decision: {exc}", level="error")
+        if finished is None:
             return
-        await self._handle_degraded(initiative, evidence, finished)
+        if finished.recommendation is not None and finished.recommendation.failed:
+            await self._handle_degraded(initiative, evidence_spec, evidence, finished)
 
-    async def _record(self, initiative, evidence, finished, *, governance=None) -> None:
+    async def _record(self, initiative, evidence, finished, *, governance) -> None:
+        """Persist a human-decided record for a degraded run (TUI-owned path).
+
+        ``finished`` is an ``ev.SessionFinished`` (failed recommendation) or
+        ``None`` (fatal abort, no payload — record a minimal placeholder).
+        """
         if self._recorder is None:
             return
-        await self._recorder(
-            DecisionRecord(
+        if finished is not None:
+            record = DecisionRecord(
                 initiative=initiative,
                 recommendation=finished.recommendation,
                 reports=finished.reports,
                 debate=finished.debate,
                 risks=finished.risks,
-                governance=governance
-                if governance is not None
-                else finished.governance,
+                governance=governance,
                 judgment=finished.judgment,
                 prior_lessons=finished.prior_lessons,
                 evidence_sources=evidence.sources,
                 timestamp=datetime.now(UTC).isoformat(),
             )
-        )
+        else:
+            record = DecisionRecord(
+                initiative=initiative,
+                recommendation=Recommendation(
+                    recommendation="Run aborted before a recommendation was produced.",
+                    confidence=0.0,
+                    rationale="The decision run failed; a human made the call.",
+                    expected_outcomes=[],
+                    failed=True,
+                ),
+                reports=[],
+                governance=governance,
+                evidence_sources=evidence.sources,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        await self._recorder(record)
 
-    async def _handle_degraded(self, initiative, evidence, finished) -> None:
+    async def _handle_degraded(
+        self, initiative, evidence_spec, evidence, finished
+    ) -> None:
         choice = await self.push_screen_wait(DegradedRunScreen())
         if choice == "retry":
             self._reset_panels()
-            self._run(initiative, evidence)
+            self._run(initiative, evidence_spec, evidence)
         elif choice == "decide":
             decision = await self._ask_human(None)
             governance = GovernanceVerdict(
@@ -460,7 +494,7 @@ class ProductAgentsApp(App):
         self._log_status(f"{label}: {event.message}", level="error")
         self._mark_failed(event.node)
 
-    def _on_run_aborted(self, event) -> None:
+    def _on_session_failed(self, event) -> None:
         self._log_status(f"run aborted — {event.message}", level="error")
         if event.node:
             self._mark_failed(event.node)
@@ -567,18 +601,20 @@ class ProductAgentsApp(App):
 def _build_app() -> ProductAgentsApp:
     def rebuild():
         model = get_model()
-        runner = make_decision_runner(model, human_in_the_loop=True)
-        return runner, partial(reflect, model=model)
+        service = DecisionService.for_model(
+            model, recorder=make_recorder(), human_in_the_loop=True
+        )
+        return service, partial(reflect, model=model)
 
     try:
-        runner, reflector = rebuild()
+        service, reflector = rebuild()
         build_error = None
     except Exception as exc:  # noqa: BLE001 - launch into setup instead of crashing
-        runner, reflector = None, None
+        service, reflector = None, None
         build_error = str(exc)
     evidence = load_scenario("sample")
     return ProductAgentsApp(
-        runner,
+        service,
         evidence,
         recorder=make_recorder(),
         reader=make_decision_reader(),

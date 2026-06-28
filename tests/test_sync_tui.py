@@ -21,7 +21,7 @@ def _ok_status():
 async def test_home_shows_connector_plan_line():
     plan = ConnectorPlan(configs={"github": ConnectorConfig()}, problems=[])
     app = ProductAgentsApp(
-        runner=None,
+        decision_service=None,
         evidence=None,
         config_checker=_ok_status,
         connector_planner=lambda: plan,
@@ -43,7 +43,7 @@ async def test_health_button_runs_checker_and_logs_report():
         return report
 
     app = ProductAgentsApp(
-        runner=None,
+        decision_service=None,
         evidence=None,
         config_checker=_ok_status,
         connector_planner=lambda: plan,
@@ -67,7 +67,7 @@ async def test_sync_button_runs_syncer_and_logs_report():
         return report
 
     app = ProductAgentsApp(
-        runner=None,
+        decision_service=None,
         evidence=None,
         config_checker=_ok_status,
         connector_planner=lambda: plan,

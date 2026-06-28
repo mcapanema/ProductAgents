@@ -15,7 +15,7 @@ from productagents.core.models import (
     Recommendation,
     RiskFinding,
 )
-from tests.fakes import FakeChatModel
+from tests.fakes import FakeChatModel, FakeDecisionService
 
 
 def _hitl_runner_and_evidence():
@@ -62,11 +62,12 @@ async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeyp
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     runner, evidence = _hitl_runner_and_evidence()
     recorded = []
+    recorder = _list_recorder(recorded)
 
     app = ProductAgentsApp(
-        runner,
+        FakeDecisionService(runner, recorder=recorder, evidence=evidence),
         evidence,
-        recorder=_list_recorder(recorded),
+        recorder=recorder,
         reader=_empty_reader,
         show_home=False,
     )
