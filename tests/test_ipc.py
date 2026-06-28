@@ -8,6 +8,7 @@ from productagents.app import ipc
 from productagents.platform.events import Event
 from productagents.platform.session import Session
 from productagents.platform.workflow import Workflow, WorkflowService
+from productagents.platform.workspace import Workspace, WorkspaceService
 
 
 def _collect():
@@ -38,6 +39,17 @@ class _FakeSessions:
 
     async def events(self, session_id):
         return self._events.get(session_id, [])
+
+
+class _FakeWorkspaces:
+    def __init__(self, workspaces):
+        self._workspaces = list(workspaces)
+
+    def list(self):
+        return self._workspaces
+
+    def resolve(self, name=None):
+        return self._workspaces[0]
 
 
 def _workflows():
@@ -151,3 +163,34 @@ async def test_handler_exception_becomes_error_message():
     )
     assert sink[0]["id"] == 9
     assert "error" in sink[0]
+
+
+async def test_workspaces_list_marks_active(tmp_path):
+    ws = Workspace(name="default", root=tmp_path)
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 4, "method": "workspaces.list"},
+        workflows=_workflows(),
+        workspaces=cast(WorkspaceService, _FakeWorkspaces([ws])),
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    result = sink[0]["result"]
+    assert result[0]["name"] == "default"
+    assert result[0]["active"] is True
+
+
+async def test_workspaces_show_resolves_workspace(tmp_path):
+    ws = Workspace(name="default", root=tmp_path)
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 5, "method": "workspaces.show", "params": {}},
+        workflows=_workflows(),
+        workspaces=cast(WorkspaceService, _FakeWorkspaces([ws])),
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["result"]["name"] == "default"
+    assert sink[0]["result"]["active"] is True

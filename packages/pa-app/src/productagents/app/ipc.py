@@ -24,9 +24,6 @@ from productagents.platform.workspace import Workspace, WorkspaceService
 
 Emit = Callable[[dict], Awaitable[None]]
 
-# ponytail: workspaces is optional for read-only methods that don't need it
-WorkspacesParam = WorkspaceService | None
-
 
 def _workflow_dict(w: Workflow) -> dict:
     return {"name": w.name, "title": w.title, "description": w.description}
@@ -57,7 +54,7 @@ async def handle(
     request: dict,
     *,
     workflows: WorkflowService,
-    workspaces: WorkspacesParam,
+    workspaces: WorkspaceService | None,
     active_name: str,
     sessions,
     emit: Emit,
@@ -76,13 +73,15 @@ async def handle(
             wfs = [_workflow_dict(w) for w in workflows.list()]
             await emit({"id": rid, "result": wfs})
         elif method == "workspaces.list":
-            assert workspaces is not None
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
             wss = [
                 _workspace_dict(ws, active_name=active_name) for ws in workspaces.list()
             ]
             await emit({"id": rid, "result": wss})
         elif method == "workspaces.show":
-            assert workspaces is not None
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
             ws = workspaces.resolve(params.get("name"))
             ws_dict = _workspace_dict(ws, active_name=active_name)
             await emit({"id": rid, "result": ws_dict})
