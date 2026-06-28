@@ -11,6 +11,29 @@ rewrite) into a product-decision platform: a six-package `uv` workspace, a
 canonical data layer, durable SQL storage, knowledge services, live connectors,
 a DB-backed organizational memory, and connector observability.
 
+## [Unreleased] — V3 Phase 2: Event Store + Session persistence
+
+Added an append-only execution log to pa-memory and wired it through the
+platform so every run's event stream is persisted automatically.
+
+### Added
+- **`EventStore` (pa-memory)** — `runtime_session` + `runtime_event` tables
+  (Alembic migration `0002_event_store`). Persists primitive rows
+  (session_id / seq / type / ts / JSON payload); does not import the platform's
+  Event vocabulary (pa-memory stays below pa-platform).
+- **`serialization.py` (pa-platform)** — `serialize_event`/`deserialize_event`
+  bridge between typed platform `Event` dataclasses and the store's primitive
+  row format (pydantic `TypeAdapter`-based round-trip).
+- **`DecisionService` persistence** — a bus subscriber (`_persist`) writes every
+  `SessionStarted`/`SessionFinished`/`SessionFailed` and all intermediate events
+  to the `EventStore` via a second `bus.subscribe()`. Persistence failures are
+  logged and swallowed — they never abort a run. `for_model(persist_events=True)`
+  is the default; pass `False` in tests that must stay write-free.
+- **`SessionService` (pa-platform)** — `list()`/`get(session_id)`/`events(session_id)`
+  read API. `events()` deserializes stored rows back into typed platform events,
+  enabling timeline inspection and replay-for-debugging. Exported from
+  `productagents.platform`.
+
 ## [Unreleased] — V3 Phase 1: Application Layer + Event Bus
 
 Introduced `pa-platform` as a seventh workspace package — an Application Services

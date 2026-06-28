@@ -59,8 +59,8 @@ packages/
 │           ├── home_screen.py · setup_screen.py · degraded.py
 │           ├── rail.py     #   PipelineRail spine widget
 │           └── _format.py  #   pure Rich-markup render helpers
-├── pa-memory/              # productagents.memory  — organizational-memory subsystem (DB store + hybrid retrieval + LearningService)
-│   └── src/productagents/memory/     # store.py · tables.py · retrieval.py · service.py · embedding.py · jsonl.py (export/audit)
+├── pa-memory/              # productagents.memory  — organizational-memory subsystem (DB store + hybrid retrieval + LearningService) + event_store.py (append-only runtime_session/runtime_event log)
+│   └── src/productagents/memory/     # store.py · tables.py · retrieval.py · service.py · embedding.py · jsonl.py (export/audit) · event_store.py
 ├── pa-knowledge/           # productagents.knowledge.*  — stub, ready for v2
 │   └── src/productagents/knowledge/__init__.py
 ├── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
@@ -75,7 +75,9 @@ packages/
         ├── session.py      #   Session value type
         ├── decision_service.py  #   DecisionService (start_session, runner→event translation, recording)
         ├── connector_service.py #   ConnectorService (sync + health-check composition root)
-        ├── context.py      #   open_decision_context (per-run AgentContext + DB session)
+        ├── context.py      #   open_decision_context (per-run AgentContext + DB session); also exposes open_event_store
+        ├── serialization.py     #   platform Event <-> Event-Store row bridge (pydantic TypeAdapter)
+        ├── session_service.py   #   SessionService — list/get/replay persisted sessions
         ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
         ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)
         ├── evidence.py     #   re-exports collect_evidence / load_scenario / EvidenceError
@@ -92,12 +94,14 @@ from productagents.core.config import settings
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
 from productagents.agents.evidence import collect_evidence
-from productagents.platform import DecisionService, ConnectorService
+from productagents.platform import DecisionService, ConnectorService, SessionService
 from productagents.platform.events import SessionFinished, SessionFailed
 from productagents.platform.llm import DEFAULT_MODEL, get_model
+from productagents.platform.serialization import serialize_event, deserialize_event
 from productagents.app.setup import check_config
 from productagents.app.tui.app import main
 import productagents.memory as memory
+from productagents.memory.event_store import EventStore
 ```
 
 Each key sub-directory has its own `CLAUDE.md` with the local contract.
@@ -172,7 +176,7 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - `productagents.agents.runner` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge. The whole run is wrapped in a `decision.run` span and each node in a `decision.<node>` span (`core.observability.span`), the decision-side mirror of the connectors' `connector.sync`/`connector.health` spans.
 - `productagents.app.sync` — connector composition root: loads `connectors.yaml` (typed, fail-fast via `plan_connectors`), builds enabled connectors against a `DbCanonicalSink`, runs `run_sync`, and persists cursors via `SyncStateStore`. The TUI home menu triggers it (`Sync data sources`). It also exposes `check_connector_health()` (probe every enabled connector's `health_check()` with no DB) surfaced by the home menu's **Check connector health** action. `pa-app` is the only package permitted to import `pa-connectors`.
 - `productagents.app.tui.app` — Textual app. `main()` is the `productagents` entry point. It runs the graph in a `@work` worker, updates panels per event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
-- `productagents.memory` — DB-backed organizational-memory subsystem. `DecisionStore` persists `DecisionRecord` and `OutcomeRecord` rows in SQLite/Postgres via an injected async session; `LessonRetriever` combines lexical scoring (`LexicalRetriever`) with cosine similarity over hashing embeddings (`SemanticRetriever`) for hybrid retrieval. `LearningService` is the Knowledge-Layer face: `relevant_lessons(initiative)` → lesson strings injected into the strategist, `record_decision` / `record_outcome` on the write side. JSONL (`jsonl.py`) is export/audit only — the DB is the system of record. The `recall` node retrieves lessons through `AgentContext.learning` (a `LessonReader` slice), keeping agents free of sqlalchemy.
+- `productagents.memory` — DB-backed organizational-memory subsystem. `DecisionStore` persists `DecisionRecord` and `OutcomeRecord` rows in SQLite/Postgres via an injected async session; `LessonRetriever` combines lexical scoring (`LexicalRetriever`) with cosine similarity over hashing embeddings (`SemanticRetriever`) for hybrid retrieval. `LearningService` is the Knowledge-Layer face: `relevant_lessons(initiative)` → lesson strings injected into the strategist, `record_decision` / `record_outcome` on the write side. JSONL (`jsonl.py`) is export/audit only — the DB is the system of record. The `recall` node retrieves lessons through `AgentContext.learning` (a `LessonReader` slice), keeping agents free of sqlalchemy. Since V3 Phase 2 pa-memory also owns the **Event Store** (`event_store.py`): append-only `runtime_session` + `runtime_event` tables persisting every platform event of every run — the execution log that complements the decision system-of-record.
 - **Outcome Learning has two halves.** The *injection* half runs inside the graph
   (`recall` → `strategist`): `recall` calls `ctx.learning.relevant_lessons(initiative)` and seeds the lessons into graph state. The *capture* half runs **outside** the graph:
   `agents/reflection.py::reflect()` is triggered from the TUI's reflection screen
