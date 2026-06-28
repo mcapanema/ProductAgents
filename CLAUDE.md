@@ -90,6 +90,9 @@ packages/
         └── prompt_service.py  #   PromptService — Application-Layer face of the prompt registry
 tests/                      # offline suite, FakeChatModel (see tests/CLAUDE.md)
 docs/design/adr/            # Architecture Decision Records
+desktop/                    # V3 Tauri + React desktop GUI (presentation adapter). Spawns
+                            #   `productagents ipc` as a sidecar; talks NDJSON over stdio to the Application
+                            #   Layer. Not a uv workspace member (it is a JS/Rust app). See `README.md`.
 ```
 
 **Import path examples:**
@@ -135,6 +138,7 @@ uv run pytest tests/test_debate.py::test_name -x           # one test
 uv run lint-imports     # verify 7 import-linter layer contracts (layers + forbidden)
 uv run ruff check packages tests  # lint all source and test trees
 uv run ty check         # type check (pyright-based)
+cd desktop && npm run tauri dev   # launch the V3 desktop GUI (dev; spawns the ipc sidecar)
 ```
 
 `uv sync` resolves all six workspace members (`packages/*`) together. `pytest` auto-runs coverage (`--cov`, configured in `pyproject.toml`) and writes `htmlcov/`. `[tool.coverage.paths]` maps each member's `src/productagents/` tree back to the namespace so coverage spans all packages. `asyncio_mode = "auto"`, so `async def test_*` functions need no decorator.

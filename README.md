@@ -212,6 +212,28 @@ Type an initiative (e.g. "Add enterprise SSO") and press Enter. Analyst panels u
 
 **Outcome learning.** After a decision, press `Ctrl+R` to open reflection mode, pick a past decision, and describe what happened. An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
 
+### Desktop GUI (Tauri + React)
+
+The V3 desktop app lives in `desktop/`. It is a presentation adapter only — it
+spawns `productagents ipc` (the JSON-over-stdio Application-Layer adapter) as a
+child process and talks to it across the process boundary. It never imports
+LangGraph, connectors, or persistence.
+
+```bash
+cd desktop
+npm install            # first time
+npm run tauri dev      # build the Rust shell + open the window (spawns the sidecar)
+npm test               # frontend unit tests (Vitest)
+```
+
+Panels: **Run** (start a workflow, watch events stream live), **Sessions**
+(replay a past run's event timeline), **Decisions** (the Decision Explorer:
+browse past decisions with predicted-vs-actual outcomes and lessons learned).
+
+Packaging into a single installable binary (with a bundled Python sidecar) is a
+later phase; for now the app shells out to `uv run productagents ipc` from the
+repo root in dev mode.
+
 ### Test
 
 ```bash
