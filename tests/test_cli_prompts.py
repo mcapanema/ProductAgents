@@ -47,6 +47,13 @@ def test_prompts_rollback(tmp_path, capsys):
     assert service.get("market") == "one"
 
 
+def test_prompts_rollback_unknown_version_returns_1(tmp_path, capsys):
+    service = PromptService(PromptStore(tmp_path))
+    code = cli.prompts_rollback("market", 99, service=service)
+    assert code == 1
+    assert "no version 99 for market" in capsys.readouterr().out
+
+
 def test_prompts_diff(tmp_path, capsys):
     service = _service(tmp_path)
     service.save("market", "a\n")

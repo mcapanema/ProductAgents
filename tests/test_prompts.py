@@ -145,3 +145,12 @@ def test_every_bundled_prompt_renders_with_no_leftover_placeholder(name, slots):
 
 def test_registry_lists_all_thirteen_bundled_prompts():
     assert set(_PROMPT_SLOTS) <= set(PromptStore().names())
+
+
+def test_override_versions_ignores_non_numeric_stems(tmp_path):
+    store = PromptStore(tmp_path)
+    store.save_version("market", "real-v1")
+    # a hand-placed malformed file must not crash version listing
+    (tmp_path / "market" / "1note.txt").write_text("junk", encoding="utf-8")
+    assert store.versions("market") == [0, 1]
+    assert store.active_version("market") == 1

@@ -59,7 +59,7 @@ class PromptStore:
         d = self._name_dir(name)
         if d is None or not d.is_dir():
             return []
-        return sorted(int(p.stem) for p in d.glob("[0-9]*.txt"))
+        return sorted(int(p.stem) for p in d.glob("[0-9]*.txt") if p.stem.isdigit())
 
     def active_version(self, name: str) -> int:
         overrides = self._override_versions(name)
