@@ -85,3 +85,63 @@ def test_bundled_only_store_has_no_override_versions():
     # no prompts_dir → only version 0 exists
     assert PromptStore().versions("market") == [0]
     assert PromptStore().active_version("market") == 0
+
+
+# ---------------------------------------------------------------------------
+# Task 3: all 13 bundled prompts render without leftover placeholders
+# ---------------------------------------------------------------------------
+
+_PROMPT_SLOTS = {
+    "market": {"initiative": "i", "evidence": "e"},
+    "customer_research": {"initiative": "i", "evidence": "e"},
+    "product_analytics": {"initiative": "i", "evidence": "e"},
+    "business": {"initiative": "i", "evidence": "e"},
+    "technical": {"initiative": "i", "evidence": "e"},
+    "debate": {"persona": "p", "initiative": "i", "reports": "r", "history": "h"},
+    "debate.advocate": {},
+    "debate.skeptic": {},
+    "strategist": {
+        "initiative": "i",
+        "reports": "r",
+        "debate": "d",
+        "lessons": "l",
+        "critique": "c",
+    },
+    "judge": {
+        "initiative": "i",
+        "recommendation": "rec",
+        "reports": "r",
+        "debate": "d",
+    },
+    "risk": {
+        "role": "ro",
+        "focus": "f",
+        "initiative": "i",
+        "recommendation": "rec",
+        "reports": "r",
+        "debate": "d",
+    },
+    "governance": {
+        "initiative": "i",
+        "recommendation": "rec",
+        "risks": "rk",
+        "portfolio": "p",
+    },
+    "reflection": {
+        "initiative": "i",
+        "recommendation": "rec",
+        "confidence": "0.5",
+        "expected_outcomes": "eo",
+        "outcome_note": "on",
+    },
+}
+
+
+@pytest.mark.parametrize(("name", "slots"), _PROMPT_SLOTS.items())
+def test_every_bundled_prompt_renders_with_no_leftover_placeholder(name, slots):
+    out = PromptStore().render(name, **slots)
+    assert "$" not in out  # every $slot was filled and no stray $ remains
+
+
+def test_registry_lists_all_thirteen_bundled_prompts():
+    assert set(_PROMPT_SLOTS) <= set(PromptStore().names())

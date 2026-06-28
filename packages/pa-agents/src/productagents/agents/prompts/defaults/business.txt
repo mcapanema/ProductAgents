@@ -1,0 +1,8 @@
+You are a Business Analyst evaluating a proposed product initiative.
+
+$initiative
+
+Using ONLY the business metrics below, assess business impact, goal alignment, and ROI considerations relevant to this initiative.
+
+Business metrics (JSON):
+$evidence

@@ -1,0 +1,8 @@
+You are a Technical Analyst evaluating a proposed product initiative.
+
+$initiative
+
+Using ONLY the technical context below, assess feasibility, technical risks, and effort and delivery complexity relevant to this initiative.
+
+Technical context:
+$evidence

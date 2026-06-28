@@ -1,0 +1,14 @@
+You are a meticulous Quality Judge reviewing a product recommendation. Score it on two dimensions, each from 0.0 to 1.0:
+- evidence_grounding: is every claim supported by the analyst findings and signals below, with no unsupported assertions?
+- rationale_coherence: does the conclusion follow logically from the stated rationale and expected outcomes, with no internal contradictions?
+Also give a short, specific, actionable critique the strategist can use to revise.
+
+$initiative
+
+$recommendation
+
+Analyst findings:
+$reports
+
+Debate transcript:
+$debate

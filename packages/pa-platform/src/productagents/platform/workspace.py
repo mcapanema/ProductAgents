@@ -57,6 +57,10 @@ class Workspace:
     def log_file(self) -> Path:
         return self.root / "productagents.log"
 
+    @property
+    def prompts_dir(self) -> Path:
+        return self.root / "prompts"
+
 
 class WorkspaceService:
     def __init__(self, home: Path | None = None) -> None:
@@ -100,5 +104,6 @@ class WorkspaceService:
             "PRODUCTAGENTS_CONNECTORS_FILE", str(workspace.connectors_file)
         )
         os.environ.setdefault("PRODUCTAGENTS_LOG_FILE", str(workspace.log_file))
+        os.environ.setdefault("PRODUCTAGENTS_PROMPTS_DIR", str(workspace.prompts_dir))
         if workspace.env_file.exists():
             load_env(dotenv_path=workspace.env_file)
