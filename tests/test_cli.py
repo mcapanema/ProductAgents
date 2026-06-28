@@ -1,6 +1,7 @@
 """Tests for the productagents CLI front door."""
 
 import contextlib
+from datetime import UTC, datetime
 
 import pytest
 
@@ -246,3 +247,65 @@ def test_workspace_show_prints_paths(tmp_path, capsys):
     assert "acme" in out
     assert "productagents.db" in out  # db_url path surfaced
     assert "connectors.yaml" in out
+
+
+class _StubSessionService:
+    def __init__(self, sessions, events_by_id):
+        self._sessions = sessions
+        self._events = events_by_id
+
+    async def list(self):
+        return self._sessions
+
+    async def get(self, session_id):
+        for s in self._sessions:
+            if s.id == session_id:
+                return s
+        return None
+
+    async def events(self, session_id):
+        return self._events.get(session_id, [])
+
+
+def _session(id_="s1", status="finished"):
+    return Session(
+        id=id_,
+        workflow="evaluate_initiative",
+        status=status,
+        created_at=datetime(2026, 6, 28, tzinfo=UTC),
+    )
+
+
+async def test_sessions_list_prints_rows(capsys):
+    svc = _StubSessionService([_session("s1"), _session("s2", "running")], {})
+    code = await cli_module.sessions_list(service=svc)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "s1" in out
+    assert "s2" in out
+    assert "running" in out
+
+
+async def test_sessions_list_empty_returns_zero(capsys):
+    code = await cli_module.sessions_list(service=_StubSessionService([], {}))
+    assert code == 0
+    assert "no sessions" in capsys.readouterr().out.lower()
+
+
+async def test_sessions_show_replays_events(capsys):
+    events = [
+        ev.SessionStarted(session_id="s1", seq=0, workflow="evaluate_initiative"),
+        ev.Recommended(session_id="s1", seq=1, recommendation=_rec()),
+    ]
+    svc = _StubSessionService([_session("s1")], {"s1": events})
+    code = await cli_module.sessions_show("s1", service=svc)
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "Ship it" in out
+
+
+async def test_sessions_show_unknown_id_returns_one(capsys):
+    svc = _StubSessionService([], {})
+    code = await cli_module.sessions_show("missing", service=svc)
+    assert code == 1
+    assert "missing" in capsys.readouterr().out

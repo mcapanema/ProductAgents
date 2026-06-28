@@ -20,6 +20,7 @@ from productagents.platform import events as ev
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
 from productagents.platform.llm import get_model
+from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
 
@@ -81,6 +82,31 @@ async def run_workflow(
     return 1 if failed else 0
 
 
+async def sessions_list(*, service) -> int:
+    """Print one row per persisted session (id, workflow, status, created_at)."""
+    sessions = await service.list()
+    if not sessions:
+        print("no sessions yet")
+        return 0
+    for s in sessions:
+        print(f"{s.id}  {s.workflow}  {s.status}  {s.created_at.isoformat()}")
+    return 0
+
+
+async def sessions_show(session_id: str, *, service) -> int:
+    """Replay one session's event timeline. Returns 1 if the id is unknown."""
+    session = await service.get(session_id)
+    if session is None:
+        print(f"no such session: {session_id}")
+        return 1
+    print(f"▶ session {session.id} — {session.workflow} [{session.status}]")
+    for event in await service.events(session_id):
+        line = render_event(event)
+        if line is not None:
+            print(line)
+    return 0
+
+
 def _build_run_service() -> WorkflowService:
     """Production WorkflowService for headless runs: real model, DB recorder,
     no human-in-the-loop (governance stays advisory and the run completes)."""
@@ -114,6 +140,12 @@ def build_parser() -> argparse.ArgumentParser:
     ws_sub.add_parser("list", help="list workspaces")
     p_ws_show = ws_sub.add_parser("show", help="show a workspace's paths")
     p_ws_show.add_argument("name", nargs="?", default=None, help="defaults to active")
+
+    p_se = sub.add_parser("sessions", help="list or replay runtime sessions")
+    se_sub = p_se.add_subparsers(dest="se_command")
+    se_sub.add_parser("list", help="list persisted sessions")
+    p_se_show = se_sub.add_parser("show", help="replay a session's events")
+    p_se_show.add_argument("session_id", help="session id to replay")
 
     return parser
 
@@ -181,5 +213,12 @@ def main(argv: list[str] | None = None) -> None:
         code = asyncio.run(
             run_workflow(args.workflow, args.title, args.evidence, service=service)
         )
+        raise SystemExit(code)
+    if args.command == "sessions":
+        service = SessionService.create()
+        if args.se_command == "show":
+            code = asyncio.run(sessions_show(args.session_id, service=service))
+            raise SystemExit(code)
+        code = asyncio.run(sessions_list(service=service))
         raise SystemExit(code)
     raise SystemExit(f"unknown command: {args.command}")  # pragma: no cover
