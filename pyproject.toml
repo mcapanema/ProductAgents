@@ -96,12 +96,20 @@ layers = [
     "productagents.core",
 ]
 
-# Connectors map INTO core only; nothing above imports a connector by name.
+# Connectors map INTO core only; only the platform composition root wires them.
+# allow_indirect_imports = true so that app → platform.connectors → connectors
+# is legal (app goes through the platform, not around it); direct wiring is still
+# caught.
 [[tool.importlinter.contracts]]
 name = "Connectors are isolated below the platform"
 type = "forbidden"
-source_modules = ["productagents.agents", "productagents.knowledge"]
+source_modules = [
+    "productagents.app",
+    "productagents.agents",
+    "productagents.knowledge",
+]
 forbidden_modules = ["productagents.connectors"]
+allow_indirect_imports = true
 
 # Connectors depend only on core (+ httpx). Never the storage/agent/app layers.
 [[tool.importlinter.contracts]]

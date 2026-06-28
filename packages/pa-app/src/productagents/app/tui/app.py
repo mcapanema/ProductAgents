@@ -30,14 +30,6 @@ from productagents.agents.runner import (
     RunAbortedEvent,
 )
 from productagents.app.setup import check_config, write_env
-from productagents.app.sync import (
-    check_connector_health,
-    describe_health,
-    describe_plan,
-    describe_report,
-    run_connector_sync,
-    static_connector_plan,
-)
 from productagents.app.tui._constants import (
     ANALYST_IDS as _ANALYST_IDS,
 )
@@ -74,6 +66,14 @@ from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.config import env_int, load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
+from productagents.platform.connectors import (
+    check_connector_health,
+    describe_health,
+    describe_plan,
+    describe_report,
+    run_connector_sync,
+    static_connector_plan,
+)
 from productagents.platform.context import (
     make_decision_reader,
     make_decision_runner,

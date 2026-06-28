@@ -2,9 +2,9 @@
 
 from textual.widgets import Static
 
-from productagents.app.sync import ConnectorPlan, SyncReport
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.connectors.base import ConnectorConfig, SyncResult
+from productagents.platform.connectors import ConnectorPlan, SyncReport
 
 
 def _ok_status():
@@ -33,8 +33,8 @@ async def test_home_shows_connector_plan_line():
 
 
 async def test_health_button_runs_checker_and_logs_report():
-    from productagents.app.sync import HealthReport
     from productagents.connectors.base import HealthStatus
+    from productagents.platform.connectors import HealthReport
 
     plan = ConnectorPlan(configs={"github": ConnectorConfig()}, problems=[])
     report = HealthReport(statuses={"github": HealthStatus(ok=True)}, problems=[])

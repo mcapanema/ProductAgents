@@ -1,8 +1,8 @@
 """Tests for the productagents entry point wiring."""
 
-from productagents.app.sync import SyncReport
 from productagents.app.tui import app as app_module
 from productagents.connectors.base import SyncResult
+from productagents.platform.connectors import SyncReport
 
 
 async def _ok_syncer():

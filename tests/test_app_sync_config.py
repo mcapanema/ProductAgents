@@ -27,13 +27,13 @@ _REGISTRY = {"github": _GHConnector}
 
 
 def test_load_raw_config_missing_file_is_empty(tmp_path):
-    from productagents.app.sync import load_raw_config
+    from productagents.platform.connectors import load_raw_config
 
     assert load_raw_config(str(tmp_path / "nope.yaml")) == {}
 
 
 def test_load_raw_config_reads_connectors_block(tmp_path):
-    from productagents.app.sync import load_raw_config
+    from productagents.platform.connectors import load_raw_config
 
     path = tmp_path / "connectors.yaml"
     path.write_text(
@@ -44,7 +44,7 @@ def test_load_raw_config_reads_connectors_block(tmp_path):
 
 
 def test_plan_resolves_secret_from_env():
-    from productagents.app.sync import plan_connectors
+    from productagents.platform.connectors import plan_connectors
 
     raw = {
         "github": {
@@ -60,7 +60,7 @@ def test_plan_resolves_secret_from_env():
 
 
 def test_plan_reports_missing_secret():
-    from productagents.app.sync import plan_connectors
+    from productagents.platform.connectors import plan_connectors
 
     raw = {
         "github": {
@@ -76,7 +76,7 @@ def test_plan_reports_missing_secret():
 
 
 def test_plan_skips_disabled():
-    from productagents.app.sync import plan_connectors
+    from productagents.platform.connectors import plan_connectors
 
     raw = {"github": {"enabled": False, "owner": "acme", "repo": "w"}}
     plan = plan_connectors(raw, _REGISTRY, {})
@@ -85,7 +85,7 @@ def test_plan_skips_disabled():
 
 
 def test_plan_reports_unknown_connector():
-    from productagents.app.sync import plan_connectors
+    from productagents.platform.connectors import plan_connectors
 
     raw = {"jira": {"enabled": True}}
     plan = plan_connectors(raw, _REGISTRY, {})
@@ -94,7 +94,7 @@ def test_plan_reports_unknown_connector():
 
 
 def test_plan_reports_invalid_config():
-    from productagents.app.sync import plan_connectors
+    from productagents.platform.connectors import plan_connectors
 
     raw = {"github": {"enabled": True}}  # missing required owner/repo
     plan = plan_connectors(raw, _REGISTRY, {})
@@ -103,7 +103,7 @@ def test_plan_reports_invalid_config():
 
 
 def test_static_connector_plan_uses_injected_registry(tmp_path, monkeypatch):
-    from productagents.app.sync import static_connector_plan
+    from productagents.platform.connectors import static_connector_plan
 
     path = tmp_path / "c.yaml"
     yaml_content = (
@@ -116,7 +116,7 @@ def test_static_connector_plan_uses_injected_registry(tmp_path, monkeypatch):
 
 
 def test_static_connector_plan_malformed_yaml_degrades(tmp_path):
-    from productagents.app.sync import static_connector_plan
+    from productagents.platform.connectors import static_connector_plan
 
     path = tmp_path / "bad.yaml"
     path.write_text("connectors: [unclosed\n")  # deliberate YAML syntax error
@@ -126,7 +126,7 @@ def test_static_connector_plan_malformed_yaml_degrades(tmp_path):
 
 
 def test_plan_connectors_non_mapping_block_degrades():
-    from productagents.app.sync import plan_connectors
+    from productagents.platform.connectors import plan_connectors
 
     raw = cast(dict[str, dict], {"github": "not-a-dict"})  # intentional type-violation
     plan = plan_connectors(raw, _REGISTRY, {})
@@ -135,8 +135,8 @@ def test_plan_connectors_non_mapping_block_degrades():
 
 
 def test_plan_validates_jira_block_with_no_app_change():
-    from productagents.app.sync import plan_connectors
     from productagents.connectors.jira.connector import JiraConfig, JiraConnector
+    from productagents.platform.connectors import plan_connectors
 
     raw = {
         "jira": {
@@ -161,8 +161,8 @@ def test_plan_validates_jira_block_with_no_app_change():
 
 
 def test_plan_reports_jira_missing_secret_env():
-    from productagents.app.sync import plan_connectors
     from productagents.connectors.jira.connector import JiraConnector
+    from productagents.platform.connectors import plan_connectors
 
     raw = {
         "jira": {

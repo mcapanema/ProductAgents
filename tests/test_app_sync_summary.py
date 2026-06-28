@@ -4,13 +4,13 @@ from productagents.connectors.base import ConnectorConfig, SyncResult
 
 
 def test_describe_plan_no_connectors():
-    from productagents.app.sync import ConnectorPlan, describe_plan
+    from productagents.platform.connectors import ConnectorPlan, describe_plan
 
     assert describe_plan(ConnectorPlan()) == "No connectors configured"
 
 
 def test_describe_plan_enabled_and_problems():
-    from productagents.app.sync import ConnectorPlan, describe_plan
+    from productagents.platform.connectors import ConnectorPlan, describe_plan
 
     plan = ConnectorPlan(
         configs={"github": ConnectorConfig()},
@@ -23,7 +23,7 @@ def test_describe_plan_enabled_and_problems():
 
 
 def test_describe_report_lists_results():
-    from productagents.app.sync import SyncReport, describe_report
+    from productagents.platform.connectors import SyncReport, describe_report
 
     report = SyncReport(
         results=[
@@ -39,7 +39,7 @@ def test_describe_report_lists_results():
 
 
 def test_describe_report_no_results_with_problems():
-    from productagents.app.sync import SyncReport, describe_report
+    from productagents.platform.connectors import SyncReport, describe_report
 
     report = SyncReport(results=[], problems=["connector 'x': bad"])
     assert "⚠" in describe_report(report)

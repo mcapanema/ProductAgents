@@ -37,7 +37,7 @@ class _SickConnector(Connector):
 
 
 async def test_check_connector_health_probes_each_connector(tmp_path):
-    from productagents.app.sync import check_connector_health
+    from productagents.platform.connectors import check_connector_health
 
     path = tmp_path / "connectors.yaml"
     path.write_text(
@@ -56,7 +56,10 @@ async def test_check_connector_health_probes_each_connector(tmp_path):
 
 
 async def test_describe_health_summarizes_report(tmp_path):
-    from productagents.app.sync import check_connector_health, describe_health
+    from productagents.platform.connectors import (
+        check_connector_health,
+        describe_health,
+    )
 
     path = tmp_path / "connectors.yaml"
     path.write_text("connectors:\n  sick:\n    enabled: true\n")
@@ -71,7 +74,10 @@ async def test_describe_health_summarizes_report(tmp_path):
 
 
 async def test_check_connector_health_no_connectors_is_empty():
-    from productagents.app.sync import check_connector_health, describe_health
+    from productagents.platform.connectors import (
+        check_connector_health,
+        describe_health,
+    )
 
     report = await check_connector_health(
         config_path="/nonexistent.yaml", registry={}, env={}

@@ -38,7 +38,7 @@ class _RecordingConnector(Connector):
 
 
 async def test_build_connectors_instantiates_from_registry():
-    from productagents.app.sync import build_connectors
+    from productagents.platform.connectors import build_connectors
 
     sink = object()  # not used by construction
     built = build_connectors(
@@ -52,7 +52,7 @@ async def test_build_connectors_instantiates_from_registry():
 
 
 async def test_run_connector_sync_writes_store_and_persists_cursor(tmp_path):
-    from productagents.app.sync import run_connector_sync
+    from productagents.platform.connectors import run_connector_sync
 
     _RecordingConnector.seen_cursor = "UNSET"
     engine = make_engine("sqlite+aiosqlite://")
@@ -79,7 +79,7 @@ async def test_run_connector_sync_writes_store_and_persists_cursor(tmp_path):
 
 
 async def test_run_connector_sync_threads_stored_cursor_into_connector(tmp_path):
-    from productagents.app.sync import run_connector_sync
+    from productagents.platform.connectors import run_connector_sync
 
     engine = make_engine("sqlite+aiosqlite://")
     await create_all(engine)
@@ -102,7 +102,7 @@ async def test_run_connector_sync_threads_stored_cursor_into_connector(tmp_path)
 
 
 async def test_run_connector_sync_no_connectors_returns_problems_only():
-    from productagents.app.sync import run_connector_sync
+    from productagents.platform.connectors import run_connector_sync
 
     engine = make_engine("sqlite+aiosqlite://")
     await create_all(engine)
