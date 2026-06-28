@@ -167,7 +167,9 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(sync_command())
     if args.command == "workspace":
         if args.ws_command == "show":
-            raise SystemExit(workspace_show(args.name, service=workspaces))
+            raise SystemExit(
+                workspace_show(args.name or workspace.name, service=workspaces)
+            )
         raise SystemExit(  # bare `workspace` or `workspace list`
             workspace_list(service=workspaces, active_name=workspace.name)
         )

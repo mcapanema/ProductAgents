@@ -1,5 +1,7 @@
 """Tests for the productagents CLI front door."""
 
+import contextlib
+
 import pytest
 
 from productagents.app import cli as cli_module
@@ -218,6 +220,20 @@ def test_workspace_list_empty_home_prints_nothing_and_returns_zero(tmp_path, cap
     code = cli_module.workspace_list(service=service, active_name="default")
     assert code == 0
     assert capsys.readouterr().out.strip() == ""
+
+
+def test_main_workspace_show_without_name_uses_active(monkeypatch):
+    calls = []
+    _patch_bootstrap(monkeypatch, calls)
+    captured = {}
+    monkeypatch.setattr(
+        cli_module,
+        "workspace_show",
+        lambda name, *, service: captured.setdefault("name", name) or 0,
+    )
+    with contextlib.suppress(SystemExit):
+        cli_module.main(["--workspace", "acme", "workspace", "show"])
+    assert captured["name"] == "acme"
 
 
 def test_workspace_show_prints_paths(tmp_path, capsys):
