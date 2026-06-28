@@ -5,7 +5,7 @@ from productagents.platform.evidence import (
     collect_evidence,
     load_scenario,
 )
-from productagents.platform.llm import get_model
+from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.platform.reflection import reflect
 
 
@@ -31,6 +31,12 @@ def test_get_model_is_agents_get_model():
     from productagents.agents.llm import get_model as a
 
     assert get_model is a
+
+
+def test_default_model_is_agents_default_model():
+    from productagents.agents.llm import DEFAULT_MODEL as a
+
+    assert DEFAULT_MODEL is a
 
 
 def test_reflect_is_agents_reflect():

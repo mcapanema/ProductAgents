@@ -144,6 +144,25 @@ source_modules = ["productagents"]
 forbidden_modules = ["requests"]
 include_external_packages = true
 
+# Presentation depends only on the Application Layer (+ core models).
+# allow_indirect_imports = true: app → platform.connectors → connectors is legal
+# (app goes through the platform, not around it); direct wiring is still caught.
+[[tool.importlinter.contracts]]
+name = "Presentation goes through the Application Layer only"
+type = "forbidden"
+source_modules = ["productagents.app"]
+forbidden_modules = [
+    "productagents.agents",
+    "productagents.memory",
+    "productagents.knowledge",
+    "productagents.connectors",
+    "langgraph",
+    "langchain",
+    "sqlalchemy",
+]
+include_external_packages = true
+allow_indirect_imports = true
+
 # Agents reach the store only through Knowledge Services, never raw SQL/ORM.
 [[tool.importlinter.contracts]]
 name = "Agents reach storage only through services"

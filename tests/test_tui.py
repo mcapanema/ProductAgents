@@ -1050,6 +1050,54 @@ async def test_decide_path_records_human_decision(monkeypatch):
     assert record.governance.decided_by == "human"
 
 
+async def test_session_failed_decide_path_records_placeholder(monkeypatch):
+    """A fatal SessionFailed + 'decide' records a placeholder DecisionRecord.
+
+    This covers the aborted-run branch in _record: finished=None → placeholder
+    Recommendation(failed=True), governance from the human's choice.
+    """
+    from productagents.agents.runner import RunAbortedEvent
+
+    recorded = []
+
+    async def _aborted_runner(initiative, evidence, *, approver=None):
+        yield RunAbortedEvent(
+            node="customer_research",
+            category="rate_limit",
+            message="Rate limit reached.",
+        )
+
+    app = ProductAgentsApp(
+        _service(
+            _aborted_runner,
+            _degraded_evidence(),
+            _list_recorder(recorded),
+        ),
+        _degraded_evidence(),
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
+        show_home=False,
+    )
+
+    async def fake_push_screen_wait(screen):
+        if isinstance(screen, DegradedRunScreen):
+            return "decide"
+        return HumanDecision(verdict="reject", rationale="not now")
+
+    async with app.run_test() as pilot:
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert len(recorded) == 1
+    record = recorded[0]
+    assert record.recommendation.failed is True
+    assert record.governance.verdict == "reject"
+    assert record.governance.decided_by == "human"
+
+
 async def test_healthy_run_is_recorded(monkeypatch):
     recorded = []
 

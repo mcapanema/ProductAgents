@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from dotenv import find_dotenv, set_key
 
-from productagents.agents.llm import DEFAULT_MODEL
+from productagents.platform.llm import DEFAULT_MODEL
 
 
 @dataclass(frozen=True)

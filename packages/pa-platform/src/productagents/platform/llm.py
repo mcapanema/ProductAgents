@@ -3,6 +3,6 @@
 # ponytail: thin re-export; gets a proper home in a later phase
 """
 
-from productagents.agents.llm import get_model
+from productagents.agents.llm import DEFAULT_MODEL, get_model
 
-__all__ = ["get_model"]
+__all__ = ["DEFAULT_MODEL", "get_model"]
