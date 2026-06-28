@@ -20,6 +20,7 @@ from productagents.platform import events as ev
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
 from productagents.platform.llm import get_model
+from productagents.platform.prompt_service import PromptService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
@@ -148,6 +149,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_se_show = se_sub.add_parser("show", help="replay a session's events")
     p_se_show.add_argument("session_id", help="session id to replay")
 
+    p_pr = sub.add_parser("prompts", help="browse, diff, edit, and roll back prompts")
+    pr_sub = p_pr.add_subparsers(dest="pr_command")
+    pr_sub.add_parser("list", help="list prompt names")
+    p_pr_show = pr_sub.add_parser("show", help="print a prompt's text")
+    p_pr_show.add_argument("name")
+    p_pr_show.add_argument("--version", type=int, default=None)
+    p_pr_diff = pr_sub.add_parser("diff", help="unified diff between two versions")
+    p_pr_diff.add_argument("name")
+    p_pr_diff.add_argument("old", type=int)
+    p_pr_diff.add_argument("new", type=int)
+    p_pr_save = pr_sub.add_parser("save", help="save FILE as a new version of NAME")
+    p_pr_save.add_argument("name")
+    p_pr_save.add_argument("file")
+    p_pr_rb = pr_sub.add_parser("rollback", help="re-activate an old version")
+    p_pr_rb.add_argument("name")
+    p_pr_rb.add_argument("version", type=int)
+
     return parser
 
 
@@ -168,6 +186,55 @@ def workspace_show(name: str | None, *, service: WorkspaceService) -> int:
     print(f"connectors:  {ws.connectors_file}")
     print(f"env:         {ws.env_file}")
     print(f"log:         {ws.log_file}")
+    return 0
+
+
+def prompts_list(*, service: PromptService) -> int:
+    """Print one prompt name per line, with its active version."""
+    for name in service.names():
+        print(f"{name}  (v{service.versions(name)[-1]})")
+    return 0
+
+
+def prompts_show(name: str, version: int | None, *, service: PromptService) -> int:
+    """Print one prompt's text (active version, or --version N)."""
+    try:
+        text = service.get(name) if version is None else service.read(name, version)
+    except KeyError:
+        print(f"no such prompt: {name}")
+        return 1
+    print(text)
+    return 0
+
+
+def prompts_diff(name: str, old: int, new: int, *, service: PromptService) -> int:
+    """Print a unified diff between two versions of a prompt."""
+    try:
+        print(service.diff(name, old, new), end="")
+    except KeyError as exc:
+        print(str(exc))
+        return 1
+    return 0
+
+
+def prompts_save(name: str, file: str, *, service: PromptService) -> int:
+    """Save the contents of FILE as a new version of NAME."""
+    from pathlib import Path
+
+    text = Path(file).read_text(encoding="utf-8")
+    version = service.save(name, text)
+    print(f"saved {name} v{version}")
+    return 0
+
+
+def prompts_rollback(name: str, version: int, *, service: PromptService) -> int:
+    """Re-activate an old version by appending it as the newest version."""
+    try:
+        new = service.rollback(name, version)
+    except KeyError:
+        print(f"no version {version} for {name}")
+        return 1
+    print(f"rolled back {name} to v{version} (now v{new})")
     return 0
 
 
@@ -229,4 +296,17 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(code)
         code = asyncio.run(sessions_list(service=service))
         raise SystemExit(code)
+    if args.command == "prompts":
+        service = PromptService.create()
+        if args.pr_command == "show":
+            raise SystemExit(prompts_show(args.name, args.version, service=service))
+        if args.pr_command == "diff":
+            raise SystemExit(
+                prompts_diff(args.name, args.old, args.new, service=service)
+            )
+        if args.pr_command == "save":
+            raise SystemExit(prompts_save(args.name, args.file, service=service))
+        if args.pr_command == "rollback":
+            raise SystemExit(prompts_rollback(args.name, args.version, service=service))
+        raise SystemExit(prompts_list(service=service))  # bare `prompts` or `list`
     raise SystemExit(f"unknown command: {args.command}")  # pragma: no cover
