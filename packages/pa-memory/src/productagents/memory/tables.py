@@ -34,3 +34,27 @@ class OutcomeRow(Base):
     decision_id: Mapped[str] = mapped_column(String, index=True)
     payload: Mapped[dict] = mapped_column(JSON)  # OutcomeRecord.model_dump(mode="json")
     reflected_at: Mapped[str] = mapped_column(String)
+
+
+class RuntimeSessionRow(Base):
+    """One row per workflow execution (the Session header)."""
+
+    __tablename__ = "runtime_session"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workflow: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
+    created_at: Mapped[str] = mapped_column(String)
+
+
+class RuntimeEventRow(Base):
+    """Append-only event log for a session (the execution timeline)."""
+
+    __tablename__ = "runtime_event"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String)
+    ts: Mapped[str] = mapped_column(String)
+    payload: Mapped[dict] = mapped_column(JSON)  # serialized platform Event fields
