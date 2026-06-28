@@ -14,6 +14,7 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import (
     TURN,
     emit_error,
@@ -33,19 +34,6 @@ ADVOCATE = "advocate"
 SKEPTIC = "skeptic"
 DEFAULT_DEBATE_ROUNDS = 2
 
-_PERSONA = {
-    ADVOCATE: (
-        "You are the Opportunity Advocate. You argue that the organization SHOULD "
-        "pursue this initiative, emphasizing customer value, business impact, "
-        "strategic opportunity, and competitive advantage."
-    ),
-    SKEPTIC: (
-        "You are the Opportunity Skeptic. You argue that the organization should NOT "
-        "pursue this initiative, emphasizing opportunity cost, risk, complexity, and "
-        "uncertainty."
-    ),
-}
-
 
 def get_debate_rounds() -> int:
     """Return the configured number of debate rounds (default 2)."""
@@ -57,29 +45,31 @@ def _prompt(
     initiative: Initiative,
     reports: list[AnalystReport],
     history: list[DebateTurn],
+    prompts: PromptStore,
 ) -> str:
-    return (
-        f"{_PERSONA[side]}\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
-        f"Debate so far:\n"
-        f"{format_transcript(history, empty='(no prior arguments yet)')}\n\n"
-        "Make your strongest single argument for your side, directly responding to "
-        "the opposing points raised so far."
+    return prompts.render(
+        "debate",
+        persona=prompts.get(f"debate.{side}"),
+        initiative=format_initiative(initiative),
+        reports=format_reports_brief(reports),
+        history=format_transcript(history, empty="(no prior arguments yet)"),
     )
 
 
-async def _argue(side: str, state: dict, history: list[DebateTurn], model) -> str:
+async def _argue(
+    side: str, state: dict, history: list[DebateTurn], model, prompts: PromptStore
+) -> str:
     result = await invoke_structured(
         model,
         DebateArgument,
-        _prompt(side, state["initiative"], state["reports"], history),
+        _prompt(side, state["initiative"], state["reports"], history, prompts),
         node=NODE_ID,
     )
     return result.argument
 
 
-async def debate_node(state: dict, model) -> dict:
+async def debate_node(state: dict, model, prompts: PromptStore | None = None) -> dict:
+    store = prompts or PromptStore()
     writer = get_writer()
     rounds = get_debate_rounds()
     turns: list[DebateTurn] = []
@@ -87,7 +77,7 @@ async def debate_node(state: dict, model) -> dict:
         for side in (ADVOCATE, SKEPTIC):
             writer(emit_status(NODE_ID, f"round {rnd}: {side} arguing…"))
             try:
-                argument = await _argue(side, state, turns, model)
+                argument = await _argue(side, state, turns, model, store)
             except Exception as exc:  # noqa: BLE001 - degrade one turn, never crash
                 writer(emit_error(NODE_ID, str(exc)))
                 argument = f"({side} unavailable: {exc})"

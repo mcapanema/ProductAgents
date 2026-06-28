@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ProductAgents is a multi-agent framework for product decision-making under uncertainty. The README describes a target seven-stage / six-layer architecture. The code now implements the **full advisory pipeline** on a real **V2 platform substrate** — canonical models, a durable canonical store, knowledge services, live connectors (GitHub, Jira), a DB-backed organizational memory, and connector observability. What remains on the road to the README's full vision is breadth (more evidence connectors and the planned layers), not the core loop. The pipeline is:
+ProductAgents is a multi-agent framework for product decision-making under uncertainty. The README describes a target seven-stage / six-layer architecture. The code now implements the **full advisory pipeline** on a real **V2 platform substrate** — canonical models, a durable canonical store, knowledge services, live connectors (GitHub, Jira), a DB-backed organizational memory, and connector observability. Agent prompts are **registry assets** (bundled defaults + per-workspace versioned overrides) rather than hardcoded literals. What remains on the road to the README's full vision is breadth (more evidence connectors and the planned layers), not the core loop. The pipeline is:
 
 ```
 evidence → [customer_research ∥ product_analytics ∥ market ∥ business ∥ technical] → debate (advocate vs skeptic) ┐
@@ -50,6 +50,8 @@ packages/
 │       ├── recall.py · strategist.py · judge.py · risk.py · governance.py
 │       ├── human_approval.py # HITL interrupt node (added only when enabled)
 │       ├── reflection.py   #   OUT OF GRAPH: post-hoc outcome reflection
+│       ├── prompts.py      #   PromptStore — resolve/render/version prompt templates
+│       ├── prompts/defaults/*.txt  # bundled default templates (one per node name)
 │       └── data/scenarios/<name>/  # bundled mock evidence files
 ├── pa-app/                 # productagents.app.*  — CLI + TUI + setup wizard; console entry point: productagents.app.cli:main
 │   └── src/productagents/app/
@@ -84,7 +86,8 @@ packages/
         ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
         ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)
         ├── evidence.py     #   re-exports collect_evidence / load_scenario / EvidenceError
-        └── reflection.py   #   re-exports reflect (platform seam)
+        ├── reflection.py   #   re-exports reflect (platform seam)
+        └── prompt_service.py  #   PromptService — Application-Layer face of the prompt registry
 tests/                      # offline suite, FakeChatModel (see tests/CLAUDE.md)
 docs/design/adr/            # Architecture Decision Records
 ```
@@ -100,6 +103,7 @@ from productagents.agents.evidence import collect_evidence
 from productagents.platform import DecisionService, ConnectorService, SessionService
 from productagents.platform import WorkflowService
 from productagents.platform import Workspace, WorkspaceService
+from productagents.platform import PromptService
 from productagents.platform.events import SessionFinished, SessionFailed
 from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.platform.serialization import serialize_event, deserialize_event
@@ -147,6 +151,7 @@ uv run ty check         # type check (pyright-based)
 - `PRODUCTAGENTS_SYNC_INTERVAL` — seconds between automatic in-process connector syncs while the TUI is running (default `0` = disabled; manual "Sync data sources" always works). For unattended hosts prefer cron/launchd calling `productagents sync` instead.
 - `PRODUCTAGENTS_HOME` — directory holding all workspaces (default `~/.productagents`; workspaces live under `<home>/workspaces/<name>/`).
 - `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). On launch the platform resolves this workspace, creates its directory if absent, and **activates** it: the workspace's `productagents.db`, `connectors.yaml`, `.env`, and `productagents.log` become the defaults by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the workspace `.env`.
+- `PRODUCTAGENTS_PROMPTS_DIR` — directory of per-workspace prompt overrides (default `<workspace.root>/prompts`, set by `WorkspaceService.activate`). Each prompt is `<dir>/<name>/NNNN.txt`; the highest number is active; version 0 is the bundled default. An explicit export wins (`setdefault`).
 
 > **Structured output requires tool/function calling.** Every node calls
 > `model.with_structured_output(...)`. A model that does not support tool calling

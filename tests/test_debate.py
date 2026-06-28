@@ -1,4 +1,9 @@
-from productagents.agents.debate import debate_node, get_debate_rounds
+from productagents.agents.debate import (
+    ADVOCATE,
+    _prompt,
+    debate_node,
+    get_debate_rounds,
+)
 from productagents.core.models import AnalystReport, DebateArgument, Initiative
 from tests.fakes import FakeChatModel
 
@@ -56,6 +61,20 @@ async def test_debate_node_degrades_on_failure(monkeypatch):
     assert len(turns) == 2
     assert "unavailable" in turns[0].argument
     assert turns[0].side == "advocate"
+
+
+def test_debate_prompt_renders_advocate_persona_from_store():
+    from productagents.agents.prompts import PromptStore
+
+    out = _prompt(
+        ADVOCATE,
+        Initiative(title="t", description="d"),
+        [],
+        [],
+        PromptStore(),
+    )
+    assert "Opportunity Advocate" in out
+    assert "Make your strongest single argument" in out
 
 
 async def test_debate_degrades_when_model_returns_none(monkeypatch):

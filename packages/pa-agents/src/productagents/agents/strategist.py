@@ -3,6 +3,7 @@
 from productagents.agents._format import format_initiative, format_transcript
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import emit_error, emit_status
 from productagents.core.models import (
     AnalystReport,
@@ -52,22 +53,23 @@ def _prompt(
     debate: list[DebateTurn],
     prior_lessons: list[str],
     judgment=None,
+    *,
+    prompts: PromptStore,
 ) -> str:
-    return (
-        "You are a Product Strategist. Synthesize the analyst reports AND the "
-        "advocate/skeptic debate below into a single recommendation. Provide a "
-        "recommendation, a confidence score between 0 and 1, a rationale, and "
-        "expected outcomes. Apply the lessons from past decisions where they are "
-        "relevant.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        f"Analyst reports:\n{_format_reports(reports)}\n\n"
-        f"Debate transcript:\n{format_transcript(debate)}\n\n"
-        f"Lessons from past decisions:\n{_format_lessons(prior_lessons)}\n"
-        f"{_format_critique(judgment)}"
+    return prompts.render(
+        "strategist",
+        initiative=format_initiative(initiative),
+        reports=_format_reports(reports),
+        debate=format_transcript(debate),
+        lessons=_format_lessons(prior_lessons),
+        critique=_format_critique(judgment),
     )
 
 
-async def strategist_node(state: dict, model) -> dict:
+async def strategist_node(
+    state: dict, model, prompts: PromptStore | None = None
+) -> dict:
+    store = prompts or PromptStore()
     writer = get_writer()
     writer(emit_status(NODE_ID, "synthesizing recommendation…"))
     try:
@@ -80,6 +82,7 @@ async def strategist_node(state: dict, model) -> dict:
                 state.get("debate", []),
                 state.get("prior_lessons", []),
                 state.get("judgment"),
+                prompts=store,
             ),
             node=NODE_ID,
         )

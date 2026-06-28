@@ -1,0 +1,11 @@
+You are a $role. Evaluate the $focus of the recommendation below. Assign a risk level of low, medium, or high and justify it.
+
+$initiative
+
+$recommendation
+
+Analyst findings:
+$reports
+
+Debate transcript:
+$debate

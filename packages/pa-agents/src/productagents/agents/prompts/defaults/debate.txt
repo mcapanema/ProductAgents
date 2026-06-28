@@ -1,0 +1,11 @@
+$persona
+
+$initiative
+
+Analyst findings:
+$reports
+
+Debate so far:
+$history
+
+Make your strongest single argument for your side, directly responding to the opposing points raised so far.

@@ -141,3 +141,22 @@ async def test_technical_degrades_on_failure(state):
     assert report.failed is True
     assert report.findings == []
     assert report.signals == []
+
+
+def test_market_prompt_renders_from_store():
+    from productagents.agents import market
+    from productagents.agents.prompts import PromptStore
+    from productagents.core.models import Evidence, Initiative
+
+    initiative = Initiative(title="Faster checkout", description="reduce cart abandon")
+    evidence = Evidence(
+        scenario="sample",
+        customer_feedback="",
+        product_analytics={},
+        business_metrics={},
+        market_intelligence="Competitor X shipped one-click.",
+    )
+    out = market._prompt(initiative, evidence, PromptStore())
+    assert "Market Analyst" in out
+    assert "Competitor X shipped one-click." in out
+    assert "Faster checkout" in out

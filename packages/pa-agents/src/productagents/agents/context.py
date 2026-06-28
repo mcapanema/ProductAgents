@@ -9,6 +9,7 @@ inject fakes, exactly as they do for the model.
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from productagents.agents.prompts import PromptStore
 from productagents.core.models import CustomerFeedback, DecisionRecord, Initiative
 from productagents.knowledge.services._page import Page
 from productagents.knowledge.services.feedback_service import FeedbackQuery
@@ -61,3 +62,4 @@ class AgentContext:
     model: object
     feedback: FeedbackReader = field(default_factory=_NullFeedback)
     learning: LessonReader = field(default_factory=_NullLearning)
+    prompts: PromptStore = field(default_factory=PromptStore)

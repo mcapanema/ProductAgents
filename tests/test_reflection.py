@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from productagents.agents.reflection import _prompt as reflection_prompt
 from productagents.agents.reflection import reflect
 from productagents.core.models import (
     DecisionRecord,
@@ -23,6 +24,25 @@ def _decision():
         reports=[],
         timestamp="2026-06-19T12:00:00+00:00",
     )
+
+
+def test_reflection_prompt_renders_from_store():
+    from productagents.agents.prompts import PromptStore
+
+    decision = DecisionRecord(
+        initiative=Initiative(title="Add SSO", description="Enterprise SSO"),
+        recommendation=Recommendation(
+            recommendation="Build it",
+            confidence=0.8,
+            rationale="demand",
+            expected_outcomes=["enterprise unblock"],
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+    out = reflection_prompt(decision, "slow adoption", PromptStore())
+    assert "Outcome Reflection Analyst" in out
+    assert "slow adoption" in out
 
 
 async def test_reflect_produces_outcome_record():

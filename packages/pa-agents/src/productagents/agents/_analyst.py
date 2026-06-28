@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import emit_error, emit_status
 from productagents.core.models import (
     AnalystFindings,
@@ -27,7 +28,7 @@ async def run_analyst(
     analyst_id: str,
     role: str,
     start_status: str,
-    prompt: Callable[[Initiative, Evidence], str],
+    prompt: Callable[[Initiative, Evidence, PromptStore], str],
 ) -> dict:
     """Run one analyst's structured call, degrading to a failed report on error.
 
@@ -41,7 +42,7 @@ async def run_analyst(
         findings = await invoke_structured(
             ctx.model,
             AnalystFindings,
-            prompt(state["initiative"], state["evidence"]),
+            prompt(state["initiative"], state["evidence"], ctx.prompts),
             node=analyst_id,
         )
         report = AnalystReport(

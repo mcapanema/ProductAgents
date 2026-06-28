@@ -11,14 +11,12 @@ ROLE = "Business Analyst"
 _START_STATUS = "assessing business impact…"
 
 
-def _prompt(initiative: Initiative, evidence: Evidence) -> str:
+def _prompt(initiative: Initiative, evidence: Evidence, prompts) -> str:
     metrics = json.dumps(evidence.business_metrics, indent=2)
-    return (
-        f"You are a {ROLE} evaluating a proposed product initiative.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        "Using ONLY the business metrics below, assess business impact, goal "
-        "alignment, and ROI considerations relevant to this initiative.\n\n"
-        f"Business metrics (JSON):\n{metrics}\n"
+    return prompts.render(
+        ANALYST_ID,
+        initiative=format_initiative(initiative),
+        evidence=metrics,
     )
 
 

@@ -91,3 +91,15 @@ def test_activate_loads_workspace_dotenv(tmp_path, monkeypatch):
     (root / ".env").write_text("WS_SECRET=from-workspace\n")
     WorkspaceService(home=tmp_path).activate(Workspace(name="acme", root=root))
     assert os.environ["WS_SECRET"] == "from-workspace"
+
+
+def test_workspace_exposes_prompts_dir(tmp_path):
+    ws = Workspace(name="w", root=tmp_path)
+    assert ws.prompts_dir == tmp_path / "prompts"
+
+
+def test_activate_points_prompts_dir_env_at_workspace(monkeypatch, tmp_path):
+    monkeypatch.delenv("PRODUCTAGENTS_PROMPTS_DIR", raising=False)
+    ws = Workspace(name="w", root=tmp_path)
+    WorkspaceService(tmp_path.parent).activate(ws)
+    assert os.environ["PRODUCTAGENTS_PROMPTS_DIR"] == str(tmp_path / "prompts")

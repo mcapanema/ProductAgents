@@ -5,6 +5,9 @@ from productagents.agents.judge import (
     get_judge_threshold,
     judge_node,
 )
+from productagents.agents.judge import (
+    _prompt as judge_prompt,
+)
 from productagents.core.models import (
     AnalystReport,
     Initiative,
@@ -34,6 +37,21 @@ def _state(judge_attempts: int = 0):
         "debate": [],
         "judge_attempts": judge_attempts,
     }
+
+
+def test_judge_prompt_renders_from_store():
+    from productagents.agents.prompts import PromptStore
+
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+    recommendation = Recommendation(
+        recommendation="Build it",
+        confidence=0.8,
+        rationale="demand",
+        expected_outcomes=[],
+    )
+    out = judge_prompt(initiative, recommendation, [], [], PromptStore())
+    assert "Quality Judge" in out
+    assert "Add SSO" in out
 
 
 async def test_judge_passes_when_both_scores_meet_threshold():

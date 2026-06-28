@@ -1,3 +1,4 @@
+from productagents.agents.strategist import _prompt as strategist_prompt
 from productagents.agents.strategist import strategist_node
 from productagents.core.models import AnalystReport, Initiative, Recommendation
 from tests.fakes import FakeChatModel
@@ -21,6 +22,21 @@ def _state():
             ),
         ],
     }
+
+
+def test_strategist_prompt_renders_lessons_and_critique_from_store():
+    from productagents.agents.prompts import PromptStore
+
+    out = strategist_prompt(
+        Initiative(title="t", description="d"),
+        reports=[],
+        debate=[],
+        prior_lessons=["LESSON-X"],
+        judgment=None,
+        prompts=PromptStore(),
+    )
+    assert "Product Strategist" in out
+    assert "LESSON-X" in out
 
 
 async def test_strategist_returns_recommendation():

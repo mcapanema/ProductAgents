@@ -114,12 +114,23 @@ def build_graph(model_or_context, *, human_in_the_loop: bool = False):
     graph.add_node("business", _traced("business", partial(business_node, ctx=ctx)))
     graph.add_node("technical", _traced("technical", partial(technical_node, ctx=ctx)))
     graph.add_node("recall", _traced("recall", partial(recall_node, ctx=ctx)))
-    graph.add_node("debate", _traced("debate", partial(debate_node, model=model)))
     graph.add_node(
-        "strategist", _traced("strategist", partial(strategist_node, model=model))
+        "debate",
+        _traced("debate", partial(debate_node, model=model, prompts=ctx.prompts)),
     )
-    graph.add_node("judge", _traced("judge", partial(judge_node, model=model)))
-    graph.add_node("risk", _traced("risk", partial(risk_node, model=model)))
+    graph.add_node(
+        "strategist",
+        _traced(
+            "strategist",
+            partial(strategist_node, model=model, prompts=ctx.prompts),
+        ),
+    )
+    graph.add_node(
+        "judge", _traced("judge", partial(judge_node, model=model, prompts=ctx.prompts))
+    )
+    graph.add_node(
+        "risk", _traced("risk", partial(risk_node, model=model, prompts=ctx.prompts))
+    )
     graph.add_node(
         "governance",
         _traced("governance", partial(governance_node, model=model, ctx=ctx)),

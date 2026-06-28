@@ -14,6 +14,7 @@ node never touches the filesystem.
 from productagents.agents._format import format_initiative, format_recommendation
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import (
     VERDICT,
     emit_error,
@@ -62,18 +63,14 @@ def _prompt(
     recommendation: Recommendation | None,
     risks: list[RiskAssessment],
     portfolio: list[DecisionRecord],
+    prompts: PromptStore,
 ) -> str:
-    return (
-        f"You are the {ROLE}, providing an advisory recommendation. You do not "
-        "ask 'is this a good idea?' but 'is this the best use of our limited "
-        "resources right now?' Review the recommendation and the risk assessments "
-        "below, weigh them against the recent portfolio of prior decisions, and "
-        "provide your advisory verdict. Your verdict must be one of: approve, "
-        "reject, request_analysis. Justify it.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        f"Recommendation:\n{format_recommendation(recommendation)}\n\n"
-        f"Risk assessments:\n{_format_risks(risks)}\n\n"
-        f"Recent portfolio:\n{_format_portfolio(portfolio)}\n"
+    return prompts.render(
+        "governance",
+        initiative=format_initiative(initiative),
+        recommendation=format_recommendation(recommendation),
+        risks=_format_risks(risks),
+        portfolio=_format_portfolio(portfolio),
     )
 
 
@@ -93,6 +90,7 @@ async def governance_node(state: dict, model, ctx) -> dict:
                 state.get("recommendation"),
                 state.get("risks", []),
                 portfolio,
+                ctx.prompts,
             ),
             node=NODE_ID,
         )

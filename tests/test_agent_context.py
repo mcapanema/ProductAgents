@@ -1,4 +1,5 @@
 from productagents.agents.context import AgentContext
+from productagents.agents.prompts import PromptStore
 from productagents.knowledge import FeedbackQuery
 
 
@@ -17,3 +18,8 @@ async def test_carries_provided_feedback():
     ctx = AgentContext(model="m", feedback=StubFeedback())
     assert ctx.model == "m"
     assert await ctx.feedback.search(FeedbackQuery()) == "PAGE"
+
+
+def test_agent_context_defaults_to_a_prompt_store():
+    ctx = AgentContext(model=object())
+    assert isinstance(ctx.prompts, PromptStore)
