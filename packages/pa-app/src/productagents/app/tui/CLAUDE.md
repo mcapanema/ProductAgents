@@ -11,7 +11,7 @@ point.
 
 | File | Role |
 | --- | --- |
-| `app.py` | `ProductAgentsApp` + `main()`. Builds the model + a `DecisionService` once (`_build_app`), runs a decision session in a `@work(exclusive=True)` worker, and updates one panel per platform event. `app.tcss` is the stylesheet. |
+| `app.py` | `ProductAgentsApp` + `main()`. Builds the model + a `WorkflowService` once (`_build_app`), runs a decision session via `run("evaluate_initiative", …)` in a `@work(exclusive=True)` worker, and updates one panel per platform event. `app.tcss` is the stylesheet. |
 | `approval.py` | `ApprovalScreen` (`ModalScreen[HumanDecision]`). Shows the advisory verdict; the button id (`approve`/`reject`/`request_analysis`) becomes the `HumanDecision.verdict`. |
 | `reflection.py` | `ReflectionScreen`. Pick a past decision, describe what happened, and record an `OutcomeRecord` via the injected reflector — drives the out-of-graph reflection loop (bound to `ctrl+r`). |
 | `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. Now also shows a connector-config line, a "Sync data sources" button (`app.sync_sources()`), and a **"Check connector health"** button (`#home-health` → `app.check_health()`) that calls `sync.check_connector_health()` and renders the per-connector health result on the connectors line. |
@@ -23,7 +23,7 @@ point.
 
 ## The event loop
 
-`app._run` calls `self._decision_service.start_session(initiative, evidence_spec,
+`app._run` calls `self._workflow_service.run("evaluate_initiative", initiative, evidence_spec,
 approver=self._ask_human)` and iterates the returned `AsyncIterator[ev.Event]`,
 dispatching by **platform** event type (`platform.events`):
 `NodeProgress`/`AnalystCompleted` → analyst panels (gated by `_PANELS`),
@@ -43,7 +43,7 @@ they key on moved from the runner's dataclasses to the platform vocabulary.
 `ProductAgentsApp.__init__` takes every external collaborator as a parameter so
 the app is testable headless (see `tests/test_tui.py`):
 
-- `decision_service` — normally `DecisionService.for_model(model, recorder=…, human_in_the_loop=True)` (the platform Application Service: opens a per-run `AgentContext`, builds + drives the graph, translates runner events into `platform.events`, and **owns recording** of a healthy run). The TUI calls `start_session(initiative, evidence_spec, *, approver) -> (Session, AsyncIterator[ev.Event])`. Tests inject a `FakeDecisionService` (in `tests/fakes.py`).
+- `workflow_service` — normally `WorkflowService.for_model(model, recorder=…, human_in_the_loop=True)` (wraps a `DecisionService` behind the registered `evaluate_initiative` workflow). The TUI calls `run("evaluate_initiative", initiative, evidence_spec, *, approver) -> (Session, AsyncIterator[ev.Event])`. Tests inject `fake_workflow_service(...)` (in `tests/fakes.py`), which wraps a `FakeDecisionService` in a real `WorkflowService`.
 - `collector` — `collect_evidence` (from `platform.evidence`; resolves the evidence-source input for the **provenance panel**; the spec string is passed to `start_session`, which resolves it again internally).
 - `recorder` — **async** `make_recorder()` closure (persists a `DecisionRecord`). Used **only on the degraded "decide" path** now (the DecisionService records healthy runs); default `None`; `_build_app` injects the DB-backed closure into both the service and the app.
 - `reader` — **async** `make_decision_reader()` closure (reads past decisions for the reflection picker). Default `None`; `_build_app` injects the DB-backed closure.
@@ -79,7 +79,7 @@ An `ev.FinalVerdict` then updates the governance panel.
 `on_mount` pushes `HomeScreen` (skipped when `show_home=False`, used by the
 decision/approval/reflection tests). If `config_checker()` reports the app isn't
 ready, `open_setup()` pushes `SetupScreen` on top. A successful save calls the
-injected `rebuild()` to rebuild the decision_service/reflector with the new config, then
+injected `rebuild()` to rebuild the workflow_service/reflector with the new config, then
 refreshes the home status. "Run a decision" pops `HomeScreen` to reveal the base
 decision UI; `ctrl+h` re-opens the menu. New DI seams on `ProductAgentsApp`:
 `config_checker` (default `setup.check_config`), `env_writer` (default

@@ -68,7 +68,6 @@ from productagents.platform.context import (
     make_outcome_recorder,
     make_recorder,
 )
-from productagents.platform.decision_service import DecisionService
 from productagents.platform.evidence import (
     EvidenceError,
     collect_evidence,
@@ -76,6 +75,7 @@ from productagents.platform.evidence import (
 )
 from productagents.platform.llm import get_model
 from productagents.platform.reflection import reflect
+from productagents.platform.workflow import WorkflowService
 
 
 class ProductAgentsApp(App):
@@ -88,7 +88,7 @@ class ProductAgentsApp(App):
 
     def __init__(
         self,
-        decision_service,
+        workflow_service,
         evidence,
         *,
         collector=collect_evidence,
@@ -109,7 +109,7 @@ class ProductAgentsApp(App):
         # so it can be accessed when CSS is parsed. We'll set it as active in
         # _setup_mode which is called before CSS parsing.
         super().__init__()
-        self._decision_service = decision_service
+        self._workflow_service = workflow_service
         self._runner_error = runner_error
         self._evidence = evidence
         self._collector = collector
@@ -231,10 +231,10 @@ class ProductAgentsApp(App):
     def _after_setup(self, saved: bool | None) -> None:
         if saved and self._rebuild is not None:
             try:
-                self._decision_service, self._reflector = self._rebuild()
+                self._workflow_service, self._reflector = self._rebuild()
                 self._runner_error = None
             except Exception as exc:  # noqa: BLE001 - keep the menu usable
-                self._decision_service, self._reflector = None, None
+                self._workflow_service, self._reflector = None, None
                 self._runner_error = str(exc)
         screen = self.screen
         if isinstance(screen, HomeScreen):
@@ -283,7 +283,7 @@ class ProductAgentsApp(App):
         title = message.value.strip()
         if not title:
             return
-        if self._decision_service is None:
+        if self._workflow_service is None:
             reason = self._runner_error or "model not configured"
             self._log_status(
                 f"Cannot run — {reason}. Open the menu (ctrl+h) to fix your "
@@ -357,7 +357,7 @@ class ProductAgentsApp(App):
 
     @work(exclusive=True)
     async def _run(self, initiative: Initiative, evidence_spec: str, evidence) -> None:
-        if self._decision_service is None:
+        if self._workflow_service is None:
             return
         handlers = {
             ev.NodeProgress: self._on_progress,
@@ -376,8 +376,11 @@ class ProductAgentsApp(App):
         finished: ev.SessionFinished | None = None
         aborted = False
         try:
-            _session, stream = self._decision_service.start_session(
-                initiative, evidence_spec, approver=self._ask_human
+            _session, stream = self._workflow_service.run(
+                "evaluate_initiative",
+                initiative,
+                evidence_spec,
+                approver=self._ask_human,
             )
             async for event in stream:
                 handler = handlers.get(type(event))
@@ -601,7 +604,7 @@ class ProductAgentsApp(App):
 def _build_app() -> ProductAgentsApp:
     def rebuild():
         model = get_model()
-        service = DecisionService.for_model(
+        service = WorkflowService.for_model(
             model, recorder=make_recorder(), human_in_the_loop=True
         )
         return service, partial(reflect, model=model)

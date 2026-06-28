@@ -72,6 +72,31 @@ class FakeDecisionService:
         return runner_approver
 
 
+def fake_workflow_service(
+    runner, *, recorder=None, evidence=None, collector=collect_evidence
+):
+    """Wrap a runner in a real WorkflowService over a FakeDecisionService.
+
+    Gives TUI tests the production code path: app.run("evaluate_initiative", …)
+    → Workflow.start → FakeDecisionService.start_session → translated events.
+    """
+    from productagents.platform.workflow import Workflow, WorkflowService
+
+    service = FakeDecisionService(
+        runner, recorder=recorder, evidence=evidence, collector=collector
+    )
+    return WorkflowService(
+        [
+            Workflow(
+                name="evaluate_initiative",
+                title="Evaluate Initiative",
+                description="test",
+                start=service.start_session,
+            )
+        ]
+    )
+
+
 def ready_status() -> ConfigStatus:
     """A ConfigStatus that reports the app is fully configured."""
     return ConfigStatus(

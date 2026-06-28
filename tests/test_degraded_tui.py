@@ -4,7 +4,7 @@ from textual.widgets import Static
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.degraded import DegradedRunScreen
 from productagents.core.models import Evidence
-from tests.fakes import FakeDecisionService
+from tests.fakes import fake_workflow_service
 
 
 class _Host(App):
@@ -29,7 +29,7 @@ def _build_app(*, runner):
         scenario="sample", customer_feedback="x", product_analytics={"a": 1}
     )
     return ProductAgentsApp(
-        FakeDecisionService(runner, recorder=_noop_recorder, evidence=evidence),
+        fake_workflow_service(runner, recorder=_noop_recorder, evidence=evidence),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,

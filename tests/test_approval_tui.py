@@ -15,7 +15,7 @@ from productagents.core.models import (
     Recommendation,
     RiskFinding,
 )
-from tests.fakes import FakeChatModel, FakeDecisionService
+from tests.fakes import FakeChatModel, fake_workflow_service
 
 
 def _hitl_runner_and_evidence():
@@ -65,7 +65,7 @@ async def test_human_reject_overrides_advisory_and_is_recorded(tmp_path, monkeyp
     recorder = _list_recorder(recorded)
 
     app = ProductAgentsApp(
-        FakeDecisionService(runner, recorder=recorder, evidence=evidence),
+        fake_workflow_service(runner, recorder=recorder, evidence=evidence),
         evidence,
         recorder=recorder,
         reader=_empty_reader,
