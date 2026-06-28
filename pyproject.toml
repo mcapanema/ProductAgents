@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-productagents = "productagents.app.tui.app:main"
+productagents = "productagents.app.cli:main"
 
 [build-system]
 requires = ["hatchling"]

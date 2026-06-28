@@ -51,8 +51,9 @@ packages/
 │       ├── human_approval.py # HITL interrupt node (added only when enabled)
 │       ├── reflection.py   #   OUT OF GRAPH: post-hoc outcome reflection
 │       └── data/scenarios/<name>/  # bundled mock evidence files
-├── pa-app/                 # productagents.app.*  — TUI + setup wizard
+├── pa-app/                 # productagents.app.*  — CLI + TUI + setup wizard; console entry point: productagents.app.cli:main
 │   └── src/productagents/app/
+│       ├── cli.py          #   CLI client + console entry point (main); no subcommand → launch_tui
 │       ├── setup.py        #   check_config + write_env
 │       └── tui/            #   Textual app + modal screens (see tui/CLAUDE.md)
 │           ├── app.py · app.tcss · approval.py · reflection.py
@@ -103,7 +104,7 @@ from productagents.platform.events import SessionFinished, SessionFailed
 from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.platform.serialization import serialize_event, deserialize_event
 from productagents.app.setup import check_config
-from productagents.app.tui.app import main
+from productagents.app.cli import main  # console entry point (no subcommand → launches TUI)
 import productagents.memory as memory
 from productagents.memory.event_store import EventStore
 ```
@@ -118,10 +119,16 @@ This project uses **uv** (not Conda, despite the README's "Technology Stack" not
 uv sync                 # install deps + all workspace members (incl. dev group)
 uv run productagents    # launch the TUI
 uv run productagents sync   # headless one-shot connector sync (for cron/launchd); exits non-zero on failure
+uv run productagents run evaluate_initiative "My initiative" --evidence sample  # headless decision run, streams events
+uv run productagents workspace list          # list workspaces (active marked with *)
+uv run productagents workspace show [name]   # show a workspace's on-disk paths (defaults to active)
+uv run productagents sessions list           # list persisted runtime sessions
+uv run productagents sessions show <id>      # replay a session's event timeline
+uv run productagents --workspace <name> ...  # run any of the above against a named workspace
 uv run pytest           # full suite — runs offline with a fake model, no API key
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test
-uv run lint-imports     # verify 6 import-linter layer contracts (layers + forbidden)
+uv run lint-imports     # verify 7 import-linter layer contracts (layers + forbidden)
 uv run ruff check packages tests  # lint all source and test trees
 uv run ty check         # type check (pyright-based)
 ```
@@ -181,7 +188,8 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - `productagents.agents.graph` — wires nodes into the StateGraph. `build_graph(context_or_model, *, human_in_the_loop=False)` accepts an `AgentContext` (in production) or a bare model (in tests wrapped by a context fixture); when `human_in_the_loop=True`, appends a `human_approval` node after `governance` and compiles the graph with an `InMemorySaver` checkpointer so it can `interrupt()` and resume.
 - `productagents.agents.runner` — the **boundary between the graph and the UI**. `run_decision()` consumes `graph.astream(stream_mode=["updates", "custom"])` and normalizes raw chunks into plain dataclass events (`ProgressEvent`, `NodeCompleteEvent`, `DebateTurnEvent`, `FinishedEvent`, `FinalVerdictEvent`). On a governance `__interrupt__`, `run_decision` awaits the `approver` callback for a `HumanDecision` and resumes via `Command(resume=...)`. The TUI only ever sees these events — it has no LangGraph knowledge. The whole run is wrapped in a `decision.run` span and each node in a `decision.<node>` span (`core.observability.span`), the decision-side mirror of the connectors' `connector.sync`/`connector.health` spans.
 - `productagents.app.sync` — connector composition root: loads `connectors.yaml` (typed, fail-fast via `plan_connectors`), builds enabled connectors against a `DbCanonicalSink`, runs `run_sync`, and persists cursors via `SyncStateStore`. The TUI home menu triggers it (`Sync data sources`). It also exposes `check_connector_health()` (probe every enabled connector's `health_check()` with no DB) surfaced by the home menu's **Check connector health** action. `pa-app` is the only package permitted to import `pa-connectors`.
-- `productagents.app.tui.app` — Textual app. `main()` is the `productagents` entry point. It builds a `WorkflowService` (which wraps a `DecisionService` for the `evaluate_initiative` workflow), runs the workflow in a `@work` worker, and updates panels per platform event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
+- `productagents.app.cli` — the `productagents` console entry point (`main`). Parses subcommands (`run`, `sync`, `workspace list/show`, `sessions list/show`) with stdlib `argparse`; a bare `productagents` (no subcommand) calls `launch_tui`. The console script now targets `productagents.app.cli:main`.
+- `productagents.app.tui.app` — Textual app. `launch_tui(workspace_name)` is the TUI entry called by the CLI. It builds a `WorkflowService` (which wraps a `DecisionService` for the `evaluate_initiative` workflow), runs the workflow in a `@work` worker, and updates panels per platform event. On a governance `__interrupt__`, `run_decision` calls `_ask_human`, which pushes the `ApprovalScreen` modal (`tui/approval.py`) via `push_screen_wait` so the human can approve, reject, or request further analysis; the human's choice resumes the graph. `FinalVerdictEvent` then arrives and updates the governance panel. On `FinishedEvent`, appends a `DecisionRecord` via an injected `recorder` (default `memory.record_decision`). The TUI has a second input for the evidence source (scenario name or folder path; blank = bundled `sample`); it resolves evidence per run via `collect_evidence`, renders the resolved provenance in an "Evidence Sources" panel, and writes `evidence_sources` onto the `DecisionRecord`.
 - `productagents.memory` — DB-backed organizational-memory subsystem. `DecisionStore` persists `DecisionRecord` and `OutcomeRecord` rows in SQLite/Postgres via an injected async session; `LessonRetriever` combines lexical scoring (`LexicalRetriever`) with cosine similarity over hashing embeddings (`SemanticRetriever`) for hybrid retrieval. `LearningService` is the Knowledge-Layer face: `relevant_lessons(initiative)` → lesson strings injected into the strategist, `record_decision` / `record_outcome` on the write side. JSONL (`jsonl.py`) is export/audit only — the DB is the system of record. The `recall` node retrieves lessons through `AgentContext.learning` (a `LessonReader` slice), keeping agents free of sqlalchemy. Since V3 Phase 2 pa-memory also owns the **Event Store** (`event_store.py`): append-only `runtime_session` + `runtime_event` tables persisting every platform event of every run — the execution log that complements the decision system-of-record.
 - **Outcome Learning has two halves.** The *injection* half runs inside the graph
   (`recall` → `strategist`): `recall` calls `ctx.learning.relevant_lessons(initiative)` and seeds the lessons into graph state. The *capture* half runs **outside** the graph:

@@ -1,8 +1,6 @@
 """Textual TUI for running a ProductAgents decision and showing it live."""
 
-import asyncio
 import pathlib
-import sys
 from datetime import UTC, datetime
 from functools import partial
 from typing import ClassVar
@@ -46,8 +44,7 @@ from productagents.app.tui.home_screen import HomeScreen
 from productagents.app.tui.rail import PipelineRail
 from productagents.app.tui.reflection import ReflectionScreen
 from productagents.app.tui.setup_screen import SetupScreen
-from productagents.core.config import env_int, load_env
-from productagents.core.logging_config import configure_logging
+from productagents.core.config import env_int
 from productagents.core.models import (
     DecisionRecord,
     GovernanceVerdict,
@@ -76,7 +73,7 @@ from productagents.platform.evidence import (
 from productagents.platform.llm import get_model
 from productagents.platform.reflection import reflect
 from productagents.platform.workflow import WorkflowService
-from productagents.platform.workspace import DEFAULT_WORKSPACE, WorkspaceService
+from productagents.platform.workspace import DEFAULT_WORKSPACE
 
 
 class ProductAgentsApp(App):
@@ -632,27 +629,8 @@ def _build_app(*, workspace_name: str = DEFAULT_WORKSPACE) -> ProductAgentsApp:
     )
 
 
-def sync_command(*, syncer=run_connector_sync) -> int:
-    """Run one connector sync headlessly, print the report, return an exit code.
-
-    For cron/launchd: ``productagents sync``. Reuses the same composition root the
-    TUI button uses. Returns 1 if any connector failed or the config had problems
-    so the scheduler/CI surfaces it; 0 otherwise. ponytail: print (not the file
-    logger) because no TUI owns the terminal in this path.
-    """
-    report = asyncio.run(syncer())
-    print(describe_report(report))
-    failed = any(not r.ok for r in report.results) or bool(report.problems)
-    return 1 if failed else 0
-
-
-def main() -> None:
-    workspaces = WorkspaceService()
-    workspace = workspaces.resolve()
-    workspaces.activate(workspace)
-    load_env()
-    configure_logging()
-    if sys.argv[1:2] == ["sync"]:  # ponytail: one subcommand, argparse is overkill
-        raise SystemExit(sync_command())
-    app = _build_app(workspace_name=workspace.name)
+def launch_tui(workspace_name: str) -> None:
+    """Build the Textual app for ``workspace_name`` and run it (the CLI's
+    no-subcommand path)."""
+    app = _build_app(workspace_name=workspace_name)
     app.run()

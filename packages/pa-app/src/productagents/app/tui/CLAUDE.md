@@ -4,14 +4,15 @@ The only layer that knows about the screen. It is a **thin client of the
 `productagents.platform` Application Services**: it imports only the
 `platform.*` and `core.*` namespaces — never the `agents` package. It consumes
 the platform's event vocabulary (`platform.events`) and knows nothing about
-LangGraph or the runner. `main()` (in `app.py`) is the `productagents` entry
-point.
+LangGraph or the runner. `launch_tui(workspace_name)` (in `app.py`) is the TUI
+entry point, invoked by `cli.py` for the no-subcommand path; the `productagents`
+console entry point is `productagents.app.cli:main`.
 
 ## Files
 
 | File | Role |
 | --- | --- |
-| `app.py` | `ProductAgentsApp` + `main()`. Builds the model + a `WorkflowService` once (`_build_app`), runs a decision session via `run("evaluate_initiative", …)` in a `@work(exclusive=True)` worker, and updates one panel per platform event. `app.tcss` is the stylesheet. |
+| `app.py` | `ProductAgentsApp` + `launch_tui()`. Builds the model + a `WorkflowService` once (`_build_app`), runs a decision session via `run("evaluate_initiative", …)` in a `@work(exclusive=True)` worker, and updates one panel per platform event. `app.tcss` is the stylesheet. |
 | `approval.py` | `ApprovalScreen` (`ModalScreen[HumanDecision]`). Shows the advisory verdict; the button id (`approve`/`reject`/`request_analysis`) becomes the `HumanDecision.verdict`. |
 | `reflection.py` | `ReflectionScreen`. Pick a past decision, describe what happened, and record an `OutcomeRecord` via the injected reflector — drives the out-of-graph reflection loop (bound to `ctrl+r`). |
 | `home_screen.py` | `HomeScreen` (`Screen`). Landing menu shown on launch; buttons delegate to `app.open_setup()` / `app.start_decision()` / `app.exit()`. `refresh_status()` updates the readiness line and enables/disables the run button. Now also shows a connector-config line, a "Sync data sources" button (`app.sync_sources()`), and a **"Check connector health"** button (`#home-health` → `app.check_health()`) that calls `sync.check_connector_health()` and renders the per-connector health result on the connectors line. |
@@ -86,7 +87,7 @@ decision UI; `ctrl+h` re-opens the menu. New DI seams on `ProductAgentsApp`:
 `setup.write_env`), `rebuild` (default `None`; `main` injects the real builder),
 and `show_home`.
 
-`main()` resolves and activates the active workspace (`WorkspaceService().resolve()` → `.activate(ws)`) before `load_env()`/`configure_logging()`, then passes `workspace_name=ws.name` to `_build_app`. `ProductAgentsApp` takes `workspace_name` (default `DEFAULT_WORKSPACE`) and `HomeScreen` renders it on a `#home-workspace` line.
+`cli.py:main` resolves and activates the active workspace (`WorkspaceService().resolve()` → `.activate(ws)`) before `load_env()`/`configure_logging()`, then calls `launch_tui(workspace.name)`. `ProductAgentsApp` takes `workspace_name` (default `DEFAULT_WORKSPACE`) and `HomeScreen` renders it on a `#home-workspace` line.
 
 ## Testing
 
