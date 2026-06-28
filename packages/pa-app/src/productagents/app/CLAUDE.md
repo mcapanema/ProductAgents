@@ -11,7 +11,7 @@ or `connectors`.
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → `launch_tui`. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `prompts list/show/diff/save/rollback`. |
 | `tui/` | The Textual GUI (see `tui/CLAUDE.md`). `launch_tui(workspace_name)` builds and runs the app; `_build_app` is the composition root. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `setup.py` | `check_config` / `write_env` readiness + `.env` writer, shared by both adapters. |
 
 ## CLI contract
@@ -52,3 +52,9 @@ Deferred (YAGNI): human-in-the-loop approval over the wire (the seam is a
 server→client `approval_request` message + a client `approve` method; headless
 `run` is `human_in_the_loop=False`); concurrent in-flight requests; an HTTP/WebSocket
 transport (add only at a real client/server split).
+
+`decisions.list` → `[{id, title, recommendation, confidence, created_at}]` (summaries
+from the DecisionStore via `DecisionReadService`). `decisions.show {decision_id}` →
+`{record: <full DecisionRecord dump>, outcomes: [<OutcomeRecord dump>...]}`; `error`
+"no such decision: <id>" if unknown. These read the decision system-of-record (org
+memory), distinct from `sessions.*` which replays the execution event log.

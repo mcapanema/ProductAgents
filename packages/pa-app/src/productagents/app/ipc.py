@@ -19,9 +19,11 @@ import asyncio
 import json
 import sys
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from productagents.core.models import Initiative
 from productagents.platform import events as ev
+from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 from productagents.platform.session_service import SessionService
@@ -49,6 +51,7 @@ def serve_stdio(active_name: str) -> None:
             workspaces=WorkspaceService(),
             active_name=active_name,
             sessions=SessionService.create(),
+            decisions=DecisionReadService.create(),
         )
     )
 
@@ -107,6 +110,23 @@ def _session_dict(s: Session) -> dict:
     }
 
 
+def _decision_summary(d) -> dict:
+    return {
+        "id": d.decision_id,
+        "title": d.initiative.title,
+        "recommendation": d.recommendation.recommendation,
+        "confidence": d.recommendation.confidence,
+        "created_at": d.timestamp,
+    }
+
+
+def _decision_detail(record, outcomes) -> dict:
+    return {
+        "record": record.model_dump(mode="json"),
+        "outcomes": [o.model_dump(mode="json") for o in outcomes],
+    }
+
+
 async def handle(
     request: dict,
     *,
@@ -114,6 +134,7 @@ async def handle(
     workspaces: WorkspaceService | None,
     active_name: str,
     sessions,
+    decisions: Any = None,
     emit: Emit,
 ) -> None:
     """Dispatch one request, emitting one or more response messages.
@@ -165,6 +186,20 @@ async def handle(
                     },
                 }
             )
+        elif method == "decisions.list":
+            if decisions is None:
+                raise RuntimeError("decisions service not available")
+            rows = await decisions.list()
+            await emit({"id": rid, "result": [_decision_summary(d) for d in rows]})
+        elif method == "decisions.show":
+            if decisions is None:
+                raise RuntimeError("decisions service not available")
+            did = params["decision_id"]
+            record, outcomes = await decisions.get(did)
+            if record is None:
+                await emit({"id": rid, "error": f"no such decision: {did}"})
+                return
+            await emit({"id": rid, "result": _decision_detail(record, outcomes)})
         elif method == "run":
             await _run(rid, params, workflows=workflows, emit=emit)
         else:
@@ -179,6 +214,7 @@ async def serve(
     workspaces: WorkspaceService | None,
     active_name: str,
     sessions,
+    decisions: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -221,5 +257,6 @@ async def serve(
             workspaces=workspaces,
             active_name=active_name,
             sessions=sessions,
+            decisions=decisions,
             emit=emit,
         )
