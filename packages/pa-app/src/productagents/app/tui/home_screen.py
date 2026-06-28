@@ -12,13 +12,17 @@ from productagents.app.setup import ConfigStatus
 class HomeScreen(Screen):
     """Landing menu shown on launch. Buttons delegate to app methods."""
 
-    def __init__(self, status: ConfigStatus, connectors_line: str = ""):
+    def __init__(
+        self, status: ConfigStatus, connectors_line: str = "", workspace_name: str = ""
+    ):
         super().__init__()
         self._status = status
         self._connectors_line = connectors_line
+        self._workspace_name = workspace_name
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Static("", id="home-workspace", classes="panel")
         yield Static("", id="home-status", classes="panel")
         yield Static("", id="home-connectors", classes="panel")
         yield Button("Set up provider & API key", id="home-setup")
@@ -29,6 +33,10 @@ class HomeScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        if self._workspace_name:
+            self.query_one("#home-workspace", Static).update(
+                f"[b]Workspace[/b] — {self._workspace_name}"
+            )
         self.refresh_status(self._status)
         self.refresh_connectors(self._connectors_line)
 
