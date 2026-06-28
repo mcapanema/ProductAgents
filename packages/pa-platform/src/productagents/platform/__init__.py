@@ -7,5 +7,6 @@ or ``connectors`` directly.
 
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_service import DecisionService
+from productagents.platform.session_service import SessionService
 
-__all__ = ["ConnectorService", "DecisionService"]
+__all__ = ["ConnectorService", "DecisionService", "SessionService"]
