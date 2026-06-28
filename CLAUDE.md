@@ -15,7 +15,7 @@ Everything runs live in a Textual TUI.
 
 ## Directory structure
 
-The codebase is a **uv workspace** with six member packages sharing the
+The codebase is a **uv workspace** with seven member packages sharing the
 `productagents` namespace (PEP 420 namespace package — no `__init__.py` at the
 `productagents/` level):
 
@@ -64,11 +64,23 @@ packages/
 │   └── src/productagents/memory/     # store.py · tables.py · retrieval.py · service.py · embedding.py · jsonl.py (export/audit)
 ├── pa-knowledge/           # productagents.knowledge.*  — stub, ready for v2
 │   └── src/productagents/knowledge/__init__.py
-└── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
-    └── src/productagents/connectors/
-        ├── base.py · http.py · registry.py · runtime.py  # the framework
-        ├── connector_errors.py · observability.py        # error classifier + span logger
-        └── github/         #   first connector: issues → CustomerFeedback
+├── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
+│   └── src/productagents/connectors/
+│       ├── base.py · http.py · registry.py · runtime.py  # the framework
+│       ├── connector_errors.py · observability.py        # error classifier + span logger
+│       └── github/         #   first connector: issues → CustomerFeedback
+└── pa-platform/            # productagents.platform.*  — Application Services + Event Bus + Session + composition root
+    └── src/productagents/platform/
+        ├── bus.py          #   EventBus (publish/subscribe/close)
+        ├── events.py       #   platform event vocabulary (SessionStarted → SessionFinished/SessionFailed)
+        ├── session.py      #   Session value type
+        ├── decision_service.py  #   DecisionService (start_session, runner→event translation, recording)
+        ├── connector_service.py #   ConnectorService (sync + health-check composition root)
+        ├── context.py      #   open_decision_context (per-run AgentContext + DB session)
+        ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
+        ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)
+        ├── evidence.py     #   re-exports collect_evidence / load_scenario / EvidenceError
+        └── reflection.py   #   re-exports reflect (platform seam)
 tests/                      # offline suite, FakeChatModel (see tests/CLAUDE.md)
 docs/design/adr/            # Architecture Decision Records
 ```
@@ -81,6 +93,9 @@ from productagents.core.config import settings
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
 from productagents.agents.evidence import collect_evidence
+from productagents.platform import DecisionService, ConnectorService
+from productagents.platform.events import SessionFinished, SessionFailed
+from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.app.setup import check_config
 from productagents.app.tui.app import main
 import productagents.memory as memory
@@ -179,8 +194,9 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.models`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in `productagents.app.tui.app`. Plans for upcoming work live in `docs/superpowers/plans/`.
 
 **Layer rules** (enforced by `uv run lint-imports`):
-- `pa-app` may import from `pa-agents`, `pa-memory`, `pa-core` — not from `pa-connectors`.
-- `pa-agents` may import from `pa-memory`, `pa-core` — not from `pa-app`.
+- `pa-app` (presentation) imports only `pa-platform` and `pa-core` — never agents, memory, connectors, or their heavy deps (langgraph, langchain, sqlalchemy) directly.
+- `pa-platform` is the connector composition root and the only package that imports `pa-connectors`; it exposes `DecisionService`, `ConnectorService`, and the platform event vocabulary to the presentation layer.
+- `pa-agents` may import from `pa-memory`, `pa-core` — not from `pa-app` or `pa-platform`.
 - `pa-memory` and `pa-knowledge` may import from `pa-core` — not from each other or above.
 - `pa-core` is dependency-light: no httpx, langchain, langgraph, sqlalchemy, textual.
 - `requests` is banned platform-wide (async-first, use httpx).
