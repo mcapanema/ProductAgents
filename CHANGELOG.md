@@ -11,6 +11,17 @@ rewrite) into a product-decision platform: a six-package `uv` workspace, a
 canonical data layer, durable SQL storage, knowledge services, live connectors,
 a DB-backed organizational memory, and connector observability.
 
+## [Unreleased] — V3 Phase 5: CLI as a first-class Application-Layer client
+
+The CLI is now a real second client driving the same Application Services as the TUI, headlessly off the platform event stream. A bare `productagents` still launches the TUI; every other workflow is now reachable without it.
+
+### Added
+- **CLI as a first-class Application-Layer client.** New `productagents.app.cli`
+  adapter: `run` a workflow headlessly (streaming platform events), `workspace
+  list/show`, `sessions list/show` (Event Store reader), `--workspace` selection,
+  and the relocated `sync` command. A bare `productagents` still launches the TUI.
+  The console entry point now targets `productagents.app.cli:main`.
+
 ## [Unreleased] — V3 Phase 2: Event Store + Session persistence
 
 Added an append-only execution log to pa-memory and wired it through the
