@@ -29,12 +29,6 @@ from productagents.agents.runner import (
     RiskAssessmentEvent,
     RunAbortedEvent,
 )
-from productagents.app.decision_context import (
-    make_decision_reader,
-    make_decision_runner,
-    make_outcome_recorder,
-    make_recorder,
-)
 from productagents.app.setup import check_config, write_env
 from productagents.app.sync import (
     check_connector_health,
@@ -80,6 +74,12 @@ from productagents.app.tui.setup_screen import SetupScreen
 from productagents.core.config import env_int, load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import DecisionRecord, GovernanceVerdict, Initiative
+from productagents.platform.context import (
+    make_decision_reader,
+    make_decision_runner,
+    make_outcome_recorder,
+    make_recorder,
+)
 
 
 class ProductAgentsApp(App):

@@ -151,7 +151,7 @@ async def run_connector_sync(
     """
     # Imported lazily so importing this module for the static planner does not
     # pull in the (heavier) decision_context graph wiring.
-    from productagents.app.decision_context import get_engine
+    from productagents.platform.context import get_engine
 
     env = env if env is not None else dict(os.environ)
     registry = registry if registry is not None else discover()

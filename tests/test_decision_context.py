@@ -9,10 +9,10 @@ from productagents.core.models.planning import Initiative
 
 
 async def test_recorder_then_reader_round_trip():
-    from productagents.app.decision_context import make_decision_reader, make_recorder
     from productagents.core.models import OutcomeRecord  # noqa: F401
     from productagents.knowledge.repositories.sqlmodel.engine import make_engine
     from productagents.memory import store as store_mod
+    from productagents.platform.context import make_decision_reader, make_recorder
 
     def _decision():
         return DecisionRecord(
@@ -39,14 +39,14 @@ async def test_recorder_then_reader_round_trip():
 
 
 async def test_outcome_recorder_persists():
-    from productagents.app.decision_context import (
+    from productagents.core.models import OutcomeRecord
+    from productagents.knowledge.repositories.sqlmodel.engine import make_engine
+    from productagents.memory import store as store_mod
+    from productagents.platform.context import (
         make_decision_reader,
         make_outcome_recorder,
         make_recorder,
     )
-    from productagents.core.models import OutcomeRecord
-    from productagents.knowledge.repositories.sqlmodel.engine import make_engine
-    from productagents.memory import store as store_mod
 
     def _decision():
         return DecisionRecord(
@@ -119,9 +119,9 @@ def test_decision_record_generates_id_by_default():
 
 
 async def test_open_agent_context_wires_store_feedback():
-    from productagents.app.decision_context import open_agent_context
     from productagents.core.models import CustomerFeedback
     from productagents.knowledge import DbCanonicalSink, FeedbackQuery
+    from productagents.platform.context import open_agent_context
     from tests.storage_fixtures import memory_store
 
     async with memory_store() as (sessionmaker, _engine):
@@ -136,7 +136,7 @@ async def test_open_agent_context_wires_store_feedback():
 
 async def test_open_agent_context_returns_agent_context():
     from productagents.agents.context import AgentContext
-    from productagents.app.decision_context import open_agent_context
+    from productagents.platform.context import open_agent_context
     from tests.storage_fixtures import memory_store
 
     async with (
@@ -151,7 +151,6 @@ async def test_make_decision_runner_yields_events():
     from contextlib import asynccontextmanager
 
     from productagents.agents.runner import FinishedEvent
-    from productagents.app.decision_context import make_decision_runner
     from productagents.core.models import (
         AnalystFindings,
         DebateArgument,
@@ -162,6 +161,7 @@ async def test_make_decision_runner_yields_events():
         Recommendation,
         RiskFinding,
     )
+    from productagents.platform.context import make_decision_runner
     from tests.fakes import FakeChatModel, fake_context
 
     model = FakeChatModel(
