@@ -293,3 +293,75 @@ async def test_run_unknown_workflow_emits_error():
     )
     assert sink[0]["id"] == 8
     assert "error" in sink[0]
+
+
+import json  # noqa: E402
+
+
+def _line_reader(lines):
+    """Async read_line yielding each line then '' (EOF) forever."""
+    queue = list(lines)
+
+    async def read_line():
+        return queue.pop(0) if queue else ""
+
+    return read_line
+
+
+async def test_serve_dispatches_each_line_until_eof():
+    out: list[str] = []
+    read_line = _line_reader(
+        [
+            json.dumps({"id": 1, "method": "workflows.list"}) + "\n",
+            json.dumps({"id": 2, "method": "sessions.list"}) + "\n",
+        ]
+    )
+    await ipc.serve(
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        write_line=out.append,
+    )
+    parsed = [json.loads(line) for line in out]
+    assert [m["id"] for m in parsed] == [1, 2]
+    assert parsed[1]["result"] == []  # no sessions
+
+
+async def test_serve_reports_invalid_json_and_continues():
+    out: list[str] = []
+    read_line = _line_reader(
+        [
+            "not json\n",
+            json.dumps({"id": 2, "method": "workflows.list"}) + "\n",
+        ]
+    )
+    await ipc.serve(
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        write_line=out.append,
+    )
+    parsed = [json.loads(line) for line in out]
+    assert parsed[0]["id"] is None
+    assert "invalid json" in parsed[0]["error"]
+    assert parsed[1]["id"] == 2  # loop kept going
+
+
+async def test_serve_skips_blank_lines():
+    out: list[str] = []
+    read_line = _line_reader(
+        ["\n", "   \n", json.dumps({"id": 3, "method": "workflows.list"}) + "\n"]
+    )
+    await ipc.serve(
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        write_line=out.append,
+    )
+    assert [json.loads(line)["id"] for line in out] == [3]

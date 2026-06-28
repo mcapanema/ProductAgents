@@ -15,6 +15,9 @@ client/server split ever arrives.
 
 from __future__ import annotations
 
+import asyncio
+import json
+import sys
 from collections.abc import Awaitable, Callable
 
 from productagents.core.models import Initiative
@@ -145,3 +148,55 @@ async def handle(
             await emit({"id": rid, "error": f"unknown method: {method!r}"})
     except Exception as exc:  # noqa: BLE001 — one bad request must not kill the loop
         await emit({"id": rid, "error": f"{type(exc).__name__}: {exc}"})
+
+
+async def serve(
+    *,
+    workflows: WorkflowService,
+    workspaces: WorkspaceService | None,
+    active_name: str,
+    sessions,
+    read_line: Callable[[], Awaitable[str]] | None = None,
+    write_line: Callable[[str], None] | None = None,
+) -> None:
+    """Read NDJSON requests, dispatch each, write NDJSON responses, until EOF.
+
+    Sequential: one request is fully serviced (a run fully streamed) before the
+    next line is read. ponytail: single in-flight request, no concurrency — add a
+    task-per-request dispatcher only when the GUI needs to call mid-run.
+    """
+    if read_line is None:
+        loop = asyncio.get_running_loop()
+
+        async def read_line() -> str:
+            return await loop.run_in_executor(None, sys.stdin.readline)
+
+    if write_line is None:
+
+        def write_line(line: str) -> None:
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+
+    async def emit(message: dict) -> None:
+        write_line(json.dumps(message))
+
+    while True:
+        raw = await read_line()
+        if not raw:  # EOF
+            return
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            request = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            await emit({"id": None, "error": f"invalid json: {exc}"})
+            continue
+        await handle(
+            request,
+            workflows=workflows,
+            workspaces=workspaces,
+            active_name=active_name,
+            sessions=sessions,
+            emit=emit,
+        )
