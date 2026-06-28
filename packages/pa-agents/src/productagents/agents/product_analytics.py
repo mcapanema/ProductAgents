@@ -11,14 +11,12 @@ ROLE = "Product Analytics Analyst"
 _START_STATUS = "analyzing product metrics…"
 
 
-def _prompt(initiative: Initiative, evidence: Evidence) -> str:
+def _prompt(initiative: Initiative, evidence: Evidence, prompts) -> str:
     analytics = json.dumps(evidence.product_analytics, indent=2)
-    return (
-        f"You are a {ROLE} evaluating a proposed product initiative.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        "Using ONLY the product analytics below, identify behavioral insights, "
-        "impact estimates, and opportunity sizing relevant to this initiative.\n\n"
-        f"Product analytics (JSON):\n{analytics}\n"
+    return prompts.render(
+        ANALYST_ID,
+        initiative=format_initiative(initiative),
+        evidence=analytics,
     )
 
 

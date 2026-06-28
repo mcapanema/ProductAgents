@@ -9,13 +9,11 @@ ROLE = "Technical Analyst"
 _START_STATUS = "assessing technical feasibility…"
 
 
-def _prompt(initiative: Initiative, evidence: Evidence) -> str:
-    return (
-        f"You are a {ROLE} evaluating a proposed product initiative.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        "Using ONLY the technical context below, assess feasibility, technical "
-        "risks, and effort and delivery complexity relevant to this initiative.\n\n"
-        f"Technical context:\n{evidence.technical_context}\n"
+def _prompt(initiative: Initiative, evidence: Evidence, prompts) -> str:
+    return prompts.render(
+        ANALYST_ID,
+        initiative=format_initiative(initiative),
+        evidence=evidence.technical_context,
     )
 
 

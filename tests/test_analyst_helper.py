@@ -14,7 +14,7 @@ def _state():
     }
 
 
-def _prompt(initiative, evidence):
+def _prompt(initiative, evidence, prompts):
     return f"{initiative.title} :: {evidence.customer_feedback}"
 
 

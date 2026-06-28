@@ -9,14 +9,11 @@ ROLE = "Market Analyst"
 _START_STATUS = "scanning the market…"
 
 
-def _prompt(initiative: Initiative, evidence: Evidence) -> str:
-    return (
-        f"You are a {ROLE} evaluating a proposed product initiative.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        "Using ONLY the market intelligence below, identify competitive "
-        "intelligence, market opportunities, and strategic context relevant to "
-        "this initiative.\n\n"
-        f"Market intelligence:\n{evidence.market_intelligence}\n"
+def _prompt(initiative: Initiative, evidence: Evidence, prompts) -> str:
+    return prompts.render(
+        ANALYST_ID,
+        initiative=format_initiative(initiative),
+        evidence=evidence.market_intelligence,
     )
 
 
