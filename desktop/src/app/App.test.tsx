@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { App } from "./App";
 import type { IpcClient } from "../ipc/client";
 
@@ -18,15 +18,16 @@ function fakeClient(): IpcClient {
 describe("App shell", () => {
   it("renders the three nav items and defaults to the Run panel", () => {
     render(<App client={fakeClient()} />);
-    expect(screen.getByRole("button", { name: "Run" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sessions" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Decisions" })).toBeInTheDocument();
+    const nav = screen.getByRole("navigation");
+    expect(within(nav).getByRole("button", { name: "Run" })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Sessions" })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Decisions" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /run a decision/i })).toBeInTheDocument();
   });
 
   it("switches to the Decisions panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Decisions" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Decisions" }));
     expect(await screen.findByRole("heading", { name: /decision explorer/i })).toBeInTheDocument();
   });
 });
