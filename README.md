@@ -10,6 +10,8 @@ Real organizations don't rely on a single person to decide what to build next. P
 
 Every recommendation is **evidence-based, fully traceable, open to challenge, risk-assessed, governed through explicit approval, and continuously improved through learning.**
 
+📜 See the **[CHANGELOG](CHANGELOG.md)** for the V1 → V2 timeline.
+
 ---
 
 ## Core Principles
@@ -104,11 +106,14 @@ Framework-first and organization-agnostic by default · configurable agent ecosy
 
 ## Technology Stack
 
-- **Runtime:** Python 3.14, [uv](https://docs.astral.sh/uv/)
+- **Runtime:** Python 3.14, [uv](https://docs.astral.sh/uv/) workspace (six member packages)
 - **Orchestration:** LangGraph (checkpointed graph execution)
 - **Models:** provider-agnostic (OpenAI, Anthropic, Google Gemini, OpenRouter, local models)
-- **Structured outputs:** strongly typed schemas for critical decisions
-- **Persistence:** decision logs, reflection history, organizational memory
+- **Structured outputs:** strongly typed Pydantic schemas for critical decisions
+- **Persistence:** SQLite → Postgres via SQLAlchemy/SQLModel with Alembic migrations; a canonical record store is the system of record (JSONL is export/audit only)
+- **Connectors:** httpx-based sync from external systems (GitHub, Jira) into the canonical store
+- **Organizational memory:** DB-backed decision/outcome store with hybrid (lexical + semantic) lesson retrieval
+- **Observability:** structured span-style logs for decision runs and connector syncs
 
 ## Future Roadmap
 
@@ -118,7 +123,7 @@ Roadmap prioritization · opportunity assessment · product strategy reviews · 
 
 ## Getting Started
 
-The repository currently implements an end-to-end **slice** of the architecture above: five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the TUI. Every stage runs live and is saved (with full transcript, judge verdict, risk assessments, and human decision) to the organizational-memory DB (`DecisionStore`).
+ProductAgents runs the **full advisory pipeline on a real data platform**. Five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the TUI. Connectors sync external systems (today: GitHub issues and Jira) into a canonical store the agents read from; every run is persisted — full transcript, judge verdict, risk assessments, human decision, and evidence provenance — to the DB-backed organizational memory (`DecisionStore`), which is the system of record. What remains on the road to the full vision above is **breadth** — more evidence connectors and the planned layers — not the core loop.
 
 ### Setup
 
@@ -188,7 +193,12 @@ Each connector block is validated against that connector's typed schema at
 startup; a missing referenced env var or an unknown connector is reported on the
 home menu (fail-fast) rather than at sync time. Choose **Sync data sources** in
 the home menu to run a sync; per-connector cursors are persisted so each run only
-pulls records changed since the last sync.
+pulls records changed since the last sync. **Check connector health** in the home
+menu probes every enabled connector without touching the DB.
+
+You can also sync outside the TUI: `uv run productagents sync` runs a one-shot
+headless sync (for cron/launchd; it exits non-zero on failure), and setting
+`PRODUCTAGENTS_SYNC_INTERVAL` makes the running app auto-sync on a timer.
 
 ### Run
 
