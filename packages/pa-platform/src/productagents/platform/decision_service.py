@@ -37,6 +37,7 @@ class DecisionService:
         self._ctx = context
         self._recorder = recorder
         self._hitl = human_in_the_loop
+        self._tasks: set[asyncio.Task] = set()
 
     def start_session(
         self,
@@ -47,10 +48,13 @@ class DecisionService:
     ) -> tuple[Session, AsyncIterator[ev.Event]]:
         session = Session(id=uuid4().hex, workflow="evaluate_initiative")
         bus = EventBus()
-        stream = bus.subscribe()  # register before scheduling the run — no events lost
-        _task = asyncio.ensure_future(  # noqa: RUF006 — bus.close() in finally is the lifecycle
+        # subscribe() registers synchronously — no events lost before first iteration
+        stream = bus.subscribe()
+        task = asyncio.ensure_future(
             self._run(session, bus, initiative, evidence_spec, approver)
         )
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
         return session, stream
 
     async def _run(

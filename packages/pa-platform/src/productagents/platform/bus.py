@@ -25,11 +25,16 @@ class EventBus:
         for queue in self._subscribers:
             queue.put_nowait(None)  # sentinel: end of stream
 
-    async def subscribe(self) -> AsyncIterator[Event]:
+    def subscribe(self) -> AsyncIterator[Event]:
         queue: asyncio.Queue[Event | None] = asyncio.Queue()
         self._subscribers.append(queue)
         if self._closed:
             queue.put_nowait(None)
+        return self._consume(queue)
+
+    async def _consume(
+        self, queue: asyncio.Queue[Event | None]
+    ) -> AsyncIterator[Event]:
         try:
             while True:
                 event = await queue.get()
