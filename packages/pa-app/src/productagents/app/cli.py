@@ -129,6 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("sync", help="run one connector sync and exit")
+    sub.add_parser("ipc", help="serve the JSON-over-stdio IPC protocol (for the GUI)")
 
     p_run = sub.add_parser("run", help="run a workflow and stream its events")
     p_run.add_argument("workflow", help="workflow name, e.g. evaluate_initiative")
@@ -197,6 +198,11 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "sync":
         raise SystemExit(sync_command())
+    if args.command == "ipc":
+        from productagents.app import ipc
+
+        ipc.serve_stdio(workspace.name)
+        return
     if args.command == "workspace":
         if args.ws_command == "show":
             raise SystemExit(

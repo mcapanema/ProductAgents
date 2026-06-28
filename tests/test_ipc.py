@@ -1,5 +1,6 @@
 """Tests for the JSON-over-stdio IPC adapter."""
 
+import json
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import cast
@@ -295,9 +296,6 @@ async def test_run_unknown_workflow_emits_error():
     assert "error" in sink[0]
 
 
-import json  # noqa: E402
-
-
 def _line_reader(lines):
     """Async read_line yielding each line then '' (EOF) forever."""
     queue = list(lines)
@@ -365,3 +363,27 @@ async def test_serve_skips_blank_lines():
         write_line=out.append,
     )
     assert [json.loads(line)["id"] for line in out] == [3]
+
+
+def test_serve_stdio_builds_services_and_serves(monkeypatch):
+    captured = {}
+
+    def fake_build_run_service():
+        return _workflows()
+
+    async def fake_serve(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "productagents.app.cli._build_run_service", fake_build_run_service
+    )
+    monkeypatch.setattr(ipc, "serve", fake_serve)
+    monkeypatch.setattr(
+        ipc.SessionService, "create", classmethod(lambda cls: "SESSIONS")
+    )
+
+    ipc.serve_stdio("acme")
+
+    assert captured["active_name"] == "acme"
+    assert captured["sessions"] == "SESSIONS"
+    assert isinstance(captured["workflows"], WorkflowService)

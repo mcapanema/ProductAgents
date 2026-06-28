@@ -24,10 +24,33 @@ from productagents.core.models import Initiative
 from productagents.platform import events as ev
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
+from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import Workflow, WorkflowService
 from productagents.platform.workspace import Workspace, WorkspaceService
 
 Emit = Callable[[dict], Awaitable[None]]
+
+
+def serve_stdio(active_name: str) -> None:
+    """Build production services and serve the stdio loop until EOF.
+
+    Backs ``productagents ipc``. Builds a real model-backed WorkflowService (so
+    ``run`` works), plus the workspace and session read services. The Tauri shell
+    (Phase 8) spawns this as its sidecar.
+
+    ponytail: the model is built up front, so even read methods need a key. Make
+    the WorkflowService lazy-on-first-run only if the GUI must browse without one.
+    """
+    from productagents.app.cli import _build_run_service  # reuse model wiring
+
+    asyncio.run(
+        serve(
+            workflows=_build_run_service(),
+            workspaces=WorkspaceService(),
+            active_name=active_name,
+            sessions=SessionService.create(),
+        )
+    )
 
 
 async def _run(rid, params: dict, *, workflows: WorkflowService, emit: Emit) -> None:

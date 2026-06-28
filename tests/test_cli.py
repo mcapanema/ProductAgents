@@ -311,6 +311,19 @@ async def test_sessions_show_unknown_id_returns_one(capsys):
     assert "missing" in capsys.readouterr().out
 
 
+def test_main_ipc_dispatches_to_serve_stdio(monkeypatch):
+    calls = []
+    _patch_bootstrap(monkeypatch, calls)
+    monkeypatch.setattr(
+        "productagents.app.ipc.serve_stdio",
+        lambda name: calls.append(("serve_stdio", name)),
+    )
+
+    cli_module.main(["ipc"])
+
+    assert ("serve_stdio", "acme") in calls
+
+
 def test_main_run_unknown_workflow_exits_friendly(monkeypatch):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
