@@ -17,12 +17,26 @@ from productagents.agents.graph import build_graph
 from productagents.core.models import DecisionRecord, HumanDecision, Initiative
 from productagents.platform import events as ev
 from productagents.platform.bus import EventBus
+from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 
 logger = logging.getLogger(__name__)
 
 Approver = Callable[[ev.ApprovalRequested], Awaitable[HumanDecision]]
 Recorder = Callable[[DecisionRecord], Awaitable[None]]
+
+
+def _status_for(event: ev.Event) -> str | None:
+    """The session status a terminal/approval event implies (None = no change)."""
+    match event:
+        case ev.ApprovalRequested():
+            return "awaiting_approval"
+        case ev.SessionFinished():
+            return "finished"
+        case ev.SessionFailed():
+            return "failed"
+        case _:
+            return None
 
 
 class DecisionService:
@@ -32,11 +46,14 @@ class DecisionService:
         *,
         recorder: Recorder | None = None,
         human_in_the_loop: bool = False,
+        event_store_opener=None,
     ) -> None:
         # context_opener: Callable[[], AbstractAsyncContextManager[AgentContext]]
+        # event_store_opener: Callable[[], AbstractAsyncContextManager[EventStore]]|None
         self._context_opener = context_opener
         self._recorder = recorder
         self._hitl = human_in_the_loop
+        self._event_store_opener = event_store_opener
         self._tasks: set[asyncio.Task] = set()
 
     @classmethod
@@ -46,14 +63,22 @@ class DecisionService:
         *,
         recorder: Recorder | None = None,
         human_in_the_loop: bool = False,
+        persist_events: bool = True,
     ) -> DecisionService:
-        from productagents.platform.context import open_agent_context
+        from productagents.platform.context import open_agent_context, open_event_store
 
         return cls(
             lambda: open_agent_context(model),
             recorder=recorder,
             human_in_the_loop=human_in_the_loop,
+            event_store_opener=open_event_store if persist_events else None,
         )
+
+    def _spawn(self, coro) -> asyncio.Task:
+        task = asyncio.ensure_future(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return task
 
     def start_session(
         self,
@@ -64,14 +89,43 @@ class DecisionService:
     ) -> tuple[Session, AsyncIterator[ev.Event]]:
         session = Session(id=uuid4().hex, workflow="evaluate_initiative")
         bus = EventBus()
-        # subscribe() registers synchronously — no events lost before first iteration
-        stream = bus.subscribe()
-        task = asyncio.ensure_future(
-            self._run(session, bus, initiative, evidence_spec, approver)
-        )
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        # subscribe() registers synchronously — no events lost before iteration.
+        stream = bus.subscribe()  # the caller's (UI) stream
+        if self._event_store_opener is not None:
+            # The Event Store is just another subscriber on the same bus. Pass the
+            # (now-narrowed non-None) opener in so _persist needs no None check.
+            opener = self._event_store_opener
+            self._spawn(self._persist(session, bus.subscribe(), opener))
+        self._spawn(self._run(session, bus, initiative, evidence_spec, approver))
         return session, stream
+
+    async def _persist(
+        self, session: Session, stream: AsyncIterator[ev.Event], opener
+    ) -> None:
+        """Drain the bus into the Event Store. Never let a storage failure abort a
+        run — the DB stays the system of record; this is an execution log."""
+        try:
+            async with opener() as store:
+                await store.start_session(
+                    session.id,
+                    session.workflow,
+                    "running",
+                    session.created_at.isoformat(),
+                )
+                async for event in stream:
+                    event_type, payload = serialize_event(event)
+                    await store.append(
+                        session.id,
+                        event.seq,
+                        event_type,
+                        event.ts.isoformat(),
+                        payload,
+                    )
+                    status = _status_for(event)
+                    if status is not None:
+                        await store.update_status(session.id, status)
+        except Exception:
+            logger.exception("event persistence for session %s failed", session.id)
 
     async def _run(
         self,

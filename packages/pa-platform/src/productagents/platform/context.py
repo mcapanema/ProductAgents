@@ -16,6 +16,7 @@ from productagents.knowledge.repositories.sqlmodel.engine import (
     make_sessionmaker,
 )
 from productagents.memory.embedding import HashingEmbedder
+from productagents.memory.event_store import EventStore
 from productagents.memory.service import LearningService
 from productagents.memory.store import DecisionStore
 
@@ -46,6 +47,14 @@ async def open_agent_context(
         services = build_services(session)
         learning = LearningService(DecisionStore(session), _EMBEDDER)
         yield AgentContext(model=model, feedback=services.feedback, learning=learning)
+
+
+@asynccontextmanager
+async def open_event_store(*, engine=None) -> AsyncIterator[EventStore]:
+    """Yield an EventStore bound to one DB session (mirrors open_agent_context)."""
+    maker = make_sessionmaker(engine or get_engine())
+    async with maker() as session:
+        yield EventStore(session)
 
 
 def _sessionmaker(engine):

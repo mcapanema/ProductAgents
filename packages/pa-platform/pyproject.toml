@@ -8,6 +8,7 @@ dependencies = [
     "productagents-agents",
     "productagents-memory",
     "productagents-connectors",
+    "pydantic>=2.7",
 ]
 
 [build-system]
