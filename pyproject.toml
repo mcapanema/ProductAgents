@@ -9,6 +9,7 @@ dependencies = [
     "productagents-knowledge",
     "productagents-memory",
     "productagents-agents",
+    "productagents-platform",
     "productagents-app",
 ]
 
@@ -32,6 +33,7 @@ productagents-connectors = { workspace = true }
 productagents-knowledge = { workspace = true }
 productagents-memory = { workspace = true }
 productagents-agents = { workspace = true }
+productagents-platform = { workspace = true }
 productagents-app = { workspace = true }
 
 [dependency-groups]
@@ -64,6 +66,7 @@ productagents = [
     "packages/pa-memory/src/productagents",
     "packages/pa-knowledge/src/productagents",
     "packages/pa-connectors/src/productagents",
+    "packages/pa-platform/src/productagents",
 ]
 
 [tool.coverage.report]
@@ -87,6 +90,7 @@ name = "Layered architecture"
 type = "layers"
 layers = [
     "productagents.app",
+    "productagents.platform",
     "productagents.agents",
     "productagents.knowledge | productagents.memory",
     "productagents.core",
@@ -150,6 +154,7 @@ src = [
     "packages/pa-memory/src",
     "packages/pa-knowledge/src",
     "packages/pa-connectors/src",
+    "packages/pa-platform/src",
 ]
 
 [tool.ruff.lint]
