@@ -273,13 +273,9 @@ async def test_run_reports_failed_status_on_abort():
         sessions=_FakeSessions(),
         emit=emit,
     )
-    assert sink[-1] == {
-        "id": 6,
-        "result": {
-            "status": "failed",
-            "session_id": sink[-1]["result"]["session_id"],
-        },
-    }
+    assert sink[-1]["id"] == 6
+    assert sink[-1]["result"]["status"] == "failed"
+    assert isinstance(sink[-1]["result"]["session_id"], str)
 
 
 async def test_run_unknown_workflow_emits_error():
@@ -387,3 +383,4 @@ def test_serve_stdio_builds_services_and_serves(monkeypatch):
     assert captured["active_name"] == "acme"
     assert captured["sessions"] == "SESSIONS"
     assert isinstance(captured["workflows"], WorkflowService)
+    assert isinstance(captured["workspaces"], WorkspaceService)

@@ -39,6 +39,8 @@ request `{id, method, params?}`; responses `{id, event:{type,payload}}` (run onl
 so a new platform event needs no IPC change. The loop is sequential and degrades on
 bad input — only EOF ends it.
 
+The `error` values in `{id, error}` responses are human-facing strings (not a machine-parseable taxonomy); a Phase 8 GUI should match on the envelope shape (`event`/`result`/`error` keys), not parse error text.
+
 Deferred (YAGNI): human-in-the-loop approval over the wire (the seam is a
 server→client `approval_request` message + a client `approve` method; headless
 `run` is `human_in_the_loop=False`); concurrent in-flight requests; an HTTP/WebSocket
