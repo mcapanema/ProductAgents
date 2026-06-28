@@ -9,7 +9,7 @@ or `connectors`.
 
 | Module | Role |
 | --- | --- |
-| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → `launch_tui`. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`. |
+| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → `launch_tui`. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `prompts list/show/diff/save/rollback`. |
 | `tui/` | The Textual GUI (see `tui/CLAUDE.md`). `launch_tui(workspace_name)` builds and runs the app; `_build_app` is the composition root. |
 | `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `setup.py` | `check_config` / `write_env` readiness + `.env` writer, shared by both adapters. |
@@ -27,7 +27,14 @@ collaborating service via a keyword arg so they test headless (see
   on a `SessionFailed`.
 - `render_event(event)` is the pure text mirror of the TUI's per-event panel
   routing — one line per event, `None` to skip.
-- `workspace`/`sessions` with no sub-action default to `list`.
+- `workspace`/`sessions`/`prompts` with no sub-action default to `list`.
+- `prompts list` lists all prompt names with their active version (`(v0)` = bundled
+  default). `prompts show NAME [--version N]` prints the template text. `prompts diff
+  NAME` shows a unified diff between the bundled default and the workspace-active
+  version. `prompts save NAME FILE` appends a new version from `FILE`. `prompts
+  rollback NAME` removes the latest workspace version (falls back to the previous
+  override, or the bundled default). All `prompts` handlers take `service: PromptService`
+  by keyword for offline testing.
 
 ## IPC protocol (Phase 6)
 
