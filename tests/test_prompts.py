@@ -28,3 +28,60 @@ def test_render_inserts_untrusted_data_literally():
 def test_unknown_prompt_raises_keyerror():
     with pytest.raises(KeyError):
         PromptStore().get("does-not-exist")
+
+
+def test_save_version_creates_v1_and_becomes_active(tmp_path):
+    store = PromptStore(tmp_path)
+    v = store.save_version("market", "OVERRIDDEN $evidence")
+    assert v == 1
+    assert store.active_version("market") == 1
+    assert store.get("market") == "OVERRIDDEN $evidence"
+    assert store.render("market", evidence="X") == "OVERRIDDEN X"
+
+
+def test_versions_lists_zero_then_overrides(tmp_path):
+    store = PromptStore(tmp_path)
+    store.save_version("market", "a")
+    store.save_version("market", "b")
+    assert store.versions("market") == [0, 1, 2]
+
+
+def test_read_version_zero_is_the_bundled_default(tmp_path):
+    store = PromptStore(tmp_path)
+    store.save_version("market", "override")
+    assert "Market Analyst" in store.read_version("market", 0)
+    assert store.read_version("market", 1) == "override"
+
+
+def test_rollback_reappends_old_text_as_new_active_version(tmp_path):
+    store = PromptStore(tmp_path)
+    store.save_version("market", "v1-text")
+    store.save_version("market", "v2-text")
+    new = store.rollback("market", 1)
+    assert new == 3
+    assert store.active_version("market") == 3
+    assert store.get("market") == "v1-text"
+
+
+def test_diff_is_a_unified_diff(tmp_path):
+    store = PromptStore(tmp_path)
+    store.save_version("market", "line one\n")
+    store.save_version("market", "line two\n")
+    d = store.diff("market", 1, 2)
+    assert "-line one" in d
+    assert "+line two" in d
+
+
+def test_names_unions_bundled_and_overrides(tmp_path):
+    store = PromptStore(tmp_path)
+    store.save_version("my_custom_prompt", "hi")
+    names = store.names()
+    assert "market" in names  # bundled
+    assert "my_custom_prompt" in names  # override-only
+    assert names == sorted(names)
+
+
+def test_bundled_only_store_has_no_override_versions():
+    # no prompts_dir → only version 0 exists
+    assert PromptStore().versions("market") == [0]
+    assert PromptStore().active_version("market") == 0

@@ -16,6 +16,7 @@ url and log path are wired — so a node-side store picks it up with no plumbing
 
 from __future__ import annotations
 
+import difflib
 import os
 from importlib.resources import files
 from pathlib import Path
@@ -50,10 +51,57 @@ class PromptStore:
         except (FileNotFoundError, OSError) as exc:
             raise KeyError(f"unknown prompt: {name!r}") from exc
 
+    # ---- override directory layout: <dir>/<name>/NNNN.txt ---------------
+    def _name_dir(self, name: str) -> Path | None:
+        return self._dir / name if self._dir is not None else None
+
+    def _override_versions(self, name: str) -> list[int]:
+        d = self._name_dir(name)
+        if d is None or not d.is_dir():
+            return []
+        return sorted(int(p.stem) for p in d.glob("[0-9]*.txt"))
+
     def active_version(self, name: str) -> int:
-        return 0  # Task 2 replaces this with override-dir resolution
+        overrides = self._override_versions(name)
+        return overrides[-1] if overrides else 0
+
+    def versions(self, name: str) -> list[int]:
+        return [0, *self._override_versions(name)]
 
     def read_version(self, name: str, version: int) -> str:
         if version == 0:
             return self._bundled(name)
-        raise KeyError(f"no version {version} for {name!r}")  # Task 2 fills this
+        d = self._name_dir(name)
+        if d is None:
+            raise KeyError(f"no override store for {name!r}")
+        path = d / f"{version:04d}.txt"
+        try:
+            return path.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise KeyError(f"no version {version} for {name!r}") from exc
+
+    def save_version(self, name: str, text: str) -> int:
+        if self._dir is None:
+            raise RuntimeError("PromptStore has no writable prompts_dir")
+        d = self._dir / name
+        d.mkdir(parents=True, exist_ok=True)
+        version = self.active_version(name) + 1
+        (d / f"{version:04d}.txt").write_text(text, encoding="utf-8")
+        return version
+
+    def rollback(self, name: str, version: int) -> int:
+        return self.save_version(name, self.read_version(name, version))
+
+    def diff(self, name: str, old: int, new: int) -> str:
+        a = self.read_version(name, old).splitlines(keepends=True)
+        b = self.read_version(name, new).splitlines(keepends=True)
+        return "".join(
+            difflib.unified_diff(a, b, fromfile=f"{name}@{old}", tofile=f"{name}@{new}")
+        )
+
+    def names(self) -> list[str]:
+        bundled = {p.name.removesuffix(".txt") for p in _DEFAULTS.iterdir()}
+        overrides: set[str] = set()
+        if self._dir is not None and self._dir.is_dir():
+            overrides = {c.name for c in self._dir.iterdir() if c.is_dir()}
+        return sorted(bundled | overrides)
