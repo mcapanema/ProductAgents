@@ -9,6 +9,7 @@ from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_service import DecisionService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import Workflow, WorkflowService
+from productagents.platform.workspace import Workspace, WorkspaceService
 
 __all__ = [
     "ConnectorService",
@@ -16,4 +17,6 @@ __all__ = [
     "SessionService",
     "Workflow",
     "WorkflowService",
+    "Workspace",
+    "WorkspaceService",
 ]
