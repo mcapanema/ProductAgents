@@ -219,12 +219,30 @@ spawns `productagents ipc` (the JSON-over-stdio Application-Layer adapter) as a
 child process and talks to it across the process boundary. It never imports
 LangGraph, connectors, or persistence.
 
+**Prerequisites.** The desktop shell needs Node (≥ 18) and a Rust toolchain. On
+macOS the Rust shell also needs the Xcode Command Line Tools (for the C linker);
+the system WebKit webview is already present. On Linux you additionally need the
+WebKitGTK/`libsoup` dev packages — see https://v2.tauri.app/start/prerequisites/.
+
+```bash
+# Rust toolchain (one time) — installs rustup + the stable toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"          # or just open a new shell
+rustc --version && cargo --version # verify
+
+# macOS only, if `cc`/`clang` is missing:
+xcode-select --install
+```
+
 ```bash
 cd desktop
 npm install            # first time
 npm run tauri dev      # build the Rust shell + open the window (spawns the sidecar)
 npm test               # frontend unit tests (Vitest)
 ```
+
+> The first `npm run tauri dev` compiles the whole Rust dependency tree — a few
+> minutes, one time (cached afterward).
 
 Panels: **Run** (start a workflow, watch events stream live), **Sessions**
 (replay a past run's event timeline), **Decisions** (the Decision Explorer:
