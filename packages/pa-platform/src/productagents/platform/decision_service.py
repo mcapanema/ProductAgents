@@ -211,6 +211,15 @@ class DecisionService:
         record = self._build_record(session, initiative, evidence, finished)
         await self._recorder(record)
 
+    async def list_decisions(self) -> list[DecisionRecord]:
+        return await self._ctx.learning.decisions()
+
+    async def get_decision(self, decision_id: str) -> DecisionRecord | None:
+        for record in await self._ctx.learning.decisions():
+            if record.decision_id == decision_id:
+                return record
+        return None
+
     def _build_record(self, session, initiative, evidence, finished) -> DecisionRecord:
         # Ported field-for-field from tui/app.py ProductAgentsApp._record.
         # Task 9 will delete that copy; keep these fields in sync until then.

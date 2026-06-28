@@ -5,6 +5,7 @@ Presentation adapters (TUI, CLI, IPC, GUI) depend only on this package and
 or ``connectors`` directly.
 """
 
+from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_service import DecisionService
 
-__all__ = ["DecisionService"]
+__all__ = ["ConnectorService", "DecisionService"]
