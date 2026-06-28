@@ -3,16 +3,7 @@ from functools import partial
 from textual.widgets import Button, Input, Label, Static
 
 from productagents.agents.graph import build_graph
-from productagents.agents.runner import (
-    DebateTurnEvent,
-    FinalVerdictEvent,
-    FinishedEvent,
-    GovernanceVerdictEvent,
-    JudgmentEvent,
-    ProgressEvent,
-    RiskAssessmentEvent,
-    run_decision,
-)
+from productagents.agents.runner import FinishedEvent, run_decision
 from productagents.app.setup import ConfigStatus
 from productagents.app.tui.app import ProductAgentsApp
 from productagents.app.tui.degraded import DegradedRunScreen
@@ -29,7 +20,14 @@ from productagents.core.models import (
     Recommendation,
     RiskFinding,
 )
-from tests.fakes import FakeChatModel
+from productagents.platform import events as ev
+from tests.fakes import FakeChatModel, FakeDecisionService
+
+
+def _service(runner, evidence, recorder=None, *, collector=None):
+    """Wrap a runner (old run_decision contract) in a FakeDecisionService."""
+    kw = {} if collector is None else {"collector": collector}
+    return FakeDecisionService(runner, recorder=recorder, evidence=evidence, **kw)
 
 
 # Module-level async fakes shared across tests that don't assert on recordings.
@@ -90,7 +88,7 @@ async def test_app_renders_recommendation_records_debate_and_risk(
         recorded.append(record)
 
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, recorder),
         evidence,
         recorder=recorder,
         reader=_empty_reader,
@@ -125,7 +123,7 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -168,7 +166,7 @@ def test_format_recall_body_empty_state_points_to_reflection():
 async def test_set_state_drives_idle_active_done_classes():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -189,7 +187,7 @@ async def test_set_state_drives_idle_active_done_classes():
 async def test_initiative_input_is_focused_on_decision_screen():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -254,7 +252,7 @@ async def test_app_renders_recalled_lessons(monkeypatch):
 
     recorded = []
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _list_recorder(recorded)),
         evidence,
         recorder=_list_recorder(recorded),
         reader=_empty_reader,
@@ -294,7 +292,7 @@ async def test_app_collects_evidence_from_typed_directory(tmp_path, monkeypatch)
     from productagents.agents.evidence import collect_evidence
 
     app = ProductAgentsApp(
-        capturing_runner,
+        _service(capturing_runner, default_evidence, _noop_recorder),
         default_evidence,
         collector=collect_evidence,
         recorder=_noop_recorder,
@@ -325,7 +323,7 @@ async def test_app_shows_error_for_bad_evidence_source(monkeypatch):
     from productagents.agents.evidence import collect_evidence
 
     app = ProductAgentsApp(
-        tracking_runner,
+        _service(tracking_runner, default_evidence, _noop_recorder),
         default_evidence,
         collector=collect_evidence,
         recorder=_noop_recorder,
@@ -380,7 +378,7 @@ async def test_app_renders_and_records_provenance(tmp_path, monkeypatch):
 
     recorded = []
     app = ProductAgentsApp(
-        runner,
+        _service(runner, default_evidence, _list_recorder(recorded)),
         default_evidence,
         collector=collect_evidence,
         recorder=_list_recorder(recorded),
@@ -436,7 +434,7 @@ async def test_completion_event_without_panel_is_ignored(monkeypatch):
         scenario="sample", customer_feedback="d", product_analytics={"x": 1}
     )
     app = ProductAgentsApp(
-        fake_runner,
+        _service(fake_runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -477,7 +475,7 @@ def _missing_status():
 async def test_app_shows_home_menu_when_config_ready():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -492,7 +490,7 @@ async def test_app_shows_home_menu_when_config_ready():
 async def test_app_auto_opens_setup_when_config_incomplete():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -506,7 +504,7 @@ async def test_app_auto_opens_setup_when_config_incomplete():
 async def test_app_run_from_menu_reveals_decision_ui():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -541,7 +539,7 @@ async def test_setup_save_rebuilds_runner_and_refreshes_home():
         return runner, None
 
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -567,7 +565,7 @@ async def test_setup_save_rebuilds_runner_and_refreshes_home():
 async def test_ctrl_h_reopens_menu_from_decision_ui():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -605,7 +603,7 @@ async def test_app_logs_node_error_and_marks_panel_failed():
         scenario="sample", customer_feedback="d", product_analytics={"x": 1}
     )
     app = ProductAgentsApp(
-        fake_runner,
+        _service(fake_runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -625,7 +623,7 @@ async def test_app_logs_node_error_and_marks_panel_failed():
 async def test_app_registers_and_applies_custom_theme():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -664,7 +662,7 @@ async def test_app_panel_titles_show_state_icons():
         scenario="sample", customer_feedback="d", product_analytics={"x": 1}
     )
     app = ProductAgentsApp(
-        fake_runner,
+        _service(fake_runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -685,7 +683,7 @@ async def test_app_panel_titles_show_state_icons():
 async def test_reset_panels_marks_downstream_waiting():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -711,7 +709,7 @@ async def test_reset_panels_marks_downstream_waiting():
 async def test_app_uses_three_lane_layout_with_analyst_grid():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -750,7 +748,7 @@ async def test_app_renders_and_records_judgment(monkeypatch):
     runner, evidence = _runner_and_evidence()
     recorded = []
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _list_recorder(recorded)),
         evidence,
         recorder=_list_recorder(recorded),
         reader=_empty_reader,
@@ -772,7 +770,7 @@ async def test_app_renders_and_records_judgment(monkeypatch):
 async def test_running_state_shows_advancing_spinner_that_stops_on_done():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -798,7 +796,7 @@ async def test_running_state_shows_advancing_spinner_that_stops_on_done():
 async def test_judgment_failure_shows_warning():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -807,7 +805,9 @@ async def test_judgment_failure_shows_warning():
     async with app.run_test() as pilot:
         await pilot.pause()
         app._on_judgment(
-            JudgmentEvent(
+            ev.Judged(
+                session_id="t",
+                seq=0,
                 evidence_grounding_score=0.4,
                 rationale_coherence_score=0.5,
                 passed=False,
@@ -823,7 +823,7 @@ async def test_judgment_failure_shows_warning():
 async def test_governance_non_approve_warns_then_approval_clears_it():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -832,14 +832,22 @@ async def test_governance_non_approve_warns_then_approval_clears_it():
     async with app.run_test() as pilot:
         await pilot.pause()
         app._on_governance_verdict(
-            GovernanceVerdictEvent(verdict="reject", rationale="not now")
+            ev.GovernanceAdvised(
+                session_id="t", seq=0, verdict="reject", rationale="not now"
+            )
         )
         gov = app.query_one("#governance")
         assert str(gov.border_title).startswith("⚠")
         assert gov.has_class("warning")
         # A human override to approve clears the warning.
         app._on_final_verdict(
-            FinalVerdictEvent(verdict="approve", rationale="ok", decided_by="human")
+            ev.FinalVerdict(
+                session_id="t",
+                seq=0,
+                verdict="approve",
+                rationale="ok",
+                decided_by="human",
+            )
         )
         assert str(gov.border_title).startswith("✓")
         assert not gov.has_class("warning")
@@ -848,7 +856,7 @@ async def test_governance_non_approve_warns_then_approval_clears_it():
 async def test_debate_panel_runs_then_done_when_strategist_starts():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -857,10 +865,16 @@ async def test_debate_panel_runs_then_done_when_strategist_starts():
     async with app.run_test() as pilot:
         await pilot.pause()
         app._on_debate_turn(
-            DebateTurnEvent(round=1, side="advocate", argument="ship it")
+            ev.DebateTurnEmitted(
+                session_id="t", seq=0, round=1, side="advocate", argument="ship it"
+            )
         )
         assert "debate-scroll" in app._indicator._spinning  # running spinner
-        app._on_progress(ProgressEvent(node="strategist", message="thinking"))
+        app._on_progress(
+            ev.NodeProgress(
+                session_id="t", seq=0, node="strategist", message="thinking"
+            )
+        )
         assert str(app.query_one("#debate-scroll").border_title).startswith("✓")
         assert "strategist" in app._indicator._spinning
 
@@ -868,7 +882,7 @@ async def test_debate_panel_runs_then_done_when_strategist_starts():
 async def test_strategist_done_when_judgment_arrives():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -876,10 +890,16 @@ async def test_strategist_done_when_judgment_arrives():
     )
     async with app.run_test() as pilot:
         await pilot.pause()
-        app._on_progress(ProgressEvent(node="strategist", message="thinking"))
+        app._on_progress(
+            ev.NodeProgress(
+                session_id="t", seq=0, node="strategist", message="thinking"
+            )
+        )
         assert "strategist" in app._indicator._spinning
         app._on_judgment(
-            JudgmentEvent(
+            ev.Judged(
+                session_id="t",
+                seq=0,
                 evidence_grounding_score=0.9,
                 rationale_coherence_score=0.9,
                 passed=True,
@@ -894,7 +914,7 @@ async def test_strategist_done_when_judgment_arrives():
 async def test_risk_panel_runs_then_done_when_governance_arrives():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -903,13 +923,20 @@ async def test_risk_panel_runs_then_done_when_governance_arrives():
     async with app.run_test() as pilot:
         await pilot.pause()
         app._on_risk_assessment(
-            RiskAssessmentEvent(
-                reviewer="r", role="Risk Reviewer", level="medium", rationale="some"
+            ev.RiskAssessed(
+                session_id="t",
+                seq=0,
+                reviewer="r",
+                role="Risk Reviewer",
+                level="medium",
+                rationale="some",
             )
         )
         assert "risk-scroll" in app._indicator._spinning
         app._on_governance_verdict(
-            GovernanceVerdictEvent(verdict="approve", rationale="go")
+            ev.GovernanceAdvised(
+                session_id="t", seq=0, verdict="approve", rationale="go"
+            )
         )
         assert str(app.query_one("#risk-scroll").border_title).startswith("✓")
         assert "risk-scroll" not in app._indicator._spinning
@@ -964,7 +991,11 @@ async def test_failed_run_is_not_auto_recorded_and_shows_modal(monkeypatch):
     chosen = {}
 
     app = ProductAgentsApp(
-        _runner_yielding(_failed_finished()),
+        _service(
+            _runner_yielding(_failed_finished()),
+            _degraded_evidence(),
+            _list_recorder(recorded),
+        ),
         _degraded_evidence(),
         recorder=_list_recorder(recorded),
         reader=_empty_reader,
@@ -977,7 +1008,7 @@ async def test_failed_run_is_not_auto_recorded_and_shows_modal(monkeypatch):
 
     async with app.run_test() as pilot:
         monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
-        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
         await pilot.pause()
         await app.workers.wait_for_complete()
         await pilot.pause()
@@ -990,7 +1021,11 @@ async def test_decide_path_records_human_decision(monkeypatch):
     recorded = []
 
     app = ProductAgentsApp(
-        _runner_yielding(_failed_finished()),
+        _service(
+            _runner_yielding(_failed_finished()),
+            _degraded_evidence(),
+            _list_recorder(recorded),
+        ),
         _degraded_evidence(),
         recorder=_list_recorder(recorded),
         reader=_empty_reader,
@@ -1004,7 +1039,7 @@ async def test_decide_path_records_human_decision(monkeypatch):
 
     async with app.run_test() as pilot:
         monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
-        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
         await pilot.pause()
         await app.workers.wait_for_complete()
         await pilot.pause()
@@ -1015,11 +1050,63 @@ async def test_decide_path_records_human_decision(monkeypatch):
     assert record.governance.decided_by == "human"
 
 
+async def test_session_failed_decide_path_records_placeholder(monkeypatch):
+    """A fatal SessionFailed + 'decide' records a placeholder DecisionRecord.
+
+    This covers the aborted-run branch in _record: finished=None → placeholder
+    Recommendation(failed=True), governance from the human's choice.
+    """
+    from productagents.agents.runner import RunAbortedEvent
+
+    recorded = []
+
+    async def _aborted_runner(initiative, evidence, *, approver=None):
+        yield RunAbortedEvent(
+            node="customer_research",
+            category="rate_limit",
+            message="Rate limit reached.",
+        )
+
+    app = ProductAgentsApp(
+        _service(
+            _aborted_runner,
+            _degraded_evidence(),
+            _list_recorder(recorded),
+        ),
+        _degraded_evidence(),
+        recorder=_list_recorder(recorded),
+        reader=_empty_reader,
+        show_home=False,
+    )
+
+    async def fake_push_screen_wait(screen):
+        if isinstance(screen, DegradedRunScreen):
+            return "decide"
+        return HumanDecision(verdict="reject", rationale="not now")
+
+    async with app.run_test() as pilot:
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    assert len(recorded) == 1
+    record = recorded[0]
+    assert record.recommendation.failed is True
+    assert record.governance.verdict == "reject"
+    assert record.governance.decided_by == "human"
+
+
 async def test_healthy_run_is_recorded(monkeypatch):
     recorded = []
 
     app = ProductAgentsApp(
-        _runner_yielding(_ok_finished()),
+        _service(
+            _runner_yielding(_ok_finished()),
+            _degraded_evidence(),
+            _list_recorder(recorded),
+        ),
         _degraded_evidence(),
         recorder=_list_recorder(recorded),
         reader=_empty_reader,
@@ -1027,7 +1114,7 @@ async def test_healthy_run_is_recorded(monkeypatch):
     )
 
     async with app.run_test() as pilot:
-        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
         await pilot.pause()
         await app.workers.wait_for_complete()
         await pilot.pause()
@@ -1037,21 +1124,34 @@ async def test_healthy_run_is_recorded(monkeypatch):
 
 
 async def test_recorder_failure_shows_error_status_and_does_not_crash(monkeypatch):
-    """A recorder that raises shows an error status line and does not crash the app."""
+    """A recorder that raises shows an error status line and does not crash the app.
+
+    The DecisionService owns recording of a healthy run; the TUI only records on
+    the degraded "decide" path, so that is where the app-level recorder guard
+    lives now. A raising recorder there must surface an error status, not crash.
+    """
 
     async def raising_recorder(r):
         raise RuntimeError("DB unavailable")
 
     app = ProductAgentsApp(
-        _runner_yielding(_ok_finished()),
+        _service(
+            _runner_yielding(_failed_finished()), _degraded_evidence(), raising_recorder
+        ),
         _degraded_evidence(),
         recorder=raising_recorder,
         reader=_empty_reader,
         show_home=False,
     )
 
+    async def fake_push_screen_wait(screen):
+        if isinstance(screen, DegradedRunScreen):
+            return "decide"
+        return HumanDecision(verdict="reject", rationale="no")
+
     async with app.run_test() as pilot:
-        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
         await pilot.pause()
         await app.workers.wait_for_complete()
         await pilot.pause()
@@ -1075,7 +1175,7 @@ async def test_retry_path_reruns(monkeypatch):
             yield e
 
     app = ProductAgentsApp(
-        stateful_runner,
+        _service(stateful_runner, _degraded_evidence(), _list_recorder(recorded)),
         _degraded_evidence(),
         recorder=_list_recorder(recorded),
         reader=_empty_reader,
@@ -1089,7 +1189,7 @@ async def test_retry_path_reruns(monkeypatch):
 
     async with app.run_test() as pilot:
         monkeypatch.setattr(app, "push_screen_wait", fake_push_screen_wait)
-        app._run(Initiative(title="SSO", description="SSO"), _degraded_evidence())
+        app._run(Initiative(title="SSO", description="SSO"), "", _degraded_evidence())
         await pilot.pause()
         # Wait for the first worker (failed run + modal handling) to finish.
         await app.workers.wait_for_complete()
@@ -1137,7 +1237,7 @@ async def test_right_lane_panels_stay_on_screen_with_long_content():
         scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
     )
     app = ProductAgentsApp(
-        partial(run_decision, graph),
+        _service(partial(run_decision, graph), evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -1176,14 +1276,14 @@ async def test_strategist_panel_renders_on_recommendation_event():
         scenario="sample", customer_feedback="demand", product_analytics={"x": 1}
     )
     app = ProductAgentsApp(
-        fake_runner,
+        _service(fake_runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
         show_home=False,
     )
     async with app.run_test() as pilot:
-        app._run(Initiative(title="Add SSO", description="Add SSO"), evidence)
+        app._run(Initiative(title="Add SSO", description="Add SSO"), "", evidence)
         await pilot.pause()
         await pilot.app.workers.wait_for_complete()
         await pilot.pause()
@@ -1200,7 +1300,7 @@ async def test_pipeline_rail_advances_during_a_run():
 
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -1220,7 +1320,7 @@ async def test_pipeline_rail_advances_during_a_run():
 async def test_status_log_turns_red_only_on_error():
     runner, evidence = _runner_and_evidence()
     app = ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,
@@ -1246,7 +1346,7 @@ async def test_status_log_turns_red_only_on_error():
 def _make_app():
     runner, evidence = _runner_and_evidence()
     return ProductAgentsApp(
-        runner,
+        _service(runner, evidence, _noop_recorder),
         evidence,
         recorder=_noop_recorder,
         reader=_empty_reader,

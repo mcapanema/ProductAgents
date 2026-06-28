@@ -11,6 +11,7 @@ members = [
     "productagents-core",
     "productagents-knowledge",
     "productagents-memory",
+    "productagents-platform",
 ]
 
 [[package]]
@@ -983,6 +984,7 @@ dependencies = [
     { name = "productagents-core" },
     { name = "productagents-knowledge" },
     { name = "productagents-memory" },
+    { name = "productagents-platform" },
 ]
 
 [package.dev-dependencies]
@@ -1006,6 +1008,7 @@ requires-dist = [
     { name = "productagents-core", editable = "packages/pa-core" },
     { name = "productagents-knowledge", editable = "packages/pa-knowledge" },
     { name = "productagents-memory", editable = "packages/pa-memory" },
+    { name = "productagents-platform", editable = "packages/pa-platform" },
 ]
 
 [package.metadata.requires-dev]
@@ -1141,6 +1144,25 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "productagents-core", editable = "packages/pa-core" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+]
+
+[[package]]
+name = "productagents-platform"
+version = "0.1.0"
+source = { editable = "packages/pa-platform" }
+dependencies = [
+    { name = "productagents-agents" },
+    { name = "productagents-connectors" },
+    { name = "productagents-core" },
+    { name = "productagents-memory" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "productagents-agents", editable = "packages/pa-agents" },
+    { name = "productagents-connectors", editable = "packages/pa-connectors" },
+    { name = "productagents-core", editable = "packages/pa-core" },
+    { name = "productagents-memory", editable = "packages/pa-memory" },
 ]
 
 [[package]]

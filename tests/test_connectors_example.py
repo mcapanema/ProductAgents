@@ -11,9 +11,9 @@ def _repo_root() -> Path:
 
 
 def test_example_file_exists_and_validates():
-    from productagents.app.sync import load_raw_config, plan_connectors
     from productagents.connectors.github.connector import GitHubConnector
     from productagents.connectors.jira.connector import JiraConnector
+    from productagents.platform.connectors import load_raw_config, plan_connectors
 
     example = _repo_root() / "connectors.yaml.example"
     assert example.exists()

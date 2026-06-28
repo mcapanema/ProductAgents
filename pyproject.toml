@@ -9,6 +9,7 @@ dependencies = [
     "productagents-knowledge",
     "productagents-memory",
     "productagents-agents",
+    "productagents-platform",
     "productagents-app",
 ]
 
@@ -32,6 +33,7 @@ productagents-connectors = { workspace = true }
 productagents-knowledge = { workspace = true }
 productagents-memory = { workspace = true }
 productagents-agents = { workspace = true }
+productagents-platform = { workspace = true }
 productagents-app = { workspace = true }
 
 [dependency-groups]
@@ -64,6 +66,7 @@ productagents = [
     "packages/pa-memory/src/productagents",
     "packages/pa-knowledge/src/productagents",
     "packages/pa-connectors/src/productagents",
+    "packages/pa-platform/src/productagents",
 ]
 
 [tool.coverage.report]
@@ -87,17 +90,26 @@ name = "Layered architecture"
 type = "layers"
 layers = [
     "productagents.app",
+    "productagents.platform",
     "productagents.agents",
     "productagents.knowledge | productagents.memory",
     "productagents.core",
 ]
 
-# Connectors map INTO core only; nothing above imports a connector by name.
+# Connectors map INTO core only; only the platform composition root wires them.
+# allow_indirect_imports = true so that app → platform.connectors → connectors
+# is legal (app goes through the platform, not around it); direct wiring is still
+# caught.
 [[tool.importlinter.contracts]]
 name = "Connectors are isolated below the platform"
 type = "forbidden"
-source_modules = ["productagents.agents", "productagents.knowledge"]
+source_modules = [
+    "productagents.app",
+    "productagents.agents",
+    "productagents.knowledge",
+]
 forbidden_modules = ["productagents.connectors"]
+allow_indirect_imports = true
 
 # Connectors depend only on core (+ httpx). Never the storage/agent/app layers.
 [[tool.importlinter.contracts]]
@@ -132,6 +144,25 @@ source_modules = ["productagents"]
 forbidden_modules = ["requests"]
 include_external_packages = true
 
+# Presentation depends only on the Application Layer (+ core models).
+# allow_indirect_imports = true: app → platform.connectors → connectors is legal
+# (app goes through the platform, not around it); direct wiring is still caught.
+[[tool.importlinter.contracts]]
+name = "Presentation goes through the Application Layer only"
+type = "forbidden"
+source_modules = ["productagents.app"]
+forbidden_modules = [
+    "productagents.agents",
+    "productagents.memory",
+    "productagents.knowledge",
+    "productagents.connectors",
+    "langgraph",
+    "langchain",
+    "sqlalchemy",
+]
+include_external_packages = true
+allow_indirect_imports = true
+
 # Agents reach the store only through Knowledge Services, never raw SQL/ORM.
 [[tool.importlinter.contracts]]
 name = "Agents reach storage only through services"
@@ -150,6 +181,7 @@ src = [
     "packages/pa-memory/src",
     "packages/pa-knowledge/src",
     "packages/pa-connectors/src",
+    "packages/pa-platform/src",
 ]
 
 [tool.ruff.lint]

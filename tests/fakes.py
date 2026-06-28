@@ -1,6 +1,75 @@
 """Test doubles for offline agent/graph testing."""
 
+from uuid import uuid4
+
+from productagents.agents.evidence import collect_evidence
 from productagents.app.setup import ConfigStatus
+from productagents.platform import events as ev
+from productagents.platform.decision_service import DecisionService
+from productagents.platform.session import Session
+
+
+class FakeDecisionService:
+    """Test double for ``platform.DecisionService``.
+
+    Wraps a ``runner`` (the old ``run_decision`` async-gen contract:
+    ``runner(initiative, evidence, *, approver)`` yielding runner events),
+    resolves the evidence spec, translates runner events into the platform's
+    event vocabulary, and records on a healthy finish — mirroring the real
+    service so TUI tests can keep building runners exactly as before.
+    """
+
+    def __init__(
+        self, runner, *, recorder=None, evidence=None, collector=collect_evidence
+    ):
+        self._runner = runner
+        self._recorder = recorder
+        self._evidence = evidence
+        self._collector = collector
+        # Borrow the real service's runner→platform translation + record helpers
+        # so the mapping stays single-sourced.
+        self._svc = DecisionService(lambda: None, recorder=recorder)
+
+    def start_session(self, initiative, evidence_spec, *, approver=None):
+        if evidence_spec:
+            evidence = self._collector(evidence_spec)
+        elif self._evidence is not None:
+            evidence = self._evidence
+        else:
+            evidence = self._collector("sample")
+        session = Session(id=uuid4().hex, workflow="evaluate_initiative")
+        return session, self._stream(session, initiative, evidence, approver)
+
+    async def _stream(self, session, initiative, evidence, approver):
+        from productagents.agents import runner as rn
+
+        seq = 0
+        runner_approver = self._wrap_approver(session, approver)
+        async for r in self._runner(initiative, evidence, approver=runner_approver):
+            make = self._svc._translate(session, r)
+            if make is not None:
+                yield make(seq)
+                seq += 1
+            if isinstance(r, rn.RunAbortedEvent):
+                return
+            if isinstance(r, rn.FinishedEvent):
+                await self._svc._record(session, initiative, evidence, r)
+
+    def _wrap_approver(self, session, approver):
+        if approver is None:
+            return None
+
+        async def runner_approver(advisory):
+            return await approver(
+                ev.ApprovalRequested(
+                    session_id=session.id,
+                    seq=-1,
+                    advisory_verdict=advisory.verdict if advisory else "approve",
+                    advisory_rationale=advisory.rationale if advisory else "",
+                )
+            )
+
+        return runner_approver
 
 
 def ready_status() -> ConfigStatus:

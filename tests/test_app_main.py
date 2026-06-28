@@ -1,8 +1,8 @@
 """Tests for the productagents entry point wiring."""
 
-from productagents.app.sync import SyncReport
 from productagents.app.tui import app as app_module
 from productagents.connectors.base import SyncResult
+from productagents.platform.connectors import SyncReport
 
 
 async def _ok_syncer():
@@ -71,6 +71,6 @@ def test_build_app_is_resilient_when_model_init_fails(monkeypatch):
     app = app_module._build_app()
 
     # Model init failed, but the app still builds so it can route to setup.
-    assert app._runner is None
+    assert app._decision_service is None
     assert app._reflector is None
     assert app._rebuild is not None

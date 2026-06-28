@@ -15,7 +15,7 @@ Everything runs live in a Textual TUI.
 
 ## Directory structure
 
-The codebase is a **uv workspace** with six member packages sharing the
+The codebase is a **uv workspace** with seven member packages sharing the
 `productagents` namespace (PEP 420 namespace package — no `__init__.py` at the
 `productagents/` level):
 
@@ -54,7 +54,6 @@ packages/
 ├── pa-app/                 # productagents.app.*  — TUI + setup wizard
 │   └── src/productagents/app/
 │       ├── setup.py        #   check_config + write_env
-│       ├── decision_context.py #   per-run AgentContext session opener (DB + services)
 │       └── tui/            #   Textual app + modal screens (see tui/CLAUDE.md)
 │           ├── app.py · app.tcss · approval.py · reflection.py
 │           ├── home_screen.py · setup_screen.py · degraded.py
@@ -64,11 +63,23 @@ packages/
 │   └── src/productagents/memory/     # store.py · tables.py · retrieval.py · service.py · embedding.py · jsonl.py (export/audit)
 ├── pa-knowledge/           # productagents.knowledge.*  — stub, ready for v2
 │   └── src/productagents/knowledge/__init__.py
-└── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
-    └── src/productagents/connectors/
-        ├── base.py · http.py · registry.py · runtime.py  # the framework
-        ├── connector_errors.py · observability.py        # error classifier + span logger
-        └── github/         #   first connector: issues → CustomerFeedback
+├── pa-connectors/          # productagents.connectors.*  — Layer-1 connector framework
+│   └── src/productagents/connectors/
+│       ├── base.py · http.py · registry.py · runtime.py  # the framework
+│       ├── connector_errors.py · observability.py        # error classifier + span logger
+│       └── github/         #   first connector: issues → CustomerFeedback
+└── pa-platform/            # productagents.platform.*  — Application Services + Event Bus + Session + composition root
+    └── src/productagents/platform/
+        ├── bus.py          #   EventBus (publish/subscribe/close)
+        ├── events.py       #   platform event vocabulary (SessionStarted → SessionFinished/SessionFailed)
+        ├── session.py      #   Session value type
+        ├── decision_service.py  #   DecisionService (start_session, runner→event translation, recording)
+        ├── connector_service.py #   ConnectorService (sync + health-check composition root)
+        ├── context.py      #   open_decision_context (per-run AgentContext + DB session)
+        ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
+        ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)
+        ├── evidence.py     #   re-exports collect_evidence / load_scenario / EvidenceError
+        └── reflection.py   #   re-exports reflect (platform seam)
 tests/                      # offline suite, FakeChatModel (see tests/CLAUDE.md)
 docs/design/adr/            # Architecture Decision Records
 ```
@@ -81,6 +92,9 @@ from productagents.core.config import settings
 from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
 from productagents.agents.evidence import collect_evidence
+from productagents.platform import DecisionService, ConnectorService
+from productagents.platform.events import SessionFinished, SessionFailed
+from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.app.setup import check_config
 from productagents.app.tui.app import main
 import productagents.memory as memory
@@ -172,15 +186,16 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - **Nodes degrade, never crash.** Every node wraps its LLM call in `try/except` and returns a fallback (a `failed=True` report, a placeholder debate turn, or a zero-confidence recommendation) so one failure can't abort the graph.
 - **Streaming from nodes** goes through `agents/_stream.get_writer()`, not `langgraph.config.get_stream_writer()` directly. The latter raises `RuntimeError` when called outside an active graph run (e.g. a unit test invoking a node directly), so the helper returns a no-op writer in that case. Use `get_writer()` in any new node. The progress dict itself is built via `agents/stream_events.py` helpers (`emit_status`, `emit_error`, `emit_payload`, `emit_fatal`), the single source of truth for the wire keys the runner parses.
 - **Testing is fully offline.** `tests/fakes.py::FakeChatModel` maps a schema class → the instance (or `Exception`) its `with_structured_output(schema).ainvoke()` should return. Test nodes by calling them directly with a `FakeChatModel`; test the graph by building it with one.
-- **Nodes receive an `AgentContext`, not just a model.** `build_graph(context)` injects `ctx` into the analysts (so any analyst may reach a Knowledge Service) and `ctx.model` into the LLM-only nodes. The Customer Research analyst reads synced `CustomerFeedback` from the local store via `ctx.feedback`, degrading to the scenario evidence text when the store is empty/unavailable. The per-run DB session is opened at the app boundary (`app/decision_context.py`), keeping nodes engine-free — the same pattern `recall` uses for the decision log.
+- **Nodes receive an `AgentContext`, not just a model.** `build_graph(context)` injects `ctx` into the analysts (so any analyst may reach a Knowledge Service) and `ctx.model` into the LLM-only nodes. The Customer Research analyst reads synced `CustomerFeedback` from the local store via `ctx.feedback`, degrading to the scenario evidence text when the store is empty/unavailable. The per-run DB session is opened at the platform boundary (`platform/context.py`), keeping nodes engine-free — the same pattern `recall` uses for the decision log.
 
 ## Adding a stage
 
 To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.models`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in `productagents.app.tui.app`. Plans for upcoming work live in `docs/superpowers/plans/`.
 
 **Layer rules** (enforced by `uv run lint-imports`):
-- `pa-app` may import from `pa-agents`, `pa-memory`, `pa-core` — not from `pa-connectors`.
-- `pa-agents` may import from `pa-memory`, `pa-core` — not from `pa-app`.
+- `pa-app` (presentation) imports only `pa-platform` and `pa-core` — never agents, memory, connectors, or their heavy deps (langgraph, langchain, sqlalchemy) directly.
+- `pa-platform` is the connector composition root and the only package that imports `pa-connectors`; it exposes `DecisionService`, `ConnectorService`, and the platform event vocabulary to the presentation layer.
+- `pa-agents` may import from `pa-memory`, `pa-core` — not from `pa-app` or `pa-platform`.
 - `pa-memory` and `pa-knowledge` may import from `pa-core` — not from each other or above.
 - `pa-core` is dependency-light: no httpx, langchain, langgraph, sqlalchemy, textual.
 - `requests` is banned platform-wide (async-first, use httpx).

@@ -11,6 +11,38 @@ rewrite) into a product-decision platform: a six-package `uv` workspace, a
 canonical data layer, durable SQL storage, knowledge services, live connectors,
 a DB-backed organizational memory, and connector observability.
 
+## [Unreleased] — V3 Phase 1: Application Layer + Event Bus
+
+Introduced `pa-platform` as a seventh workspace package — an Application Services
+layer that sits between the presentation (TUI) and the execution internals
+(agents, connectors, memory). The TUI is now a thin client of the platform: it
+imports only `productagents.platform.*` and `productagents.core.*`.
+
+### Added
+- **`pa-platform` package** — `DecisionService`, `ConnectorService`, `EventBus`
+  (publish/subscribe), `Session` value type, and platform event vocabulary
+  (`SessionStarted`, `NodeProgress`, `AnalystCompleted`, `DebateTurnEmitted`,
+  `RiskAssessed`, `Recommended`, `Judged`, `GovernanceAdvised`, `LessonsRecalled`,
+  `ApprovalRequested`, `FinalVerdict`, `NodeFailed`, `SessionFailed`,
+  `SessionFinished`). Re-exports `get_model`/`DEFAULT_MODEL`, `collect_evidence`,
+  and `reflect` through platform seams so the presentation layer never imports
+  from `pa-agents` directly.
+- **`open_decision_context`** — per-run `AgentContext` + DB session boundary
+  relocated to `pa-platform.context` (composition root).
+- **Connector composition root relocated** — YAML loading, sync runtime, and
+  health-check logic moved from `pa-app.sync` into `pa-platform.connectors`;
+  `ConnectorService` exposes `sync()` and `health()`.
+- **Presentation→platform boundary contract** — an import-linter forbidden
+  contract enforces that `productagents.app` never directly imports agents,
+  memory, connectors, langgraph, langchain, or sqlalchemy (7 total contracts now
+  pass).
+
+### Changed
+- **TUI rewired as thin client** — `app.py` consumes `platform.events` instead of
+  runner dataclasses; `start_session` is the only entry point into a decision run.
+  The `DecisionService` owns recording of healthy runs; the TUI only records on the
+  degraded "decide" path.
+
 ## [Unreleased]
 
 ### Added
