@@ -1,5 +1,6 @@
 from productagents.agents.context import AgentContext
 from productagents.agents.governance import _format_portfolio, governance_node
+from productagents.agents.governance import _prompt as governance_prompt
 from productagents.core.enums import Verdict
 from productagents.core.models import (
     DecisionRecord,
@@ -69,6 +70,21 @@ def _ctx(model, decisions=None, raise_on_decisions=False):
     )
 
 
+def test_governance_prompt_renders_from_store():
+    from productagents.agents.prompts import PromptStore
+
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+    recommendation = Recommendation(
+        recommendation="Build it",
+        confidence=0.7,
+        rationale="demand",
+        expected_outcomes=[],
+    )
+    out = governance_prompt(initiative, recommendation, [], [], PromptStore())
+    assert "Portfolio Manager" in out
+    assert "Add SSO" in out
+
+
 def test_format_portfolio_handles_empty():
     assert _format_portfolio([]) == "(no prior decisions)"
 
@@ -127,9 +143,9 @@ async def test_governance_receives_portfolio_from_learning_service(monkeypatch):
     captured = {}
     real_prompt = gov._prompt
 
-    def _capture(initiative, recommendation, risks, portfolio):
+    def _capture(initiative, recommendation, risks, portfolio, prompts):
         captured["portfolio"] = portfolio
-        return real_prompt(initiative, recommendation, risks, portfolio)
+        return real_prompt(initiative, recommendation, risks, portfolio, prompts)
 
     monkeypatch.setattr(gov, "_prompt", _capture)
     result = await governance_node(_state(), model, ctx)

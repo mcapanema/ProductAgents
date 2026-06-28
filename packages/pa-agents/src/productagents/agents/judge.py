@@ -14,6 +14,7 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import (
     JUDGMENT,
     emit_error,
@@ -61,24 +62,19 @@ def _prompt(
     recommendation: Recommendation,
     reports: list[AnalystReport],
     debate: list[DebateTurn],
+    prompts: PromptStore,
 ) -> str:
-    return (
-        "You are a meticulous Quality Judge reviewing a product recommendation. "
-        "Score it on two dimensions, each from 0.0 to 1.0:\n"
-        "- evidence_grounding: is every claim supported by the analyst findings "
-        "and signals below, with no unsupported assertions?\n"
-        "- rationale_coherence: does the conclusion follow logically from the "
-        "stated rationale and expected outcomes, with no internal contradictions?\n"
-        "Also give a short, specific, actionable critique the strategist can use "
-        "to revise.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        f"{format_recommendation(recommendation)}\n\n"
-        f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
-        f"Debate transcript:\n{format_transcript(debate)}\n"
+    return prompts.render(
+        "judge",
+        initiative=format_initiative(initiative),
+        recommendation=format_recommendation(recommendation),
+        reports=format_reports_brief(reports),
+        debate=format_transcript(debate),
     )
 
 
-async def judge_node(state: dict, model) -> dict:
+async def judge_node(state: dict, model, prompts: PromptStore | None = None) -> dict:
+    store = prompts or PromptStore()
     writer = get_writer()
     writer(emit_status(NODE_ID, "judging recommendation..."))
     attempt = state.get("judge_attempts", 0) + 1
@@ -92,6 +88,7 @@ async def judge_node(state: dict, model) -> dict:
                 state["recommendation"],
                 state["reports"],
                 state.get("debate", []),
+                store,
             ),
             node=NODE_ID,
         )

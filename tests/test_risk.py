@@ -1,4 +1,5 @@
 from productagents.agents.risk import REVIEWERS, risk_node
+from productagents.agents.risk import _prompt as risk_prompt
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
@@ -28,6 +29,29 @@ def _state():
             expected_outcomes=["growth"],
         ),
     }
+
+
+def test_risk_prompt_renders_from_store():
+    from productagents.agents.prompts import PromptStore
+
+    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
+    recommendation = Recommendation(
+        recommendation="Build it",
+        confidence=0.7,
+        rationale="demand",
+        expected_outcomes=[],
+    )
+    out = risk_prompt(
+        "delivery",
+        "Delivery Risk Reviewer",
+        initiative,
+        [],
+        [],
+        recommendation,
+        PromptStore(),
+    )
+    assert "Delivery Risk Reviewer" in out
+    assert "Add SSO" in out
 
 
 def test_reviewers_are_the_five_fixed_roles_in_order():

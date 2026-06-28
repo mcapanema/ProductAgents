@@ -12,31 +12,35 @@ from datetime import UTC, datetime
 
 from productagents.agents._format import format_initiative
 from productagents.agents._llm_call import invoke_structured
+from productagents.agents.prompts import PromptStore
 from productagents.core.models import DecisionRecord, OutcomeRecord, Reflection
 
 ROLE = "Outcome Reflection Analyst"
 
 
-def _prompt(decision: DecisionRecord, outcome_note: str) -> str:
+def _prompt(decision: DecisionRecord, outcome_note: str, prompts: PromptStore) -> str:
     rec = decision.recommendation
-    return (
-        f"You are an {ROLE}. A past product decision was made; now evaluate how it "
-        "actually turned out. Compare the predicted expected outcomes against what "
-        "actually happened, assign a prediction accuracy between 0 and 1, and "
-        "extract concrete lessons for future decisions.\n\n"
-        f"{format_initiative(decision.initiative)}\n\n"
-        f"Recommendation made: {rec.recommendation}\n"
-        f"Predicted confidence: {rec.confidence}\n"
-        f"Expected outcomes (predicted): {rec.expected_outcomes}\n\n"
-        f"What actually happened:\n{outcome_note}\n"
+    return prompts.render(
+        "reflection",
+        initiative=format_initiative(decision.initiative),
+        recommendation=rec.recommendation,
+        confidence=rec.confidence,
+        expected_outcomes=rec.expected_outcomes,
+        outcome_note=outcome_note,
     )
 
 
-async def reflect(decision: DecisionRecord, outcome_note: str, model) -> OutcomeRecord:
+async def reflect(
+    decision: DecisionRecord,
+    outcome_note: str,
+    model,
+    prompts: PromptStore | None = None,
+) -> OutcomeRecord:
+    store = prompts or PromptStore()
     reflected_at = datetime.now(UTC).isoformat()
     try:
         reflection = await invoke_structured(
-            model, Reflection, _prompt(decision, outcome_note), node="reflection"
+            model, Reflection, _prompt(decision, outcome_note, store), node="reflection"
         )
         return OutcomeRecord(
             decision_id=decision.decision_id,

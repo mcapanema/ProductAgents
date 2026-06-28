@@ -15,6 +15,7 @@ from productagents.agents._format import (
 )
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import (
     ASSESSMENT,
     emit_error,
@@ -57,18 +58,21 @@ def _prompt(
     reports: list[AnalystReport],
     debate: list[DebateTurn],
     recommendation: Recommendation,
+    prompts: PromptStore,
 ) -> str:
-    return (
-        f"You are a {role}. Evaluate the {_FOCUS[reviewer]} of the recommendation "
-        "below. Assign a risk level of low, medium, or high and justify it.\n\n"
-        f"{format_initiative(initiative)}\n\n"
-        f"{format_recommendation(recommendation)}\n\n"
-        f"Analyst findings:\n{format_reports_brief(reports)}\n\n"
-        f"Debate transcript:\n{format_transcript(debate)}\n"
+    return prompts.render(
+        "risk",
+        role=role,
+        focus=_FOCUS[reviewer],
+        initiative=format_initiative(initiative),
+        recommendation=format_recommendation(recommendation),
+        reports=format_reports_brief(reports),
+        debate=format_transcript(debate),
     )
 
 
-async def risk_node(state: dict, model) -> dict:
+async def risk_node(state: dict, model, prompts: PromptStore | None = None) -> dict:
+    store = prompts or PromptStore()
     writer = get_writer()
     assessments: list[RiskAssessment] = []
     for reviewer, role in REVIEWERS:
@@ -84,6 +88,7 @@ async def risk_node(state: dict, model) -> dict:
                     state["reports"],
                     state["debate"],
                     state["recommendation"],
+                    store,
                 ),
                 node=NODE_ID,
             )
