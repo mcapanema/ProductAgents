@@ -9,8 +9,9 @@ Application Layer is sufficient to run the platform across a process boundary.
 
 ponytail: NDJSON over stdio, not HTTP. The vision is local-first with no remote
 APIs (v3-concepts.md), and Tauri launches the Python backend as a child process
-it talks to over stdio. Add an HTTP/WebSocket transport only if a real
-client/server split ever arrives.
+it talks to over stdio. The product client/server split stays deferred; the only
+non-stdio transport is ``devbridge.py``, a dev-only localhost WebSocket that
+reuses ``handle`` + ``build_services`` for browser/Playwright UI testing.
 """
 
 from __future__ import annotations
@@ -19,9 +20,11 @@ import asyncio
 import json
 import sys
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from productagents.core.models import Initiative
 from productagents.platform import events as ev
+from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 from productagents.platform.session_service import SessionService
@@ -31,26 +34,36 @@ from productagents.platform.workspace import Workspace, WorkspaceService
 Emit = Callable[[dict], Awaitable[None]]
 
 
-def serve_stdio(active_name: str) -> None:
-    """Build production services and serve the stdio loop until EOF.
+def build_services(active_name: str) -> dict:
+    """Construct the production Application Services the IPC adapters dispatch to.
 
-    Backs ``productagents ipc``. Builds a real model-backed WorkflowService (so
-    ``run`` works), plus the workspace and session read services. The Tauri shell
-    (Phase 8) spawns this as its sidecar.
+    Shared by ``serve_stdio`` (stdio transport) and the dev WebSocket bridge
+    (``devbridge.py``) so both expose the identical surface. Builds a real
+    model-backed WorkflowService (so ``run`` works), plus the workspace + session
+    + decision read services. The returned dict is exactly the keyword set
+    ``serve`` / ``handle`` consume.
 
     ponytail: the model is built up front, so even read methods need a key. Make
-    the WorkflowService lazy-on-first-run only if the GUI must browse without one.
+    the WorkflowService lazy-on-first-run only if a client must browse without one.
     """
     from productagents.app.cli import _build_run_service  # reuse model wiring
 
-    asyncio.run(
-        serve(
-            workflows=_build_run_service(),
-            workspaces=WorkspaceService(),
-            active_name=active_name,
-            sessions=SessionService.create(),
-        )
-    )
+    return {
+        "workflows": _build_run_service(),
+        "workspaces": WorkspaceService(),
+        "active_name": active_name,
+        "sessions": SessionService.create(),
+        "decisions": DecisionReadService.create(),
+    }
+
+
+def serve_stdio(active_name: str) -> None:
+    """Build production services and serve the stdio loop until EOF.
+
+    Backs ``productagents ipc``. The Tauri shell (Phase 8) spawns this as its
+    sidecar.
+    """
+    asyncio.run(serve(**build_services(active_name)))
 
 
 async def _run(rid, params: dict, *, workflows: WorkflowService, emit: Emit) -> None:
@@ -107,6 +120,23 @@ def _session_dict(s: Session) -> dict:
     }
 
 
+def _decision_summary(d) -> dict:
+    return {
+        "id": d.decision_id,
+        "title": d.initiative.title,
+        "recommendation": d.recommendation.recommendation,
+        "confidence": d.recommendation.confidence,
+        "created_at": d.timestamp,
+    }
+
+
+def _decision_detail(record, outcomes) -> dict:
+    return {
+        "record": record.model_dump(mode="json"),
+        "outcomes": [o.model_dump(mode="json") for o in outcomes],
+    }
+
+
 async def handle(
     request: dict,
     *,
@@ -114,6 +144,7 @@ async def handle(
     workspaces: WorkspaceService | None,
     active_name: str,
     sessions,
+    decisions: Any = None,
     emit: Emit,
 ) -> None:
     """Dispatch one request, emitting one or more response messages.
@@ -165,6 +196,20 @@ async def handle(
                     },
                 }
             )
+        elif method == "decisions.list":
+            if decisions is None:
+                raise RuntimeError("decisions service not available")
+            rows = await decisions.list()
+            await emit({"id": rid, "result": [_decision_summary(d) for d in rows]})
+        elif method == "decisions.show":
+            if decisions is None:
+                raise RuntimeError("decisions service not available")
+            did = params["decision_id"]
+            record, outcomes = await decisions.get(did)
+            if record is None:
+                await emit({"id": rid, "error": f"no such decision: {did}"})
+                return
+            await emit({"id": rid, "result": _decision_detail(record, outcomes)})
         elif method == "run":
             await _run(rid, params, workflows=workflows, emit=emit)
         else:
@@ -179,6 +224,7 @@ async def serve(
     workspaces: WorkspaceService | None,
     active_name: str,
     sessions,
+    decisions: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -221,5 +267,6 @@ async def serve(
             workspaces=workspaces,
             active_name=active_name,
             sessions=sessions,
+            decisions=decisions,
             emit=emit,
         )

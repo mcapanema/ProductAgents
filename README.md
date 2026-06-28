@@ -212,6 +212,70 @@ Type an initiative (e.g. "Add enterprise SSO") and press Enter. Analyst panels u
 
 **Outcome learning.** After a decision, press `Ctrl+R` to open reflection mode, pick a past decision, and describe what happened. An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
 
+### Desktop GUI (Tauri + React)
+
+The V3 desktop app lives in `desktop/`. It is a presentation adapter only — it
+spawns `productagents ipc` (the JSON-over-stdio Application-Layer adapter) as a
+child process and talks to it across the process boundary. It never imports
+LangGraph, connectors, or persistence.
+
+**Prerequisites.** The desktop shell needs Node (≥ 18) and a Rust toolchain. On
+macOS the Rust shell also needs the Xcode Command Line Tools (for the C linker);
+the system WebKit webview is already present. On Linux you additionally need the
+WebKitGTK/`libsoup` dev packages — see https://v2.tauri.app/start/prerequisites/.
+
+```bash
+# Rust toolchain (one time) — installs rustup + the stable toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"          # or just open a new shell
+rustc --version && cargo --version # verify
+
+# macOS only, if `cc`/`clang` is missing:
+xcode-select --install
+```
+
+```bash
+cd desktop
+npm install            # first time
+npm run tauri dev      # build the Rust shell + open the window (spawns the sidecar)
+npm test               # frontend unit tests (Vitest)
+```
+
+> The first `npm run tauri dev` compiles the whole Rust dependency tree — a few
+> minutes, one time (cached afterward).
+
+Panels: **Run** (start a workflow, watch events stream live), **Sessions**
+(replay a past run's event timeline), **Decisions** (the Decision Explorer:
+browse past decisions with predicted-vs-actual outcomes and lessons learned).
+
+Packaging into a single installable binary (with a bundled Python sidecar) is a
+later phase; for now the app shells out to `uv run productagents ipc` from the
+repo root in dev mode.
+
+#### Browser-based testing (Playwright + WS bridge)
+
+The native Tauri window can't be browser-automated (on macOS there's no WKWebView
+WebDriver). For automated UI testing we run the **React frontend in a real
+browser** instead. A dev-only WebSocket bridge exposes the *same* Application
+Layer the sidecar does, so the in-browser app reaches live data:
+
+```bash
+# 1. dev WebSocket bridge — same IPC methods as `productagents ipc`, on localhost
+uv run productagents serve-ws            # ws://127.0.0.1:7420 (Ctrl+C to stop)
+
+# 2. Playwright e2e — starts Vite + the bridge automatically, drives headless Chromium
+cd desktop
+npx playwright install chromium          # first time
+npm run e2e                              # runs e2e/*.spec.ts
+```
+
+`npm run e2e` is self-contained: its `webServer` config launches both `npm run
+dev` (the frontend) and `productagents serve-ws` (the bridge) before the specs.
+When *not* inside Tauri, the frontend's transport (`createClient`) automatically
+falls back from the Tauri sidecar to `ws://127.0.0.1:7420`. The bridge is a
+**development affordance only** — localhost-bound and never bundled into the
+shipped app; it is not a client/server product surface.
+
 ### Test
 
 ```bash

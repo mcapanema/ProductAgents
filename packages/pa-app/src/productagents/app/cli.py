@@ -131,6 +131,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("sync", help="run one connector sync and exit")
     sub.add_parser("ipc", help="serve the JSON-over-stdio IPC protocol (for the GUI)")
+    p_swb = sub.add_parser(
+        "serve-ws",
+        help="serve the IPC protocol over a localhost WebSocket (dev UI testing)",
+    )
+    p_swb.add_argument(
+        "--port", type=int, default=7420, help="localhost port (default 7420)"
+    )
 
     p_run = sub.add_parser("run", help="run a workflow and stream its events")
     p_run.add_argument("workflow", help="workflow name, e.g. evaluate_initiative")
@@ -269,6 +276,11 @@ def main(argv: list[str] | None = None) -> None:
         from productagents.app import ipc
 
         ipc.serve_stdio(workspace.name)
+        return
+    if args.command == "serve-ws":
+        from productagents.app import devbridge
+
+        devbridge.serve_ws(workspace.name, port=args.port)
         return
     if args.command == "workspace":
         if args.ws_command == "show":

@@ -1063,6 +1063,7 @@ dependencies = [
     { name = "productagents-memory" },
     { name = "pyyaml" },
     { name = "textual" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -1074,6 +1075,7 @@ requires-dist = [
     { name = "productagents-memory", editable = "packages/pa-memory" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "textual", specifier = ">=4.0" },
+    { name = "websockets", specifier = ">=15" },
 ]
 
 [[package]]
