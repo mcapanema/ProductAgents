@@ -57,6 +57,14 @@ async def open_event_store(*, engine=None) -> AsyncIterator[EventStore]:
         yield EventStore(session)
 
 
+@asynccontextmanager
+async def open_decision_store(*, engine=None) -> AsyncIterator[DecisionStore]:
+    """Yield a DecisionStore bound to one DB session (mirrors open_event_store)."""
+    maker = make_sessionmaker(engine or get_engine())
+    async with maker() as session:
+        yield DecisionStore(session)
+
+
 def _sessionmaker(engine):
     return make_sessionmaker(engine or get_engine())
 

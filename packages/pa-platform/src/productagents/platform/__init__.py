@@ -6,6 +6,7 @@ or ``connectors`` directly.
 """
 
 from productagents.platform.connector_service import ConnectorService
+from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.decision_service import DecisionService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.session_service import SessionService
@@ -14,6 +15,7 @@ from productagents.platform.workspace import Workspace, WorkspaceService
 
 __all__ = [
     "ConnectorService",
+    "DecisionReadService",
     "DecisionService",
     "PromptService",
     "SessionService",
