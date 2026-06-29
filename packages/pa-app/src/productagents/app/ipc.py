@@ -24,6 +24,7 @@ from typing import Any
 
 from productagents.core.models import Initiative
 from productagents.platform import events as ev
+from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
@@ -54,6 +55,7 @@ def build_services(active_name: str) -> dict:
         "active_name": active_name,
         "sessions": SessionService.create(),
         "decisions": DecisionReadService.create(),
+        "connectors": ConnectorService(),
     }
 
 
@@ -137,6 +139,39 @@ def _decision_detail(record, outcomes) -> dict:
     }
 
 
+def _connector_plan_dict(plan) -> dict:
+    # Names only — plan.configs holds resolved secrets that must not leak.
+    return {
+        "connectors": [{"name": name} for name in sorted(plan.configs)],
+        "problems": plan.problems,
+    }
+
+
+def _health_dict(report) -> dict:
+    return {
+        "statuses": {
+            name: {"ok": s.ok, "detail": s.detail}
+            for name, s in report.statuses.items()
+        },
+        "problems": report.problems,
+    }
+
+
+def _sync_dict(report) -> dict:
+    return {
+        "results": [
+            {
+                "connector": r.connector,
+                "written": r.written,
+                "ok": r.ok,
+                "error": r.error,
+            }
+            for r in report.results
+        ],
+        "problems": report.problems,
+    }
+
+
 async def handle(
     request: dict,
     *,
@@ -145,6 +180,7 @@ async def handle(
     active_name: str,
     sessions,
     decisions: Any = None,
+    connectors: Any = None,
     emit: Emit,
 ) -> None:
     """Dispatch one request, emitting one or more response messages.
@@ -210,6 +246,20 @@ async def handle(
                 await emit({"id": rid, "error": f"no such decision: {did}"})
                 return
             await emit({"id": rid, "result": _decision_detail(record, outcomes)})
+        elif method == "connectors.list":
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            await emit({"id": rid, "result": _connector_plan_dict(connectors.plan())})
+        elif method == "connectors.health":
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            report = await connectors.health()
+            await emit({"id": rid, "result": _health_dict(report)})
+        elif method == "connectors.sync":
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            report = await connectors.sync()
+            await emit({"id": rid, "result": _sync_dict(report)})
         elif method == "run":
             await _run(rid, params, workflows=workflows, emit=emit)
         else:
@@ -225,6 +275,7 @@ async def serve(
     active_name: str,
     sessions,
     decisions: Any = None,
+    connectors: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -268,5 +319,6 @@ async def serve(
             active_name=active_name,
             sessions=sessions,
             decisions=decisions,
+            connectors=connectors,
             emit=emit,
         )

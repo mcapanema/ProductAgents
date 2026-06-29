@@ -53,6 +53,24 @@ class _FakeWorkspaces:
         return self._workspaces[0]
 
 
+class _FakeConnectors:
+    """Stand-in for ConnectorService returning canned reports."""
+
+    def __init__(self, plan=None, health=None, sync=None):
+        self._plan = plan
+        self._health = health
+        self._sync = sync
+
+    def plan(self):
+        return self._plan
+
+    async def health(self):
+        return self._health
+
+    async def sync(self):
+        return self._sync
+
+
 def _workflows():
     start: Callable[..., tuple[Session, AsyncIterator[Event]]] = cast(
         Callable[..., tuple[Session, AsyncIterator[Event]]],
@@ -487,3 +505,106 @@ async def test_decisions_show_unknown_id_emits_error():
         emit=emit,
     )
     assert sink == [{"id": 12, "error": "no such decision: missing"}]
+
+
+async def test_connectors_list_returns_names_only():
+    from productagents.connectors import ConnectorConfig
+    from productagents.platform.connectors import ConnectorPlan
+
+    plan = ConnectorPlan(
+        configs={"github": ConnectorConfig(), "jira": ConnectorConfig()},
+        problems=["connector 'slack': unknown (not installed)"],
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 20, "method": "connectors.list"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=_FakeConnectors(plan=plan),
+        emit=emit,
+    )
+    assert sink == [
+        {
+            "id": 20,
+            "result": {
+                "connectors": [{"name": "github"}, {"name": "jira"}],
+                "problems": ["connector 'slack': unknown (not installed)"],
+            },
+        }
+    ]
+
+
+async def test_connectors_health_returns_statuses():
+    from productagents.connectors import HealthStatus
+    from productagents.platform.connectors import HealthReport
+
+    report = HealthReport(
+        statuses={"github": HealthStatus(ok=True, detail="reachable")},
+        problems=[],
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 21, "method": "connectors.health"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=_FakeConnectors(health=report),
+        emit=emit,
+    )
+    assert sink == [
+        {
+            "id": 21,
+            "result": {
+                "statuses": {"github": {"ok": True, "detail": "reachable"}},
+                "problems": [],
+            },
+        }
+    ]
+
+
+async def test_connectors_sync_returns_results():
+    from productagents.connectors import SyncResult
+    from productagents.platform.connectors import SyncReport
+
+    report = SyncReport(
+        results=[SyncResult(connector="github", written=7, ok=True, error=None)],
+        problems=[],
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 22, "method": "connectors.sync"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=_FakeConnectors(sync=report),
+        emit=emit,
+    )
+    assert sink == [
+        {
+            "id": 22,
+            "result": {
+                "results": [
+                    {"connector": "github", "written": 7, "ok": True, "error": None}
+                ],
+                "problems": [],
+            },
+        }
+    ]
+
+
+async def test_connectors_method_without_service_errors():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 23, "method": "connectors.list"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 23
+    assert "connectors service not available" in sink[0]["error"]
