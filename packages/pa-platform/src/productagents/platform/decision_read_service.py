@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from productagents.core.models import DecisionRecord, OutcomeRecord
 
-_L = list  # ponytail: avoid shadowing builtin 'list' by the method of the same name
+_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 class DecisionReadService:

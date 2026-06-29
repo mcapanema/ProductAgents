@@ -18,7 +18,7 @@ from productagents.platform import events as ev
 from productagents.platform.serialization import deserialize_event
 from productagents.platform.session import Session
 
-_L = list  # ponytail: avoids shadowing builtin 'list' by the method of the same name
+_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 def _to_session(row: dict) -> Session:
