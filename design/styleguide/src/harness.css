@@ -283,11 +283,11 @@ body {
 /* ── Feedback alerts ───────────────────────────────────────────────────────── */
 .sg-alerts { display: grid; gap: var(--space-12); }
 .demo-alert {
-  display: flex; align-items: flex-start; gap: var(--space-12);
+  display: flex; align-items: center; gap: var(--space-12);
   padding: var(--alert-pad); border-radius: var(--alert-radius);
   border: var(--alert-border-width) solid;
 }
-.demo-alert .ico { font-size: var(--fs-md); line-height: 1; flex: none; margin-top: 1px; }
+.demo-alert .ico { font-size: var(--fs-md); line-height: 1; flex: none; }
 .demo-alert b { display: block; font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 .demo-alert p { margin: var(--space-2) 0 0; font-size: var(--fs-sm); color: var(--text-secondary); }
 
