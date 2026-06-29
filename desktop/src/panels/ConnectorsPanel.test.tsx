@@ -1,0 +1,67 @@
+import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { ConnectorsPanel } from "./ConnectorsPanel";
+import { IpcProvider } from "../app/IpcProvider";
+import type { IpcClient } from "../ipc/client";
+import type { ConnectorHealth, ConnectorList, ConnectorSync } from "../ipc/types";
+
+const list: ConnectorList = {
+  connectors: [{ name: "github" }],
+  problems: ["connector 'slack': unknown (not installed)"],
+};
+const health: ConnectorHealth = {
+  statuses: { github: { ok: true, detail: "reachable" } },
+  problems: [],
+};
+const sync: ConnectorSync = {
+  results: [{ connector: "github", written: 7, ok: true, error: null }],
+  problems: [],
+};
+
+function fake(): IpcClient {
+  return {
+    connectorsList: async () => list,
+    connectorsHealth: async () => health,
+    connectorsSync: async () => sync,
+  } as unknown as IpcClient;
+}
+
+describe("ConnectorsPanel", () => {
+  it("lists connectors and config problems on load", async () => {
+    render(
+      <IpcProvider client={fake()}>
+        <ConnectorsPanel />
+      </IpcProvider>,
+    );
+    expect(await screen.findByText("github")).toBeInTheDocument();
+    expect(
+      screen.getByText(/connector 'slack': unknown/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows health detail after Check health", async () => {
+    render(
+      <IpcProvider client={fake()}>
+        <ConnectorsPanel />
+      </IpcProvider>,
+    );
+    await screen.findByText("github");
+    fireEvent.click(screen.getByRole("button", { name: /check health/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/reachable/)).toBeInTheDocument(),
+    );
+  });
+
+  it("shows written counts after Sync now", async () => {
+    render(
+      <IpcProvider client={fake()}>
+        <ConnectorsPanel />
+      </IpcProvider>,
+    );
+    await screen.findByText("github");
+    fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/7 written/)).toBeInTheDocument(),
+    );
+  });
+});
