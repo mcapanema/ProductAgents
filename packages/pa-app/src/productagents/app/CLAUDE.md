@@ -11,7 +11,7 @@ or `connectors`.
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → `launch_tui`. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `prompts list/show/diff/save/rollback`. |
 | `tui/` | The Textual GUI (see `tui/CLAUDE.md`). `launch_tui(workspace_name)` builds and runs the app; `_build_app` is the composition root. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 | `setup.py` | `check_config` / `write_env` readiness + `.env` writer, shared by both adapters. |
 
@@ -64,3 +64,10 @@ from the DecisionStore via `DecisionReadService`). `decisions.show {decision_id}
 `{record: <full DecisionRecord dump>, outcomes: [<OutcomeRecord dump>...]}`; `error`
 "no such decision: <id>" if unknown. These read the decision system-of-record (org
 memory), distinct from `sessions.*` which replays the execution event log.
+
+`connectors.list` → `{connectors: [{name}], problems: [str]}` — the static, no-I/O
+config view from `ConnectorService.plan()` (names only; resolved secrets never leave
+the platform). `connectors.health` → `{statuses: {name: {ok, detail}}, problems}` probes
+each enabled connector's readiness. `connectors.sync` → `{results: [{connector, written,
+ok, error}], problems}` runs one sync pass. All three are guarded by a `connectors=None`
+kwarg (mirrors `decisions`) and emit a human-facing `error` if the service is absent.

@@ -43,8 +43,9 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   must handle it**), `App.css` (minimal IDE-like shell).
 - `src/panels/` — one panel per resource. **Pure logic is extracted and
   unit-tested**, components stay thin: `runReducer.ts` (Run event stream),
-  `decisionView.ts` (`formatConfidence`/`predictionRows`); `RunPanel.tsx`,
-  `SessionsPanel.tsx`, `DecisionsPanel.tsx`.
+  `decisionView.ts` (`formatConfidence`/`predictionRows`), `connectorView.ts`
+  (`connectorRows` merge of list+health+sync); `RunPanel.tsx`, `SessionsPanel.tsx`,
+  `DecisionsPanel.tsx`, `ConnectorsPanel.tsx`.
 - `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`).
 - `e2e/` — Playwright browser tests (see `e2e/CLAUDE.md`).
 
