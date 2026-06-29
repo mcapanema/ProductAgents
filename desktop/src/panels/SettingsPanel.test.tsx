@@ -30,6 +30,8 @@ describe("SettingsPanel", () => {
     renderPanel({ configGet: async () => status } as unknown as IpcClient);
     expect(await screen.findByDisplayValue("anthropic:claude-sonnet-4-6")).toBeInTheDocument();
     expect(screen.getByText(/key present/i)).toBeInTheDocument();
+    // The stored key is never echoed into the field.
+    expect(screen.getByLabelText(/api key/i)).toHaveValue("");
   });
 
   it("saves the edited model and api key via config.set", async () => {
@@ -44,6 +46,8 @@ describe("SettingsPanel", () => {
     await waitFor(() =>
       expect(configSet).toHaveBeenCalledWith({ model: "openai:gpt-4o", provider: "anthropic", api_key: "sk-new" }),
     );
+    // The key field is cleared after a successful save (no echo of the just-set key).
+    await waitFor(() => expect(screen.getByLabelText(/api key/i)).toHaveValue(""));
   });
 
   it("surfaces config problems", async () => {
