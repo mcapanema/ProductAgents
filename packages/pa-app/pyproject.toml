@@ -5,12 +5,8 @@ description = "ProductAgents Textual TUI and CLI edges."
 requires-python = ">=3.14"
 dependencies = [
     "productagents-core",
-    "productagents-agents",
-    "productagents-knowledge",
-    "productagents-memory",
-    "productagents-connectors",
+    "productagents-platform",
     "textual>=4.0",
-    "pyyaml>=6",
     "websockets>=15",
 ]
 
@@ -23,7 +19,4 @@ packages = ["src/productagents"]
 
 [tool.uv.sources]
 productagents-core = { workspace = true }
-productagents-agents = { workspace = true }
-productagents-knowledge = { workspace = true }
-productagents-memory = { workspace = true }
-productagents-connectors = { workspace = true }
+productagents-platform = { workspace = true }
