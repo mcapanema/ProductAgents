@@ -296,27 +296,41 @@ async def handle(
     method = request.get("method")
     params = request.get("params") or {}
     try:
-        if method == "workflows.list":
+        # ``run`` streams multiple events before its terminal result — kept as an
+        # explicit branch rather than forced into the uniform request/response table.
+        if method == "run":
+            await _run(rid, params, workflows=workflows, read_line=read_line, emit=emit)
+            return
+
+        # Dispatch table: each handler is a closure capturing the outer service vars
+        # and (rid, emit) so it can emit directly. Exceptions bubble to the outer
+        # except so one bad request never kills the loop.
+
+        async def _workflows_list(_p: dict) -> None:
             wfs = [_workflow_dict(w) for w in workflows.list()]
             await emit({"id": rid, "result": wfs})
-        elif method == "workspaces.list":
+
+        async def _workspaces_list(_p: dict) -> None:
             if workspaces is None:
                 raise RuntimeError("workspaces service not available")
             wss = [
                 _workspace_dict(ws, active_name=active_name) for ws in workspaces.list()
             ]
             await emit({"id": rid, "result": wss})
-        elif method == "workspaces.show":
+
+        async def _workspaces_show(p: dict) -> None:
             if workspaces is None:
                 raise RuntimeError("workspaces service not available")
-            ws = workspaces.resolve(params.get("name"))
+            ws = workspaces.resolve(p.get("name"))
             ws_dict = _workspace_dict(ws, active_name=active_name)
             await emit({"id": rid, "result": ws_dict})
-        elif method == "sessions.list":
+
+        async def _sessions_list(_p: dict) -> None:
             rows = await sessions.list()
             await emit({"id": rid, "result": [_session_dict(s) for s in rows]})
-        elif method == "sessions.show":
-            sid = params["session_id"]
+
+        async def _sessions_show(p: dict) -> None:
+            sid = p["session_id"]
             session = await sessions.get(sid)
             if session is None:
                 await emit({"id": rid, "error": f"no such session: {sid}"})
@@ -329,84 +343,87 @@ async def handle(
             await emit(
                 {
                     "id": rid,
-                    "result": {
-                        "session": _session_dict(session),
-                        "events": events,
-                    },
+                    "result": {"session": _session_dict(session), "events": events},
                 }
             )
-        elif method == "decisions.list":
+
+        async def _decisions_list(_p: dict) -> None:
             if decisions is None:
                 raise RuntimeError("decisions service not available")
             rows = await decisions.list()
             await emit({"id": rid, "result": [_decision_summary(d) for d in rows]})
-        elif method == "decisions.show":
+
+        async def _decisions_show(p: dict) -> None:
             if decisions is None:
                 raise RuntimeError("decisions service not available")
-            did = params["decision_id"]
+            did = p["decision_id"]
             record, outcomes = await decisions.get(did)
             if record is None:
                 await emit({"id": rid, "error": f"no such decision: {did}"})
                 return
             await emit({"id": rid, "result": _decision_detail(record, outcomes)})
-        elif method == "connectors.list":
+
+        async def _connectors_list(_p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
             await emit({"id": rid, "result": _connector_plan_dict(connectors.plan())})
-        elif method == "connectors.health":
+
+        async def _connectors_health(_p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
             report = await connectors.health()
             await emit({"id": rid, "result": _health_dict(report)})
-        elif method == "connectors.sync":
+
+        async def _connectors_sync(_p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
             report = await connectors.sync()
             await emit({"id": rid, "result": _sync_dict(report)})
-        elif method == "prompts.list":
+
+        async def _prompts_list(_p: dict) -> None:
             if prompts is None:
                 raise RuntimeError("prompts service not available")
             summaries = [_prompt_summary(prompts, n) for n in prompts.names()]
             await emit({"id": rid, "result": summaries})
-        elif method == "prompts.show":
+
+        async def _prompts_show(p: dict) -> None:
             if prompts is None:
                 raise RuntimeError("prompts service not available")
-            name = params["name"]
-            version = params["version"]
+            name = p["name"]
+            version = p["version"]
             text = prompts.read(name, version)
             await emit(
                 {"id": rid, "result": {"name": name, "version": version, "text": text}}
             )
-        elif method == "prompts.diff":
+
+        async def _prompts_diff(p: dict) -> None:
             if prompts is None:
                 raise RuntimeError("prompts service not available")
-            name = params["name"]
-            old = params["old"]
-            new = params["new"]
+            name = p["name"]
+            old = p["old"]
+            new = p["new"]
+            diff = prompts.diff(name, old, new)
             await emit(
                 {
                     "id": rid,
-                    "result": {
-                        "name": name,
-                        "old": old,
-                        "new": new,
-                        "diff": prompts.diff(name, old, new),
-                    },
+                    "result": {"name": name, "old": old, "new": new, "diff": diff},
                 }
             )
-        elif method == "config.get":
+
+        async def _config_get(_p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
             await emit({"id": rid, "result": _config_dict(config)})
-        elif method == "config.set":
+
+        async def _config_set(p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
-            model = params["model"]
-            provider = params.get("provider")
+            model = p["model"]
+            provider = p.get("provider")
             values = {"PRODUCTAGENTS_MODEL": model}
             if provider:
                 values["PRODUCTAGENTS_MODEL_PROVIDER"] = provider
-            api_key = params.get("api_key")
+            api_key = p.get("api_key")
             if api_key:  # never write a blank key over an existing one
                 key_var = config.api_key_var_for(provider or config.provider_for(model))
                 if key_var:
@@ -416,10 +433,31 @@ async def handle(
                 dotenv_path = str(workspaces.resolve(active_name).env_file)
             config.write_env(values, dotenv_path=dotenv_path)
             await emit({"id": rid, "result": _config_dict(config)})
-        elif method == "run":
-            await _run(rid, params, workflows=workflows, read_line=read_line, emit=emit)
-        else:
+
+        table: dict[str, Callable[[dict], Awaitable[None]]] = {
+            "workflows.list": _workflows_list,
+            "workspaces.list": _workspaces_list,
+            "workspaces.show": _workspaces_show,
+            "sessions.list": _sessions_list,
+            "sessions.show": _sessions_show,
+            "decisions.list": _decisions_list,
+            "decisions.show": _decisions_show,
+            "connectors.list": _connectors_list,
+            "connectors.health": _connectors_health,
+            "connectors.sync": _connectors_sync,
+            "prompts.list": _prompts_list,
+            "prompts.show": _prompts_show,
+            "prompts.diff": _prompts_diff,
+            "config.get": _config_get,
+            "config.set": _config_set,
+        }
+
+        handler = table.get(method)
+        if handler is None:
             await emit({"id": rid, "error": f"unknown method: {method!r}"})
+            return
+        await handler(params)
+
     except Exception as exc:  # noqa: BLE001 — one bad request must not kill the loop
         await emit({"id": rid, "error": f"{type(exc).__name__}: {exc}"})
 

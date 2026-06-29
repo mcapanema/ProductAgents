@@ -9,6 +9,7 @@ dependencies = [
     "productagents-memory",
     "productagents-connectors",
     "pydantic>=2.7",
+    "pyyaml>=6",
 ]
 
 [build-system]

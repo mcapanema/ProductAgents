@@ -1090,24 +1090,16 @@ name = "productagents-app"
 version = "0.1.0"
 source = { editable = "packages/pa-app" }
 dependencies = [
-    { name = "productagents-agents" },
-    { name = "productagents-connectors" },
     { name = "productagents-core" },
-    { name = "productagents-knowledge" },
-    { name = "productagents-memory" },
-    { name = "pyyaml" },
+    { name = "productagents-platform" },
     { name = "textual" },
     { name = "websockets" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "productagents-agents", editable = "packages/pa-agents" },
-    { name = "productagents-connectors", editable = "packages/pa-connectors" },
     { name = "productagents-core", editable = "packages/pa-core" },
-    { name = "productagents-knowledge", editable = "packages/pa-knowledge" },
-    { name = "productagents-memory", editable = "packages/pa-memory" },
-    { name = "pyyaml", specifier = ">=6" },
+    { name = "productagents-platform", editable = "packages/pa-platform" },
     { name = "textual", specifier = ">=4.0" },
     { name = "websockets", specifier = ">=15" },
 ]
@@ -1192,6 +1184,7 @@ dependencies = [
     { name = "productagents-core" },
     { name = "productagents-memory" },
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -1201,6 +1194,7 @@ requires-dist = [
     { name = "productagents-core", editable = "packages/pa-core" },
     { name = "productagents-memory", editable = "packages/pa-memory" },
     { name = "pydantic", specifier = ">=2.7" },
+    { name = "pyyaml", specifier = ">=6" },
 ]
 
 [[package]]

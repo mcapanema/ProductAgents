@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from productagents.platform import events as ev
 from productagents.platform.session import Session
 
-_L = list  # ponytail: method named 'list' shadows the builtin under ty
+_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 @dataclass(frozen=True)

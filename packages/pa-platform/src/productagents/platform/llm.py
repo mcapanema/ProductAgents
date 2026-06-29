@@ -1,6 +1,7 @@
 """Platform seam for model construction (re-exports the provider-agnostic factory).
 
-# ponytail: thin re-export; gets a proper home in a later phase
+Permanent presentation seam: lets pa-app reach the model factory without
+importing pa-agents (forbidden by the layer contract).
 """
 
 from productagents.agents.llm import DEFAULT_MODEL, get_model

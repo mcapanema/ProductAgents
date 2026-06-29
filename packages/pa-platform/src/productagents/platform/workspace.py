@@ -22,7 +22,7 @@ from pathlib import Path
 
 from productagents.core.config import load_env
 
-_L = list  # ponytail: method named 'list' shadows the builtin under ty
+_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 DEFAULT_WORKSPACE = "default"
 
