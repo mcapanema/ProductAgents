@@ -1,0 +1,19 @@
+# gitleaks configuration — extends the default ruleset, adds one allowlist.
+#
+# The desktop auto-updater (Phase 9) embeds a minisign PUBLIC key in
+# desktop/src-tauri/tauri.conf.json so the shipped app can verify update
+# signatures. It is public by design — it ships inside every installer. gitleaks'
+# high-entropy rule flags the base64 blob as a generic secret (false positive).
+#
+# The matching PRIVATE signing key is NEVER committed: it lives only in the
+# TAURI_SIGNING_PRIVATE_KEY GitHub Actions secret. tauri.conf.json is build
+# configuration and must never hold real secrets, so allowlisting it from the
+# secret scan is safe and self-documenting.
+title = "ProductAgents"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Tauri updater public key in tauri.conf.json (public by design; private key is a CI secret)"
+paths = ['''desktop/src-tauri/tauri\.conf\.json''']
