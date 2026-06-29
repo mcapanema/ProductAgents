@@ -5,6 +5,9 @@ import type {
   DecisionDetail,
   DecisionSummary,
   IpcMessage,
+  PromptDiff,
+  PromptSummary,
+  PromptVersion,
   RunHandlers,
   RunParams,
   RunResult,
@@ -104,6 +107,18 @@ export class IpcClient {
 
   connectorsSync(): Promise<ConnectorSync> {
     return this.call("connectors.sync") as Promise<ConnectorSync>;
+  }
+
+  promptsList(): Promise<PromptSummary[]> {
+    return this.call("prompts.list") as Promise<PromptSummary[]>;
+  }
+
+  promptsShow(name: string, version: number): Promise<PromptVersion> {
+    return this.call("prompts.show", { name, version }) as Promise<PromptVersion>;
+  }
+
+  promptsDiff(name: string, old: number, next: number): Promise<PromptDiff> {
+    return this.call("prompts.diff", { name, old, new: next }) as Promise<PromptDiff>;
   }
 
   run(params: RunParams, handlers: RunHandlers): Promise<RunResult> {

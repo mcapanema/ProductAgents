@@ -608,3 +608,111 @@ async def test_connectors_method_without_service_errors():
     )
     assert sink[0]["id"] == 23
     assert "connectors service not available" in sink[0]["error"]
+
+
+class _FakePrompts:
+    """Stand-in for PromptService backed by an in-memory {name: {version: text}}."""
+
+    def __init__(self, prompts):
+        self._prompts = prompts
+
+    def names(self):
+        return sorted(self._prompts)
+
+    def versions(self, name):
+        return sorted(self._prompts[name])
+
+    def read(self, name, version):
+        return self._prompts[name][version]
+
+    def diff(self, name, old, new):
+        return f"--- {name}@{old}\n+++ {name}@{new}\n"
+
+
+async def test_prompts_list_returns_names_versions_and_active():
+    prompts = _FakePrompts(
+        {"strategist": {0: "default", 1: "v1", 2: "v2"}, "judge": {0: "judge"}}
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 30, "method": "prompts.list"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        prompts=prompts,
+        emit=emit,
+    )
+    assert sink == [
+        {
+            "id": 30,
+            "result": [
+                {"name": "judge", "versions": [0], "active": 0},
+                {"name": "strategist", "versions": [0, 1, 2], "active": 2},
+            ],
+        }
+    ]
+
+
+async def test_prompts_show_returns_version_text():
+    prompts = _FakePrompts({"strategist": {0: "default", 1: "v1", 2: "v2"}})
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 31,
+            "method": "prompts.show",
+            "params": {"name": "strategist", "version": 2},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        prompts=prompts,
+        emit=emit,
+    )
+    assert sink == [
+        {"id": 31, "result": {"name": "strategist", "version": 2, "text": "v2"}}
+    ]
+
+
+async def test_prompts_diff_returns_unified_diff():
+    prompts = _FakePrompts({"strategist": {0: "default", 2: "v2"}})
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 32,
+            "method": "prompts.diff",
+            "params": {"name": "strategist", "old": 0, "new": 2},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        prompts=prompts,
+        emit=emit,
+    )
+    assert sink == [
+        {
+            "id": 32,
+            "result": {
+                "name": "strategist",
+                "old": 0,
+                "new": 2,
+                "diff": "--- strategist@0\n+++ strategist@2\n",
+            },
+        }
+    ]
+
+
+async def test_prompts_method_without_service_errors():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 33, "method": "prompts.list"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 33
+    assert "prompts service not available" in sink[0]["error"]

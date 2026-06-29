@@ -71,4 +71,32 @@ describe("IpcClient", () => {
     emit({ id: 1, result: { connectors: [{ name: "github" }], problems: [] } });
     expect(await p).toEqual({ connectors: [{ name: "github" }], problems: [] });
   });
+
+  it("requests prompts.list and correlates the result", async () => {
+    const { client, sent, emit } = harness();
+    const p = client.promptsList();
+    expect(JSON.parse(sent[0])).toMatchObject({ id: 1, method: "prompts.list" });
+    emit({ id: 1, result: [{ name: "judge", versions: [0], active: 0 }] });
+    expect(await p).toEqual([{ name: "judge", versions: [0], active: 0 }]);
+  });
+
+  it("passes prompts.show params", async () => {
+    const { client, sent } = harness();
+    void client.promptsShow("strategist", 2);
+    expect(JSON.parse(sent[0])).toMatchObject({
+      id: 1,
+      method: "prompts.show",
+      params: { name: "strategist", version: 2 },
+    });
+  });
+
+  it("passes prompts.diff params", async () => {
+    const { client, sent } = harness();
+    void client.promptsDiff("strategist", 0, 2);
+    expect(JSON.parse(sent[0])).toMatchObject({
+      id: 1,
+      method: "prompts.diff",
+      params: { name: "strategist", old: 0, new: 2 },
+    });
+  });
 });
