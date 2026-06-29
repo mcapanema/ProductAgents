@@ -26,6 +26,7 @@ from productagents.core.models import Initiative
 from productagents.platform import events as ev
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
+from productagents.platform.prompt_service import PromptService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 from productagents.platform.session_service import SessionService
@@ -56,6 +57,7 @@ def build_services(active_name: str) -> dict:
         "sessions": SessionService.create(),
         "decisions": DecisionReadService.create(),
         "connectors": ConnectorService(),
+        "prompts": PromptService.create(),
     }
 
 
@@ -172,6 +174,12 @@ def _sync_dict(report) -> dict:
     }
 
 
+def _prompt_summary(prompts, name: str) -> dict:
+    # versions() is [0, *sorted overrides], so the last element is the active version.
+    versions = prompts.versions(name)
+    return {"name": name, "versions": versions, "active": versions[-1]}
+
+
 async def handle(
     request: dict,
     *,
@@ -181,6 +189,7 @@ async def handle(
     sessions,
     decisions: Any = None,
     connectors: Any = None,
+    prompts: Any = None,
     emit: Emit,
 ) -> None:
     """Dispatch one request, emitting one or more response messages.
@@ -260,6 +269,37 @@ async def handle(
                 raise RuntimeError("connectors service not available")
             report = await connectors.sync()
             await emit({"id": rid, "result": _sync_dict(report)})
+        elif method == "prompts.list":
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            summaries = [_prompt_summary(prompts, n) for n in prompts.names()]
+            await emit({"id": rid, "result": summaries})
+        elif method == "prompts.show":
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            name = params["name"]
+            version = params["version"]
+            text = prompts.read(name, version)
+            await emit(
+                {"id": rid, "result": {"name": name, "version": version, "text": text}}
+            )
+        elif method == "prompts.diff":
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            name = params["name"]
+            old = params["old"]
+            new = params["new"]
+            await emit(
+                {
+                    "id": rid,
+                    "result": {
+                        "name": name,
+                        "old": old,
+                        "new": new,
+                        "diff": prompts.diff(name, old, new),
+                    },
+                }
+            )
         elif method == "run":
             await _run(rid, params, workflows=workflows, emit=emit)
         else:
@@ -276,6 +316,7 @@ async def serve(
     sessions,
     decisions: Any = None,
     connectors: Any = None,
+    prompts: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -320,5 +361,6 @@ async def serve(
             sessions=sessions,
             decisions=decisions,
             connectors=connectors,
+            prompts=prompts,
             emit=emit,
         )
