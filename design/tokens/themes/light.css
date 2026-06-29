@@ -1,0 +1,40 @@
+/*
+ * Theme scaffold — LIGHT (default per owner override). Phase 1.
+ * ============================================================
+ * Same roles as dark.css, remapped onto warm `sand` grounds + dark `slate`
+ * ink. Signal *text* uses the darker 700 steps (legible on light), while the
+ * 500 fill keeps a dark on-signal label. SCAFFOLD — Phase 2A expands. Gated by
+ * design/contrast.py.
+ */
+
+[data-theme="light"] {
+  /* Surfaces (recessed → raised) */
+  --bg: var(--c-sand-100);           /* warm off-white canvas */
+  --panel: var(--c-sand-50);         /* raised panel */
+  --elevated: var(--c-white);        /* floating / popover */
+  --well: var(--c-sand-200);         /* recessed (logs, inputs) */
+  --field: var(--c-white);           /* input background */
+
+  /* Borders */
+  --hairline: var(--c-sand-300);     /* decorative divider (not contrast-gated) */
+  --structural: var(--c-slate-600);  /* control outline / gridline (≥3:1) */
+  --focus: var(--c-indigo-600);      /* focus ring = primary */
+
+  /* Text */
+  --ink: var(--c-slate-900);         /* primary */
+  --muted: var(--c-slate-700);       /* secondary / metadata */
+  --on-signal: var(--c-slate-950);   /* dark label on any 500 signal fill */
+  --on-primary: var(--c-white);      /* label on the primary fill */
+
+  /* Primary — the interactive accent (buttons / links / focus / selected) */
+  --primary: var(--c-indigo-600);    --primary-text: var(--c-indigo-700);
+
+  /* Signals — text step (dark 700) for type, fill step (500) for chips/dots */
+  --signal: var(--c-amber-500);      --signal-text: var(--c-amber-700);
+  --resolved: var(--c-teal-500);     --resolved-text: var(--c-teal-700);
+  --danger: var(--c-red-500);        --danger-text: var(--c-red-700);
+  --success: var(--c-green-500);     --success-text: var(--c-green-700);
+  --info: var(--c-blue-500);         --info-text: var(--c-blue-700);
+
+  --shadow-scrim: rgba(20, 23, 28, var(--opacity-scrim));
+}
