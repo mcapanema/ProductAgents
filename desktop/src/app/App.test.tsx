@@ -14,18 +14,22 @@ function fakeClient(): IpcClient {
     connectorsList: async () => ({ connectors: [], problems: [] }),
     connectorsHealth: async () => ({ statuses: {}, problems: [] }),
     connectorsSync: async () => ({ results: [], problems: [] }),
+    promptsList: async () => [],
+    promptsShow: async () => ({ name: "", version: 0, text: "" }),
+    promptsDiff: async () => ({ name: "", old: 0, new: 0, diff: "" }),
     run: async () => ({ status: "finished", session_id: "s" }),
   } as unknown as IpcClient;
 }
 
 describe("App shell", () => {
-  it("renders the four nav items and defaults to the Run panel", () => {
+  it("renders the five nav items and defaults to the Run panel", () => {
     render(<App client={fakeClient()} />);
     const nav = screen.getByRole("navigation");
     expect(within(nav).getByRole("button", { name: "Run" })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Sessions" })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Decisions" })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Connectors" })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Prompts" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /run a decision/i })).toBeInTheDocument();
   });
 
@@ -39,5 +43,11 @@ describe("App shell", () => {
     render(<App client={fakeClient()} />);
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Connectors" }));
     expect(await screen.findByRole("heading", { name: /^connectors$/i })).toBeInTheDocument();
+  });
+
+  it("switches to the Prompts panel on click", async () => {
+    render(<App client={fakeClient()} />);
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Prompts" }));
+    expect(await screen.findByRole("heading", { name: /^prompts$/i })).toBeInTheDocument();
   });
 });
