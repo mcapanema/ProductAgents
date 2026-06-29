@@ -86,3 +86,12 @@ version list (`0` = bundled default) and active (highest) version, from `PromptS
 two versions. All three are read-only and guarded by a `prompts=None` kwarg (mirrors
 `connectors`), emitting a human-facing `error` if the service is absent. GUI prompt
 *editing* (save/rollback) is deferred; the `prompts` CLI still owns the write surface.
+
+`config.get` → `{model, provider, key_var, key_present, problems, providers:
+[{id, label, key_var, default_model}]}` — the static readiness check
+(`setup.check_config`) plus the provider catalog (`setup.PROVIDERS`) for the
+Settings dropdown. `config.set {model, provider?, api_key?}` writes the values to
+the **active workspace's** `.env` (`setup.write_env`, never a blank api_key over
+an existing one) and returns the refreshed `config.get` status. Both are guarded
+by a `config=None` kwarg. This is the GUI's one **write** surface; connector/prompt
+editing stays deferred.

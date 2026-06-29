@@ -822,3 +822,112 @@ async def test_run_approval_defaults_invalid_verdict_to_approve():
     )
     final = [m for m in sink if m.get("event", {}).get("type") == "FinalVerdict"]
     assert final[0]["event"]["payload"]["verdict"] == "approve"
+
+
+from productagents.app import setup as _setup  # noqa: E402
+from tests.fakes import ready_status  # noqa: E402
+
+
+class _FakeConfig:
+    """Stand-in for the app.setup module: canned status + recorded writes.
+
+    Reuses the real pure helpers (provider_for/api_key_var_for/PROVIDERS) so the
+    derivation under test is the real one; only check_config/write_env are faked
+    to stay offline (no real .env, no os.environ mutation)."""
+
+    PROVIDERS = _setup.PROVIDERS
+    provider_for = staticmethod(_setup.provider_for)
+    api_key_var_for = staticmethod(_setup.api_key_var_for)
+
+    def __init__(self, status):
+        self._status = status
+        self.written: list[tuple[dict, object]] = []
+
+    def check_config(self):
+        return self._status
+
+    def write_env(self, values, *, dotenv_path=None):
+        self.written.append((dict(values), dotenv_path))
+        return str(dotenv_path or ".env")
+
+
+async def test_config_get_returns_status_and_providers():
+    config = _FakeConfig(ready_status())
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 40, "method": "config.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    result = sink[0]["result"]
+    assert result["model"] == "anthropic:claude-sonnet-4-6"
+    assert result["provider"] == "anthropic"
+    assert result["key_present"] is True
+    anthropic = next(p for p in result["providers"] if p["id"] == "anthropic")
+    assert anthropic["key_var"] == "ANTHROPIC_API_KEY"
+    assert anthropic["label"] == "Anthropic"
+
+
+async def test_config_set_writes_workspace_env_and_returns_status(tmp_path):
+    config = _FakeConfig(ready_status())
+    # Workspace takes only name + root (a Path); env_file is root/".env".
+    ws = Workspace(name="default", root=tmp_path)
+    workspaces = cast(WorkspaceService, _FakeWorkspaces([ws]))
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 41,
+            "method": "config.set",
+            "params": {"model": "openai:gpt-4o", "api_key": "sk-test"},
+        },
+        workflows=_workflows(),
+        workspaces=workspaces,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    values, dotenv_path = config.written[0]
+    assert values["PRODUCTAGENTS_MODEL"] == "openai:gpt-4o"
+    assert values["OPENAI_API_KEY"] == "sk-test"
+    assert "PRODUCTAGENTS_MODEL_PROVIDER" not in values  # derivable from prefix
+    assert dotenv_path == str(tmp_path / ".env")
+    assert sink[0]["result"]["model"] == "anthropic:claude-sonnet-4-6"
+
+
+async def test_config_set_skips_blank_api_key():
+    config = _FakeConfig(ready_status())
+    emit, _sink = _collect()
+    await ipc.handle(
+        {
+            "id": 42,
+            "method": "config.set",
+            "params": {"model": "openai:gpt-4o", "api_key": ""},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    values, _ = config.written[0]
+    assert "OPENAI_API_KEY" not in values  # never write a blank key
+
+
+async def test_config_method_without_service_errors():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 43, "method": "config.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 43
+    assert "config service not available" in sink[0]["error"]

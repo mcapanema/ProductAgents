@@ -22,6 +22,7 @@ import sys
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from productagents.app import setup
 from productagents.core.models import HumanDecision, Initiative
 from productagents.platform import events as ev
 from productagents.platform.connector_service import ConnectorService
@@ -58,6 +59,7 @@ def build_services(active_name: str) -> dict:
         "decisions": DecisionReadService.create(),
         "connectors": ConnectorService(),
         "prompts": PromptService.create(),
+        "config": setup,
     }
 
 
@@ -226,6 +228,26 @@ def _prompt_summary(prompts, name: str) -> dict:
     return {"name": name, "versions": versions, "active": versions[-1]}
 
 
+def _config_dict(config) -> dict:
+    status = config.check_config()
+    return {
+        "model": status.model,
+        "provider": status.provider,
+        "key_var": status.key_var,
+        "key_present": status.key_present,
+        "problems": status.problems,
+        "providers": [
+            {
+                "id": pid,
+                "label": info.label,
+                "key_var": info.key_var,
+                "default_model": info.default_model,
+            }
+            for pid, info in config.PROVIDERS.items()
+        ],
+    }
+
+
 async def handle(
     request: dict,
     *,
@@ -236,6 +258,7 @@ async def handle(
     decisions: Any = None,
     connectors: Any = None,
     prompts: Any = None,
+    config: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     emit: Emit,
 ) -> None:
@@ -347,6 +370,28 @@ async def handle(
                     },
                 }
             )
+        elif method == "config.get":
+            if config is None:
+                raise RuntimeError("config service not available")
+            await emit({"id": rid, "result": _config_dict(config)})
+        elif method == "config.set":
+            if config is None:
+                raise RuntimeError("config service not available")
+            model = params["model"]
+            provider = params.get("provider")
+            values = {"PRODUCTAGENTS_MODEL": model}
+            if provider:
+                values["PRODUCTAGENTS_MODEL_PROVIDER"] = provider
+            api_key = params.get("api_key")
+            if api_key:  # never write a blank key over an existing one
+                key_var = config.api_key_var_for(provider or config.provider_for(model))
+                if key_var:
+                    values[key_var] = api_key
+            dotenv_path = None
+            if workspaces is not None:
+                dotenv_path = str(workspaces.resolve(active_name).env_file)
+            config.write_env(values, dotenv_path=dotenv_path)
+            await emit({"id": rid, "result": _config_dict(config)})
         elif method == "run":
             await _run(rid, params, workflows=workflows, read_line=read_line, emit=emit)
         else:
@@ -364,6 +409,7 @@ async def serve(
     decisions: Any = None,
     connectors: Any = None,
     prompts: Any = None,
+    config: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -409,6 +455,7 @@ async def serve(
             decisions=decisions,
             connectors=connectors,
             prompts=prompts,
+            config=config,
             read_line=read_line,
             emit=emit,
         )
