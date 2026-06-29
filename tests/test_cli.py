@@ -125,12 +125,9 @@ def _patch_bootstrap(monkeypatch, calls):
     )
 
 
-def test_main_no_subcommand_launches_tui_after_bootstrap(monkeypatch):
+def test_main_no_subcommand_prints_help_after_bootstrap(monkeypatch, capsys):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
-    monkeypatch.setattr(
-        cli_module, "launch_tui", lambda name: calls.append(("launch_tui", name))
-    )
 
     cli_module.main([])
 
@@ -139,14 +136,15 @@ def test_main_no_subcommand_launches_tui_after_bootstrap(monkeypatch):
         ("activate", "acme"),
         ("load_env",),
         ("configure_logging",),
-        ("launch_tui", "acme"),
     ]
+    out = capsys.readouterr().out
+    assert "usage: productagents" in out
+    assert "reflect" in out  # the new subcommand shows in help
 
 
 def test_main_workspace_flag_threads_into_resolve(monkeypatch):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
-    monkeypatch.setattr(cli_module, "launch_tui", lambda name: None)
 
     cli_module.main(["--workspace", "acme"])
 

@@ -2,8 +2,8 @@
 
 A thin presentation adapter: it parses arguments and invokes platform
 Application Services (WorkflowService, WorkspaceService, SessionService) — the
-same services the TUI uses. It never imports agents, memory, or connectors
-directly. Given no subcommand it launches the TUI; otherwise it runs the named
+same services the GUI uses. It never imports agents, memory, or connectors
+directly. Given no subcommand it prints help; otherwise it runs the named
 command headlessly.
 """
 
@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from productagents.app.tui.app import launch_tui
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import Initiative
@@ -308,8 +307,8 @@ def main(argv: list[str] | None = None) -> None:
     load_env()
     configure_logging()
 
-    if args.command is None:
-        launch_tui(workspace.name)
+    if args.command is None:  # bare `productagents` → show help
+        build_parser().print_help()
         return
     if args.command == "sync":
         raise SystemExit(sync_command())
