@@ -21,11 +21,19 @@ export function SettingsPanel() {
     if (ipc) ipc.configGet().then(apply).catch(() => setStatus(null));
   }, [ipc]);
 
+  function onProviderChange(id: string) {
+    setProvider(id);
+    const info = status?.providers.find((p) => p.id === id);
+    if (info) setModel(info.default_model);
+  }
+
   async function save() {
     if (!ipc) return;
     setSaving(true);
+    // ponytail: derive provider from model prefix so the key lands under the right env var
+    const effectiveProvider = model.includes(":") ? model.split(":")[0] : provider;
     try {
-      apply(await ipc.configSet({ model, provider, api_key: apiKey }));
+      apply(await ipc.configSet({ model, provider: effectiveProvider, api_key: apiKey }));
     } catch {
       // leave the form as-is; the status panel keeps the last known state
     } finally {
@@ -45,7 +53,7 @@ export function SettingsPanel() {
           </label>
           <label className="field">
             <span>Provider</span>
-            <select aria-label="provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
+            <select aria-label="provider" value={provider} onChange={(e) => onProviderChange(e.target.value)}>
               {status.providers.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}

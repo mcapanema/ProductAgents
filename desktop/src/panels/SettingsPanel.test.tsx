@@ -44,10 +44,19 @@ describe("SettingsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() =>
-      expect(configSet).toHaveBeenCalledWith({ model: "openai:gpt-4o", provider: "anthropic", api_key: "sk-new" }),
+      expect(configSet).toHaveBeenCalledWith({ model: "openai:gpt-4o", provider: "openai", api_key: "sk-new" }),
     );
     // The key field is cleared after a successful save (no echo of the just-set key).
     await waitFor(() => expect(screen.getByLabelText(/api key/i)).toHaveValue(""));
+  });
+
+  it("changing provider dropdown sets model to that provider's default", async () => {
+    renderPanel({ configGet: async () => status } as unknown as IpcClient);
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+
+    fireEvent.change(screen.getByLabelText(/provider/i), { target: { value: "openai" } });
+
+    expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
 
   it("surfaces config problems", async () => {
