@@ -157,6 +157,121 @@ LIGHT = {
     "info_text": "#2d6292",  # blue  500 / 700
 }
 
+# ---------------------------------------------------------------- Phase 2 layer
+#
+# The semantic layer (semantic.css + themes/*.css) adds surfaces, text levels,
+# accent states, feedback sets, and AI-status tokens. Resolved to the same
+# pinned primitives and merged into the theme dicts above so the gate checks the
+# real on-screen pairs. NOTE: every feedback/AI body-TEXT hue resolves to a 300
+# (dark) / 700 (light) signal step already covered by the CVD pass below — so
+# these additions introduce no new CVD hue, only new WCAG grounds/states.
+
+DARK.update(
+    {
+        "bg_tertiary": "#222831",  # slate-850
+        "surface_default": "#1b1f26",  # slate-900
+        "surface_raised": "#222831",  # slate-850
+        "surface_floating": "#222831",
+        "surface_sunken": "#14171c",  # slate-950
+        "surface_hover": "#333a43",  # slate-800
+        "surface_pressed": "#545b65",  # slate-700
+        "surface_selected": "#2b2f58",  # indigo-900
+        "accent_subtle": "#2b2f58",  # indigo-900
+        "text_tertiary": "#7f8791",  # slate-500 (3:1 — large/UI only)
+        "accent_hover": "#565cae",  # indigo-600
+        "accent_pressed": "#4e5396",  # indigo-700
+        "border_default": "#686f79",  # slate-600
+        "border_strong": "#8a93a0",  # slate-450
+        "fb_success_bg": "#132719",
+        "fb_success_text": "#96d2a6",
+        "fb_success_icon": "#70bc86",
+        "fb_success_border": "#46a566",
+        "fb_warning_bg": "#2e1f0a",
+        "fb_warning_text": "#f5c68c",
+        "fb_warning_icon": "#eab167",
+        "fb_warning_border": "#e0a33e",
+        "fb_error_bg": "#361815",
+        "fb_error_text": "#ffa59a",
+        "fb_error_icon": "#f38378",
+        "fb_error_border": "#e15f55",
+        "fb_info_bg": "#112435",
+        "fb_info_text": "#90c7fd",
+        "fb_info_icon": "#68aeee",
+        "fb_info_border": "#3c94df",
+        "ai_done_text": "#93d0c5",
+        "ai_failed_text": "#ffa59a",
+        "ai_awaiting_human": "#959ff8",
+        "ai_log_info": "#90c7fd",
+        "ai_log_warn": "#f5c68c",
+        "ai_log_error": "#ffa59a",
+        "ai_log_critical": "#ffc4bb",
+        "ai_log_trace": "#7f8791",
+        "ai_log_debug": "#8a93a0",
+        "ai_conf_low": "#f38378",
+        "ai_conf_med": "#eab167",
+        "ai_conf_high": "#6bb9ac",
+        "ai_conf_track": "#333a43",
+        "analyst_customer": "#68aeee",
+        "analyst_analytics": "#6bb9ac",
+        "analyst_market": "#eab167",
+        "analyst_business": "#b1bbff",
+        "analyst_technical": "#a1a9b4",
+    }
+)
+
+LIGHT.update(
+    {
+        "bg_tertiary": "#ede9e2",  # sand-200
+        "surface_default": "#fdfbf7",  # sand-50
+        "surface_raised": "#ffffff",
+        "surface_floating": "#ffffff",
+        "surface_sunken": "#ede9e2",  # sand-200
+        "surface_hover": "#f7f3ec",  # sand-100
+        "surface_pressed": "#dedad3",  # sand-300
+        "surface_selected": "#dce4ff",  # indigo-100
+        "accent_subtle": "#dce4ff",  # indigo-100
+        "text_tertiary": "#686f79",  # slate-600 (3:1 — large/UI only)
+        "accent_hover": "#4e5396",  # indigo-700
+        "accent_pressed": "#3e437a",  # indigo-800
+        "border_default": "#686f79",  # slate-600
+        "border_strong": "#545b65",  # slate-700
+        "fb_success_bg": "#e3fee9",
+        "fb_success_text": "#336d45",
+        "fb_success_icon": "#3d8855",
+        "fb_success_border": "#3d8855",
+        "fb_warning_bg": "#fff0d7",
+        "fb_warning_text": "#7e5519",
+        "fb_warning_icon": "#9f6a17",
+        "fb_warning_border": "#9f6a17",
+        "fb_error_bg": "#ffeae4",
+        "fb_error_text": "#94423b",
+        "fb_error_icon": "#ba5048",
+        "fb_error_border": "#ba5048",
+        "fb_info_bg": "#e0f9ff",
+        "fb_info_text": "#2d6292",
+        "fb_info_icon": "#357bb8",
+        "fb_info_border": "#357bb8",
+        "ai_done_text": "#2e6b61",
+        "ai_failed_text": "#94423b",
+        "ai_awaiting_human": "#565cae",
+        "ai_log_info": "#2d6292",
+        "ai_log_warn": "#7e5519",
+        "ai_log_error": "#94423b",
+        "ai_log_critical": "#71352f",
+        "ai_log_trace": "#686f79",
+        "ai_log_debug": "#545b65",
+        "ai_conf_low": "#ba5048",
+        "ai_conf_med": "#9f6a17",
+        "ai_conf_high": "#36867a",
+        "ai_conf_track": "#dedad3",
+        "analyst_customer": "#357bb8",
+        "analyst_analytics": "#36867a",
+        "analyst_market": "#9f6a17",
+        "analyst_business": "#565cae",
+        "analyst_technical": "#686f79",
+    }
+)
+
 SIGNAL_TEXT = [
     "signal_text",
     "resolved_text",
@@ -193,6 +308,88 @@ for s in SIGNAL_TEXT:
 
 # on-signal label: a dark ink sits on each 500 fill (chips, dots, badges).
 ON_FILL = [("on_signal", s, 4.5, f"on-signal label on {s} fill") for s in SIGNAL_FILL]
+
+# ---- Phase 2 semantic-layer pairs --------------------------------------------
+# Primary text on every persistent ground it can sit on (canvas/panel already
+# covered above). Hover/pressed are transient and only ever carry PRIMARY text.
+INK_GROUNDS = [
+    "surface_default",
+    "surface_raised",
+    "surface_floating",
+    "surface_sunken",
+    "surface_selected",
+    "surface_hover",
+    "surface_pressed",
+    "bg_tertiary",
+    "accent_subtle",
+]
+MUTED_GROUNDS = [
+    "surface_default",
+    "surface_raised",
+    "surface_floating",
+    "surface_sunken",
+    "bg_tertiary",
+]
+# (selected rows carry PRIMARY text + an accent marker, never muted metadata —
+#  so muted is not required to clear the indigo-tinted selected ground.)
+for g in INK_GROUNDS:
+    PAIRS.append(("ink", g, 4.5, f"primary text on {g}"))
+for g in MUTED_GROUNDS:
+    PAIRS.append(("muted", g, 4.5, f"secondary text on {g}"))
+
+# Tertiary text — large/UI floor (3:1) only; never body copy.
+for g in ("bg", "panel", "surface_default", "surface_raised"):
+    PAIRS.append(("text_tertiary", g, 3.0, f"tertiary text on {g} (large/UI only)"))
+
+# Accent-as-text/link on its grounds (primary_text covers bg/panel/well above).
+for g in ("surface_default", "surface_raised", "surface_selected", "accent_subtle"):
+    PAIRS.append(("primary_text", g, 4.5, f"link/accent text on {g}"))
+
+# White label on the accent fill across interaction states (the button label).
+for fill in ("primary", "accent_hover", "accent_pressed"):
+    PAIRS.append(("on_primary", fill, 4.5, f"label on accent {fill}"))
+
+# Control outlines / gridlines (WCAG 1.4.11, 3:1).
+for g in ("bg", "panel", "surface_default"):
+    PAIRS.append(("border_default", g, 3.0, f"control outline on {g}"))
+    PAIRS.append(("border_strong", g, 3.0, f"strong border on {g}"))
+
+# Feedback: text + icon on their OWN tinted bg; border visible on the canvas.
+for kind in ("success", "warning", "error", "info"):
+    PAIRS.append((f"fb_{kind}_text", f"fb_{kind}_bg", 4.5, f"{kind} fb text on its bg"))
+    PAIRS.append((f"fb_{kind}_icon", f"fb_{kind}_bg", 3.0, f"{kind} fb icon on its bg"))
+    PAIRS.append((f"fb_{kind}_border", "bg", 3.0, f"{kind} feedback border on canvas"))
+
+# AI status text in the log well (the text steps; also gated as signal text on
+# canvas above). awaiting-human is a marker (3:1), always paired with a label.
+for tok in ("ai_done_text", "ai_failed_text"):
+    PAIRS.append((tok, "surface_sunken", 4.5, f"{tok} in log/timeline well"))
+for g in ("bg", "panel"):
+    PAIRS.append(("ai_awaiting_human", g, 3.0, f"awaiting-human marker on {g}"))
+
+# Log levels in the log well. Body levels at 4.5; trace/debug de-emphasized (3:1).
+for tok in ("ai_log_info", "ai_log_warn", "ai_log_error", "ai_log_critical"):
+    PAIRS.append((tok, "surface_sunken", 4.5, f"{tok} in log well"))
+for tok in ("ai_log_trace", "ai_log_debug"):
+    PAIRS.append((tok, "surface_sunken", 3.0, f"{tok} in log well (de-emphasized)"))
+
+# Confidence-gauge fills — UI elements (3:1) on track and canvas; the gauge also
+# shows the numeric reading, so color is reinforcement.
+for tok in ("ai_conf_low", "ai_conf_med", "ai_conf_high"):
+    PAIRS.append((tok, "ai_conf_track", 3.0, f"{tok} on gauge track"))
+    PAIRS.append((tok, "bg", 3.0, f"{tok} on canvas"))
+
+# Analyst-perspective markers — UI dots (3:1). Color is the WEAKEST channel:
+# glyph + label + position carry the meaning (CVD-honest, see notes below).
+for tok in (
+    "analyst_customer",
+    "analyst_analytics",
+    "analyst_market",
+    "analyst_business",
+    "analyst_technical",
+):
+    PAIRS.append((tok, "bg", 3.0, f"{tok} marker on canvas"))
+    PAIRS.append((tok, "panel", 3.0, f"{tok} marker on panel"))
 
 
 def show(theme, tokens, pairs, label="contrast"):

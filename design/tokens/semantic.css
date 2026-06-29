@@ -1,0 +1,275 @@
+/*
+ * ProductAgents — Semantic tokens, NON-COLOR (Phase 2: 2B · 2C · 2D · 2G)
+ * =======================================================================
+ * The theme-agnostic semantic layer: composed type styles, dimensional roles,
+ * layout/interaction/focus roles, the density system, and the non-color
+ * accessibility tokens. Components consume THESE (never Phase-1 primitives
+ * directly).
+ *
+ * Where is color? In themes/{dark,light}.css. Color semantic tokens are
+ * theme-dependent by definition, so the 2H rule ("themes redefine semantic
+ * tokens only, components adapt with zero change") puts every surface/text/
+ * border/feedback/accent/AI role there — not here. This file is the half of
+ * the semantic layer that does NOT change between light and dark.
+ *
+ * Layer order:  primitives.css → [semantic.css + themes/*.css] → components.css
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════ 2B · TYPE STYLES ═══
+   * Composed styles as `font`-shorthand tokens (family + weight + size/line),
+   * paired with a `-tracking` token where letter-spacing matters (the `font`
+   * shorthand cannot carry letter-spacing). A component sets BOTH:
+   *     font: var(--text-heading-1); letter-spacing: var(--text-heading-1-tracking);
+   * Order in the shorthand: style? weight size/line-height family.
+   */
+
+  /* Display — the one place type gets large: hero readouts / first-run. */
+  --text-display: var(--fw-semibold) var(--fs-4xl) / var(--lh-tight) var(--font-display);
+  --text-display-tracking: var(--ls-tight);
+
+  /* Headings — section + view structure. */
+  --text-heading-1: var(--fw-semibold) var(--fs-2xl) / var(--lh-tight) var(--font-sans);
+  --text-heading-1-tracking: var(--ls-tight);
+  --text-heading-2: var(--fw-semibold) var(--fs-xl) / var(--lh-tight) var(--font-sans);
+  --text-heading-2-tracking: var(--ls-tight);
+  --text-heading-3: var(--fw-semibold) var(--fs-lg) / var(--lh-tight) var(--font-sans);
+  --text-heading-3-tracking: var(--ls-normal);
+  --text-heading-4: var(--fw-semibold) var(--fs-md) / var(--lh-normal) var(--font-sans);
+  --text-heading-4-tracking: var(--ls-normal);
+
+  /* Title — card / panel / dialog headers (smaller than headings, still bold). */
+  --text-title: var(--fw-semibold) var(--fs-base) / var(--lh-normal) var(--font-sans);
+  --text-title-tracking: var(--ls-normal);
+
+  /* Body — the reading sizes. Body L for long-form (≤75ch), M is the default. */
+  --text-body-l: var(--fw-regular) var(--fs-md) / var(--lh-relaxed) var(--font-sans);
+  --text-body-l-tracking: var(--ls-normal);
+  --text-body-m: var(--fw-regular) var(--fs-base) / var(--lh-normal) var(--font-sans);
+  --text-body-m-tracking: var(--ls-normal);
+  --text-body-s: var(--fw-regular) var(--fs-sm) / var(--lh-normal) var(--font-sans);
+  --text-body-s-tracking: var(--ls-normal);
+
+  /* Caption — metadata, timestamps, helper text (muted via color role). */
+  --text-caption: var(--fw-regular) var(--fs-xs) / var(--lh-normal) var(--font-sans);
+  --text-caption-tracking: var(--ls-normal);
+
+  /* Label — form labels, eyebrow tags (component applies text-transform). */
+  --text-label: var(--fw-medium) var(--fs-xs) / var(--lh-tight) var(--font-sans);
+  --text-label-tracking: var(--ls-wide);
+
+  /* Button — control text. Medium weight, never tight. */
+  --text-button: var(--fw-medium) var(--fs-sm) / var(--lh-tight) var(--font-sans);
+  --text-button-tracking: var(--ls-normal);
+
+  /* Code — inline + block source (mono, normal leading). */
+  --text-code: var(--fw-regular) var(--fs-sm) / var(--lh-normal) var(--font-mono);
+  --text-code-tracking: var(--ls-normal);
+
+  /* Terminal — log/console/span streams (mono, relaxed leading for scanning).
+   * Always paired with `font-variant-numeric: tabular-nums` so measured values
+   * (confidence, tokens, cost, durations) don't shift column to column. */
+  --text-terminal: var(--fw-regular) var(--fs-sm) / var(--lh-relaxed) var(--font-mono);
+  --text-terminal-tracking: var(--ls-normal);
+
+  /* ═══════════════════════════════════════════ 2C · DIMENSIONAL ROLES ═══
+   * Primitives promoted to intent-named roles. A component asks for
+   * `--radius-card`, not `--radius-lg` — the mapping can change in one place.
+   */
+
+  /* Radius — by surface kind. */
+  --radius-control: var(--radius-sm);   /* buttons, chips, toggles */
+  --radius-field: var(--radius-sm);     /* inputs, selects, textareas */
+  --radius-card: var(--radius-lg);      /* cards, panels, sections */
+  --radius-popover: var(--radius-md);   /* menus, popovers, tooltips */
+  --radius-modal: var(--radius-xl);     /* dialogs, drawers */
+  --radius-pill: var(--radius-full);    /* status pills, badges */
+  --radius-sharp: var(--radius-none);   /* timelines, tables, gridlines */
+
+  /* Border width — by role. */
+  --border-width-default: var(--border-thin);
+  --border-width-strong: var(--border-medium);
+  --border-width-focus: var(--border-thick);
+
+  /* Elevation — recessed → modal. Each maps to a depth-tuned shadow primitive;
+   * the theme swaps the shadow tint (light theme softens these in 2H). */
+  --elevation-flat: var(--shadow-none);
+  --elevation-raised: var(--shadow-sm);      /* cards resting on the canvas */
+  --elevation-floating: var(--shadow-md);    /* popovers, dropdowns, menus */
+  --elevation-overlay: var(--shadow-lg);     /* drawers, sheets */
+  --elevation-modal: var(--shadow-xl);       /* dialogs above the scrim */
+
+  /* Motion — intent-named presets over the primitive durations/easings.
+   * (Reduced-motion zeroes the underlying durations below — these strings
+   * re-resolve `var(--dur-*)` at use, so the presets follow automatically.) */
+  --transition-control: var(--motion-control);                          /* hover/active on buttons, inputs */
+  --transition-surface: background-color var(--dur-fast) var(--ease-standard),
+                        border-color var(--dur-fast) var(--ease-standard);
+  --transition-overlay-in: opacity var(--dur-normal) var(--ease-decelerate),
+                           transform var(--dur-normal) var(--ease-decelerate);
+  --transition-overlay-out: opacity var(--dur-fast) var(--ease-accelerate),
+                            transform var(--dur-fast) var(--ease-accelerate);
+  --transition-expand: grid-template-rows var(--dur-normal) var(--ease-standard);
+  --transition-pulse: var(--dur-slower) var(--ease-emphasis);            /* live "thinking" cadence */
+
+  /* Blur — by purpose (background dismissal, never decoration). */
+  --blur-scrim: var(--blur-sm);
+  --blur-overlay: var(--blur-md);
+
+  /* Control / field / icon sizes — by intent (the default tier). */
+  --size-control: var(--control-md);
+  --size-field: var(--field-md);
+  --size-icon: var(--icon-md);
+  --size-icon-inline: var(--icon-sm);   /* icon set next to body text */
+  --size-avatar: var(--avatar-md);
+
+  /* ═══════════════════════════════════════ 2D · LAYOUT & INTERACTION ═══ */
+
+  /* Container & panel widths (resource-explorer IA: sidebar + main + inspector). */
+  --width-content-max: 1180px;          /* readable main-column ceiling */
+  --width-sidebar: 264px;               /* resource sidebar */
+  --width-sidebar-collapsed: 56px;      /* icon-rail collapse */
+  --width-panel-min: 320px;             /* min before a split panel folds */
+  --width-inspector: 360px;             /* right-hand inspector / details */
+  --width-dialog-sm: 420px;
+  --width-dialog-md: 560px;
+  --width-dialog-lg: 760px;
+  --measure-prose: 72ch;                /* long-form line-length cap (65–75ch) */
+
+  /* Focus ring — the keyboard-first affordance. Offset is load-bearing: the
+   * ring sits OUTSIDE the control so it reads on any ground. Color = theme
+   * `--border-focus`. */
+  --focus-ring-width: var(--border-width-focus);
+  --focus-ring-offset: 2px;
+
+  /* Interaction. */
+  --cursor-interactive: pointer;
+  --cursor-disabled: not-allowed;
+  --cursor-text: text;
+  --cursor-grab: grab;
+  --cursor-col-resize: col-resize;
+
+  /* ─────────────────────────────────────── 2D · ICONOGRAPHY (Phosphor) ───
+   * Locked icon set: Phosphor (MIT). One weight — `regular` — is the default
+   * across the product; `fill` is reserved for the single selected/active item
+   * in a set (filled-vs-outline discipline, never mixed at one hierarchy
+   * level). Stroke is intrinsic to Phosphor's regular weight (~1.5px optical),
+   * so there is no stroke token to set — consistency comes from never mixing
+   * weights. Sizes use the `--icon-*` primitives; alignment is baseline.
+   * Emoji are never icons (WCAG / brand). */
+  --icon-weight-default: regular;       /* documentation token (Phosphor weight) */
+  --icon-weight-active: fill;           /* selected / current item only */
+  --icon-size-xs: var(--icon-xs);
+  --icon-size-sm: var(--icon-sm);
+  --icon-size-md: var(--icon-md);
+  --icon-size-lg: var(--icon-lg);
+  --icon-size-xl: var(--icon-xl);
+
+  /* Z-index — semantic stack (Base → Notification). Mirrors the primitives;
+   * adds the two roles components need that the primitive scale didn't name. */
+  --z-content: var(--z-base);
+  --z-raised: var(--z-raised);
+  --z-sticky: var(--z-sticky);
+  --z-dropdown: var(--z-dropdown);
+  --z-overlay: var(--z-overlay);
+  --z-modal: var(--z-modal);
+  --z-popover: var(--z-toast);          /* popovers ride above modals */
+  --z-toast: var(--z-toast);
+  --z-notification: var(--z-toast);
+  --z-tooltip: var(--z-tooltip);        /* always topmost */
+
+  /* ═══════════════════════════════════════ 2G · ACCESSIBILITY (non-color) ═══
+   * Color a11y (contrast-checked pairs, focus color, signal pairings) lives in
+   * the themes + contrast.py. These are the structural, non-color a11y tokens.
+   */
+  --a11y-contrast-body: 4.5;            /* WCAG AA body floor (documentation) */
+  --a11y-contrast-large: 3;             /* large / UI / structural floor */
+  --a11y-target-touch-min: 44px;        /* min interactive size where touch applies */
+  --a11y-target-pointer-min: 24px;      /* WCAG 2.2 pointer target floor */
+}
+
+/* ─────────────────────────────────────────── 2D · DENSITY SYSTEM ───
+ * Comfortable (default) vs compact. Density rescales the SPACING ROLE tokens
+ * only — never type size or the primitive grid — so 60–90-min sessions can
+ * trade breathing room for rows-on-screen without reflowing the type system.
+ * Set `data-density` on <html>. (The styleguide harness mirrored this for its
+ * chrome in Phase 1; this is the real, product-facing system.)
+ */
+[data-density="comfortable"] {
+  --pad-page: var(--space-24);
+  --pad-card: var(--space-20);
+  --pad-section: var(--space-32);
+  --pad-control-x: var(--space-16);
+  --pad-control-y: var(--space-8);
+  --pad-field-x: var(--space-12);
+  --pad-field-y: var(--space-8);
+  --pad-cell-x: var(--space-16);
+  --pad-cell-y: var(--space-12);        /* table / list row */
+  --gap-inline: var(--space-8);         /* icon ↔ label, chip clusters */
+  --gap-stack: var(--space-16);         /* between stacked blocks */
+  --gap-section: var(--space-32);       /* between page sections */
+  --gap-grid: var(--space-16);          /* card / swatch grids */
+  --row-height: var(--control-lg);      /* list / tree / table row */
+}
+[data-density="compact"] {
+  --pad-page: var(--space-16);
+  --pad-card: var(--space-12);
+  --pad-section: var(--space-20);
+  --pad-control-x: var(--space-12);
+  --pad-control-y: var(--space-6);
+  --pad-field-x: var(--space-8);
+  --pad-field-y: var(--space-6);
+  --pad-cell-x: var(--space-12);
+  --pad-cell-y: var(--space-6);
+  --gap-inline: var(--space-6);
+  --gap-stack: var(--space-12);
+  --gap-section: var(--space-20);
+  --gap-grid: var(--space-12);
+  --row-height: var(--control-md);
+}
+/* Density not yet chosen → comfortable defaults (no FOUC of unstyled spacing). */
+:root {
+  --pad-page: var(--space-24);
+  --pad-card: var(--space-20);
+  --pad-section: var(--space-32);
+  --pad-control-x: var(--space-16);
+  --pad-control-y: var(--space-8);
+  --pad-field-x: var(--space-12);
+  --pad-field-y: var(--space-8);
+  --pad-cell-x: var(--space-16);
+  --pad-cell-y: var(--space-12);
+  --gap-inline: var(--space-8);
+  --gap-stack: var(--space-16);
+  --gap-section: var(--space-32);
+  --gap-grid: var(--space-16);
+  --row-height: var(--control-lg);
+}
+
+/* ─────────────────────────────────────── 2G · REDUCED MOTION ───
+ * One global switch. The motion presets above are strings containing
+ * `var(--dur-*)`, re-resolved at use — so collapsing the primitive durations
+ * here makes every transition/animation effectively instant, system-wide,
+ * without touching a single component. Components still provide their own
+ * reduced-motion fallback for keyframe animations (e.g. parking a pulse). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0.01ms;
+    --dur-fast: 0.01ms;
+    --dur-normal: 0.01ms;
+    --dur-slow: 0.01ms;
+    --dur-slower: 0.01ms;
+  }
+}
+
+/* ─────────────────────────────────────── 2G · HIGH CONTRAST (hook) ───
+ * A full high-contrast THEME is a later phase (it needs its own color map).
+ * This hook strengthens the non-color a11y affordances when the OS asks for
+ * more contrast: thicker default borders and a wider focus ring, so structure
+ * stays legible even before the dedicated theme lands. */
+@media (prefers-contrast: more) {
+  :root {
+    --border-width-default: var(--border-medium);
+    --focus-ring-offset: 1px;
+    --focus-ring-width: var(--border-thick);
+  }
+}

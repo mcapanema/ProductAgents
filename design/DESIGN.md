@@ -135,4 +135,85 @@ literals; ramps monotonic.
 
 ---
 
+## Phase 2 — Token architecture *(2026-06-29)*
+
+The layered semantic system components actually consume, built on Phase-1
+primitives. Three new files complete the cascade:
+
+```
+primitives.css                    raw, theme-agnostic values (Phase 1)
+        ↓
+semantic.css  +  themes/{dark,light}.css     the semantic layer (split, see below)
+        ↓
+components.css                    per-component token sets + the state matrix
+        ↓
+component implementations         (Phase 3+)
+```
+
+**Architecture decision — where color lives.** The semantic layer is split by
+*what changes between themes*:
+- **`themes/{dark,light}.css` own every COLOR semantic token** — backgrounds,
+  surfaces (+ states), the text ladder, borders, the accent system, signals,
+  feedback sets, and the AI tokens. A theme redefines *only* these, so a
+  component wired to them changes **zero** code across light/dark (the 2H
+  contract). This is why the plan's "2A → semantic.css" suggestion resolves into
+  the theme files: color is theme-dependent by definition.
+- **`semantic.css` owns every NON-color semantic token** — composed type styles,
+  dimensional roles, layout/interaction/focus roles, the density system, and the
+  non-color a11y tokens — shared verbatim by both themes.
+- **`components.css`** composes both into per-component handles (`--btn-*`,
+  `--field-*`, `--chip-*`, `--timeline-*`, `--gauge-*`, …) plus a reusable state
+  matrix. It is theme-agnostic; state derivations without a dedicated token use
+  `color-mix(in oklab, …)` over a theme token, never a literal.
+
+### Sub-phases
+- **2A — Color semantic.** Background (primary/secondary/tertiary/elevated/overlay/
+  inverse), Surface (default/raised/floating/sunken/hover/pressed/selected), the
+  Text ladder (primary/secondary AA · tertiary at the 3:1 UI floor · disabled
+  exempt · link · on-accent · per-signal), Border (subtle/default/strong/focus/
+  per-signal), and four Feedback sets (success/warning/error/info × bg·surface·
+  border·text·icon). Feedback borders are theme-asymmetric — **500** on the dark
+  canvas, **600** on the light canvas — so the boundary clears 3:1 either way.
+- **2B — Type styles.** 14 composed `font`-shorthand styles (Display, Heading 1–4,
+  Title, Body L/M/S, Caption, Label, Button, Code, Terminal) + a `-tracking`
+  companion each. Code/Terminal are mono with tabular figures.
+- **2C — Dimensional.** Radius (by surface kind), border-width, elevation
+  (raised→modal, light re-tints the shadows softer), motion presets, blur, sizes.
+- **2D — Layout / interaction / iconography.** Container & panel widths, the
+  **density system** (`[data-density]` rescales spacing roles only — never type),
+  focus ring (offset is load-bearing), cursors, semantic z-index, and the locked
+  **icon set: Phosphor (MIT), regular weight, fill reserved for the active item**,
+  SVG only.
+- **2E — Component + state.** Button (primary/secondary/ghost/danger), field,
+  card/panel, chip, nav, table, tooltip/popover, overlay/dialog, alert/toast, and
+  the AI execution-timeline / log / confidence-gauge geometry — plus the 11-state
+  matrix (hover/pressed/selected/disabled/loading/dragging/invalid/…).
+- **2F — AI-specific.** Grounded in the real event vocabulary (`ProgressEvent`,
+  `NodeComplete`, `DebateTurn`, `Judgment`, `ApprovalRequested`, `FinalVerdict`,
+  `RunAborted`; node states waiting/running/done/degraded/failed/awaiting-human).
+  amber = **live** (its reserved job), teal = **settled**, indigo = **your turn**,
+  red = failed, slate = inert. Plus log levels (trace→critical), the
+  confidence-gauge scale (the signature motif — color reinforces a shown numeric
+  reading), the advocate/skeptic dialectic, and the **five analyst perspectives**.
+  *CVD-honest:* the analyst hues are **not** all separable under protan/deutan, so
+  each analyst also carries a unique shape **and** a label **and** a fixed
+  position — color is the weakest of the three channels (see `contrast.py` notes).
+- **2G — Accessibility.** Min-contrast/target tokens, focus colors (per theme),
+  a global **reduced-motion** switch (collapses the primitive durations, which the
+  motion presets re-resolve — instant transitions system-wide with no per-component
+  edit), and a `prefers-contrast: more` hook (thicker borders + ring; the full
+  high-contrast *theme* remains a later phase).
+- **2H — Theme mapping.** Both themes redefine only the color roles; verified by
+  `contrast.py`.
+
+**Definition of Done — met:** the token-reference gallery (organized by sub-phase)
+renders in **both themes** and **both densities**, browser-verified; component
+previews are built from `--btn-*`/`--field-*`/`--chip-*` alone and adapt across
+themes with zero markup change; `python3 design/contrast.py` → **`TOTAL FAILURES: 0`**
+(210 pairs, both themes, incl. protanopia/deuteranopia); no raw values in
+`components.css`. Back-compat: the Phase-1 short role aliases (`--bg`, `--ink`,
+`--primary`, …) are retained so existing chrome keeps working.
+
+---
+
 *Subsequent phases append their foundations, tokens, and component docs below as they land.*
