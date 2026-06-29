@@ -1,43 +1,189 @@
 /*
- * Theme scaffold — DARK (primary). Phase 1.
- * =========================================
- * Demonstrates the mechanism: a theme redefines *role* tokens that point at
- * Phase-1 primitives; components consume the roles and never the primitives, so
- * swapping themes is zero-change downstream. This is a SCAFFOLD — Phase 2A
- * fleshes out the full semantic surface/text/border/feedback set. Every pair
- * here is gated by design/contrast.py.
+ * Theme — DARK (primary). Phase 2: 2A · 2F · 2H.
+ * ==============================================
+ * The full semantic COLOR surface. A theme redefines ONLY these color roles;
+ * every non-color semantic token lives in semantic.css and is shared. Swapping
+ * to light.css therefore changes zero component code (the 2H contract).
  *
- * Dark grounds = cool `slate` tail; never pure #000.
+ * Dark grounds = the cool `slate` tail (never pure #000 — halation over long
+ * reads). Every text/border pair below is gated by design/contrast.py in both
+ * themes AND under protanopia/deuteranopia simulation (CI requires
+ * TOTAL FAILURES: 0). Color is never the only channel — signals + AI status
+ * always pair with a glyph/label/position (WCAG 1.4.1).
  */
 
 [data-theme="dark"] {
-  /* Surfaces (recessed → raised) */
-  --bg: var(--c-slate-950);          /* canvas */
-  --panel: var(--c-slate-900);       /* raised panel */
-  --elevated: var(--c-slate-850);    /* floating / popover */
-  --well: var(--c-slate-950);        /* recessed (logs, inputs) */
-  --field: var(--c-slate-950);       /* input background */
+  /* ───────────────────────────────────────────── 2A · BACKGROUNDS ───
+   * The page grounds (recessed → lifted). "Background" = the canvas a region
+   * sits on; "Surface" (below) = the interactive material on top of it. */
+  --bg-primary: var(--c-slate-950);     /* app canvas */
+  --bg-secondary: var(--c-slate-900);   /* sidebar / secondary regions */
+  --bg-tertiary: var(--c-slate-850);    /* nested wells, inset toolbars */
+  --bg-elevated: var(--c-slate-850);    /* floating regions (lift via shadow) */
+  --bg-overlay: rgba(8, 10, 13, 0.66);  /* modal / drawer scrim (≈ slate-980) */
+  --bg-inverse: var(--c-sand-100);      /* inverse chips / spotlight on light */
 
-  /* Borders */
-  --hairline: var(--c-slate-800);    /* decorative divider (not contrast-gated) */
-  --structural: var(--c-slate-600);  /* control outline / gridline (≥3:1) */
-  --focus: var(--c-indigo-400);      /* focus ring = primary (offset is load-bearing) */
+  /* ─────────────────────────────────────────────── 2A · SURFACES ───
+   * Interactive material + its interaction states. hover/pressed lighten
+   * progressively (rising toward the pointer); selected carries an indigo tint. */
+  --surface-default: var(--c-slate-900);
+  --surface-raised: var(--c-slate-850);
+  --surface-floating: var(--c-slate-850);   /* popovers, menus, tooltips */
+  --surface-sunken: var(--c-slate-950);      /* logs, inputs, code wells */
+  --surface-hover: var(--c-slate-800);
+  --surface-pressed: var(--c-slate-700);
+  --surface-selected: var(--c-indigo-900);   /* selected row / active nav */
 
-  /* Text */
-  --ink: var(--c-slate-100);         /* primary */
-  --muted: var(--c-slate-450);       /* secondary / metadata */
-  --on-signal: var(--c-slate-950);   /* dark label on any 500 signal fill */
-  --on-primary: var(--c-white);      /* label on the primary fill */
+  /* ──────────────────────────────────────────────────── 2A · TEXT ───
+   * primary/secondary clear AA body (4.5:1). tertiary is large/UI/decorative
+   * only (3:1 floor) — never body copy. disabled is WCAG-exempt (paired with
+   * --opacity-disabled by the component). */
+  --text-primary: var(--c-slate-100);
+  --text-secondary: var(--c-slate-450);
+  --text-tertiary: var(--c-slate-500);   /* 3:1 — labels/icons/large only */
+  --text-disabled: var(--c-slate-600);   /* + opacity-disabled; a11y-exempt */
+  --text-inverse: var(--c-slate-950);    /* on light/inverse surfaces */
+  --text-link: var(--c-indigo-400);      /* primary as text/link on grounds */
+  --text-on-accent: var(--c-white);      /* label on the accent fill */
+  --text-success: var(--c-green-300);
+  --text-warning: var(--c-amber-300);
+  --text-error: var(--c-red-300);
+  --text-info: var(--c-blue-300);
+  --text-resolved: var(--c-teal-300);    /* Instrument: "measured / settled" */
 
-  /* Primary — the interactive accent (buttons / links / focus / selected) */
-  --primary: var(--c-indigo-500);    --primary-text: var(--c-indigo-400);
+  /* ────────────────────────────────────────────────── 2A · BORDERS ───
+   * subtle = decorative divider (not contrast-gated); default/strong are
+   * control outlines / gridlines (≥3:1, WCAG 1.4.11). */
+  --border-subtle: var(--c-slate-800);
+  --border-default: var(--c-slate-600);
+  --border-strong: var(--c-slate-450);
+  --border-focus: var(--c-indigo-400);
+  --border-error: var(--c-red-500);
+  --border-success: var(--c-green-500);
+  --border-warning: var(--c-amber-500);
+  --border-info: var(--c-blue-500);
 
-  /* Signals — text step (light) for type, fill step (500) for chips/dots */
-  --signal: var(--c-amber-500);      --signal-text: var(--c-amber-300);
-  --resolved: var(--c-teal-500);     --resolved-text: var(--c-teal-300);
-  --danger: var(--c-red-500);        --danger-text: var(--c-red-300);
-  --success: var(--c-green-500);     --success-text: var(--c-green-300);
-  --info: var(--c-blue-500);         --info-text: var(--c-blue-300);
+  /* ───────────────────────────────────────── 2A · ACCENT (indigo) ───
+   * The single interactive identity — buttons / links / focus / selection.
+   * States darken (500→600→700) so the white label stays AA in every state
+   * (lightening past 400 would fail the label). Amber is NOT interaction. */
+  --accent: var(--c-indigo-500);
+  --accent-hover: var(--c-indigo-600);
+  --accent-pressed: var(--c-indigo-700);
+  --accent-subtle: var(--c-indigo-900);  /* tinted ground: active row, focus-within */
+  --accent-text: var(--c-indigo-400);    /* accent as text/link (= --text-link) */
+  --accent-ring: var(--c-indigo-400);    /* focus ring (= --border-focus) */
 
-  --shadow-scrim: rgba(0, 0, 0, var(--opacity-scrim));
+  /* ──────────────────────────────────────── SIGNALS (status hues) ───
+   * Fill (500) for dots/chips with a dark on-signal label; text step (300) for
+   * type. These carry STATE, never interaction. */
+  --signal: var(--c-amber-500);          --signal-text: var(--c-amber-300);
+  --resolved: var(--c-teal-500);         /* --text-resolved above */
+  --danger: var(--c-red-500);
+  --success: var(--c-green-500);
+  --info: var(--c-blue-500);
+  --on-signal: var(--c-slate-950);       /* dark ink on any 500 signal fill */
+
+  /* ──────────────────────────────────────── 2A · FEEDBACK (4 sets) ───
+   * Each of success / warning / error / info gets bg (tinted ground) · surface ·
+   * border · text · icon. Pair with an icon + text always (1.4.1). */
+  --fb-success-bg: var(--c-green-950);   --fb-success-surface: var(--c-green-900);
+  --fb-success-border: var(--c-green-500); --fb-success-text: var(--c-green-300);
+  --fb-success-icon: var(--c-green-400);
+
+  --fb-warning-bg: var(--c-amber-950);   --fb-warning-surface: var(--c-amber-900);
+  --fb-warning-border: var(--c-amber-500); --fb-warning-text: var(--c-amber-300);
+  --fb-warning-icon: var(--c-amber-400);
+
+  --fb-error-bg: var(--c-red-950);       --fb-error-surface: var(--c-red-900);
+  --fb-error-border: var(--c-red-500);   --fb-error-text: var(--c-red-300);
+  --fb-error-icon: var(--c-red-400);
+
+  --fb-info-bg: var(--c-blue-950);       --fb-info-surface: var(--c-blue-900);
+  --fb-info-border: var(--c-blue-500);   --fb-info-text: var(--c-blue-300);
+  --fb-info-icon: var(--c-blue-400);
+
+  /* ════════════════════════════════════════ 2F · AI-SPECIFIC COLOR ═══
+   * ProductAgents' differentiator. Grounded in the real event vocabulary
+   * (ProgressEvent/NodeComplete/DebateTurn/Judgment/ApprovalRequested/
+   * FinalVerdict/RunAborted; node states waiting/running/done/degraded/failed/
+   * awaiting-human). Every status pairs with a glyph + label — color reinforces,
+   * never carries, the meaning. */
+
+  /* Pipeline / node status. amber = LIVE (its reserved job); teal = settled;
+   * indigo = your turn (awaiting human); red = failed; slate = inert. */
+  --ai-waiting: var(--c-slate-500);          /* ◌ queued / not started */
+  --ai-running: var(--c-amber-500);          /* ◐ live (animated) */
+  --ai-running-text: var(--c-amber-300);
+  --ai-done: var(--c-teal-500);              /* ✓ settled */
+  --ai-done-text: var(--c-teal-300);
+  --ai-degraded: var(--c-amber-600);         /* ⚠ completed with caveats */
+  --ai-degraded-text: var(--c-amber-300);
+  --ai-failed: var(--c-red-500);             /* ✕ errored */
+  --ai-failed-text: var(--c-red-300);
+  --ai-awaiting-human: var(--c-indigo-400);  /* ◆ approval / your action */
+  --ai-cancelled: var(--c-slate-600);        /* ⊘ aborted */
+
+  /* Live cognition vs live output. */
+  --ai-thinking: var(--c-indigo-400);        /* reasoning pulse */
+  --ai-streaming: var(--c-amber-500);        /* tokens arriving */
+  --ai-tool: var(--c-blue-400);              /* tool call / external reach */
+
+  /* Workflow graph. */
+  --ai-node-border: var(--c-slate-600);
+  --ai-node-active-border: var(--c-amber-500);
+  --ai-edge: var(--c-slate-700);
+  --ai-edge-active: var(--c-amber-500);
+
+  /* Log levels (trace → critical). Mono stream; level pairs with a text label. */
+  --ai-log-trace: var(--c-slate-500);
+  --ai-log-debug: var(--c-slate-450);
+  --ai-log-info: var(--c-blue-300);
+  --ai-log-warn: var(--c-amber-300);
+  --ai-log-error: var(--c-red-300);
+  --ai-log-critical: var(--c-red-200);       /* on a red-tinted row */
+
+  /* Confidence gauge — the signature "confidence as a measured quantity" motif.
+   * A calibrated low→high scale; the gauge also shows the numeric reading, so
+   * color is reinforcement. */
+  --ai-confidence-low: var(--c-red-400);
+  --ai-confidence-medium: var(--c-amber-400);
+  --ai-confidence-high: var(--c-teal-400);
+  --ai-confidence-track: var(--c-slate-800);
+
+  /* Debate dialectic — a first-class visual element (advocate vs skeptic). */
+  --ai-advocate: var(--c-teal-400);          /* the case FOR */
+  --ai-skeptic: var(--c-amber-400);          /* the case AGAINST / caution */
+
+  /* The five analyst perspectives — kept visually distinct (product principle
+   * "specialization"). CVD-honest: these hues are NOT all separable under
+   * protan/deutan, so each analyst ALSO carries a unique Phosphor glyph + label
+   * and a fixed position — color is the weakest channel of the three. */
+  --ai-analyst-customer: var(--c-blue-400);     /* customer research */
+  --ai-analyst-analytics: var(--c-teal-400);    /* product analytics */
+  --ai-analyst-market: var(--c-amber-400);      /* market */
+  --ai-analyst-business: var(--c-indigo-300);   /* business */
+  --ai-analyst-technical: var(--c-slate-400);   /* technical (neutral) */
+
+  /* ───────────────────────────────────────────────── ELEVATION TINT ───
+   * Dark keeps the deep, low-spread primitive shadows. */
+  --shadow-scrim: var(--bg-overlay);
+
+  /* ═══════════════════════════════════════ BACK-COMPAT ALIASES ═══
+   * Short role names kept so the Phase-1 styleguide chrome (harness.css) and
+   * the Foundations gallery keep working. New components use the canonical
+   * names above; these are ergonomic shortcuts, not a second system. */
+  --bg: var(--bg-primary);
+  --panel: var(--bg-secondary);
+  --elevated: var(--bg-elevated);
+  --well: var(--surface-sunken);
+  --field: var(--surface-sunken);
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --hairline: var(--border-subtle);
+  --structural: var(--border-default);
+  --focus: var(--border-focus);
+  --primary: var(--accent);
+  --primary-text: var(--accent-text);
+  --on-primary: var(--text-on-accent);
 }

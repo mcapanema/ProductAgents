@@ -1,0 +1,196 @@
+/*
+ * ProductAgents — Component + State tokens (Phase 2: 2E)
+ * ======================================================
+ * The third layer: per-component token SETS that compose the semantic layer
+ * (themes/*.css color + semantic.css dimensions) into the exact handles a
+ * component reads. These are theme-AGNOSTIC — they reference semantic roles
+ * (`--accent`, `--surface-hover`, `--radius-control`, `--pad-control-x`), which
+ * already adapt per theme, so a component wired to these tokens changes zero
+ * code between light and dark (the 2H contract, one layer up).
+ *
+ * State derivations that lack a dedicated semantic token (e.g. a danger
+ * button's hover) use `color-mix(in oklab, …)` so the derivation stays a
+ * function of the theme token, never a pinned literal.
+ *
+ * Layer order:  primitives.css → semantic.css + themes/*.css → components.css
+ */
+
+:root {
+  /* ═══════════════════════════════════════ STATE MATRIX (reusable) ═══
+   * The 11 interaction states, expressed as the channel each one uses. Most
+   * states reuse a semantic role; per-component sets below layer specifics on
+   * top. Color is never the only state channel — focus adds a ring, disabled
+   * dims + sets the cursor, loading adds a spinner, invalid adds an icon. */
+  --state-hover-bg: var(--surface-hover);
+  --state-pressed-bg: var(--surface-pressed);
+  --state-selected-bg: var(--surface-selected);
+  --state-selected-accent: var(--accent);          /* selected marker / left edge of a row */
+  --state-disabled-opacity: var(--opacity-disabled);
+  --state-disabled-cursor: var(--cursor-disabled);
+  --state-loading-opacity: 0.7;                     /* + spinner */
+  --state-dragging-opacity: 0.85;                   /* + floating elevation */
+  --state-dragging-shadow: var(--elevation-floating);
+  --state-invalid-border: var(--border-error);
+  --state-invalid-text: var(--text-error);
+  --state-success-border: var(--border-success);
+  --state-warning-border: var(--border-warning);
+  /* focus state = --focus-ring-width / --focus-ring-offset / --border-focus
+     (semantic.css + theme); every interactive component applies it on
+     :focus-visible. */
+
+  /* ══════════════════════════════════════════════════════ BUTTON ═══
+   * Variants: primary (the one accent CTA), secondary (neutral outline),
+   * ghost (low-emphasis), danger (destructive). One height tier shown; sm/lg
+   * swap --size-control + --pad-control-* at the call site. */
+  --btn-height: var(--size-control);
+  --btn-radius: var(--radius-control);
+  --btn-pad-x: var(--pad-control-x);
+  --btn-pad-y: var(--pad-control-y);
+  --btn-gap: var(--gap-inline);
+  --btn-font: var(--text-button);
+  --btn-transition: var(--transition-control);
+
+  --btn-primary-bg: var(--accent);
+  --btn-primary-bg-hover: var(--accent-hover);
+  --btn-primary-bg-pressed: var(--accent-pressed);
+  --btn-primary-text: var(--text-on-accent);
+
+  --btn-secondary-bg: var(--surface-default);
+  --btn-secondary-bg-hover: var(--surface-hover);
+  --btn-secondary-bg-pressed: var(--surface-pressed);
+  --btn-secondary-text: var(--text-primary);
+  --btn-secondary-border: var(--border-default);
+
+  --btn-ghost-bg: transparent;
+  --btn-ghost-bg-hover: var(--surface-hover);
+  --btn-ghost-bg-pressed: var(--surface-pressed);
+  --btn-ghost-text: var(--text-secondary);
+  --btn-ghost-text-hover: var(--text-primary);
+
+  --btn-danger-bg: var(--danger);
+  --btn-danger-bg-hover: color-mix(in oklab, var(--danger) 86%, black);
+  --btn-danger-bg-pressed: color-mix(in oklab, var(--danger) 74%, black);
+  --btn-danger-text: var(--on-signal);
+
+  /* ═══════════════════════════════════════════════════════ FIELD ═══
+   * Text input / select / textarea. */
+  --field-height: var(--size-field);
+  --field-radius: var(--radius-field);
+  --field-pad-x: var(--pad-field-x);
+  --field-pad-y: var(--pad-field-y);
+  --field-font: var(--text-body-m);
+  --field-bg: var(--surface-sunken);
+  --field-bg-hover: var(--surface-hover);
+  --field-bg-disabled: var(--surface-default);
+  --field-border: var(--border-default);
+  --field-border-hover: var(--border-strong);
+  --field-border-focus: var(--border-focus);
+  --field-border-invalid: var(--border-error);
+  --field-text: var(--text-primary);
+  --field-placeholder: var(--text-secondary);
+  --field-transition: var(--transition-surface);
+
+  /* ════════════════════════════════════════════════ CARD / PANEL ═══ */
+  --card-bg: var(--surface-default);
+  --card-bg-raised: var(--surface-raised);
+  --card-border: var(--border-subtle);
+  --card-radius: var(--radius-card);
+  --card-pad: var(--pad-card);
+  --card-shadow: var(--elevation-raised);
+  --card-shadow-hover: var(--elevation-floating);
+
+  --panel-bg: var(--bg-secondary);
+  --panel-border: var(--border-subtle);
+
+  /* ═══════════════════════════════════════════════ CHIP / BADGE ═══
+   * Status pill. Neutral by default; status variants point at the signal /
+   * AI tokens and ALWAYS carry a glyph + label (1.4.1). */
+  --chip-height: var(--control-sm);
+  --chip-radius: var(--radius-pill);
+  --chip-pad-x: var(--space-8);
+  --chip-gap: var(--space-4);
+  --chip-font: var(--text-label);
+  --chip-bg: var(--surface-raised);
+  --chip-text: var(--text-secondary);
+  --chip-border: var(--border-subtle);
+
+  /* ══════════════════════════════════════════════ NAV / SIDEBAR ═══ */
+  --nav-item-height: var(--row-height);
+  --nav-item-radius: var(--radius-control);
+  --nav-item-pad-x: var(--pad-control-x);
+  --nav-item-gap: var(--gap-inline);
+  --nav-item-text: var(--text-secondary);
+  --nav-item-text-hover: var(--text-primary);
+  --nav-item-text-selected: var(--text-primary);
+  --nav-item-bg-hover: var(--surface-hover);
+  --nav-item-bg-selected: var(--surface-selected);
+  --nav-item-marker-selected: var(--accent);   /* selected indicator */
+  --nav-icon-size: var(--size-icon-inline);
+
+  /* ════════════════════════════════════════════ TABLE / DATA ROW ═══ */
+  --table-header-bg: var(--bg-secondary);
+  --table-header-text: var(--text-secondary);
+  --table-header-font: var(--text-label);
+  --table-row-bg: transparent;
+  --table-row-bg-hover: var(--surface-hover);
+  --table-row-bg-selected: var(--surface-selected);
+  --table-border: var(--border-subtle);
+  --table-cell-pad-x: var(--pad-cell-x);
+  --table-cell-pad-y: var(--pad-cell-y);
+  --table-row-height: var(--row-height);
+  --table-numeric-font: var(--text-terminal);   /* tabular figures for value columns */
+
+  /* ═════════════════════════════════════════ TOOLTIP / POPOVER ═══ */
+  --tooltip-bg: var(--bg-inverse);
+  --tooltip-text: var(--text-inverse);
+  --tooltip-radius: var(--radius-popover);
+  --tooltip-pad-x: var(--space-8);
+  --tooltip-pad-y: var(--space-4);
+  --tooltip-font: var(--text-body-s);
+
+  --popover-bg: var(--surface-floating);
+  --popover-border: var(--border-default);
+  --popover-radius: var(--radius-popover);
+  --popover-pad: var(--pad-card);
+  --popover-shadow: var(--elevation-floating);
+
+  /* ════════════════════════════════════════════════ OVERLAY ═══ */
+  --overlay-scrim: var(--bg-overlay);
+  --overlay-blur: var(--blur-scrim);
+  --dialog-bg: var(--surface-raised);
+  --dialog-border: var(--border-subtle);
+  --dialog-radius: var(--radius-modal);
+  --dialog-pad: var(--space-24);
+  --dialog-shadow: var(--elevation-modal);
+
+  /* ════════════════════════════════════════════ ALERT / TOAST ═══
+   * Compose the feedback sets (themes 2A). One handle each; the variant picks
+   * the matching --fb-<kind>-* group. */
+  --alert-radius: var(--radius-card);
+  --alert-pad: var(--pad-card);
+  --alert-border-width: var(--border-width-default);
+  --alert-icon-size: var(--size-icon);
+  --toast-shadow: var(--elevation-overlay);
+  --toast-radius: var(--radius-card);
+
+  /* ════════════════════════════════════ AI · EXECUTION TIMELINE ═══
+   * The Run centerpiece (replaces the raw JSON dump). Node markers read their
+   * fill from the 2F --ai-* status tokens; these are the shared geometry. */
+  --timeline-rail: var(--ai-edge);
+  --timeline-rail-active: var(--ai-edge-active);
+  --timeline-node-size: var(--icon-md);
+  --timeline-row-gap: var(--gap-stack);
+  --timeline-connector-width: var(--border-width-strong);
+
+  /* Log / console viewer. */
+  --log-bg: var(--surface-sunken);
+  --log-font: var(--text-terminal);
+  --log-row-pad-y: var(--space-2);
+  --log-gutter-text: var(--text-tertiary);   /* line numbers / timestamps */
+
+  /* Confidence gauge — the signature motif. Geometry only; fill comes from the
+   * 2F --ai-confidence-* scale, and the numeric reading is always shown. */
+  --gauge-track: var(--ai-confidence-track);
+  --gauge-height: var(--space-6);
+  --gauge-radius: var(--radius-pill);
+}

@@ -1,40 +1,152 @@
 /*
- * Theme scaffold — LIGHT (default per owner override). Phase 1.
- * ============================================================
- * Same roles as dark.css, remapped onto warm `sand` grounds + dark `slate`
- * ink. Signal *text* uses the darker 700 steps (legible on light), while the
- * 500 fill keeps a dark on-signal label. SCAFFOLD — Phase 2A expands. Gated by
- * design/contrast.py.
+ * Theme — LIGHT (default per owner override). Phase 2: 2A · 2F · 2H.
+ * ==================================================================
+ * The same semantic color roles as dark.css, remapped onto warm `sand` grounds
+ * with dark `slate` ink. Signal/feedback TEXT uses the darker 700 steps
+ * (legible on light); fills stay at 500 with a dark on-signal label. Shadows
+ * are re-tinted softer (the dark-canvas primitives are too heavy on white).
+ * Gated by design/contrast.py in both themes incl. CVD. Color is never the
+ * only channel.
  */
 
 [data-theme="light"] {
-  /* Surfaces (recessed → raised) */
-  --bg: var(--c-sand-100);           /* warm off-white canvas */
-  --panel: var(--c-sand-50);         /* raised panel */
-  --elevated: var(--c-white);        /* floating / popover */
-  --well: var(--c-sand-200);         /* recessed (logs, inputs) */
-  --field: var(--c-white);           /* input background */
+  /* ───────────────────────────────────────────── 2A · BACKGROUNDS ─── */
+  --bg-primary: var(--c-sand-100);      /* warm off-white canvas */
+  --bg-secondary: var(--c-sand-50);     /* sidebar / secondary (lighter = lifted) */
+  --bg-tertiary: var(--c-sand-200);     /* nested wells, inset toolbars */
+  --bg-elevated: var(--c-white);        /* floating regions */
+  --bg-overlay: rgba(20, 23, 28, 0.50); /* modal / drawer scrim */
+  --bg-inverse: var(--c-slate-900);     /* inverse chips / spotlight on dark */
 
-  /* Borders */
-  --hairline: var(--c-sand-300);     /* decorative divider (not contrast-gated) */
-  --structural: var(--c-slate-600);  /* control outline / gridline (≥3:1) */
-  --focus: var(--c-indigo-600);      /* focus ring = primary */
+  /* ─────────────────────────────────────────────── 2A · SURFACES ───
+   * hover/pressed darken progressively on light (toward the pointer). */
+  --surface-default: var(--c-sand-50);
+  --surface-raised: var(--c-white);
+  --surface-floating: var(--c-white);
+  --surface-sunken: var(--c-sand-200);
+  --surface-hover: var(--c-sand-100);
+  --surface-pressed: var(--c-sand-300);
+  --surface-selected: var(--c-indigo-100);
 
-  /* Text */
-  --ink: var(--c-slate-900);         /* primary */
-  --muted: var(--c-slate-700);       /* secondary / metadata */
-  --on-signal: var(--c-slate-950);   /* dark label on any 500 signal fill */
-  --on-primary: var(--c-white);      /* label on the primary fill */
+  /* ──────────────────────────────────────────────────── 2A · TEXT ─── */
+  --text-primary: var(--c-slate-900);
+  --text-secondary: var(--c-slate-700);
+  --text-tertiary: var(--c-slate-600);   /* 3:1 — labels/icons/large only */
+  --text-disabled: var(--c-slate-450);   /* + opacity-disabled; a11y-exempt */
+  --text-inverse: var(--c-slate-50);     /* on dark/inverse surfaces */
+  --text-link: var(--c-indigo-700);
+  --text-on-accent: var(--c-white);
+  --text-success: var(--c-green-700);
+  --text-warning: var(--c-amber-700);
+  --text-error: var(--c-red-700);
+  --text-info: var(--c-blue-700);
+  --text-resolved: var(--c-teal-700);
 
-  /* Primary — the interactive accent (buttons / links / focus / selected) */
-  --primary: var(--c-indigo-600);    --primary-text: var(--c-indigo-700);
+  /* ────────────────────────────────────────────────── 2A · BORDERS ─── */
+  --border-subtle: var(--c-sand-300);
+  --border-default: var(--c-slate-600);
+  --border-strong: var(--c-slate-700);
+  --border-focus: var(--c-indigo-600);
+  --border-error: var(--c-red-500);
+  --border-success: var(--c-green-500);
+  --border-warning: var(--c-amber-500);
+  --border-info: var(--c-blue-500);
 
-  /* Signals — text step (dark 700) for type, fill step (500) for chips/dots */
-  --signal: var(--c-amber-500);      --signal-text: var(--c-amber-700);
-  --resolved: var(--c-teal-500);     --resolved-text: var(--c-teal-700);
-  --danger: var(--c-red-500);        --danger-text: var(--c-red-700);
-  --success: var(--c-green-500);     --success-text: var(--c-green-700);
-  --info: var(--c-blue-500);         --info-text: var(--c-blue-700);
+  /* ───────────────────────────────────────── 2A · ACCENT (indigo) ───
+   * States darken (600→700→800); the white label stays AA across all states. */
+  --accent: var(--c-indigo-600);
+  --accent-hover: var(--c-indigo-700);
+  --accent-pressed: var(--c-indigo-800);
+  --accent-subtle: var(--c-indigo-100);
+  --accent-text: var(--c-indigo-700);
+  --accent-ring: var(--c-indigo-600);
 
-  --shadow-scrim: rgba(20, 23, 28, var(--opacity-scrim));
+  /* ──────────────────────────────────────── SIGNALS (status hues) ─── */
+  --signal: var(--c-amber-500);          --signal-text: var(--c-amber-700);
+  --resolved: var(--c-teal-500);
+  --danger: var(--c-red-500);
+  --success: var(--c-green-500);
+  --info: var(--c-blue-500);
+  --on-signal: var(--c-slate-950);       /* dark ink on any 500 signal fill */
+
+  /* ──────────────────────────────────────── 2A · FEEDBACK (4 sets) ─── */
+  --fb-success-bg: var(--c-green-50);    --fb-success-surface: var(--c-green-100);
+  --fb-success-border: var(--c-green-600); --fb-success-text: var(--c-green-700);
+  --fb-success-icon: var(--c-green-600);
+
+  --fb-warning-bg: var(--c-amber-50);    --fb-warning-surface: var(--c-amber-100);
+  --fb-warning-border: var(--c-amber-600); --fb-warning-text: var(--c-amber-700);
+  --fb-warning-icon: var(--c-amber-600);
+
+  --fb-error-bg: var(--c-red-50);        --fb-error-surface: var(--c-red-100);
+  --fb-error-border: var(--c-red-600);   --fb-error-text: var(--c-red-700);
+  --fb-error-icon: var(--c-red-600);
+
+  --fb-info-bg: var(--c-blue-50);        --fb-info-surface: var(--c-blue-100);
+  --fb-info-border: var(--c-blue-600);   --fb-info-text: var(--c-blue-700);
+  --fb-info-icon: var(--c-blue-600);
+
+  /* ════════════════════════════════════════ 2F · AI-SPECIFIC COLOR ═══ */
+  --ai-waiting: var(--c-slate-500);
+  --ai-running: var(--c-amber-500);          --ai-running-text: var(--c-amber-700);
+  --ai-done: var(--c-teal-500);              --ai-done-text: var(--c-teal-700);
+  --ai-degraded: var(--c-amber-600);         --ai-degraded-text: var(--c-amber-700);
+  --ai-failed: var(--c-red-500);             --ai-failed-text: var(--c-red-700);
+  --ai-awaiting-human: var(--c-indigo-600);
+  --ai-cancelled: var(--c-slate-450);
+
+  --ai-thinking: var(--c-indigo-600);
+  --ai-streaming: var(--c-amber-500);
+  --ai-tool: var(--c-blue-600);
+
+  --ai-node-border: var(--c-slate-600);
+  --ai-node-active-border: var(--c-amber-500);
+  --ai-edge: var(--c-sand-300);
+  --ai-edge-active: var(--c-amber-500);
+
+  --ai-log-trace: var(--c-slate-600);
+  --ai-log-debug: var(--c-slate-700);
+  --ai-log-info: var(--c-blue-700);
+  --ai-log-warn: var(--c-amber-700);
+  --ai-log-error: var(--c-red-700);
+  --ai-log-critical: var(--c-red-800);
+
+  --ai-confidence-low: var(--c-red-600);
+  --ai-confidence-medium: var(--c-amber-600);
+  --ai-confidence-high: var(--c-teal-600);
+  --ai-confidence-track: var(--c-sand-300);
+
+  --ai-advocate: var(--c-teal-600);
+  --ai-skeptic: var(--c-amber-600);
+
+  --ai-analyst-customer: var(--c-blue-600);
+  --ai-analyst-analytics: var(--c-teal-600);
+  --ai-analyst-market: var(--c-amber-600);
+  --ai-analyst-business: var(--c-indigo-600);
+  --ai-analyst-technical: var(--c-slate-600);
+
+  /* ───────────────────────────────────────────────── ELEVATION TINT ───
+   * Softer, slate-tinted shadows (the dark primitives crush on white). The
+   * --elevation-* semantic tokens reference these, so they follow. */
+  --shadow-xs: 0 1px 2px rgba(27, 31, 38, 0.08);
+  --shadow-sm: 0 1px 3px rgba(27, 31, 38, 0.10), 0 1px 2px rgba(27, 31, 38, 0.06);
+  --shadow-md: 0 4px 10px rgba(27, 31, 38, 0.10), 0 2px 4px rgba(27, 31, 38, 0.06);
+  --shadow-lg: 0 10px 24px rgba(27, 31, 38, 0.12), 0 4px 8px rgba(27, 31, 38, 0.08);
+  --shadow-xl: 0 20px 48px rgba(27, 31, 38, 0.16), 0 8px 16px rgba(27, 31, 38, 0.10);
+  --shadow-scrim: var(--bg-overlay);
+
+  /* ═══════════════════════════════════════ BACK-COMPAT ALIASES ═══ */
+  --bg: var(--bg-primary);
+  --panel: var(--bg-secondary);
+  --elevated: var(--bg-elevated);
+  --well: var(--surface-sunken);
+  --field: var(--bg-elevated);
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --hairline: var(--border-subtle);
+  --structural: var(--border-default);
+  --focus: var(--border-focus);
+  --primary: var(--accent);
+  --primary-text: var(--accent-text);
+  --on-primary: var(--text-on-accent);
 }

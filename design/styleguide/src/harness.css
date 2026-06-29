@@ -183,4 +183,181 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
   .sg-motion-dot { left: calc(100% - 24px); }
+  .sg-status-dot[data-live="true"]::after { animation: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * PHASE 2 — Token reference gallery
+ * Every demo below consumes ONLY the semantic / component / theme tokens
+ * (never a primitive directly) — it is the proof that components can be built
+ * from the token layer alone, and it adapts across themes with zero changes.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* Phase divider band. */
+.sg-band {
+  display: flex; align-items: baseline; gap: var(--space-12);
+  margin: var(--space-16) 0 calc(var(--space-8) * -1);
+  padding-bottom: var(--space-8);
+  border-bottom: var(--border-width-strong) solid var(--border-default);
+}
+.sg-band h2 { margin: 0; font: var(--text-heading-3); letter-spacing: var(--text-heading-3-tracking); }
+.sg-band span { color: var(--text-secondary); font-size: var(--fs-sm); }
+
+/* ── Semantic color role grids ─────────────────────────────────────────────── */
+.sg-roles2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--gap-grid); }
+.sg-role { display: grid; gap: var(--space-6); }
+.sg-role .chip {
+  height: 52px; border-radius: var(--radius-control);
+  border: var(--border-width-default) solid var(--border-subtle);
+}
+.sg-role b { font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+.sg-role code { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); word-break: break-all; }
+
+/* Text ladder — each role on the panel ground. */
+.sg-textladder { display: grid; gap: var(--space-12); }
+.sg-textladder .row { display: grid; grid-template-columns: 130px 1fr; align-items: baseline; gap: var(--space-16); }
+.sg-textladder .meta { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+.sg-textladder .demo { font-size: var(--fs-md); }
+
+/* ── Type styles ───────────────────────────────────────────────────────────── */
+.sg-typestyles { display: grid; gap: var(--space-20); }
+.sg-ts-row { display: grid; grid-template-columns: 130px 1fr; align-items: baseline; gap: var(--space-16); }
+.sg-ts-row .meta { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); padding-top: var(--space-4); }
+.sg-ts-row .demo { overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Dimensional: elevation roles + motion presets reuse Phase-1 demos ─────── */
+.sg-dim { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--gap-grid); }
+.sg-dim-cell {
+  height: 88px; border-radius: var(--radius-card);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  display: flex; align-items: flex-end; padding: var(--space-8);
+}
+.sg-dim-cell code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+
+/* ── Component previews (proof: built from --btn-* / --field-* / --chip-* only) */
+.sg-comp { display: grid; gap: var(--space-20); }
+.sg-comp-row { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.sg-comp-label { width: 100%; font: var(--text-label); letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase; color: var(--text-tertiary); }
+
+.demo-btn {
+  height: var(--btn-height); border-radius: var(--btn-radius);
+  padding: 0 var(--btn-pad-x); font: var(--btn-font); letter-spacing: var(--btn-tracking, 0);
+  border: var(--border-width-default) solid transparent; cursor: var(--cursor-interactive);
+  transition: var(--btn-transition); display: inline-flex; align-items: center; gap: var(--btn-gap);
+}
+.demo-btn:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.demo-btn--primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+.demo-btn--primary:hover { background: var(--btn-primary-bg-hover); }
+.demo-btn--primary:active { background: var(--btn-primary-bg-pressed); }
+.demo-btn--secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); border-color: var(--btn-secondary-border); }
+.demo-btn--secondary:hover { background: var(--btn-secondary-bg-hover); }
+.demo-btn--secondary:active { background: var(--btn-secondary-bg-pressed); }
+.demo-btn--ghost { background: var(--btn-ghost-bg); color: var(--btn-ghost-text); }
+.demo-btn--ghost:hover { background: var(--btn-ghost-bg-hover); color: var(--btn-ghost-text-hover); }
+.demo-btn--danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); }
+.demo-btn--danger:hover { background: var(--btn-danger-bg-hover); }
+.demo-btn--danger:active { background: var(--btn-danger-bg-pressed); }
+.demo-btn[disabled] { opacity: var(--state-disabled-opacity); cursor: var(--state-disabled-cursor); }
+
+.demo-field {
+  height: var(--field-height); border-radius: var(--field-radius);
+  padding: 0 var(--field-pad-x); font: var(--field-font);
+  background: var(--field-bg); color: var(--field-text);
+  border: var(--border-width-default) solid var(--field-border);
+  transition: var(--field-transition); min-width: 200px;
+}
+.demo-field::placeholder { color: var(--field-placeholder); }
+.demo-field:hover { border-color: var(--field-border-hover); }
+.demo-field:focus-visible { outline: var(--focus-ring-width) solid var(--field-border-focus); outline-offset: var(--focus-ring-offset); border-color: var(--field-border-focus); }
+.demo-field[aria-invalid="true"] { border-color: var(--field-border-invalid); }
+
+.demo-chip {
+  height: var(--chip-height); border-radius: var(--chip-radius);
+  padding: 0 var(--chip-pad-x); font: var(--chip-font); letter-spacing: var(--chip-tracking, 0);
+  background: var(--chip-bg); color: var(--chip-text);
+  border: var(--border-width-default) solid var(--chip-border);
+  display: inline-flex; align-items: center; gap: var(--chip-gap);
+}
+
+/* ── Feedback alerts ───────────────────────────────────────────────────────── */
+.sg-alerts { display: grid; gap: var(--space-12); }
+.demo-alert {
+  display: flex; align-items: flex-start; gap: var(--space-12);
+  padding: var(--alert-pad); border-radius: var(--alert-radius);
+  border: var(--alert-border-width) solid;
+}
+/* Icon anchors to the TITLE line (alert convention) — centered within the
+ * title's line box so it stays put when the body wraps. No magic margin. */
+.demo-alert .ico {
+  font-size: var(--fs-md); flex: none;
+  display: inline-flex; align-items: center;
+  height: calc(var(--fs-sm) * var(--lh-normal));
+}
+.demo-alert b { display: block; font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.demo-alert p { margin: var(--space-2) 0 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* ── AI status chips ───────────────────────────────────────────────────────── */
+.sg-ai-status { display: flex; flex-wrap: wrap; gap: var(--space-12); }
+.demo-status {
+  display: inline-flex; align-items: center; gap: var(--space-8);
+  padding: var(--space-6) var(--space-12); border-radius: var(--radius-pill);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  font-size: var(--fs-sm);
+}
+.sg-status-dot { width: 10px; height: 10px; border-radius: var(--radius-full); flex: none; position: relative; }
+.sg-status-dot[data-live="true"]::after {
+  content: ""; position: absolute; inset: -4px; border-radius: var(--radius-full);
+  border: var(--border-width-default) solid currentColor; opacity: 0.5;
+  animation: sg-ping var(--dur-slower) var(--ease-emphasis) infinite;
+}
+@keyframes sg-ping { 0% { transform: scale(0.7); opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+.demo-status .glyph { font-size: var(--fs-sm); width: 1em; text-align: center; }
+.demo-status .lbl { color: var(--text-primary); }
+
+/* ── Log levels ────────────────────────────────────────────────────────────── */
+.sg-log { background: var(--log-bg); border-radius: var(--radius-card); padding: var(--space-12);
+  font: var(--log-font); border: var(--border-width-default) solid var(--border-subtle); }
+.sg-log .line { display: grid; grid-template-columns: 84px 1fr; gap: var(--space-12); padding: var(--log-row-pad-y) 0; }
+.sg-log .lvl { text-transform: uppercase; font-size: var(--fs-xs); letter-spacing: var(--ls-wide); }
+.sg-log .msg { color: var(--text-primary); }
+
+/* ── Confidence gauge (the signature motif) ────────────────────────────────── */
+.sg-gauges { display: grid; gap: var(--space-16); max-width: 420px; }
+.sg-gauge-row { display: grid; gap: var(--space-6); }
+.sg-gauge-head { display: flex; justify-content: space-between; align-items: baseline; }
+.sg-gauge-head .lbl { font-size: var(--fs-sm); color: var(--text-secondary); }
+.sg-gauge-head .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.sg-gauge { height: var(--gauge-height); background: var(--gauge-track); border-radius: var(--gauge-radius); overflow: hidden; }
+.sg-gauge .fill { height: 100%; border-radius: var(--gauge-radius); }
+
+/* ── Analyst perspectives (color + shape + label = three channels) ─────────── */
+.sg-analysts { display: flex; flex-wrap: wrap; gap: var(--space-12); }
+.demo-analyst { display: inline-flex; align-items: center; gap: var(--space-8);
+  padding: var(--space-8) var(--space-12); border-radius: var(--radius-control);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle); }
+.demo-analyst .mark { width: var(--icon-sm); height: var(--icon-sm); display: grid; place-items: center; color: var(--bg-primary); border-radius: var(--radius-xs); font-size: 11px; font-weight: var(--fw-bold); }
+.demo-analyst .name { font-size: var(--fs-sm); color: var(--text-primary); }
+
+/* ── Debate dialectic ──────────────────────────────────────────────────────── */
+.sg-debate { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); }
+@media (max-width: 640px) { .sg-debate { grid-template-columns: 1fr; } }
+.demo-debate { border-radius: var(--radius-card); padding: var(--pad-card);
+  background: var(--surface-default); border: var(--border-width-default) solid var(--border-subtle);
+  border-top: var(--border-width-focus) solid var(--side); }
+.demo-debate h4 { margin: 0 0 var(--space-4); font: var(--text-title); display: flex; align-items: center; gap: var(--space-8); }
+.demo-debate .tag { color: var(--side); }
+.demo-debate p { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+
+/* ── Focus ring + density demo ─────────────────────────────────────────────── */
+.sg-focus-demo { display: flex; gap: var(--space-16); flex-wrap: wrap; align-items: center; }
+.sg-density-note { font-size: var(--fs-sm); color: var(--text-secondary); }
+.sg-density-note b { color: var(--text-primary); font-weight: var(--fw-semibold); }
+
+/* ── Iconography note ──────────────────────────────────────────────────────── */
+.sg-icons { display: flex; flex-wrap: wrap; gap: var(--space-20); align-items: flex-end; }
+.sg-icon-demo { display: grid; justify-items: center; gap: var(--space-6); color: var(--text-primary); }
+.sg-icon-demo code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+
+.sg-note { font-size: var(--fs-sm); color: var(--text-secondary); max-width: 70ch; }
+.sg-note code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-primary); background: var(--surface-sunken); padding: 1px 5px; border-radius: var(--radius-xs); }
