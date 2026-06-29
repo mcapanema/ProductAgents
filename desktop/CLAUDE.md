@@ -68,15 +68,22 @@ npm run build          # tsc typecheck + Vite production build
 npm run e2e            # Playwright (starts Vite + the WS bridge; needs `npx playwright install chromium`)
 make build-sidecar     # freeze the Python IPC backend into a single binary (PyInstaller)
 make package           # build the installable desktop app (sidecar + Tauri bundle)
+# Releases: push a v* tag (e.g. git tag v0.1.1 && git push origin v0.1.1) — see docs/RELEASE.md
 ```
 
-**Packaging (Phase 8e).** The shipped app bundles the Python backend as a frozen
-PyInstaller binary (`desktop/packaging/productagents-ipc.spec`, built via
-`make build-sidecar` → `desktop/src-tauri/binaries/productagents-ipc-<triple>`)
-wired as a Tauri `externalBin`. The Rust shell runs the bundled binary in a
-packaged app and falls back to `uv run productagents ipc` in dev. No Python or uv
-is required on the target machine. Build artifacts (`build/`, `src-tauri/binaries/`)
-are gitignored; the `.spec` and build script are tracked.
+**Packaging & distribution (Phase 9).** The shipped app bundles the Python
+backend as a frozen PyInstaller binary (`desktop/packaging/productagents-ipc.spec`,
+built via `make build-sidecar` → `desktop/src-tauri/binaries/productagents-ipc-<triple>[.exe]`)
+wired as a Tauri `externalBin`. No Python or uv is needed on the target machine.
+Releases are built by `.github/workflows/release.yml` on a `v*` tag: a native
+matrix (macOS arm64 + Intel, Ubuntu, Windows) each freezes its own sidecar and
+runs `tauri build`; `tauri-action` uploads installers + a signed `latest.json`
+to a draft GitHub Release. The app auto-updates via the Tauri v2 updater plugin
+(minisign-signed, independent of OS code-signing) against that `latest.json`
+feed; the "Check for updates" button lives in Settings. Builds are **unsigned**
+— see `docs/RELEASE.md` for the release procedure and the seam to add Apple/
+Windows code-signing later. Build artifacts (`build/`, `src-tauri/binaries/`)
+are gitignored; the `.spec`, build script, capabilities, and workflow are tracked.
 
 ## Conventions
 

@@ -121,6 +121,29 @@ Roadmap prioritization · opportunity assessment · product strategy reviews · 
 
 ---
 
+## Download & install the desktop app
+
+Grab the installer for your platform from the
+[latest release](https://github.com/mcapanema/ProductAgents/releases/latest).
+No Python, uv, or Node is required — the backend is bundled.
+
+Builds are currently **unsigned**, so the OS will warn on first launch:
+
+- **macOS** (`.dmg`): drag to Applications, then right-click the app →
+  **Open** → **Open** (once). If it still refuses, run
+  `xattr -d com.apple.quarantine "/Applications/ProductAgents.app"`.
+  The arm64 `.dmg` is for Apple Silicon; the Intel `.dmg` for older Macs.
+- **Windows** (`.msi`/`.exe`): on the SmartScreen prompt choose
+  **More info → Run anyway**.
+- **Linux** (`.AppImage`): `chmod +x ProductAgents_*.AppImage && ./ProductAgents_*.AppImage`,
+  or install the `.deb`.
+
+The app updates itself: **Settings → Check for updates** downloads and installs
+new releases (verified against a built-in signing key). On macOS the same
+first-launch unsigned-app step may reappear after a major update.
+
+---
+
 ## Getting Started
 
 ProductAgents runs the **full advisory pipeline on a real data platform**. Five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the TUI. Connectors sync external systems (today: GitHub issues and Jira) into a canonical store the agents read from; every run is persisted — full transcript, judge verdict, risk assessments, human decision, and evidence provenance — to the DB-backed organizational memory (`DecisionStore`), which is the system of record. What remains on the road to the full vision above is **breadth** — more evidence connectors and the planned layers — not the core loop.
