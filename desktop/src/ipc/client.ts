@@ -59,11 +59,12 @@ export class IpcClient {
     else waiter.resolve(msg.result);
   }
 
-  private call(
+  // ponytail: Promise<unknown> internally; R asserted at return — dispatch map must stay unknown-typed
+  private call<R = unknown>(
     method: string,
     params?: Record<string, unknown>,
     handlers?: RunHandlers,
-  ): Promise<unknown> {
+  ): Promise<R> {
     const id = this.nextId++;
     return new Promise<unknown>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
@@ -76,66 +77,66 @@ export class IpcClient {
         this.runs.delete(id);
         reject(err instanceof Error ? err : new Error(String(err)));
       });
-    });
+    }) as unknown as Promise<R>;
   }
 
   workflowsList(): Promise<WorkflowSummary[]> {
-    return this.call("workflows.list") as Promise<WorkflowSummary[]>;
+    return this.call<WorkflowSummary[]>("workflows.list");
   }
 
   sessionsList(): Promise<SessionSummary[]> {
-    return this.call("sessions.list") as Promise<SessionSummary[]>;
+    return this.call<SessionSummary[]>("sessions.list");
   }
 
   sessionsShow(sessionId: string): Promise<SessionDetail> {
-    return this.call("sessions.show", { session_id: sessionId }) as Promise<SessionDetail>;
+    return this.call<SessionDetail>("sessions.show", { session_id: sessionId });
   }
 
   decisionsList(): Promise<DecisionSummary[]> {
-    return this.call("decisions.list") as Promise<DecisionSummary[]>;
+    return this.call<DecisionSummary[]>("decisions.list");
   }
 
   decisionsShow(decisionId: string): Promise<DecisionDetail> {
-    return this.call("decisions.show", { decision_id: decisionId }) as Promise<DecisionDetail>;
+    return this.call<DecisionDetail>("decisions.show", { decision_id: decisionId });
   }
 
   connectorsList(): Promise<ConnectorList> {
-    return this.call("connectors.list") as Promise<ConnectorList>;
+    return this.call<ConnectorList>("connectors.list");
   }
 
   connectorsHealth(): Promise<ConnectorHealth> {
-    return this.call("connectors.health") as Promise<ConnectorHealth>;
+    return this.call<ConnectorHealth>("connectors.health");
   }
 
   connectorsSync(): Promise<ConnectorSync> {
-    return this.call("connectors.sync") as Promise<ConnectorSync>;
+    return this.call<ConnectorSync>("connectors.sync");
   }
 
   promptsList(): Promise<PromptSummary[]> {
-    return this.call("prompts.list") as Promise<PromptSummary[]>;
+    return this.call<PromptSummary[]>("prompts.list");
   }
 
   promptsShow(name: string, version: number): Promise<PromptVersion> {
-    return this.call("prompts.show", { name, version }) as Promise<PromptVersion>;
+    return this.call<PromptVersion>("prompts.show", { name, version });
   }
 
   promptsDiff(name: string, old: number, next: number): Promise<PromptDiff> {
-    return this.call("prompts.diff", { name, old, new: next }) as Promise<PromptDiff>;
+    return this.call<PromptDiff>("prompts.diff", { name, old, new: next });
   }
 
   configGet(): Promise<ConfigStatus> {
-    return this.call("config.get") as Promise<ConfigStatus>;
+    return this.call<ConfigStatus>("config.get");
   }
 
   configSet(params: ConfigSetParams): Promise<ConfigStatus> {
-    return this.call("config.set", params as unknown as Record<string, unknown>) as Promise<ConfigStatus>;
+    return this.call<ConfigStatus>("config.set", { ...params });
   }
 
   approve(verdict: string, rationale = ""): Promise<{ ok: boolean }> {
-    return this.call("approve", { verdict, rationale }) as Promise<{ ok: boolean }>;
+    return this.call<{ ok: boolean }>("approve", { verdict, rationale });
   }
 
   run(params: RunParams, handlers: RunHandlers): Promise<RunResult> {
-    return this.call("run", params as unknown as Record<string, unknown>, handlers) as Promise<RunResult>;
+    return this.call<RunResult>("run", { ...params }, handlers);
   }
 }
