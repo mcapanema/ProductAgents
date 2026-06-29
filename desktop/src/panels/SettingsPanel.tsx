@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import type { ConfigStatus } from "../ipc/types";
+import { UpdateSection } from "./UpdateSection";
 
 export function SettingsPanel() {
   const ipc = useIpc();
@@ -80,6 +81,7 @@ export function SettingsPanel() {
           <button className="primary" onClick={save} disabled={saving || !ipc}>
             {saving ? "Saving…" : "Save"}
           </button>
+          <UpdateSection />
         </div>
       )}
     </div>
