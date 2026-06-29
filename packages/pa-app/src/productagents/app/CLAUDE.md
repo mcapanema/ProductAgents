@@ -11,7 +11,7 @@ or `connectors`.
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → `launch_tui`. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `prompts list/show/diff/save/rollback`. |
 | `tui/` | The Textual GUI (see `tui/CLAUDE.md`). `launch_tui(workspace_name)` builds and runs the app; `_build_app` is the composition root. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 | `setup.py` | `check_config` / `write_env` readiness + `.env` writer, shared by both adapters. |
 
@@ -49,9 +49,16 @@ bad input — only EOF ends it.
 
 The `error` values in `{id, error}` responses are human-facing strings (not a machine-parseable taxonomy); a Phase 8 GUI should match on the envelope shape (`event`/`result`/`error` keys), not parse error text.
 
-Deferred (YAGNI): human-in-the-loop approval over the wire (the seam is a
-server→client `approval_request` message + a client `approve` method; headless
-`run` is `human_in_the_loop=False`); concurrent in-flight requests.
+Human-in-the-loop approval now works over the wire. `run {…, approval: true}`
+builds a HITL workflow service; when the graph pauses at governance the platform
+streams an `ApprovalRequested` event and the run's approver reads the client's
+**next** request line as the decision: `approve {verdict, rationale?}` (verdict ∈
+`approve`/`reject`/`request_analysis`, invalid → `approve`). The server acks the
+approve message `{id, result: {ok: true}}` and resumes; a `FinalVerdict` event
+follows. The serve loop is sequential, so the approver simply reads the next line
+— no concurrency, single in-flight request (the client must not send other
+requests while a run awaits approval). `approval` defaults false (headless run).
+Still deferred: concurrent in-flight requests.
 
 A **dev-only** WebSocket transport now exists in `devbridge.py` (`productagents
 serve-ws`) for browser/Playwright UI testing — it reuses `ipc.handle` +
@@ -79,3 +86,12 @@ version list (`0` = bundled default) and active (highest) version, from `PromptS
 two versions. All three are read-only and guarded by a `prompts=None` kwarg (mirrors
 `connectors`), emitting a human-facing `error` if the service is absent. GUI prompt
 *editing* (save/rollback) is deferred; the `prompts` CLI still owns the write surface.
+
+`config.get` → `{model, provider, key_var, key_present, problems, providers:
+[{id, label, key_var, default_model}]}` — the static readiness check
+(`setup.check_config`) plus the provider catalog (`setup.PROVIDERS`) for the
+Settings dropdown. `config.set {model, provider?, api_key?}` writes the values to
+the **active workspace's** `.env` (`setup.write_env`, never a blank api_key over
+an existing one) and returns the refreshed `config.get` status. Both are guarded
+by a `config=None` kwarg. This is the GUI's one **write** surface; connector/prompt
+editing stays deferred.

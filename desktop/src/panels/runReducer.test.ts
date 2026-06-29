@@ -28,4 +28,28 @@ describe("runReducer", () => {
     expect(s.status).toBe("error");
     expect(s.error).toBe("rate limited");
   });
+
+  it("enters the awaiting state on an ApprovalRequested event", () => {
+    const started = runReducer(initialRunState, { kind: "start" });
+    const next = runReducer(started, {
+      kind: "event",
+      event: { type: "ApprovalRequested", payload: { advisory_verdict: "approve", advisory_rationale: "looks fine" } },
+    });
+    expect(next.awaiting).toBe(true);
+    expect(next.advisory).toEqual({ verdict: "approve", rationale: "looks fine" });
+  });
+
+  it("leaves the awaiting state on a FinalVerdict event", () => {
+    let s = runReducer(initialRunState, { kind: "start" });
+    s = runReducer(s, { kind: "event", event: { type: "ApprovalRequested", payload: {} } });
+    s = runReducer(s, { kind: "event", event: { type: "FinalVerdict", payload: { verdict: "approve" } } });
+    expect(s.awaiting).toBe(false);
+  });
+
+  it("clears awaiting immediately on approved", () => {
+    let s = runReducer(initialRunState, { kind: "start" });
+    s = runReducer(s, { kind: "event", event: { type: "ApprovalRequested", payload: {} } });
+    s = runReducer(s, { kind: "approved" });
+    expect(s.awaiting).toBe(false);
+  });
 });

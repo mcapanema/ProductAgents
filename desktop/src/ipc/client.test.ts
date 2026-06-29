@@ -99,4 +99,42 @@ describe("IpcClient", () => {
       params: { name: "strategist", old: 0, new: 2 },
     });
   });
+
+  it("requests config.get and correlates the result", async () => {
+    const { client, sent, emit } = harness();
+    const p = client.configGet();
+    expect(JSON.parse(sent[0])).toMatchObject({ id: 1, method: "config.get" });
+    emit({
+      id: 1,
+      result: {
+        model: "anthropic:claude-sonnet-4-6",
+        provider: "anthropic",
+        key_var: "ANTHROPIC_API_KEY",
+        key_present: true,
+        problems: [],
+        providers: [],
+      },
+    });
+    expect((await p).provider).toBe("anthropic");
+  });
+
+  it("passes config.set params", async () => {
+    const { client, sent } = harness();
+    void client.configSet({ model: "openai:gpt-4o", api_key: "sk-x" });
+    expect(JSON.parse(sent[0])).toMatchObject({
+      id: 1,
+      method: "config.set",
+      params: { model: "openai:gpt-4o", api_key: "sk-x" },
+    });
+  });
+
+  it("sends an approve message with the verdict", async () => {
+    const { client, sent } = harness();
+    void client.approve("reject", "too risky");
+    expect(JSON.parse(sent[0])).toMatchObject({
+      id: 1,
+      method: "approve",
+      params: { verdict: "reject", rationale: "too risky" },
+    });
+  });
 });

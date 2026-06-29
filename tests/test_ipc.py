@@ -419,7 +419,7 @@ async def test_serve_skips_blank_lines():
 def test_serve_stdio_builds_services_and_serves(monkeypatch):
     captured = {}
 
-    def fake_build_run_service():
+    def fake_build_run_service(*, human_in_the_loop=False):
         return _workflows()
 
     async def fake_serve(**kwargs):
@@ -716,3 +716,218 @@ async def test_prompts_method_without_service_errors():
     )
     assert sink[0]["id"] == 33
     assert "prompts service not available" in sink[0]["error"]
+
+
+async def test_run_with_approval_reads_decision_and_resumes():
+    async def runner(initiative, evidence, *, approver=None):
+        yield rn.ProgressEvent(node="governance", message="awaiting approval")
+        assert approver is not None
+        decision = await approver(None)  # the IPC approver reads the client's line
+        yield rn.FinalVerdictEvent(
+            verdict=decision.verdict, rationale=decision.rationale, decided_by="human"
+        )
+        yield rn.FinishedEvent(
+            recommendation=_rec(),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+            prior_lessons=[],
+            judgment=None,
+        )
+
+    read_line = _line_reader(
+        [
+            json.dumps(
+                {
+                    "id": 99,
+                    "method": "approve",
+                    "params": {"verdict": "reject", "rationale": "too risky"},
+                }
+            )
+        ]
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 5,
+            "method": "run",
+            "params": {
+                "workflow": "evaluate_initiative",
+                "title": "New API",
+                "evidence": "sample",
+                "approval": True,
+            },
+        },
+        workflows=fake_workflow_service(runner),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        emit=emit,
+    )
+
+    # The approve message was acked under its own id.
+    assert {"id": 99, "result": {"ok": True}} in sink
+    # The human decision drove the FinalVerdict the run emitted.
+    final = [m for m in sink if m.get("event", {}).get("type") == "FinalVerdict"]
+    assert final
+    assert final[0]["event"]["payload"]["verdict"] == "reject"
+    assert sink[-1] == {
+        "id": 5,
+        "result": {
+            "status": "finished",
+            "session_id": sink[-1]["result"]["session_id"],
+        },
+    }
+
+
+async def test_run_approval_defaults_invalid_verdict_to_approve():
+    async def runner(initiative, evidence, *, approver=None):
+        assert approver is not None
+        decision = await approver(None)
+        yield rn.FinalVerdictEvent(
+            verdict=decision.verdict, rationale=decision.rationale, decided_by="human"
+        )
+        yield rn.FinishedEvent(
+            recommendation=_rec(),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+            prior_lessons=[],
+            judgment=None,
+        )
+
+    read_line = _line_reader(
+        [json.dumps({"id": 1, "method": "approve", "params": {"verdict": "garbage"}})]
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 5,
+            "method": "run",
+            "params": {
+                "workflow": "evaluate_initiative",
+                "title": "X",
+                "approval": True,
+            },
+        },
+        workflows=fake_workflow_service(runner),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        emit=emit,
+    )
+    final = [m for m in sink if m.get("event", {}).get("type") == "FinalVerdict"]
+    assert final[0]["event"]["payload"]["verdict"] == "approve"
+
+
+from productagents.app import setup as _setup  # noqa: E402
+from tests.fakes import ready_status  # noqa: E402
+
+
+class _FakeConfig:
+    """Stand-in for the app.setup module: canned status + recorded writes.
+
+    Reuses the real pure helpers (provider_for/api_key_var_for/PROVIDERS) so the
+    derivation under test is the real one; only check_config/write_env are faked
+    to stay offline (no real .env, no os.environ mutation)."""
+
+    PROVIDERS = _setup.PROVIDERS
+    provider_for = staticmethod(_setup.provider_for)
+    api_key_var_for = staticmethod(_setup.api_key_var_for)
+
+    def __init__(self, status):
+        self._status = status
+        self.written: list[tuple[dict, object]] = []
+
+    def check_config(self):
+        return self._status
+
+    def write_env(self, values, *, dotenv_path=None):
+        self.written.append((dict(values), dotenv_path))
+        return str(dotenv_path or ".env")
+
+
+async def test_config_get_returns_status_and_providers():
+    config = _FakeConfig(ready_status())
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 40, "method": "config.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    result = sink[0]["result"]
+    assert result["model"] == "anthropic:claude-sonnet-4-6"
+    assert result["provider"] == "anthropic"
+    assert result["key_present"] is True
+    anthropic = next(p for p in result["providers"] if p["id"] == "anthropic")
+    assert anthropic["key_var"] == "ANTHROPIC_API_KEY"
+    assert anthropic["label"] == "Anthropic"
+
+
+async def test_config_set_writes_workspace_env_and_returns_status(tmp_path):
+    config = _FakeConfig(ready_status())
+    # Workspace takes only name + root (a Path); env_file is root/".env".
+    ws = Workspace(name="default", root=tmp_path)
+    workspaces = cast(WorkspaceService, _FakeWorkspaces([ws]))
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 41,
+            "method": "config.set",
+            "params": {"model": "openai:gpt-4o", "api_key": "sk-test"},
+        },
+        workflows=_workflows(),
+        workspaces=workspaces,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    values, dotenv_path = config.written[0]
+    assert values["PRODUCTAGENTS_MODEL"] == "openai:gpt-4o"
+    assert values["OPENAI_API_KEY"] == "sk-test"
+    assert "PRODUCTAGENTS_MODEL_PROVIDER" not in values  # derivable from prefix
+    assert dotenv_path == str(tmp_path / ".env")
+    assert sink[0]["result"]["model"] == "anthropic:claude-sonnet-4-6"
+
+
+async def test_config_set_skips_blank_api_key():
+    config = _FakeConfig(ready_status())
+    emit, _sink = _collect()
+    await ipc.handle(
+        {
+            "id": 42,
+            "method": "config.set",
+            "params": {"model": "openai:gpt-4o", "api_key": ""},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    values, _ = config.written[0]
+    assert "OPENAI_API_KEY" not in values  # never write a blank key
+
+
+async def test_config_method_without_service_errors():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 43, "method": "config.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 43
+    assert "config service not available" in sink[0]["error"]
