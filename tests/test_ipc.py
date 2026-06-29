@@ -931,3 +931,78 @@ async def test_config_method_without_service_errors():
     )
     assert sink[0]["id"] == 43
     assert "config service not available" in sink[0]["error"]
+
+
+class _FakeReflection:
+    def __init__(self, *, outcome=None, missing=False):
+        self._outcome = outcome
+        self._missing = missing
+
+    async def reflect_on(self, decision_id, note):
+        if self._missing:
+            raise LookupError(f"no such decision: {decision_id}")
+        return self._outcome
+
+
+def _outcome():
+    return OutcomeRecord(
+        decision_id="dec-1",
+        actual_outcomes=["slow adoption"],
+        prediction_accuracy=0.4,
+        lessons_learned=["validate demand earlier"],
+        reflected_at="2026-06-20T12:00:00+00:00",
+    )
+
+
+async def test_reflection_record_persists_and_returns_outcome():
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 7,
+            "method": "reflection.record",
+            "params": {"decision_id": "dec-1", "note": "shipped"},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        reflection=_FakeReflection(outcome=_outcome()),
+        emit=emit,
+    )
+    assert sink == [{"id": 7, "result": _outcome().model_dump(mode="json")}]
+
+
+async def test_reflection_record_unknown_decision_emits_error():
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 8,
+            "method": "reflection.record",
+            "params": {"decision_id": "nope", "note": "x"},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        reflection=_FakeReflection(missing=True),
+        emit=emit,
+    )
+    assert sink == [{"id": 8, "error": "no such decision: nope"}]
+
+
+async def test_reflection_record_unavailable_when_service_missing():
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 9,
+            "method": "reflection.record",
+            "params": {"decision_id": "d", "note": "x"},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 9
+    assert "reflection service not available" in sink[0]["error"]
