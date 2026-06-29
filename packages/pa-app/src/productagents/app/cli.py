@@ -108,12 +108,16 @@ async def sessions_show(session_id: str, *, service) -> int:
     return 0
 
 
-def _build_run_service() -> WorkflowService:
-    """Production WorkflowService for headless runs: real model, DB recorder,
-    no human-in-the-loop (governance stays advisory and the run completes)."""
+def _build_run_service(*, human_in_the_loop: bool = False) -> WorkflowService:
+    """Production WorkflowService for runs: real model + DB recorder.
+
+    ``human_in_the_loop`` is False for the headless CLI ``run`` (governance stays
+    advisory and the run completes). The IPC adapter builds it ``True`` so a GUI
+    run can pause for approval; with no approver the graph still auto-approves.
+    """
     model = get_model()
     return WorkflowService.for_model(
-        model, recorder=make_recorder(), human_in_the_loop=False
+        model, recorder=make_recorder(), human_in_the_loop=human_in_the_loop
     )
 
 

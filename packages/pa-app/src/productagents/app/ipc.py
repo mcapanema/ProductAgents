@@ -22,7 +22,7 @@ import sys
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from productagents.core.models import Initiative
+from productagents.core.models import HumanDecision, Initiative
 from productagents.platform import events as ev
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
@@ -51,7 +51,7 @@ def build_services(active_name: str) -> dict:
     from productagents.app.cli import _build_run_service  # reuse model wiring
 
     return {
-        "workflows": _build_run_service(),
+        "workflows": _build_run_service(human_in_the_loop=True),
         "workspaces": WorkspaceService(),
         "active_name": active_name,
         "sessions": SessionService.create(),
@@ -70,17 +70,39 @@ def serve_stdio(active_name: str) -> None:
     asyncio.run(serve(**build_services(active_name)))
 
 
-async def _run(rid, params: dict, *, workflows: WorkflowService, emit: Emit) -> None:
+async def _run(
+    rid,
+    params: dict,
+    *,
+    workflows: WorkflowService,
+    read_line: Callable[[], Awaitable[str]] | None,
+    emit: Emit,
+) -> None:
     """Run a workflow and stream its events, then a terminal status result.
 
-    Mirrors the CLI's headless ``run``: governance stays advisory (no
-    human-in-the-loop over the wire — see deferred items). A ``SessionFailed``
-    event flips the terminal status to ``"failed"``.
+    When ``params['approval']`` is truthy the run is human-in-the-loop: the graph
+    pauses at governance, the platform streams an ``ApprovalRequested`` event, and
+    the injected approver reads the client's next ``approve`` line as the decision.
+    A ``SessionFailed`` event flips the terminal status to ``"failed"``.
     """
     title = params["title"]
     initiative = Initiative(title=title, description=title)
+
+    approver = None
+    if params.get("approval"):
+        if read_line is None:
+            await emit(
+                {"id": rid, "error": "approval requires an interactive transport"}
+            )
+            return
+
+        async def approver(
+            _request,
+        ):  # advisory already streamed; read client's decision
+            return await _ipc_approve(read_line, emit)
+
     session, stream = workflows.run(
-        params["workflow"], initiative, params.get("evidence", "")
+        params["workflow"], initiative, params.get("evidence", ""), approver=approver
     )
     failed = False
     async for event in stream:
@@ -97,6 +119,30 @@ async def _run(rid, params: dict, *, workflows: WorkflowService, emit: Emit) -> 
             },
         }
     )
+
+
+async def _ipc_approve(
+    read_line: Callable[[], Awaitable[str]], emit: Emit
+) -> HumanDecision:
+    """Read the client's next message as a HITL approval decision and ack it.
+
+    The serve loop is paused inside the running workflow, so reading the next
+    line *is* the approval (the documented seam: server emits ApprovalRequested,
+    client sends `approve`). A malformed/invalid verdict degrades to "approve" so
+    a bad message can't abort the run.
+    """
+    raw = await read_line()
+    try:
+        msg = json.loads(raw)
+    except json.JSONDecodeError, TypeError:
+        msg = {}
+    p = msg.get("params") or {}
+    verdict = p.get("verdict", "approve")
+    if verdict not in ("approve", "reject", "request_analysis"):
+        verdict = "approve"
+    if msg.get("id") is not None:
+        await emit({"id": msg["id"], "result": {"ok": True}})
+    return HumanDecision(verdict=verdict, rationale=p.get("rationale", ""))
 
 
 def _workflow_dict(w: Workflow) -> dict:
@@ -190,6 +236,7 @@ async def handle(
     decisions: Any = None,
     connectors: Any = None,
     prompts: Any = None,
+    read_line: Callable[[], Awaitable[str]] | None = None,
     emit: Emit,
 ) -> None:
     """Dispatch one request, emitting one or more response messages.
@@ -301,7 +348,7 @@ async def handle(
                 }
             )
         elif method == "run":
-            await _run(rid, params, workflows=workflows, emit=emit)
+            await _run(rid, params, workflows=workflows, read_line=read_line, emit=emit)
         else:
             await emit({"id": rid, "error": f"unknown method: {method!r}"})
     except Exception as exc:  # noqa: BLE001 — one bad request must not kill the loop
@@ -362,5 +409,6 @@ async def serve(
             decisions=decisions,
             connectors=connectors,
             prompts=prompts,
+            read_line=read_line,
             emit=emit,
         )

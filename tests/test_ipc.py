@@ -419,7 +419,7 @@ async def test_serve_skips_blank_lines():
 def test_serve_stdio_builds_services_and_serves(monkeypatch):
     captured = {}
 
-    def fake_build_run_service():
+    def fake_build_run_service(*, human_in_the_loop=False):
         return _workflows()
 
     async def fake_serve(**kwargs):
@@ -716,3 +716,109 @@ async def test_prompts_method_without_service_errors():
     )
     assert sink[0]["id"] == 33
     assert "prompts service not available" in sink[0]["error"]
+
+
+async def test_run_with_approval_reads_decision_and_resumes():
+    async def runner(initiative, evidence, *, approver=None):
+        yield rn.ProgressEvent(node="governance", message="awaiting approval")
+        assert approver is not None
+        decision = await approver(None)  # the IPC approver reads the client's line
+        yield rn.FinalVerdictEvent(
+            verdict=decision.verdict, rationale=decision.rationale, decided_by="human"
+        )
+        yield rn.FinishedEvent(
+            recommendation=_rec(),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+            prior_lessons=[],
+            judgment=None,
+        )
+
+    read_line = _line_reader(
+        [
+            json.dumps(
+                {
+                    "id": 99,
+                    "method": "approve",
+                    "params": {"verdict": "reject", "rationale": "too risky"},
+                }
+            )
+        ]
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 5,
+            "method": "run",
+            "params": {
+                "workflow": "evaluate_initiative",
+                "title": "New API",
+                "evidence": "sample",
+                "approval": True,
+            },
+        },
+        workflows=fake_workflow_service(runner),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        emit=emit,
+    )
+
+    # The approve message was acked under its own id.
+    assert {"id": 99, "result": {"ok": True}} in sink
+    # The human decision drove the FinalVerdict the run emitted.
+    final = [m for m in sink if m.get("event", {}).get("type") == "FinalVerdict"]
+    assert final
+    assert final[0]["event"]["payload"]["verdict"] == "reject"
+    assert sink[-1] == {
+        "id": 5,
+        "result": {
+            "status": "finished",
+            "session_id": sink[-1]["result"]["session_id"],
+        },
+    }
+
+
+async def test_run_approval_defaults_invalid_verdict_to_approve():
+    async def runner(initiative, evidence, *, approver=None):
+        assert approver is not None
+        decision = await approver(None)
+        yield rn.FinalVerdictEvent(
+            verdict=decision.verdict, rationale=decision.rationale, decided_by="human"
+        )
+        yield rn.FinishedEvent(
+            recommendation=_rec(),
+            reports=[],
+            debate=[],
+            risks=[],
+            governance=None,
+            prior_lessons=[],
+            judgment=None,
+        )
+
+    read_line = _line_reader(
+        [json.dumps({"id": 1, "method": "approve", "params": {"verdict": "garbage"}})]
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 5,
+            "method": "run",
+            "params": {
+                "workflow": "evaluate_initiative",
+                "title": "X",
+                "approval": True,
+            },
+        },
+        workflows=fake_workflow_service(runner),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        emit=emit,
+    )
+    final = [m for m in sink if m.get("event", {}).get("type") == "FinalVerdict"]
+    assert final[0]["event"]["payload"]["verdict"] == "approve"

@@ -42,6 +42,12 @@ async def _handle_connection(websocket, *, services: dict) -> None:
     async def emit(message: dict) -> None:
         await websocket.send(json.dumps(message))
 
+    async def read_line() -> str:
+        # HITL: the approver reads the client's next message while the run is
+        # paused inside handle(). The `async for` below is suspended at the
+        # `await ipc.handle(...)` line, so this recv() takes the next frame.
+        return await websocket.recv()
+
     try:
         async for raw in websocket:
             text = raw.strip() if isinstance(raw, str) else raw
@@ -52,7 +58,7 @@ async def _handle_connection(websocket, *, services: dict) -> None:
             except (json.JSONDecodeError, TypeError) as exc:
                 await emit({"id": None, "error": f"invalid json: {exc}"})
                 continue
-            await ipc.handle(request, emit=emit, **services)
+            await ipc.handle(request, emit=emit, read_line=read_line, **services)
     except websockets.exceptions.ConnectionClosed:
         return  # client went away mid-request; nothing to clean up
 
