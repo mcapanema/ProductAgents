@@ -104,3 +104,22 @@ export interface ConnectorSync {
   results: ConnectorSyncResult[];
   problems: string[];
 }
+
+export interface PromptSummary {
+  name: string;
+  versions: number[];
+  active: number;
+}
+
+export interface PromptVersion {
+  name: string;
+  version: number;
+  text: string;
+}
+
+export interface PromptDiff {
+  name: string;
+  old: number;
+  new: number;
+  diff: string;
+}
