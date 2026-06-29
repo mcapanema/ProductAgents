@@ -106,7 +106,7 @@ Framework-first and organization-agnostic by default · configurable agent ecosy
 
 ## Technology Stack
 
-- **Runtime:** Python 3.14, [uv](https://docs.astral.sh/uv/) workspace (six member packages)
+- **Runtime:** Python 3.14, [uv](https://docs.astral.sh/uv/) workspace (seven member packages)
 - **Orchestration:** LangGraph (checkpointed graph execution)
 - **Models:** provider-agnostic (OpenAI, Anthropic, Google Gemini, OpenRouter, local models)
 - **Structured outputs:** strongly typed Pydantic schemas for critical decisions

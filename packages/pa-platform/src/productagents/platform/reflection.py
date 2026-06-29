@@ -1,6 +1,7 @@
 """Platform seam for out-of-graph outcome reflection (re-exports the agent fn).
 
-# ponytail: thin re-export; gets a proper ReflectionService home in a later phase
+Permanent presentation seam: lets pa-app reach out-of-graph reflection without
+importing pa-agents (forbidden by the layer contract).
 """
 
 from productagents.agents.reflection import reflect
