@@ -63,4 +63,12 @@ describe("IpcClient", () => {
     emit({ id: 999, event: { type: "Stray", payload: {} } });
     expect(events).toEqual([]);
   });
+
+  it("requests connectors.list and correlates the result", async () => {
+    const { client, sent, emit } = harness();
+    const p = client.connectorsList();
+    expect(JSON.parse(sent[0])).toMatchObject({ id: 1, method: "connectors.list" });
+    emit({ id: 1, result: { connectors: [{ name: "github" }], problems: [] } });
+    expect(await p).toEqual({ connectors: [{ name: "github" }], problems: [] });
+  });
 });
