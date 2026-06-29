@@ -15,6 +15,18 @@ a DB-backed organizational memory, and connector observability.
 
 The CLI is now a real second client driving the same Application Services as the TUI, headlessly off the platform event stream. A bare `productagents` still launches the TUI; every other workflow is now reachable without it.
 
+### Changed — CLI + GUI only
+
+- **Dropped the Textual TUI.** The two presentation clients are now the CLI and
+  the Tauri/React desktop GUI, both thin clients of the same Application Layer. A
+  bare `productagents` prints help; setup/readiness moved to the desktop Settings
+  panel (`config.get`/`config.set`) and direct `.env` editing for the CLI. The
+  `textual` dependency is gone.
+- **Reflection re-homed.** Out-of-graph outcome-learning capture, previously
+  TUI-only (Ctrl+R), is now a `ReflectionService` platform seam exposed as the
+  `productagents reflect` CLI command and the desktop **Reflection** panel
+  (`reflection.record` IPC method).
+
 ### Added
 - **CLI as a first-class Application-Layer client.** New `productagents.app.cli`
   adapter: `run` a workflow headlessly (streaming platform events), `workspace
