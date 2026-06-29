@@ -1,0 +1,73 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest   # arm64 (Apple Silicon)
+          - platform: macos-13       # x86_64 (Intel)
+          - platform: ubuntu-22.04   # x86_64 Linux
+          - platform: windows-latest # x86_64 Windows
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python 3.14
+        run: uv python install 3.14
+
+      - name: Sync Python deps (incl. package group)
+        run: uv sync --group package
+
+      - name: Freeze the IPC sidecar
+        shell: bash
+        run: bash desktop/packaging/build-sidecar.sh
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./desktop/src-tauri -> target"
+
+      - name: Install frontend deps
+        run: npm --prefix desktop ci
+
+      - name: Build, sign update, and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "ProductAgents ${{ github.ref_name }}"
+          releaseBody: "Download the installer for your platform below. Unsigned build — see the install notes in the README for the first-launch step."
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true

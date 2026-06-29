@@ -16,8 +16,9 @@ if [ -z "$TRIPLE" ]; then
     x86_64) _ARCH="x86_64" ;;
   esac
   case "$_OS" in
-    Darwin) TRIPLE="${_ARCH}-apple-darwin" ;;
-    Linux)  TRIPLE="${_ARCH}-unknown-linux-gnu" ;;
+    Darwin)            TRIPLE="${_ARCH}-apple-darwin" ;;
+    Linux)             TRIPLE="${_ARCH}-unknown-linux-gnu" ;;
+    MINGW*|MSYS*|CYGWIN*|Windows_NT) TRIPLE="${_ARCH}-pc-windows-msvc" ;;
     *) echo "could not determine target triple (no rustc, unsupported OS: $_OS)" >&2; exit 1 ;;
   esac
   echo "rustc not found; using derived triple: $TRIPLE" >&2
@@ -29,8 +30,15 @@ uv run --group package pyinstaller \
   --workpath desktop/build/work \
   desktop/packaging/productagents-ipc.spec
 
-mkdir -p desktop/src-tauri/binaries
-cp "desktop/build/dist/productagents-ipc" \
-   "desktop/src-tauri/binaries/productagents-ipc-${TRIPLE}"
+# On Windows PyInstaller emits productagents-ipc.exe; externalBin wants the
+# triple suffix BEFORE the extension.
+case "$TRIPLE" in
+  *windows*) EXT=".exe" ;;
+  *)         EXT="" ;;
+esac
 
-echo "sidecar -> desktop/src-tauri/binaries/productagents-ipc-${TRIPLE}"
+mkdir -p desktop/src-tauri/binaries
+cp "desktop/build/dist/productagents-ipc${EXT}" \
+   "desktop/src-tauri/binaries/productagents-ipc-${TRIPLE}${EXT}"
+
+echo "sidecar -> desktop/src-tauri/binaries/productagents-ipc-${TRIPLE}${EXT}"
