@@ -4,14 +4,16 @@ import { IpcProvider } from "./IpcProvider";
 import { RunPanel } from "../panels/RunPanel";
 import { SessionsPanel } from "../panels/SessionsPanel";
 import { DecisionsPanel } from "../panels/DecisionsPanel";
+import { ConnectorsPanel } from "../panels/ConnectorsPanel";
 import "./App.css";
 
-type View = "run" | "sessions" | "decisions";
+type View = "run" | "sessions" | "decisions" | "connectors";
 
 const NAV: { view: View; label: string }[] = [
   { view: "run", label: "Run" },
   { view: "sessions", label: "Sessions" },
   { view: "decisions", label: "Decisions" },
+  { view: "connectors", label: "Connectors" },
 ];
 
 export function App({ client }: { client?: IpcClient }) {
@@ -35,6 +37,7 @@ export function App({ client }: { client?: IpcClient }) {
           {view === "run" && <RunPanel />}
           {view === "sessions" && <SessionsPanel />}
           {view === "decisions" && <DecisionsPanel />}
+          {view === "connectors" && <ConnectorsPanel />}
         </main>
       </div>
     </IpcProvider>

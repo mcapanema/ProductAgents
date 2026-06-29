@@ -1,4 +1,7 @@
 import type {
+  ConnectorHealth,
+  ConnectorList,
+  ConnectorSync,
   DecisionDetail,
   DecisionSummary,
   IpcMessage,
@@ -89,6 +92,18 @@ export class IpcClient {
 
   decisionsShow(decisionId: string): Promise<DecisionDetail> {
     return this.call("decisions.show", { decision_id: decisionId }) as Promise<DecisionDetail>;
+  }
+
+  connectorsList(): Promise<ConnectorList> {
+    return this.call("connectors.list") as Promise<ConnectorList>;
+  }
+
+  connectorsHealth(): Promise<ConnectorHealth> {
+    return this.call("connectors.health") as Promise<ConnectorHealth>;
+  }
+
+  connectorsSync(): Promise<ConnectorSync> {
+    return this.call("connectors.sync") as Promise<ConnectorSync>;
   }
 
   run(params: RunParams, handlers: RunHandlers): Promise<RunResult> {

@@ -73,3 +73,34 @@ export interface DecisionDetail {
     reflected_at: string;
   }[];
 }
+
+export interface ConnectorSummary {
+  name: string;
+}
+
+export interface ConnectorList {
+  connectors: ConnectorSummary[];
+  problems: string[];
+}
+
+export interface ConnectorHealthStatus {
+  ok: boolean;
+  detail: string;
+}
+
+export interface ConnectorHealth {
+  statuses: Record<string, ConnectorHealthStatus>;
+  problems: string[];
+}
+
+export interface ConnectorSyncResult {
+  connector: string;
+  written: number;
+  ok: boolean;
+  error: string | null;
+}
+
+export interface ConnectorSync {
+  results: ConnectorSyncResult[];
+  problems: string[];
+}
