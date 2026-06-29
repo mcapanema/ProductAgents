@@ -137,4 +137,19 @@ describe("IpcClient", () => {
       params: { verdict: "reject", rationale: "too risky" },
     });
   });
+
+  it("requests reflection.record and correlates the result", async () => {
+    const { client, sent, emit } = harness();
+    const p = client.reflectionRecord("dec-1", "shipped");
+    expect(JSON.parse(sent[0])).toMatchObject({
+      id: 1,
+      method: "reflection.record",
+      params: { decision_id: "dec-1", note: "shipped" },
+    });
+    emit({
+      id: 1,
+      result: { decision_id: "dec-1", actual_outcomes: [], prediction_accuracy: 0, lessons_learned: [], reflected_at: "t", failed: false },
+    });
+    expect(await p).toMatchObject({ decision_id: "dec-1" });
+  });
 });

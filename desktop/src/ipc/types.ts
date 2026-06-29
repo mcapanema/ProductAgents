@@ -75,6 +75,15 @@ export interface DecisionDetail {
   }[];
 }
 
+export interface OutcomeRecord {
+  decision_id: string;
+  actual_outcomes: string[];
+  prediction_accuracy: number;
+  lessons_learned: string[];
+  reflected_at: string;
+  failed: boolean;
+}
+
 export interface ConnectorSummary {
   name: string;
 }

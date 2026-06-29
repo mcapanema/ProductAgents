@@ -1,12 +1,11 @@
 [project]
 name = "productagents-app"
 version = "0.1.0"
-description = "ProductAgents Textual TUI and CLI edges."
+description = "ProductAgents CLI and IPC edges."
 requires-python = ">=3.14"
 dependencies = [
     "productagents-core",
     "productagents-platform",
-    "textual>=4.0",
     "websockets>=15",
 ]
 

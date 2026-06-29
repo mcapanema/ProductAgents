@@ -36,10 +36,6 @@ sync: ## Install/refresh Python deps only (uv sync)
 
 # ---- run ----------------------------------------------------------------
 
-.PHONY: tui
-tui: ## Launch the Textual TUI
-	uv run productagents
-
 .PHONY: gui
 gui: ## Launch the desktop GUI (Tauri dev window; needs Rust)
 	cd $(DESKTOP) && npm run tauri dev

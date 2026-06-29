@@ -146,7 +146,7 @@ first-launch unsigned-app step may reappear after a major update.
 
 ## Getting Started
 
-ProductAgents runs the **full advisory pipeline on a real data platform**. Five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the TUI. Connectors sync external systems (today: GitHub issues and Jira) into a canonical store the agents read from; every run is persisted — full transcript, judge verdict, risk assessments, human decision, and evidence provenance — to the DB-backed organizational memory (`DecisionStore`), which is the system of record. What remains on the road to the full vision above is **breadth** — more evidence connectors and the planned layers — not the core loop.
+ProductAgents runs the **full advisory pipeline on a real data platform**. Five analysts evaluate evidence in parallel, an Advocate and a Skeptic debate the initiative, a strategist produces a recommendation, an LLM-as-Judge quality gate scores it (looping back for revision if it doesn't pass), a five-reviewer Risk Team assesses it, and a Portfolio Manager produces an advisory verdict — then a human makes the binding call (approve / reject / request analysis) in the desktop app (or auto-approves in a headless CLI run). Connectors sync external systems (today: GitHub issues and Jira) into a canonical store the agents read from; every run is persisted — full transcript, judge verdict, risk assessments, human decision, and evidence provenance — to the DB-backed organizational memory (`DecisionStore`), which is the system of record. What remains on the road to the full vision above is **breadth** — more evidence connectors and the planned layers — not the core loop.
 
 ### Setup
 
@@ -213,27 +213,28 @@ connectors:
 ```
 
 Each connector block is validated against that connector's typed schema at
-startup; a missing referenced env var or an unknown connector is reported on the
-home menu (fail-fast) rather than at sync time. Choose **Sync data sources** in
-the home menu to run a sync; per-connector cursors are persisted so each run only
-pulls records changed since the last sync. **Check connector health** in the home
-menu probes every enabled connector without touching the DB.
+startup; a missing referenced env var or an unknown connector is reported at
+startup (fail-fast) rather than at sync time. The desktop app's **Connectors**
+panel lets you run a sync or check health; per-connector cursors are persisted
+so each run only pulls records changed since the last sync.
 
-You can also sync outside the TUI: `uv run productagents sync` runs a one-shot
+You can also sync headlessly: `uv run productagents sync` runs a one-shot
 headless sync (for cron/launchd; it exits non-zero on failure), and setting
-`PRODUCTAGENTS_SYNC_INTERVAL` makes the running app auto-sync on a timer.
+`PRODUCTAGENTS_SYNC_INTERVAL` makes a long-running process auto-sync on a timer.
 
 ### Run
 
+Launch the desktop GUI with `make gui` (or `cd desktop && npm run tauri dev`), or run headlessly via the CLI:
+
 ```bash
-uv run productagents
+uv run productagents run evaluate_initiative "Add enterprise SSO"
 ```
 
-Type an initiative (e.g. "Add enterprise SSO") and press Enter. Analyst panels update live and the strategist panel shows the final recommendation; each run appends a record to the organizational-memory DB.
+The CLI streams events to stdout as the pipeline runs; the desktop GUI shows live panels. Each run appends a record to the organizational-memory DB.
 
-**Evidence is pluggable.** A second input lets you point a run at a source: another bundled scenario name, or a path to a folder containing the evidence files (`customer_feedback.md` and `product_analytics.json` required; `market_intelligence.md`, `business_metrics.json`, `technical_context.md` optional). Each piece of evidence records its provenance, shown in the TUI and saved on the decision record. The default is the bundled `sample` scenario.
+**Evidence is pluggable.** Use `--evidence <name-or-path>` with the CLI, or the evidence picker in the desktop Run panel. Each piece of evidence records its provenance, shown in the desktop app and saved on the decision record. The default is the bundled `sample` scenario.
 
-**Outcome learning.** After a decision, press `Ctrl+R` to open reflection mode, pick a past decision, and describe what happened. An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
+**Outcome learning.** After a decision, record what actually happened with `productagents reflect` (lists past decisions; `productagents reflect DECISION_ID "note"` runs the reflection agent) or via the desktop **Reflection** panel (`reflection.record` IPC method). An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
 
 ### Desktop GUI (Tauri + React)
 

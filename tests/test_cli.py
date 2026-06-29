@@ -7,7 +7,7 @@ import pytest
 
 from productagents.app import cli as cli_module
 from productagents.connectors.base import SyncResult
-from productagents.core.models import Initiative, Recommendation
+from productagents.core.models import Initiative, OutcomeRecord, Recommendation
 from productagents.platform import events as ev
 from productagents.platform.connectors import SyncReport
 from productagents.platform.session import Session
@@ -25,6 +25,75 @@ async def _bad_syncer():
         results=[SyncResult(connector="github", ok=False, error="auth: 401")],
         problems=[],
     )
+
+
+def _decision_record(did="dec-1", title="Add SSO"):
+    from productagents.core.models import DecisionRecord, Initiative, Recommendation
+
+    return DecisionRecord(
+        decision_id=did,
+        initiative=Initiative(title=title, description="d"),
+        recommendation=Recommendation(
+            recommendation="Build it",
+            confidence=0.8,
+            rationale="r",
+            expected_outcomes=["x"],
+        ),
+        reports=[],
+        timestamp="2026-06-19T12:00:00+00:00",
+    )
+
+
+class _FakeReflection:
+    def __init__(self, *, decisions=(), outcome=None, missing=False):
+        self._decisions = list(decisions)
+        self._outcome = outcome
+        self._missing = missing
+
+    async def decisions(self):
+        return self._decisions
+
+    async def reflect_on(self, decision_id, note):
+        if self._missing:
+            raise LookupError(f"no such decision: {decision_id}")
+        return self._outcome
+
+
+async def test_reflect_list_prints_ids_and_titles(capsys):
+    svc = _FakeReflection(decisions=[_decision_record("dec-1", "Add SSO")])
+    assert await cli_module.reflect_list(service=svc) == 0
+    out = capsys.readouterr().out
+    assert "dec-1" in out
+    assert "Add SSO" in out
+
+
+async def test_reflect_list_handles_empty(capsys):
+    assert await cli_module.reflect_list(service=_FakeReflection()) == 0
+    assert "no decisions" in capsys.readouterr().out.lower()
+
+
+async def test_reflect_record_prints_outcome_and_returns_zero(capsys):
+    outcome = OutcomeRecord(
+        decision_id="dec-1",
+        actual_outcomes=["slow adoption"],
+        prediction_accuracy=0.4,
+        lessons_learned=["validate demand earlier"],
+        reflected_at="2026-06-20T12:00:00+00:00",
+    )
+    svc = _FakeReflection(outcome=outcome)
+    code = await cli_module.reflect_record("dec-1", "shipped", service=svc)
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "40%" in out
+    assert "slow adoption" in out
+    assert "validate demand earlier" in out
+
+
+async def test_reflect_record_unknown_decision_returns_one(capsys):
+    svc = _FakeReflection(missing=True)
+    code = await cli_module.reflect_record("nope", "note", service=svc)
+    assert code == 1
+    assert "no such decision" in capsys.readouterr().out
 
 
 def test_sync_command_zero_and_prints_on_success(capsys):
@@ -56,12 +125,9 @@ def _patch_bootstrap(monkeypatch, calls):
     )
 
 
-def test_main_no_subcommand_launches_tui_after_bootstrap(monkeypatch):
+def test_main_no_subcommand_prints_help_after_bootstrap(monkeypatch, capsys):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
-    monkeypatch.setattr(
-        cli_module, "launch_tui", lambda name: calls.append(("launch_tui", name))
-    )
 
     cli_module.main([])
 
@@ -70,14 +136,15 @@ def test_main_no_subcommand_launches_tui_after_bootstrap(monkeypatch):
         ("activate", "acme"),
         ("load_env",),
         ("configure_logging",),
-        ("launch_tui", "acme"),
     ]
+    out = capsys.readouterr().out
+    assert "usage: productagents" in out
+    assert "reflect" in out  # the new subcommand shows in help
 
 
 def test_main_workspace_flag_threads_into_resolve(monkeypatch):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
-    monkeypatch.setattr(cli_module, "launch_tui", lambda name: None)
 
     cli_module.main(["--workspace", "acme"])
 

@@ -63,6 +63,21 @@ def _build_workflows(*, human_in_the_loop: bool) -> WorkflowService:
         )
 
 
+def _build_reflection():
+    """ReflectionService for the GUI, or None if no model is available yet."""
+    from productagents.platform.llm import get_model
+    from productagents.platform.reflection_service import ReflectionService
+
+    try:
+        return ReflectionService.for_model(get_model())
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "model unavailable; reflection disabled until an API key is set",
+            exc_info=True,
+        )
+        return None
+
+
 def build_services(active_name: str) -> dict:
     """Construct the production Application Services the IPC adapters dispatch to.
 
@@ -84,6 +99,7 @@ def build_services(active_name: str) -> dict:
         "connectors": ConnectorService(),
         "prompts": PromptService.create(),
         "config": setup,
+        "reflection": _build_reflection(),
     }
 
 
@@ -283,6 +299,7 @@ async def handle(
     connectors: Any = None,
     prompts: Any = None,
     config: Any = None,
+    reflection: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     emit: Emit,
 ) -> None:
@@ -415,6 +432,18 @@ async def handle(
                 raise RuntimeError("config service not available")
             await emit({"id": rid, "result": _config_dict(config)})
 
+        async def _reflection_record(p: dict) -> None:
+            if reflection is None:
+                raise RuntimeError("reflection service not available")
+            did = p["decision_id"]
+            note = p.get("note", "")
+            try:
+                outcome = await reflection.reflect_on(did, note)
+            except LookupError:
+                await emit({"id": rid, "error": f"no such decision: {did}"})
+                return
+            await emit({"id": rid, "result": outcome.model_dump(mode="json")})
+
         async def _config_set(p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
@@ -450,6 +479,7 @@ async def handle(
             "prompts.diff": _prompts_diff,
             "config.get": _config_get,
             "config.set": _config_set,
+            "reflection.record": _reflection_record,
         }
 
         handler = table.get(method)
@@ -472,6 +502,7 @@ async def serve(
     connectors: Any = None,
     prompts: Any = None,
     config: Any = None,
+    reflection: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -518,6 +549,7 @@ async def serve(
             connectors=connectors,
             prompts=prompts,
             config=config,
+            reflection=reflection,
             read_line=read_line,
             emit=emit,
         )

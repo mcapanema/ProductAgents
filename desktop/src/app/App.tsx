@@ -8,9 +8,10 @@ import { ConnectorsPanel } from "../panels/ConnectorsPanel";
 import { PromptsPanel } from "../panels/PromptsPanel";
 import { WorkflowsPanel } from "../panels/WorkflowsPanel";
 import { SettingsPanel } from "../panels/SettingsPanel";
+import { ReflectionPanel } from "../panels/ReflectionPanel";
 import "./App.css";
 
-type View = "run" | "workflows" | "sessions" | "decisions" | "connectors" | "prompts" | "settings";
+type View = "run" | "workflows" | "sessions" | "decisions" | "connectors" | "prompts" | "settings" | "reflection";
 
 const NAV: { view: View; label: string }[] = [
   { view: "run", label: "Run" },
@@ -20,6 +21,7 @@ const NAV: { view: View; label: string }[] = [
   { view: "connectors", label: "Connectors" },
   { view: "prompts", label: "Prompts" },
   { view: "settings", label: "Settings" },
+  { view: "reflection", label: "Reflection" },
 ];
 
 export function App({ client }: { client?: IpcClient }) {
@@ -47,6 +49,7 @@ export function App({ client }: { client?: IpcClient }) {
           {view === "prompts" && <PromptsPanel />}
           {view === "workflows" && <WorkflowsPanel />}
           {view === "settings" && <SettingsPanel />}
+          {view === "reflection" && <ReflectionPanel />}
         </main>
       </div>
     </IpcProvider>

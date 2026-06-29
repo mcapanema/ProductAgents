@@ -7,6 +7,7 @@ import type {
   DecisionDetail,
   DecisionSummary,
   IpcMessage,
+  OutcomeRecord,
   PromptDiff,
   PromptSummary,
   PromptVersion,
@@ -130,6 +131,13 @@ export class IpcClient {
 
   configSet(params: ConfigSetParams): Promise<ConfigStatus> {
     return this.call<ConfigStatus>("config.set", { ...params });
+  }
+
+  reflectionRecord(decisionId: string, note: string): Promise<OutcomeRecord> {
+    return this.call<OutcomeRecord>("reflection.record", {
+      decision_id: decisionId,
+      note,
+    });
   }
 
   approve(verdict: string, rationale = ""): Promise<{ ok: boolean }> {
