@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import sys
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -34,7 +35,32 @@ from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import Workflow, WorkflowService
 from productagents.platform.workspace import Workspace, WorkspaceService
 
+logger = logging.getLogger(__name__)
+
 Emit = Callable[[dict], Awaitable[None]]
+
+
+def _build_workflows(*, human_in_the_loop: bool) -> WorkflowService:
+    """Build the run service, degrading to a model-less one if no key is set.
+
+    A freshly installed app has no API key until the user enters one in Settings,
+    so ``get_model()`` raises at sidecar startup. We must not crash: the GUI needs
+    the read methods + ``config.set`` to reach a usable state. Falling back to a
+    ``WorkflowService`` over ``model=None`` keeps ``list`` working (so the
+    Workflows panel renders); a ``run`` then degrades to a ``SessionFailed`` event
+    until a key is configured and the app restarted.
+    """
+    from productagents.app.cli import _build_run_service, make_recorder
+
+    try:
+        return _build_run_service(human_in_the_loop=human_in_the_loop)
+    except Exception:  # noqa: BLE001 — degraded mode; any failure (missing key, bad config) must not crash the sidecar
+        logger.warning(
+            "model unavailable; runs disabled until an API key is set", exc_info=True
+        )
+        return WorkflowService.for_model(
+            None, recorder=make_recorder(), human_in_the_loop=human_in_the_loop
+        )
 
 
 def build_services(active_name: str) -> dict:
@@ -49,10 +75,8 @@ def build_services(active_name: str) -> dict:
     ponytail: the model is built up front, so even read methods need a key. Make
     the WorkflowService lazy-on-first-run only if a client must browse without one.
     """
-    from productagents.app.cli import _build_run_service  # reuse model wiring
-
     return {
-        "workflows": _build_run_service(human_in_the_loop=True),
+        "workflows": _build_workflows(human_in_the_loop=True),
         "workspaces": WorkspaceService(),
         "active_name": active_name,
         "sessions": SessionService.create(),
