@@ -80,5 +80,5 @@ def translate(session, r) -> Callable[[int], ev.Event] | None:
                 judgment=f.judgment,
             )
         case _:
-            logger.warning("decision_service: untranslated runner event %r", r)
+            logger.warning("untranslated runner event %r", r)
             return None

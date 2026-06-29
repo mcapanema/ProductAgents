@@ -434,7 +434,7 @@ async def handle(
             config.write_env(values, dotenv_path=dotenv_path)
             await emit({"id": rid, "result": _config_dict(config)})
 
-        _TABLE: dict[str, Callable[[dict], Awaitable[None]]] = {
+        table: dict[str, Callable[[dict], Awaitable[None]]] = {
             "workflows.list": _workflows_list,
             "workspaces.list": _workspaces_list,
             "workspaces.show": _workspaces_show,
@@ -452,7 +452,7 @@ async def handle(
             "config.set": _config_set,
         }
 
-        handler = _TABLE.get(method)
+        handler = table.get(method)
         if handler is None:
             await emit({"id": rid, "error": f"unknown method: {method!r}"})
             return

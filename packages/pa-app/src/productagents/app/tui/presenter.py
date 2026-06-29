@@ -52,6 +52,7 @@ class PipelinePresenter:
         }
 
     def dispatch(self, event) -> None:
+        # ponytail: string keys — rename an ev.* class → update this dict too
         handler = self._handlers.get(type(event).__name__)
         if handler is not None:
             handler(event)
