@@ -203,6 +203,22 @@ body {
 .sg-band h2 { margin: 0; font: var(--text-heading-3); letter-spacing: var(--text-heading-3-tracking); }
 .sg-band span { color: var(--text-secondary); font-size: var(--fs-sm); }
 
+/* Sub-phase divider (one rung below .sg-band — e.g. "3A · Layout"). */
+.sg-subband {
+  display: flex; align-items: baseline; gap: var(--space-12);
+  margin-top: var(--space-24);
+}
+.sg-subband h3 { margin: 0; font: var(--text-heading-4); color: var(--text-primary); }
+.sg-subband span { color: var(--text-secondary); font-size: var(--fs-sm); }
+
+/* Named specimen row: a left label + the demo body. Used across Phase 3 so
+ * every variant/state is labelled in the gallery. */
+.sg-specimen { display: grid; grid-template-columns: 160px 1fr; gap: var(--space-16); align-items: center; padding: var(--space-8) 0; }
+.sg-specimen + .sg-specimen { border-top: var(--border-width-default) solid var(--border-subtle); }
+.sg-specimen-label { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+.sg-specimen-body { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+@media (max-width: 640px) { .sg-specimen { grid-template-columns: 1fr; gap: var(--space-8); } }
+
 /* ── Semantic color role grids ─────────────────────────────────────────────── */
 .sg-roles2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--gap-grid); }
 .sg-role { display: grid; gap: var(--space-6); }

@@ -1,0 +1,290 @@
+/* Phase 3D — Data display. Self-contained styleguide CSS (prefix `dd-`).
+ * Built from the token layer only — semantic roles + component sets; no raw
+ * color/size/space literals. Every measured value is mono + tabular-nums;
+ * status pairs color with a glyph + label. Adapts across both themes and both
+ * densities with zero markup change.
+ *
+ * New component tokens (declared here, composed from existing tokens). */
+:root {
+  --dd-rail-w: var(--border-width-strong);          /* timeline rail thickness */
+  --dd-marker: var(--icon-md);                      /* timeline node marker box */
+  --dd-resize-w: var(--space-6);                    /* grid column-resize hot zone */
+  --dd-json-indent: var(--space-16);                /* per-depth JSON indent step */
+  --dd-tree-indent: var(--space-20);                /* per-level tree indent step */
+}
+
+/* ── icons ───────────────────────────────────────────────────────────────── */
+.dd-ico { flex: none; vertical-align: middle; }
+.dd-ico--xs { width: var(--icon-xs); height: var(--icon-xs); }
+.dd-ico--sm { width: var(--icon-sm); height: var(--icon-sm); }
+.dd-ico--md { width: var(--icon-md); height: var(--icon-md); }
+.dd-ico--lg { width: var(--icon-lg); height: var(--icon-lg); }
+
+/* Mono helpers — every measured value holds its column. */
+.dd-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.dd-mono-id { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+.dd-eyebrow { font: var(--text-label); letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase; color: var(--text-tertiary); margin: 0 0 var(--space-12); }
+.dd-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.dd-empty { font-size: var(--fs-sm); color: var(--text-tertiary); font-style: italic; }
+
+/* Two-column gallery split (collapses on narrow). */
+.dd-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-24); }
+@media (max-width: 720px) { .dd-split { grid-template-columns: 1fr; } }
+
+/* ── status badge (color + glyph/pulse + label) ──────────────────────────── */
+.dd-badge {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  height: var(--control-sm); padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  color: var(--dd-badge-text, var(--text-secondary));
+  font: var(--text-label); letter-spacing: var(--text-label-tracking);
+}
+.dd-badge .dd-ico { color: var(--dd-badge-fill); }
+.dd-badge-pulse {
+  position: relative; width: 8px; height: 8px; flex: none;
+  border-radius: var(--radius-full); background: var(--dd-badge-fill, var(--ai-running));
+}
+.dd-badge-pulse::after {
+  content: ""; position: absolute; inset: -3px; border-radius: var(--radius-full);
+  border: var(--border-width-default) solid var(--dd-badge-fill, var(--ai-running)); opacity: 0.5;
+  animation: dd-ping var(--dur-slower) var(--ease-emphasis) infinite;
+}
+@keyframes dd-ping { 0% { transform: scale(0.7); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dd-badge-pulse::after { animation: none; } }
+
+/* ── confidence (inline mini + labelled bar) — the signature motif ───────── */
+.dd-conf { display: inline-flex; align-items: center; gap: var(--space-8); }
+.dd-conf-track { width: 56px; height: var(--gauge-height); border-radius: var(--gauge-radius);
+  background: var(--gauge-track); overflow: hidden; }
+.dd-conf-fill { display: block; height: 100%; width: var(--dd-conf-pct); background: var(--dd-conf-fill); border-radius: var(--gauge-radius); }
+.dd-conf-val { font-size: var(--fs-sm); color: var(--text-secondary); min-width: 4ch; text-align: right; }
+
+.dd-confbar { display: grid; gap: var(--space-4); }
+.dd-confbar-head { display: flex; justify-content: space-between; align-items: baseline; }
+.dd-confbar-label { font-size: var(--fs-xs); color: var(--text-secondary); }
+.dd-confbar-val { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); }
+.dd-confbar-track { height: var(--gauge-height); border-radius: var(--gauge-radius); background: var(--gauge-track); overflow: hidden; }
+.dd-confbar-fill { display: block; height: 100%; width: var(--dd-conf-pct); background: var(--dd-conf-fill); border-radius: var(--gauge-radius); }
+
+/* ── avatar ──────────────────────────────────────────────────────────────── */
+.dd-avatar {
+  display: inline-grid; place-items: center; flex: none; overflow: hidden;
+  border-radius: var(--radius-full); background: var(--dd-avatar-fill, var(--surface-hover));
+  color: var(--text-on-accent); border: var(--border-width-default) solid var(--border-subtle);
+  font-weight: var(--fw-semibold);
+}
+.dd-avatar--sm { width: var(--avatar-sm); height: var(--avatar-sm); font-size: var(--fs-xs); }
+.dd-avatar--md { width: var(--avatar-md); height: var(--avatar-md); font-size: var(--fs-sm); }
+.dd-avatar--lg { width: var(--avatar-lg); height: var(--avatar-lg); font-size: var(--fs-base); }
+.dd-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.dd-avatar-initials { line-height: 1; }
+
+/* ── metric / stat card ──────────────────────────────────────────────────── */
+.dd-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap-grid); }
+.dd-stat {
+  display: grid; gap: var(--space-6); padding: var(--pad-card);
+  background: var(--surface-default); border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+.dd-stat-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); }
+.dd-stat-label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.dd-spark { width: 96px; height: 28px; flex: none; }
+.dd-spark polyline { stroke: var(--accent); stroke-width: var(--border-width-strong); }
+.dd-stat-value { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); color: var(--text-primary); letter-spacing: var(--ls-tight); }
+.dd-stat-delta { display: inline-flex; align-items: center; gap: var(--space-4); font-size: var(--fs-xs); color: var(--text-tertiary); }
+.dd-stat-delta-val { font-weight: var(--fw-semibold); }
+.dd-stat-delta[data-tone="positive"] { color: var(--text-resolved); }
+.dd-stat-delta[data-tone="positive"] .dd-ico { color: var(--success); }
+.dd-stat-delta[data-tone="negative"] { color: var(--text-error); }
+.dd-stat-delta[data-tone="negative"] .dd-ico { color: var(--danger); }
+.dd-stat-delta[data-tone="neutral"] .dd-ico { color: var(--text-tertiary); }
+.dd-stat-delta-cap { color: var(--text-tertiary); font-weight: var(--fw-regular); }
+
+/* ── table / data grid ───────────────────────────────────────────────────── */
+.dd-table-wrap { overflow-x: auto; border: var(--border-width-default) solid var(--table-border); border-radius: var(--radius-card); }
+.dd-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.dd-table caption { text-align: left; }
+.dd-table thead th {
+  position: sticky; top: 0; background: var(--table-header-bg); color: var(--table-header-text);
+  text-align: left; font: var(--table-header-font); letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase; border-bottom: var(--border-width-strong) solid var(--table-border);
+  white-space: nowrap;
+}
+.dd-table .dd-num-col { text-align: right; }
+.dd-th-sort {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  width: 100%; padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  color: inherit; background: transparent; border: 0; cursor: var(--cursor-interactive);
+}
+.dd-th-sort--num { justify-content: flex-end; }
+.dd-th-sort .dd-ico { color: var(--text-tertiary); }
+.dd-th-sort:hover { color: var(--text-primary); }
+.dd-th-sort:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.dd-table tbody td, .dd-table tbody th {
+  padding: var(--table-cell-pad-y) var(--table-cell-pad-x);
+  border-bottom: var(--border-width-default) solid var(--table-border);
+  color: var(--text-primary); font-weight: var(--fw-regular); text-align: left; vertical-align: middle;
+}
+.dd-table tbody td.dd-num-col { text-align: right; color: var(--text-secondary); }
+.dd-td-title { display: grid; gap: var(--space-2); }
+.dd-table--zebra tbody tr:nth-child(even) { background: var(--bg-secondary); }
+.dd-tr { cursor: var(--cursor-interactive); transition: var(--transition-surface); }
+.dd-tr:hover { background: var(--table-row-bg-hover); }
+.dd-tr[aria-selected="true"] { background: var(--table-row-bg-selected); box-shadow: inset var(--border-width-focus) 0 0 var(--accent); }
+.dd-tr:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+.dd-grid { font-size: var(--fs-xs); }
+.dd-grid tbody td, .dd-grid tbody th { padding: var(--space-6) var(--table-cell-pad-x); }
+.dd-grid-th { display: inline-block; padding: var(--space-6) var(--table-cell-pad-x); }
+.dd-grid thead th { position: relative; }
+.dd-grid-resize { position: absolute; top: 0; right: 0; width: var(--dd-resize-w); height: 100%;
+  cursor: var(--cursor-col-resize); }
+.dd-grid-resize::after { content: ""; position: absolute; top: 25%; right: 0; width: var(--border-width-default);
+  height: 50%; background: var(--border-default); }
+
+/* ── tags & chips ────────────────────────────────────────────────────────── */
+.dd-tag {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  height: var(--control-sm); padding: 0 var(--space-8); border-radius: var(--radius-control);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  color: var(--text-secondary); font-size: var(--fs-xs);
+}
+.dd-tag--accent { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--accent-text); }
+.dd-tag--sent[data-sent="positive"] { color: var(--text-success); border-color: var(--border-success); }
+.dd-tag--sent[data-sent="negative"] { color: var(--text-error); border-color: var(--border-error); }
+.dd-tag--sent[data-sent="neutral"] { color: var(--text-tertiary); }
+.dd-chip {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  height: var(--control-sm); padding: 0 var(--space-4) 0 var(--space-8); border-radius: var(--radius-pill);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  color: var(--text-primary); font-size: var(--fs-xs);
+}
+.dd-chip-x {
+  display: inline-grid; place-items: center; width: var(--icon-md); height: var(--icon-md);
+  border-radius: var(--radius-full); border: 0; background: transparent; color: var(--text-tertiary);
+  cursor: var(--cursor-interactive); transition: var(--transition-control);
+}
+.dd-chip-x:hover { background: var(--surface-hover); color: var(--text-error); }
+.dd-chip-x:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* ── list ────────────────────────────────────────────────────────────────── */
+.dd-list { list-style: none; margin: 0 0 var(--space-24); padding: 0;
+  border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); overflow: hidden; }
+.dd-list-row {
+  display: flex; align-items: center; gap: var(--space-12);
+  min-height: var(--row-height); padding: var(--space-8) var(--pad-cell-x);
+  color: var(--text-primary); cursor: var(--cursor-interactive); transition: var(--transition-surface);
+}
+.dd-list-row + .dd-list-row { border-top: var(--border-width-default) solid var(--border-subtle); }
+.dd-list-row:hover { background: var(--surface-hover); }
+.dd-list-row:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.dd-list-row .dd-ico { color: var(--text-tertiary); }
+.dd-list-text { display: grid; gap: var(--space-2); flex: 1; min-width: 0; }
+.dd-list-title { font-size: var(--fs-sm); color: var(--text-primary); }
+.dd-list-sub { font-size: var(--fs-xs); color: var(--text-secondary); }
+.dd-list-meta { display: inline-flex; align-items: center; gap: var(--space-8); margin-left: auto; font-size: var(--fs-xs); color: var(--text-tertiary); }
+.dd-list--single .dd-list-row { min-height: var(--control-md); }
+
+/* ── tree ────────────────────────────────────────────────────────────────── */
+.dd-tree, .dd-tree-group { list-style: none; margin: 0; padding: 0; }
+.dd-tree-row {
+  display: flex; align-items: center; gap: var(--space-6);
+  min-height: var(--control-md);
+  padding: 0 var(--space-8); padding-left: calc(var(--space-8) + var(--dd-tree-level) * var(--dd-tree-indent));
+  color: var(--text-primary); cursor: var(--cursor-interactive); border-radius: var(--radius-control);
+  transition: var(--transition-surface);
+}
+.dd-tree-row:hover { background: var(--surface-hover); }
+.dd-tree-row:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.dd-tree-twist { display: inline-grid; place-items: center; width: var(--icon-sm); color: var(--text-tertiary); }
+.dd-tree-row > .dd-ico { color: var(--text-secondary); }
+.dd-tree-label { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── property list & key/value ───────────────────────────────────────────── */
+.dd-props { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-8) var(--space-16); margin: 0; }
+.dd-props dt { font-size: var(--fs-xs); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: var(--ls-wide); align-self: center; }
+.dd-props dd { margin: 0; font-size: var(--fs-sm); color: var(--text-primary); }
+.dd-prop-owner { display: inline-flex; align-items: center; gap: var(--space-8); }
+.dd-prop-conf { max-width: 240px; }
+.dd-kv { margin: 0; border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); overflow: hidden; }
+.dd-kv-row { display: grid; grid-template-columns: 40% 1fr; }
+.dd-kv-row + .dd-kv-row { border-top: var(--border-width-default) solid var(--border-subtle); }
+.dd-kv-key { padding: var(--space-6) var(--pad-cell-x); background: var(--bg-secondary); color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.dd-kv-val { margin: 0; padding: var(--space-6) var(--pad-cell-x); color: var(--text-primary); font-size: var(--fs-xs); word-break: break-all; }
+.dd-kv-val--num { color: var(--text-link); }
+
+/* ── code block ──────────────────────────────────────────────────────────── */
+.dd-code { margin: 0; border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); overflow: hidden; background: var(--surface-sunken); }
+.dd-code-bar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-6) var(--space-12); background: var(--bg-secondary); border-bottom: var(--border-width-default) solid var(--border-subtle); }
+.dd-code-copy { display: inline-flex; align-items: center; gap: var(--space-4); border: 0; background: transparent; color: var(--text-secondary); font-size: var(--fs-xs); cursor: var(--cursor-interactive); border-radius: var(--radius-control); padding: var(--space-2) var(--space-6); transition: var(--transition-control); }
+.dd-code-copy:hover { background: var(--surface-hover); color: var(--text-primary); }
+.dd-code-copy:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.dd-code-pre { margin: 0; padding: var(--space-12); overflow-x: auto; font: var(--text-code); }
+.dd-code-line { display: grid; grid-template-columns: 3ch 1fr; gap: var(--space-12); }
+.dd-code-gutter { color: var(--text-tertiary); text-align: right; user-select: none; }
+.dd-code-text { color: var(--text-primary); white-space: pre; }
+
+/* ── JSON viewer (tinted via text roles, not rainbow) ────────────────────── */
+.dd-json { font: var(--text-code); background: var(--surface-sunken); border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); padding: var(--space-12); overflow-x: auto; }
+.dd-json-row, .dd-json-toggle { display: flex; align-items: center; padding-left: calc(var(--dd-json-depth) * var(--dd-json-indent)); }
+.dd-json-toggle { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; cursor: var(--cursor-interactive); gap: var(--space-4); border-radius: var(--radius-xs); }
+.dd-json-toggle:hover { background: var(--surface-hover); }
+.dd-json-toggle:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.dd-json-toggle .dd-ico { color: var(--text-tertiary); }
+.dd-json-key { color: var(--text-link); }
+.dd-json-punc { color: var(--text-tertiary); }
+.dd-json-count { color: var(--text-tertiary); font-style: italic; margin: 0 var(--space-6); }
+.dd-json-str { color: var(--text-resolved); }
+.dd-json-num { color: var(--text-warning); }
+.dd-json-bool { color: var(--text-info); }
+.dd-json-null { color: var(--text-tertiary); }
+
+/* ── timeline ────────────────────────────────────────────────────────────── */
+.dd-timeline { list-style: none; margin: 0; padding: 0; }
+.dd-tl-row { display: grid; grid-template-columns: var(--dd-marker) 1fr max-content; gap: var(--space-12); position: relative; padding-bottom: var(--space-16); }
+.dd-tl-row::before { content: ""; position: absolute; left: calc(var(--dd-marker) / 2); top: var(--dd-marker); bottom: 0; width: var(--dd-rail-w); background: var(--timeline-rail); transform: translateX(-50%); }
+.dd-tl-row:last-child { padding-bottom: 0; }
+.dd-tl-row:last-child::before { display: none; }
+.dd-tl-marker { display: grid; place-items: center; width: var(--dd-marker); height: var(--dd-marker); border-radius: var(--radius-full); background: var(--surface-raised); border: var(--border-width-strong) solid var(--dd-node-fill); color: var(--dd-node-fill); z-index: var(--z-raised); }
+.dd-tl-row[data-live="true"] .dd-tl-marker { border-color: var(--ai-running); }
+.dd-tl-body { display: grid; gap: var(--space-2); }
+.dd-tl-head { display: flex; align-items: center; gap: var(--space-8); }
+.dd-tl-node { font-weight: var(--fw-semibold); font-size: var(--fs-sm); color: var(--text-primary); }
+.dd-tl-note { margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+.dd-tl-meta { display: grid; justify-items: end; gap: var(--space-2); font-size: var(--fs-xs); color: var(--text-tertiary); }
+.dd-tl-dur { color: var(--text-secondary); }
+
+/* ── activity feed ───────────────────────────────────────────────────────── */
+.dd-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-12); }
+.dd-feed-row { display: grid; grid-template-columns: max-content 1fr max-content; align-items: center; gap: var(--space-12); }
+.dd-feed-icon { display: grid; place-items: center; width: var(--avatar-sm); height: var(--avatar-sm); border-radius: var(--radius-full); background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle); color: var(--dd-avatar-fill, var(--text-secondary)); }
+.dd-feed-text { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.dd-feed-text b { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.dd-feed-time { font-size: var(--fs-xs); color: var(--text-tertiary); white-space: nowrap; }
+
+/* ── diff viewer (+/− signs AND tints) ───────────────────────────────────── */
+.dd-diff { font: var(--text-code); border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); overflow: hidden; }
+.dd-diff-line { display: grid; grid-template-columns: 3ch 3ch 2ch 1fr; align-items: baseline; }
+.dd-diff-ln { padding: 0 var(--space-6); color: var(--text-tertiary); text-align: right; user-select: none; }
+.dd-diff-sign { text-align: center; font-weight: var(--fw-bold); }
+.dd-diff-text { padding: var(--space-2) var(--space-8) var(--space-2) 0; color: var(--text-primary); white-space: pre-wrap; }
+.dd-diff-line--add { background: var(--fb-success-bg); }
+.dd-diff-line--add .dd-diff-sign, .dd-diff-line--add .dd-diff-text { color: var(--fb-success-text); }
+.dd-diff-line--del { background: var(--fb-error-bg); }
+.dd-diff-line--del .dd-diff-sign, .dd-diff-line--del .dd-diff-text { color: var(--fb-error-text); }
+
+/* ── markdown renderer ───────────────────────────────────────────────────── */
+.dd-md { color: var(--text-primary); font: var(--text-body-m); max-width: var(--measure-prose); }
+.dd-md h2 { font: var(--text-heading-3); letter-spacing: var(--text-heading-3-tracking); margin: 0 0 var(--space-8); }
+.dd-md h3 { font: var(--text-heading-4); letter-spacing: var(--text-heading-4-tracking); margin: var(--space-16) 0 var(--space-6); }
+.dd-md p { margin: 0 0 var(--space-12); color: var(--text-secondary); }
+.dd-md strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.dd-md ul { margin: 0 0 var(--space-12); padding-left: var(--space-20); color: var(--text-secondary); }
+.dd-md li { margin: var(--space-2) 0; }
+.dd-md code { font: var(--text-code); background: var(--surface-sunken); color: var(--text-link); padding: 1px 5px; border-radius: var(--radius-xs); }
+.dd-md a { color: var(--text-link); text-underline-offset: 2px; }
+.dd-md blockquote { margin: var(--space-12) 0; padding: var(--space-6) var(--space-16); border-left: var(--border-width-focus) solid var(--accent); background: var(--surface-sunken); color: var(--text-secondary); border-radius: 0 var(--radius-control) var(--radius-control) 0; }

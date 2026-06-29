@@ -1,4 +1,11 @@
 import { useEffect, useLayoutEffect, useState } from "react";
+import { Section } from "./sg";
+import { Phase3Layout } from "./phase3/Phase3Layout";
+import { Phase3Navigation } from "./phase3/Phase3Navigation";
+import { Phase3Forms } from "./phase3/Phase3Forms";
+import { Phase3DataDisplay } from "./phase3/Phase3DataDisplay";
+import { Phase3Feedback } from "./phase3/Phase3Feedback";
+import { Phase3Overlays } from "./phase3/Phase3Overlays";
 
 type Theme = "dark" | "light";
 type Density = "comfortable" | "compact";
@@ -43,18 +50,6 @@ function useResolvedVars(names: string[], dep: unknown): Record<string, string> 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dep]);
   return vals;
-}
-
-function Section(props: { id: string; title: string; desc: string; children: React.ReactNode }) {
-  return (
-    <section className="sg-section" id={props.id}>
-      <header>
-        <h3>{props.title}</h3>
-        <p className="sg-desc">{props.desc}</p>
-      </header>
-      {props.children}
-    </section>
-  );
 }
 
 const NEUTRAL_STEPS = [50, 100, 200, 300, 400, 450, 500, 600, 700, 800, 850, 900, 950];
@@ -235,7 +230,7 @@ export function App() {
     <div className="sg-shell">
       <header className="sg-bar">
         <h1>ProductAgents</h1>
-        <span className="sg-sub">Phase 1–2 · Foundations + Tokens</span>
+        <span className="sg-sub">Phase 1–3 · Foundations + Tokens + Components</span>
         <span className="sg-spacer" />
         <Toggle
           label="Theme"
@@ -547,6 +542,18 @@ export function App() {
             </p>
           </div>
         </Section>
+
+        {/* ═══════════════════════════════════ PHASE 3 · CORE COMPONENTS ═══ */}
+        <div className="sg-band">
+          <h2>Core components</h2>
+          <span>The working component vocabulary — built only from the token layer, adapting across theme + density with zero markup change.</span>
+        </div>
+        <Phase3Layout />
+        <Phase3Navigation />
+        <Phase3Forms />
+        <Phase3DataDisplay />
+        <Phase3Feedback />
+        <Phase3Overlays />
       </main>
     </div>
   );
