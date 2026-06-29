@@ -144,6 +144,9 @@ body {
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
+  /* Own stacking context: keeps every gallery demo (incl. high-z overlay
+   * previews up to --z-tooltip) contained BELOW the sticky navbar. */
+  isolation: isolate;
 }
 .sg-intro { display: grid; gap: var(--space-8); max-width: 70ch; }
 .sg-intro h2 { font-size: var(--fs-xl); font-weight: var(--fw-semibold); margin: 0; letter-spacing: var(--ls-tight); }

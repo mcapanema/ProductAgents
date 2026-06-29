@@ -11,7 +11,7 @@
   --la-inspector-w: var(--width-inspector);
   --la-titlebar-h: var(--control-md);
   --la-topbar-h: var(--control-lg);
-  --la-toolbar-h: var(--control-md);
+  --la-toolbar-h: var(--control-lg);
   --la-resize-w: var(--space-12);          /* hit-area for the resize handle */
 
   /* One-off demo viewport heights for the contained preview mocks (not product
@@ -100,7 +100,10 @@
   font: var(--text-body-s);
   transition: var(--transition-surface);
 }
-.la-rail--collapsed .la-nav-item { justify-content: center; padding-inline: 0; width: var(--row-height); }
+.la-rail--collapsed .la-nav { justify-items: center; }   /* center the items in the narrow rail */
+/* Collapsed = a desktop icon rail: square items sized to the icon, centered with
+ * margin (pointer-target sizing; the expanded rail keeps the 44px rows). */
+.la-rail--collapsed .la-nav-item { justify-content: center; padding-inline: 0; width: var(--control-md); height: var(--control-md); }
 .la-nav-item:hover { background: var(--nav-item-bg-hover); color: var(--nav-item-text-hover); }
 .la-nav-item.is-active { background: var(--nav-item-bg-selected); color: var(--nav-item-text-selected); }
 .la-nav-item.is-active .la-ico { color: var(--accent-text); }
@@ -113,7 +116,7 @@
   background: transparent;
 }
 .la-nav-item.is-active .la-nav-marker { background: var(--nav-item-marker-selected); }
-.la-rail--collapsed .la-nav-marker { left: calc(var(--space-2) * -1); }
+.la-rail--collapsed .la-nav-marker { left: 0; }
 .la-nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .la-nav-label--mono { font-family: var(--font-mono); font-size: var(--fs-xs); }
 
@@ -123,7 +126,8 @@
 /* Top bar */
 .la-topbar {
   display: flex; align-items: center; gap: var(--gap-inline);
-  padding: 0 var(--pad-control-x);
+  min-height: var(--la-topbar-h);          /* breathing room when shown standalone */
+  padding: var(--space-6) var(--pad-control-x);
   background: var(--bg-primary);
   border-bottom: var(--border-width-default) solid var(--border-subtle);
 }
@@ -158,6 +162,7 @@
 /* Context toolbar */
 .la-toolbar {
   display: flex; align-items: center; gap: var(--gap-inline);
+  min-height: var(--la-toolbar-h);         /* breathing room when shown standalone */
   padding: 0 var(--pad-control-x);
   background: var(--bg-secondary);
   border-bottom: var(--border-width-default) solid var(--border-subtle);
