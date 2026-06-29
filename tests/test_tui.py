@@ -145,7 +145,7 @@ async def test_app_renders_new_analyst_panels(monkeypatch):
 
 
 def test_format_recall_body_lists_lessons():
-    from productagents.app.tui.app import _format_recall_body
+    from productagents.app.tui._format import format_recall_body as _format_recall_body
 
     body = _format_recall_body(["lesson one", "lesson two"])
 
@@ -154,7 +154,7 @@ def test_format_recall_body_lists_lessons():
 
 
 def test_format_recall_body_empty_state_points_to_reflection():
-    from productagents.app.tui.app import _format_recall_body
+    from productagents.app.tui._format import format_recall_body as _format_recall_body
 
     body = _format_recall_body([])
 
@@ -804,7 +804,7 @@ async def test_judgment_failure_shows_warning():
     )
     async with app.run_test() as pilot:
         await pilot.pause()
-        app._on_judgment(
+        app._presenter.dispatch(
             ev.Judged(
                 session_id="t",
                 seq=0,
@@ -831,7 +831,7 @@ async def test_governance_non_approve_warns_then_approval_clears_it():
     )
     async with app.run_test() as pilot:
         await pilot.pause()
-        app._on_governance_verdict(
+        app._presenter.dispatch(
             ev.GovernanceAdvised(
                 session_id="t", seq=0, verdict="reject", rationale="not now"
             )
@@ -840,7 +840,7 @@ async def test_governance_non_approve_warns_then_approval_clears_it():
         assert str(gov.border_title).startswith("⚠")
         assert gov.has_class("warning")
         # A human override to approve clears the warning.
-        app._on_final_verdict(
+        app._presenter.dispatch(
             ev.FinalVerdict(
                 session_id="t",
                 seq=0,
@@ -864,13 +864,13 @@ async def test_debate_panel_runs_then_done_when_strategist_starts():
     )
     async with app.run_test() as pilot:
         await pilot.pause()
-        app._on_debate_turn(
+        app._presenter.dispatch(
             ev.DebateTurnEmitted(
                 session_id="t", seq=0, round=1, side="advocate", argument="ship it"
             )
         )
         assert "debate-scroll" in app._indicator._spinning  # running spinner
-        app._on_progress(
+        app._presenter.dispatch(
             ev.NodeProgress(
                 session_id="t", seq=0, node="strategist", message="thinking"
             )
@@ -890,13 +890,13 @@ async def test_strategist_done_when_judgment_arrives():
     )
     async with app.run_test() as pilot:
         await pilot.pause()
-        app._on_progress(
+        app._presenter.dispatch(
             ev.NodeProgress(
                 session_id="t", seq=0, node="strategist", message="thinking"
             )
         )
         assert "strategist" in app._indicator._spinning
-        app._on_judgment(
+        app._presenter.dispatch(
             ev.Judged(
                 session_id="t",
                 seq=0,
@@ -922,7 +922,7 @@ async def test_risk_panel_runs_then_done_when_governance_arrives():
     )
     async with app.run_test() as pilot:
         await pilot.pause()
-        app._on_risk_assessment(
+        app._presenter.dispatch(
             ev.RiskAssessed(
                 session_id="t",
                 seq=0,
@@ -933,7 +933,7 @@ async def test_risk_panel_runs_then_done_when_governance_arrives():
             )
         )
         assert "risk-scroll" in app._indicator._spinning
-        app._on_governance_verdict(
+        app._presenter.dispatch(
             ev.GovernanceAdvised(
                 session_id="t", seq=0, verdict="approve", rationale="go"
             )
