@@ -24,6 +24,15 @@
     "category": "Productivity",
     "shortDescription": "A local operating environment for product decision-making.",
     "longDescription": "ProductAgents is a local-first desktop environment that runs multi-agent product decision workflows — evidence gathering, debate, strategy, risk, and governance — entirely on your machine. No account, no cloud.",
-    "homepage": "https://github.com/mcapanema/ProductAgents"
+    "homepage": "https://github.com/mcapanema/ProductAgents",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU3RDZDQUEyOTExQjAzOEYKUldTUEF4dVJvc3JXNXcwRzNQOGdwaFZoZTVFbUtxeU90UXpGMHVmc2dMOTBQQUZXandQcW1tRUoK",
+      "endpoints": [
+        "https://github.com/mcapanema/ProductAgents/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

@@ -68,6 +68,8 @@ fn sidecar_command() -> Command {
 
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let mut child = sidecar_command()
                 .stdin(Stdio::piped())

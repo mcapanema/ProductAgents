@@ -50,6 +50,31 @@ def test_bundle_metadata_present():
         assert bundle.get(key), f"bundle.{key} is missing or empty"
 
 
+def test_updater_config_present():
+    """Auto-update must be wired: updater artifacts on, a public key, an
+    endpoint, and a capability granting the updater + relaunch commands."""
+    tauri = json.loads(
+        (_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text()
+    )
+    assert tauri["bundle"]["createUpdaterArtifacts"] is True
+    updater = tauri["plugins"]["updater"]
+    assert updater["pubkey"], "updater pubkey is empty"
+    assert updater["endpoints"], "updater endpoints are empty"
+
+    caps = json.loads(
+        (_ROOT / "desktop" / "src-tauri" / "capabilities" / "default.json").read_text()
+    )
+    perms = caps["permissions"]
+    assert "updater:default" in perms
+    assert (
+        "process:allow-restart" in perms
+    )  # ponytail: relaunch() JS fn = restart Rust cmd in tauri-plugin-process v2
+
+    cargo = (_ROOT / "desktop" / "src-tauri" / "Cargo.toml").read_text()
+    assert "tauri-plugin-updater" in cargo
+    assert "tauri-plugin-process" in cargo
+
+
 def test_desktop_version_matches_pyproject():
     """A release bumps every version together — the backend, the installer, the
     Rust shell, and the JS package must all declare the same version."""
