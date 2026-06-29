@@ -64,12 +64,24 @@ export function ConnectorsPanel() {
           <div>{r.name}</div>
           <div className="muted">
             {r.health === "unknown" ? "health unknown" : `health: ${r.detail || r.health}`}
-            {r.written !== null && ` · ${r.written} written`}
+            {r.synced === "error"
+              ? ` · ⚠ ${r.error}`
+              : r.written !== null && ` · ${r.written} written`}
           </div>
         </div>
       ))}
       {list.problems.map((p, i) => (
-        <p className="muted" key={i}>
+        <p className="muted" key={`list-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
+      {health?.problems.map((p, i) => (
+        <p className="muted" key={`health-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
+      {sync?.problems.map((p, i) => (
+        <p className="muted" key={`sync-${i}`}>
           ⚠ {p}
         </p>
       ))}

@@ -64,4 +64,25 @@ describe("ConnectorsPanel", () => {
       expect(screen.getByText(/7 written/)).toBeInTheDocument(),
     );
   });
+
+  it("shows error text when sync result is failed", async () => {
+    const failedSync: ConnectorSync = {
+      results: [{ connector: "github", written: 0, ok: false, error: "401 unauthorized" }],
+      problems: [],
+    };
+    const failClient: IpcClient = {
+      ...fake(),
+      connectorsSync: async () => failedSync,
+    } as unknown as IpcClient;
+    render(
+      <IpcProvider client={failClient}>
+        <ConnectorsPanel />
+      </IpcProvider>,
+    );
+    await screen.findByText("github");
+    fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/401 unauthorized/)).toBeInTheDocument(),
+    );
+  });
 });
