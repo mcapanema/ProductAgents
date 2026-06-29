@@ -5,3 +5,7 @@ playwright-report/
 test-results/
 .playwright/
 src-tauri/gen/schemas/
+
+# Phase 8e packaging artifacts
+build/
+src-tauri/binaries/
