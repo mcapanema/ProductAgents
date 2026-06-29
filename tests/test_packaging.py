@@ -33,6 +33,23 @@ def test_build_workflows_survives_missing_model(monkeypatch):
     assert any(w.name == "evaluate_initiative" for w in service.list())
 
 
+def test_bundle_metadata_present():
+    """Installers must declare publisher/copyright/category/description."""
+    tauri = json.loads(
+        (_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text()
+    )
+    bundle = tauri["bundle"]
+    for key in (
+        "publisher",
+        "copyright",
+        "category",
+        "shortDescription",
+        "longDescription",
+        "homepage",
+    ):
+        assert bundle.get(key), f"bundle.{key} is missing or empty"
+
+
 def test_desktop_version_matches_pyproject():
     """A release bumps every version together — the backend, the installer, the
     Rust shell, and the JS package must all declare the same version."""

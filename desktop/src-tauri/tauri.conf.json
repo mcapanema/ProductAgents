@@ -18,6 +18,12 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/productagents-ipc"]
+    "externalBin": ["binaries/productagents-ipc"],
+    "publisher": "ProductAgents",
+    "copyright": "Copyright © 2026 ProductAgents",
+    "category": "Productivity",
+    "shortDescription": "A local operating environment for product decision-making.",
+    "longDescription": "ProductAgents is a local-first desktop environment that runs multi-agent product decision workflows — evidence gathering, debate, strategy, risk, and governance — entirely on your machine. No account, no cloud.",
+    "homepage": "https://github.com/mcapanema/ProductAgents"
   }
 }
