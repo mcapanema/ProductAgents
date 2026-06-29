@@ -1,0 +1,186 @@
+/*
+ * Styleguide chrome + Foundations-gallery layout.
+ *
+ * The design tokens now live in design/tokens/ (imported in main.tsx). This
+ * file is ONLY the review-surface shell — it consumes the real role tokens
+ * (--bg, --ink, --signal, …) and primitives (--space-*, --radius-*, …); it
+ * defines no palette of its own. Density is a harness convenience here (the
+ * semantic density system is Phase 2D).
+ */
+
+/* Harness density: scale CONTENT size/spacing, NOT the outer page padding.
+ * .sg-main is max-width capped with border-box, so varying its padding makes
+ * "compact" content WIDER than "comfortable" (less padding → larger content
+ * box) — an inversion. Density instead drives card padding, gaps, and
+ * swatch/step heights, which shrink the same direction at any viewport. */
+[data-density="comfortable"] {
+  --sg-card-pad: var(--space-20);
+  --sg-stack-gap: var(--space-40);
+  --sg-section-gap: var(--space-16);
+  --sg-step-h: 56px;
+  --sg-chip-h: 44px;
+  --sg-text: var(--fs-base);
+}
+[data-density="compact"] {
+  --sg-card-pad: var(--space-12);
+  --sg-stack-gap: var(--space-24);
+  --sg-section-gap: var(--space-8);
+  --sg-step-h: 40px;
+  --sg-chip-h: 32px;
+  --sg-text: var(--fs-sm);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--sg-text);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sg-shell { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.sg-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-24);
+  background: var(--panel);
+  border-bottom: var(--border-thin) solid var(--hairline);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+.sg-bar h1 {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  margin: 0;
+}
+.sg-bar .sg-sub { color: var(--muted); font-size: var(--fs-xs); font-family: var(--font-mono); }
+.sg-bar .sg-spacer { flex: 1; }
+
+.sg-toggle { display: inline-flex; align-items: center; gap: var(--space-8); }
+.sg-toggle .sg-label { color: var(--muted); font-size: var(--fs-xs); }
+.sg-toggle button {
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  background: transparent;
+  border: var(--border-thin) solid var(--structural);
+  padding: var(--space-4) var(--space-12);
+  cursor: pointer;
+  transition: var(--motion-control);
+  position: relative;
+}
+.sg-toggle button:first-of-type { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.sg-toggle button:last-of-type { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+/* Overlap the shared edge by one border-width so it isn't doubled, while every
+ * button keeps a full 4-side border (so the active button's colored border
+ * closes on all sides). The active button is raised above its neighbour. */
+.sg-toggle button:not(:first-of-type) { margin-left: calc(var(--border-thin) * -1); }
+.sg-toggle button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+  z-index: 1;
+}
+.sg-toggle button:focus-visible { outline: var(--border-thick) solid var(--focus); outline-offset: 2px; z-index: 2; }
+
+/* ── Body / sections ─────────────────────────────────────────────────────── */
+.sg-main {
+  padding: var(--space-32) var(--space-24);
+  display: grid;
+  gap: var(--sg-stack-gap);
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+}
+.sg-intro { display: grid; gap: var(--space-8); max-width: 70ch; }
+.sg-intro h2 { font-size: var(--fs-xl); font-weight: var(--fw-semibold); margin: 0; letter-spacing: var(--ls-tight); }
+.sg-intro p { margin: 0; color: var(--muted); font-size: var(--fs-base); }
+
+.sg-section { display: grid; gap: var(--sg-section-gap); }
+.sg-section > header { display: grid; gap: var(--space-2); }
+.sg-section h3 {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--primary-text);
+  margin: 0;
+}
+.sg-section .sg-desc { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
+
+.sg-card {
+  background: var(--panel);
+  border: var(--border-thin) solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--sg-card-pad);
+}
+
+/* ── Color ramps ─────────────────────────────────────────────────────────── */
+.sg-ramp { display: grid; gap: var(--space-6); }
+.sg-ramp + .sg-ramp { margin-top: var(--space-16); }
+.sg-ramp-head { display: flex; align-items: baseline; gap: var(--space-8); }
+.sg-ramp-head b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.sg-ramp-head span { color: var(--muted); font-size: var(--fs-xs); }
+.sg-ramp-steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--border-thin); border-radius: var(--radius-md); overflow: hidden; }
+.sg-step { height: var(--sg-step-h); display: flex; align-items: flex-end; padding: var(--space-4); box-shadow: inset 0 0 0 var(--border-hairline) rgba(128, 128, 128, 0.25); }
+.sg-step code { font-family: var(--font-mono); font-size: 9px; line-height: 1; }
+
+/* ── Swatch grid (role tokens) ───────────────────────────────────────────── */
+.sg-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--space-12); }
+.sg-swatch { display: grid; gap: var(--space-6); }
+.sg-swatch .chip { height: var(--sg-chip-h); border-radius: var(--radius-sm); border: var(--border-thin) solid var(--hairline); }
+.sg-swatch b { font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+.sg-swatch code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
+
+/* ── Type specimens ──────────────────────────────────────────────────────── */
+.sg-type { display: grid; gap: var(--space-16); }
+.sg-type-row { display: grid; grid-template-columns: 96px 1fr; align-items: baseline; gap: var(--space-16); }
+.sg-type-row .meta { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
+.sg-type-row .sample { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-weights { display: flex; flex-wrap: wrap; gap: var(--space-24); align-items: baseline; }
+.sg-weights span { font-size: var(--fs-lg); }
+.sg-mono-figures { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-md); letter-spacing: var(--ls-normal); }
+
+/* ── Scale rails (spacing / radius / size) ───────────────────────────────── */
+.sg-scale { display: grid; gap: var(--space-8); }
+.sg-scale-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: var(--space-16); }
+.sg-scale-row .meta { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
+.sg-bar-fill { height: 12px; background: var(--primary); border-radius: var(--radius-xs); }
+.sg-radius-demo { height: 56px; width: 56px; background: var(--elevated); border: var(--border-thin) solid var(--structural); }
+.sg-sizes { display: flex; flex-wrap: wrap; gap: var(--space-24); align-items: flex-end; }
+.sg-size-demo { display: grid; justify-items: center; gap: var(--space-6); }
+.sg-size-box { background: var(--primary); border-radius: var(--radius-xs); }
+.sg-size-demo code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
+
+/* ── Elevation ───────────────────────────────────────────────────────────── */
+.sg-elevations { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-24); }
+.sg-elevation { height: 72px; background: var(--elevated); border: var(--border-thin) solid var(--hairline); border-radius: var(--radius-md); display: flex; align-items: flex-end; padding: var(--space-6); }
+.sg-elevation code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+.sg-motion { display: grid; gap: var(--space-12); }
+.sg-motion-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: var(--space-16); }
+.sg-motion-row .meta { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
+.sg-motion-track { height: 28px; background: var(--well); border-radius: var(--radius-full); position: relative; overflow: hidden; }
+.sg-motion-dot {
+  position: absolute; top: 4px; left: 4px;
+  width: 20px; height: 20px; border-radius: var(--radius-full);
+  background: var(--primary);
+  animation: sg-slide 2.4s infinite alternate var(--_ease, var(--ease-standard));
+}
+@keyframes sg-slide { from { left: 4px; } to { left: calc(100% - 24px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  .sg-motion-dot { left: calc(100% - 24px); }
+}

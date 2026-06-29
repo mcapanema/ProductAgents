@@ -1,0 +1,293 @@
+/*
+ * ProductAgents — Foundation primitives (Phase 1)
+ * ================================================
+ * The raw, theme-agnostic values everything else derives from. These are NOT
+ * semantic: a component never references `--c-amber-500` directly — Phase 2
+ * maps these primitives into semantic roles (themes/{dark,light}.css redefine
+ * the *semantic* tokens, never these). Reference: design/DESIGN.md ("Instrument").
+ *
+ * Color ramps are OKLCH-derived, hexes pinned by design/contrast.py — the
+ * single source of truth for which steps carry text (regenerate + re-gate on
+ * any change; CI requires `TOTAL FAILURES: 0`). Scales are on a fixed grid; no
+ * off-scale literal belongs anywhere downstream.
+ */
+
+:root {
+  /* ───────────────────────────────────────────────────────────── COLOR ───
+   * Two neutral ramps (cool `slate` for dark grounds, warm `sand` for light
+   * grounds — the Instrument cool-dark / warm-light temperature split) plus
+   * five chromatic signal ramps. Step 500 is the saturated anchor; lighter
+   * steps carry text on dark grounds, darker steps carry text on light grounds.
+   */
+
+  /* slate: Neutral — cool graphite (dark-theme grounds + cross-theme ink/border) */
+  --c-slate-50: #f1f6fd;
+  --c-slate-100: #e2e6ec;
+  --c-slate-200: #d2dae6;
+  --c-slate-300: #bac2cd;
+  --c-slate-400: #a1a9b4;
+  --c-slate-450: #8a93a0;
+  --c-slate-500: #7f8791;
+  --c-slate-600: #686f79;
+  --c-slate-700: #545b65;
+  --c-slate-800: #333a43;
+  --c-slate-850: #222831;
+  --c-slate-900: #1b1f26;
+  --c-slate-950: #14171c;
+
+  /* sand: Neutral — warm (light-theme grounds) */
+  --c-sand-50: #fdfbf7;
+  --c-sand-100: #f7f3ec;
+  --c-sand-200: #ede9e2;
+  --c-sand-300: #dedad3;
+  --c-sand-400: #b4b0aa;
+  --c-sand-450: #9b9891;
+  --c-sand-500: #898680;
+  --c-sand-600: #726e68;
+  --c-sand-700: #5e5a55;
+  --c-sand-800: #4b4742;
+  --c-sand-850: #383530;
+  --c-sand-900: #27241f;
+  --c-sand-950: #1a1815;
+
+  /* amber: Signal — live / running / attention (signature hue, 500 = #E0A33E) */
+  --c-amber-50: #fff0d7;
+  --c-amber-100: #ffe7c8;
+  --c-amber-200: #fdd9ad;
+  --c-amber-300: #f5c68c;
+  --c-amber-400: #eab167;
+  --c-amber-500: #e0a33e;
+  --c-amber-600: #9f6a17;
+  --c-amber-700: #7e5519;
+  --c-amber-800: #614219;
+  --c-amber-900: #432f16;
+  --c-amber-950: #2e1f0a;
+
+  /* teal: Resolved — measured / settled / done (500 = #3FB5A6) */
+  --c-teal-50: #e2fdf7;
+  --c-teal-100: #d3f3ed;
+  --c-teal-200: #b6e5dc;
+  --c-teal-300: #93d0c5;
+  --c-teal-400: #6bb9ac;
+  --c-teal-500: #3fb5a6;
+  --c-teal-600: #36867a;
+  --c-teal-700: #2e6b61;
+  --c-teal-800: #27524b;
+  --c-teal-900: #1e3935;
+  --c-teal-950: #112723;
+
+  /* red: Danger */
+  --c-red-50: #ffeae4;
+  --c-red-100: #ffddd6;
+  --c-red-200: #ffc4bb;
+  --c-red-300: #ffa59a;
+  --c-red-400: #f38378;
+  --c-red-500: #e15f55;
+  --c-red-600: #ba5048;
+  --c-red-700: #94423b;
+  --c-red-800: #71352f;
+  --c-red-900: #4e2723;
+  --c-red-950: #361815;
+
+  /* green: Success */
+  --c-green-50: #e3fee9;
+  --c-green-100: #d5f5dc;
+  --c-green-200: #b9e7c4;
+  --c-green-300: #96d2a6;
+  --c-green-400: #70bc86;
+  --c-green-500: #46a566;
+  --c-green-600: #3d8855;
+  --c-green-700: #336d45;
+  --c-green-800: #2a5437;
+  --c-green-900: #203b28;
+  --c-green-950: #132719;
+
+  /* indigo: Primary — the interactive accent (buttons / links / focus / selected).
+     Hue holds identity at both dark (500/400) and light (600/700) lightness; takes
+     a white label on its fill in both themes. Amber is reserved for live-signal. */
+  --c-indigo-50: #e9f0ff;
+  --c-indigo-100: #dce4ff;
+  --c-indigo-200: #c9d2ff;
+  --c-indigo-300: #b1bbff;
+  --c-indigo-400: #959ff8;
+  --c-indigo-500: #6267ca;
+  --c-indigo-600: #565cae;
+  --c-indigo-700: #4e5396;
+  --c-indigo-800: #3e437a;
+  --c-indigo-900: #2b2f58;
+  --c-indigo-950: #1c1e3e;
+
+  /* blue: Info */
+  --c-blue-50: #e0f9ff;
+  --c-blue-100: #d1efff;
+  --c-blue-200: #b4deff;
+  --c-blue-300: #90c7fd;
+  --c-blue-400: #68aeee;
+  --c-blue-500: #3c94df;
+  --c-blue-600: #357bb8;
+  --c-blue-700: #2d6292;
+  --c-blue-800: #264c6f;
+  --c-blue-900: #1e364c;
+  --c-blue-950: #112435;
+
+  /* Absolutes — the only raw black/white; use sparingly via semantic tokens. */
+  --c-white: #ffffff;
+  --c-black: #000000;
+
+  /* ──────────────────────────────────────────────────────── TYPOGRAPHY ───
+   * IBM Plex Sans (UI/body) + IBM Plex Mono (data/traces/numbers), shipped
+   * locally (see fonts.css). No display face yet — Phase 2B revisits.
+   */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+  --font-display: var(--font-sans);
+
+  /* Font-size scale — 1.20 minor-third, 16px base, rem-based. */
+  --fs-xs: 0.694rem;   /* 11.1px */
+  --fs-sm: 0.833rem;   /* 13.3px */
+  --fs-base: 1rem;     /* 16px   */
+  --fs-md: 1.2rem;     /* 19.2px */
+  --fs-lg: 1.44rem;    /* 23px   */
+  --fs-xl: 1.728rem;   /* 27.6px */
+  --fs-2xl: 2.074rem;  /* 33.2px */
+  --fs-3xl: 2.488rem;  /* 39.8px */
+  --fs-4xl: 2.986rem;  /* 47.8px */
+  --fs-5xl: 3.583rem;  /* 57.3px */
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --lh-tight: 1.15;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.65;
+  --lh-loose: 1.9;
+
+  --ls-tight: -0.015em;
+  --ls-normal: 0em;
+  --ls-wide: 0.04em;
+
+  /* ───────────────────────────────────────────────────────────── SPACE ───
+   * 4px base grid. Density (comfortable/compact) rescales role tokens in
+   * Phase 2, not these primitives.
+   */
+  --space-0: 0;
+  --space-px: 1px;
+  --space-2: 0.125rem;  /* 2px  */
+  --space-4: 0.25rem;   /* 4px  */
+  --space-6: 0.375rem;  /* 6px  */
+  --space-8: 0.5rem;    /* 8px  */
+  --space-12: 0.75rem;  /* 12px */
+  --space-16: 1rem;     /* 16px */
+  --space-20: 1.25rem;  /* 20px */
+  --space-24: 1.5rem;   /* 24px */
+  --space-32: 2rem;     /* 32px */
+  --space-40: 2.5rem;   /* 40px */
+  --space-48: 3rem;     /* 48px */
+  --space-64: 4rem;     /* 64px */
+  --space-80: 5rem;     /* 80px */
+  --space-96: 6rem;     /* 96px */
+
+  /* ────────────────────────────────────────────────────────────── RADII ───
+   * Restrained corners — a precision instrument, not a soft consumer app.
+   */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────────────────────────────── BORDER WIDTH ───*/
+  --border-hairline: 0.5px;
+  --border-thin: 1px;
+  --border-medium: 1.5px;
+  --border-thick: 2px;
+
+  /* ───────────────────────────────────────────────────────── ELEVATION ───
+   * Shadows tuned for the dark canvas (deep, low-spread) — themes may swap the
+   * shadow color. Light theme overrides these in Phase 2H if needed.
+   */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.36), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.40), 0 2px 4px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.46), 0 4px 8px rgba(0, 0, 0, 0.30);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.54), 0 8px 16px rgba(0, 0, 0, 0.34);
+
+  /* ─────────────────────────────────────────────────────────── OPACITY ───*/
+  --opacity-0: 0;
+  --opacity-muted: 0.6;
+  --opacity-disabled: 0.45;
+  --opacity-scrim: 0.6;
+  --opacity-full: 1;
+
+  /* ───────────────────────────────────────────────────────────── MOTION ───
+   * Brisk and mechanical. Reduced-motion is honored at the component layer.
+   */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-normal: 220ms;
+  --dur-slow: 360ms;
+  --dur-slower: 560ms;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);     /* enter/move */
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);   /* exit */
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);   /* land */
+  --ease-emphasis: cubic-bezier(0.5, 0, 0.1, 1);   /* signature pulse */
+
+  /* Presets — duration + easing pairs for the common transitions. */
+  --motion-fade: opacity var(--dur-fast) var(--ease-standard);
+  --motion-pop: transform var(--dur-fast) var(--ease-decelerate);
+  --motion-control: background-color var(--dur-fast) var(--ease-standard),
+                    border-color var(--dur-fast) var(--ease-standard),
+                    color var(--dur-fast) var(--ease-standard);
+
+  /* ──────────────────────────────────────────────────────────── Z-INDEX ───*/
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-dropdown: 1000;
+  --z-overlay: 2000;
+  --z-modal: 3000;
+  --z-toast: 4000;
+  --z-tooltip: 5000;
+
+  /* ──────────────────────────────────────────────────────── BREAKPOINTS ───
+   * Min-width breakpoints. (CSS vars can't drive @media queries directly —
+   * these are the canonical values mirrored in any media query.)
+   */
+  --bp-compact: 600px;
+  --bp-medium: 905px;
+  --bp-expanded: 1240px;
+  --bp-wide: 1600px;
+
+  /* ──────────────────────────────────────────────────────────────── BLUR ───*/
+  --blur-sm: 4px;
+  --blur-md: 10px;
+  --blur-lg: 20px;
+
+  /* ──────────────────────────────────────────────────────────────── SIZE ───
+   * Fixed pixel sizes for icons, avatars, and control heights.
+   */
+  --icon-xs: 14px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+
+  --avatar-sm: 24px;
+  --avatar-md: 32px;
+  --avatar-lg: 40px;
+
+  --control-sm: 28px;
+  --control-md: 36px;
+  --control-lg: 44px;   /* ≥44px touch target where touch applies */
+
+  --field-sm: 28px;
+  --field-md: 36px;
+  --field-lg: 44px;
+}
