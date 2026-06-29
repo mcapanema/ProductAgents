@@ -1,4 +1,6 @@
 import type {
+  ConfigSetParams,
+  ConfigStatus,
   ConnectorHealth,
   ConnectorList,
   ConnectorSync,
@@ -119,6 +121,18 @@ export class IpcClient {
 
   promptsDiff(name: string, old: number, next: number): Promise<PromptDiff> {
     return this.call("prompts.diff", { name, old, new: next }) as Promise<PromptDiff>;
+  }
+
+  configGet(): Promise<ConfigStatus> {
+    return this.call("config.get") as Promise<ConfigStatus>;
+  }
+
+  configSet(params: ConfigSetParams): Promise<ConfigStatus> {
+    return this.call("config.set", params as unknown as Record<string, unknown>) as Promise<ConfigStatus>;
+  }
+
+  approve(verdict: string, rationale = ""): Promise<{ ok: boolean }> {
+    return this.call("approve", { verdict, rationale }) as Promise<{ ok: boolean }>;
   }
 
   run(params: RunParams, handlers: RunHandlers): Promise<RunResult> {

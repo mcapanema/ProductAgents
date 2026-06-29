@@ -15,6 +15,7 @@ export interface RunParams {
   workflow: string;
   title: string;
   evidence?: string;
+  approval?: boolean;
 }
 
 export interface RunHandlers {
@@ -122,4 +123,26 @@ export interface PromptDiff {
   old: number;
   new: number;
   diff: string;
+}
+
+export interface ProviderInfo {
+  id: string;
+  label: string;
+  key_var: string;
+  default_model: string;
+}
+
+export interface ConfigStatus {
+  model: string;
+  provider: string;
+  key_var: string;
+  key_present: boolean;
+  problems: string[];
+  providers: ProviderInfo[];
+}
+
+export interface ConfigSetParams {
+  model: string;
+  provider?: string;
+  api_key?: string;
 }
