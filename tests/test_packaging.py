@@ -34,11 +34,17 @@ def test_build_workflows_survives_missing_model(monkeypatch):
 
 
 def test_desktop_version_matches_pyproject():
-    """A release bumps both versions together — the installer and the backend
-    must declare the same version."""
+    """A release bumps every version together — the backend, the installer, the
+    Rust shell, and the JS package must all declare the same version."""
     pyproject = tomllib.loads((_ROOT / "pyproject.toml").read_text())
     py_version = pyproject["project"]["version"]
+
     tauri = json.loads(
         (_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text()
     )
+    cargo = tomllib.loads((_ROOT / "desktop" / "src-tauri" / "Cargo.toml").read_text())
+    pkg = json.loads((_ROOT / "desktop" / "package.json").read_text())
+
     assert tauri["version"] == py_version
+    assert cargo["package"]["version"] == py_version
+    assert pkg["version"] == py_version
