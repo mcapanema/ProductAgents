@@ -248,10 +248,6 @@ Panels: **Run** (start a workflow, watch events stream live), **Sessions**
 (replay a past run's event timeline), **Decisions** (the Decision Explorer:
 browse past decisions with predicted-vs-actual outcomes and lessons learned).
 
-Packaging into a single installable binary (with a bundled Python sidecar) is a
-later phase; for now the app shells out to `uv run productagents ipc` from the
-repo root in dev mode.
-
 #### Browser-based testing (Playwright + WS bridge)
 
 The native Tauri window can't be browser-automated (on macOS there's no WKWebView
@@ -275,6 +271,24 @@ When *not* inside Tauri, the frontend's transport (`createClient`) automatically
 falls back from the Tauri sidecar to `ws://127.0.0.1:7420`. The bridge is a
 **development affordance only** — localhost-bound and never bundled into the
 shipped app; it is not a client/server product surface.
+
+### Packaging
+
+The desktop app ships as a single installable: the Python backend is frozen with
+PyInstaller into a self-contained binary and bundled inside the Tauri app as an
+`externalBin` sidecar, so the target machine needs no Python or uv.
+
+```bash
+make package          # build-sidecar + `tauri build` → installer under desktop/src-tauri/target/release/bundle/
+make build-sidecar    # just freeze the sidecar binary
+```
+
+The sidecar is the existing `productagents ipc` server (`_sidecar_main.py` entry).
+In development the Tauri shell still spawns `uv run productagents ipc`; in a
+packaged build it runs the bundled binary and kills it on quit. Builds are
+host-platform only for now (the build host's OS/arch); a cross-platform CI matrix
+is a follow-up. Keep `tauri.conf.json` `version` in sync with `pyproject.toml`
+(a test enforces it).
 
 ### Test
 

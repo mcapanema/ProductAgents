@@ -40,10 +40,18 @@ webview. No product logic lives here.
 - **`Cargo.lock` is committed** (this crate is an application binary).
 - **`gen/schemas/` and `target/` are gitignored** (generated).
 
-## Dev-mode ceilings (deferred to Phase 8e packaging)
+## Sidecar resolution & lifecycle
 
-- `# ponytail:` the sidecar is spawned as `uv run productagents ipc` for dev. The
-  child `Child` handle is dropped after startup, and `std::process` does not kill
-  it on app exit — **the sidecar can orphan** on quit. Phase 8e replaces this dev
-  spawn with a bundled PyInstaller sidecar binary wired as a Tauri `externalBin`,
-  which also fixes lifecycle. Don't add process-reaping plumbing before then.
+- `sidecar_kind()` chooses the backend: **Bundled** if a `productagents-ipc[.exe]`
+  sits next to the current executable (Tauri's `externalBin` lands it there in a
+  packaged build), else **Dev** (`uv run productagents ipc` from `repo_root()`).
+  It is a pure function with a `#[cfg(test)]` unit test asserting the Dev fallback.
+- The spawned `Child` is held in `Sidecar { stdin, child }` managed state and
+  **killed on `RunEvent::ExitRequested`**, so the Python backend never orphans on
+  quit (the old dev spawn dropped the handle and leaked the child).
+- The bundled binary is produced by `desktop/packaging/build-sidecar.sh`
+  (PyInstaller onefile) and wired via `bundle.externalBin` in `tauri.conf.json`.
+  `tauri.conf.json` `version` must equal `pyproject.toml` `[project] version`
+  (enforced by `tests/test_packaging.py`).
+- **Host-platform build only** for now; Windows `.exe` / Linux / x86_64 and a CI
+  build matrix are deferred.

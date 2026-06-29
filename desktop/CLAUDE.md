@@ -66,7 +66,17 @@ npm run tauri dev      # build the Rust shell + open the native window (needs Ru
 npm test               # Vitest unit tests
 npm run build          # tsc typecheck + Vite production build
 npm run e2e            # Playwright (starts Vite + the WS bridge; needs `npx playwright install chromium`)
+make build-sidecar     # freeze the Python IPC backend into a single binary (PyInstaller)
+make package           # build the installable desktop app (sidecar + Tauri bundle)
 ```
+
+**Packaging (Phase 8e).** The shipped app bundles the Python backend as a frozen
+PyInstaller binary (`desktop/packaging/productagents-ipc.spec`, built via
+`make build-sidecar` → `desktop/src-tauri/binaries/productagents-ipc-<triple>`)
+wired as a Tauri `externalBin`. The Rust shell runs the bundled binary in a
+packaged app and falls back to `uv run productagents ipc` in dev. No Python or uv
+is required on the target machine. Build artifacts (`build/`, `src-tauri/binaries/`)
+are gitignored; the `.spec` and build script are tracked.
 
 ## Conventions
 
