@@ -82,6 +82,14 @@ typecheck: ## Type-check Python (ty)
 build-web: ## Type-check + production-build the frontend
 	cd $(DESKTOP) && npm run build
 
+.PHONY: build-sidecar
+build-sidecar: ## Freeze the IPC sidecar binary into desktop/src-tauri/binaries/
+	bash desktop/packaging/build-sidecar.sh
+
+.PHONY: package
+package: build-sidecar ## Build the installable desktop app (bundles the sidecar)
+	cd desktop && npm run tauri build
+
 .PHONY: check
 check: lint typecheck test-py test-web ## Full gate: lint + types + all unit tests
 
