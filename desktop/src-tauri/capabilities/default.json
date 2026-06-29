@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core IPC bridge for the main window plus auto-update + relaunch.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

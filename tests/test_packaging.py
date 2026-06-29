@@ -33,12 +33,64 @@ def test_build_workflows_survives_missing_model(monkeypatch):
     assert any(w.name == "evaluate_initiative" for w in service.list())
 
 
-def test_desktop_version_matches_pyproject():
-    """A release bumps both versions together — the installer and the backend
-    must declare the same version."""
-    pyproject = tomllib.loads((_ROOT / "pyproject.toml").read_text())
-    py_version = pyproject["project"]["version"]
+def test_bundle_metadata_present():
+    """Installers must declare publisher/copyright/category/description."""
     tauri = json.loads(
         (_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text()
     )
+    bundle = tauri["bundle"]
+    for key in (
+        "publisher",
+        "copyright",
+        "category",
+        "shortDescription",
+        "longDescription",
+        "homepage",
+    ):
+        assert bundle.get(key), f"bundle.{key} is missing or empty"
+
+
+def test_updater_config_present():
+    """Auto-update must be wired: updater artifacts on, a public key, an
+    endpoint, and a capability granting the updater + relaunch commands."""
+    tauri = json.loads(
+        (_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text()
+    )
+    assert tauri["bundle"]["createUpdaterArtifacts"] is True
+    updater = tauri["plugins"]["updater"]
+    assert updater["pubkey"], "updater pubkey is empty"
+    assert updater["endpoints"], "updater endpoints are empty"
+
+    caps = json.loads(
+        (_ROOT / "desktop" / "src-tauri" / "capabilities" / "default.json").read_text()
+    )
+    perms = caps["permissions"]
+    assert "updater:default" in perms
+    assert (
+        "process:allow-restart" in perms
+    )  # ponytail: relaunch() JS fn = restart Rust cmd in tauri-plugin-process v2
+
+    cargo = (_ROOT / "desktop" / "src-tauri" / "Cargo.toml").read_text()
+    assert "tauri-plugin-updater" in cargo
+    assert "tauri-plugin-process" in cargo
+
+
+def test_desktop_version_matches_pyproject():
+    """A release bumps every version together — the backend, the installer, the
+    Rust shell, and the JS package must all declare the same version."""
+    pyproject = tomllib.loads((_ROOT / "pyproject.toml").read_text())
+    py_version = pyproject["project"]["version"]
+
+    tauri = json.loads(
+        (_ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text()
+    )
+    cargo = tomllib.loads((_ROOT / "desktop" / "src-tauri" / "Cargo.toml").read_text())
+    pkg = json.loads((_ROOT / "desktop" / "package.json").read_text())
+
     assert tauri["version"] == py_version
+    assert cargo["package"]["version"] == py_version
+    assert pkg["version"] == py_version
+
+    lock = json.loads((_ROOT / "desktop" / "package-lock.json").read_text())
+    assert lock["version"] == py_version
+    assert lock["packages"][""]["version"] == py_version
