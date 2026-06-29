@@ -47,7 +47,12 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   (`connectorRows` merge of list+health+sync), `promptView.ts`
   (`versionLabel`/`defaultDiffPair`); `RunPanel.tsx`, `SessionsPanel.tsx`,
   `DecisionsPanel.tsx`, `ConnectorsPanel.tsx`, `PromptsPanel.tsx` (read-only
-  Prompt Registry browser: list → versions → text/diff).
+  Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
+  (registered workflow list), `SettingsPanel.tsx` (model/provider/key —
+  the one GUI **write**, via `config.get`/`config.set`). `RunPanel.tsx` also
+  drives human-in-the-loop approval: a "Require approval" run streams an
+  `ApprovalRequested` event, the panel shows approve/reject/request-analysis
+  buttons and sends `approve {verdict}` to resume.
 - `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`).
 - `e2e/` — Playwright browser tests (see `e2e/CLAUDE.md`).
 

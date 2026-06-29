@@ -6,16 +6,20 @@ import { SessionsPanel } from "../panels/SessionsPanel";
 import { DecisionsPanel } from "../panels/DecisionsPanel";
 import { ConnectorsPanel } from "../panels/ConnectorsPanel";
 import { PromptsPanel } from "../panels/PromptsPanel";
+import { WorkflowsPanel } from "../panels/WorkflowsPanel";
+import { SettingsPanel } from "../panels/SettingsPanel";
 import "./App.css";
 
-type View = "run" | "sessions" | "decisions" | "connectors" | "prompts";
+type View = "run" | "workflows" | "sessions" | "decisions" | "connectors" | "prompts" | "settings";
 
 const NAV: { view: View; label: string }[] = [
   { view: "run", label: "Run" },
+  { view: "workflows", label: "Workflows" },
   { view: "sessions", label: "Sessions" },
   { view: "decisions", label: "Decisions" },
   { view: "connectors", label: "Connectors" },
   { view: "prompts", label: "Prompts" },
+  { view: "settings", label: "Settings" },
 ];
 
 export function App({ client }: { client?: IpcClient }) {
@@ -41,6 +45,8 @@ export function App({ client }: { client?: IpcClient }) {
           {view === "decisions" && <DecisionsPanel />}
           {view === "connectors" && <ConnectorsPanel />}
           {view === "prompts" && <PromptsPanel />}
+          {view === "workflows" && <WorkflowsPanel />}
+          {view === "settings" && <SettingsPanel />}
         </main>
       </div>
     </IpcProvider>
