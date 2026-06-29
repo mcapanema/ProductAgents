@@ -44,7 +44,12 @@ body {
 
 .sg-shell { min-height: 100vh; display: flex; flex-direction: column; }
 
-/* ── Top bar ─────────────────────────────────────────────────────────────── */
+/* ── Sticky top: title bar + category navbar pinned together ─────────────── */
+.sg-top {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
 .sg-bar {
   display: flex;
   align-items: center;
@@ -52,9 +57,47 @@ body {
   padding: var(--space-12) var(--space-24);
   background: var(--panel);
   border-bottom: var(--border-thin) solid var(--hairline);
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
+}
+
+/* ── Category navbar (Foundation / Tokens / Components / …) ───────────────── */
+.sg-nav {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-4);
+  padding: 0 var(--space-24);
+  background: var(--bg);
+  border-bottom: var(--border-thin) solid var(--hairline);
+}
+.sg-nav-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-12) var(--space-4);
+  margin-bottom: calc(var(--border-medium) * -1);
+  font: var(--text-button);
+  letter-spacing: var(--text-button-tracking);
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: var(--border-medium) solid transparent;
+  cursor: var(--cursor-interactive);
+  transition: var(--motion-control);
+}
+.sg-nav-tab + .sg-nav-tab { margin-left: var(--space-16); }
+.sg-nav-tab:hover:not(:disabled) { color: var(--ink); }
+.sg-nav-tab:focus-visible { outline: var(--border-thick) solid var(--focus); outline-offset: 2px; border-radius: var(--radius-xs); }
+.sg-nav-tab[aria-current="page"] { color: var(--ink); font-weight: var(--fw-semibold); border-bottom-color: var(--primary); }
+.sg-nav-tab:disabled { color: var(--text-disabled); cursor: var(--cursor-disabled); }
+.sg-nav-soon {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wide);
+  color: var(--text-tertiary);
+  border: var(--border-thin) solid var(--hairline);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-4);
 }
 .sg-bar h1 {
   font-size: var(--fs-sm);
