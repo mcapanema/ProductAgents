@@ -90,3 +90,7 @@ def test_desktop_version_matches_pyproject():
     assert tauri["version"] == py_version
     assert cargo["package"]["version"] == py_version
     assert pkg["version"] == py_version
+
+    lock = json.loads((_ROOT / "desktop" / "package-lock.json").read_text())
+    assert lock["version"] == py_version
+    assert lock["packages"][""]["version"] == py_version

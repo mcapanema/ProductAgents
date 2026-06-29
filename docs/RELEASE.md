@@ -12,6 +12,10 @@ uploads the installers + a signed `latest.json` to a **draft** GitHub Release.
      (`~/.tauri/productagents-updater.key`).
    - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — empty string (the key was generated
      with `--ci`/no password; rotate by regenerating with a password if needed).
+   - Note: this key is passwordless, so the GitHub Actions secret store is the
+     only protection — anyone who exfiltrates `TAURI_SIGNING_PRIVATE_KEY` can
+     sign malicious auto-updates. Rotate the key (regenerate, update the pubkey
+     in `tauri.conf.json` and both secrets) if it may have been exposed.
    - Add both under **Settings → Secrets and variables → Actions**.
    - The matching **public** key lives in `desktop/src-tauri/tauri.conf.json`
      (`plugins.updater.pubkey`). To rotate, run
@@ -26,6 +30,10 @@ uploads the installers + a signed `latest.json` to a **draft** GitHub Release.
    - `desktop/src-tauri/tauri.conf.json` → `version`
    - `desktop/src-tauri/Cargo.toml` → `[package] version`
    - `desktop/package.json` → `version`
+
+   Then run `npm install --prefix desktop` and commit the updated
+   `desktop/package-lock.json` (its version must match — `npm ci` in the release
+   workflow fails otherwise; the version-sync test also checks it).
 2. `uv run pytest tests/test_packaging.py` — green.
 3. Commit, then tag and push:
    ```bash
