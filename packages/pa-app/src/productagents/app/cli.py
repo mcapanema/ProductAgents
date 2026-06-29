@@ -21,6 +21,7 @@ from productagents.platform.connectors import describe_report, run_connector_syn
 from productagents.platform.context import make_recorder
 from productagents.platform.llm import get_model
 from productagents.platform.prompt_service import PromptService
+from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
@@ -177,6 +178,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_pr_rb.add_argument("name")
     p_pr_rb.add_argument("version", type=int)
 
+    p_rf = sub.add_parser("reflect", help="record the outcome of a past decision")
+    p_rf.add_argument(
+        "decision_id", nargs="?", default=None, help="omit to list past decisions"
+    )
+    p_rf.add_argument("note", nargs="?", default=None, help="what actually happened")
+
     return parser
 
 
@@ -247,6 +254,36 @@ def prompts_rollback(name: str, version: int, *, service: PromptService) -> int:
         return 1
     print(f"rolled back {name} to v{version} (now v{new})")
     return 0
+
+
+async def reflect_list(*, service) -> int:
+    """List past decisions (id + title + recommendation) for the reflect picker."""
+    decisions = await service.decisions()
+    if not decisions:
+        print("no decisions yet — run one first with `productagents run`")
+        return 0
+    for d in decisions:
+        print(
+            f"{d.decision_id}  {d.initiative.title} — {d.recommendation.recommendation}"
+        )
+    return 0
+
+
+async def reflect_record(decision_id: str, note: str, *, service) -> int:
+    """Reflect on one past decision and persist the outcome; print the result."""
+    try:
+        outcome = await service.reflect_on(decision_id, note)
+    except LookupError as exc:
+        print(str(exc))
+        return 1
+    print(f"prediction accuracy: {outcome.prediction_accuracy:.0%}")
+    print("actual outcomes:")
+    for o in outcome.actual_outcomes or ["(none)"]:
+        print(f"  • {o}")
+    print("lessons learned:")
+    for lesson in outcome.lessons_learned or ["(none)"]:
+        print(f"  • {lesson}")
+    return 1 if outcome.failed else 0
 
 
 def sync_command(*, syncer=run_connector_sync) -> int:
@@ -325,4 +362,18 @@ def main(argv: list[str] | None = None) -> None:
         if args.pr_command == "rollback":
             raise SystemExit(prompts_rollback(args.name, args.version, service=service))
         raise SystemExit(prompts_list(service=service))  # bare `prompts` or `list`
+    if args.command == "reflect":
+        if args.decision_id is None:  # list mode needs no model
+            code = asyncio.run(reflect_list(service=ReflectionService.for_model(None)))
+            raise SystemExit(code)
+        if args.note is None:
+            raise SystemExit(
+                'reflect needs a note: productagents reflect <decision_id> "<note>"'
+            )
+        try:
+            service = ReflectionService.for_model(get_model())
+        except Exception as exc:  # friendly message, no traceback
+            raise SystemExit(f"cannot reflect: {exc}") from exc
+        code = asyncio.run(reflect_record(args.decision_id, args.note, service=service))
+        raise SystemExit(code)
     raise SystemExit(f"unknown command: {args.command}")  # pragma: no cover
