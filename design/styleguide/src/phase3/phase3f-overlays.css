@@ -22,7 +22,10 @@
 /* ── Contained stage: the scrim's universe ──────────────────────────────── */
 .ov-stage {
   position: relative;
-  overflow: hidden;
+  /* clip, not hidden: `hidden` is a scroll container, so focusing the opened
+   * drawer scroll-shifted the stage and the sheet drifted off its edge into the
+   * middle. `overflow: clip` clips identically but is never scrollable. */
+  overflow: clip;
   min-height: var(--ov-stage-h);
   display: grid;
   place-items: center;

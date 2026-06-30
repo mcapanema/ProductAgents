@@ -55,7 +55,9 @@ function useOverlay(open: boolean, onClose: () => void) {
             ),
           )
         : [];
-    (focusables()[0] ?? panel)?.focus();
+    // preventScroll: a focused element inside a clipped stage would otherwise
+    // scroll the stage to "reveal" it, dragging edge sheets off their edge.
+    (focusables()[0] ?? panel)?.focus({ preventScroll: true });
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
