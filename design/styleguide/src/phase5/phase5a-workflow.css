@@ -1,0 +1,375 @@
+/*
+ * Phase 5A — Workflow components. Self-contained styleguide CSS (prefix: p5a-).
+ * ============================================================================
+ * Roadmap/initiative-planning primitives: status badges, task cards,
+ * milestones, timelines, workflow-definition graph, cross-initiative
+ * dependency list, connector-sync queue. Built ONLY from the token layer —
+ * no new colours; status/priority hues reuse --success/--danger/--warning/
+ * --info/--accent and the --ai-edge-* family for the graph.
+ */
+
+/* ── Inline SVG icon sizing (matches phase4 convention) ───────────────────── */
+.p5a-ico {
+  display: block;
+  flex: none;
+  width: var(--size-icon-inline);
+  height: var(--size-icon-inline);
+}
+.p5a-ico--xs { width: var(--icon-sm); height: var(--icon-sm); }
+.p5a-ico--md { width: var(--icon-md); height: var(--icon-md); }
+
+.p5a-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-inline);
+  align-items: center;
+}
+
+/* ═══════════════════════════════════════════════ STATUS / PRIORITY BADGE ═══ */
+.p5a-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--space-20);
+  padding: 0 var(--space-8);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, var(--p5a-badge-color) 15%, transparent);
+  color: var(--p5a-badge-text, var(--text-secondary));
+  white-space: nowrap;
+  line-height: 1;
+}
+.p5a-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--p5a-priority-color);
+}
+
+/* ═══════════════════════════════════════════════ STAGE HEADER ═══ */
+.p5a-stage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-inline);
+  padding: var(--space-12) 0;
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p5a-stage-header__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+.p5a-stage-header__title {
+  font: var(--text-heading-4);
+  color: var(--text-primary);
+  margin: 0;
+}
+.p5a-stage-header__count {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.p5a-stage-header__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.p5a-stage-header__action {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--accent-text);
+  background: none;
+  border: none;
+  cursor: var(--cursor-interactive);
+  padding: 0;
+}
+.p5a-stage-header__action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ═══════════════════════════════════════════════ TASK CARD ═══ */
+.p5a-task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-12);
+}
+.p5a-task-card {
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--card-pad);
+  background: var(--card-bg);
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+}
+.p5a-task-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.p5a-task-card__title {
+  font: var(--text-body-m);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.p5a-task-card__desc {
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+  margin: 0;
+}
+.p5a-task-card__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p5a-task-card__owner,
+.p5a-task-card__quarter {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════ MILESTONE ═══ */
+.p5a-milestone-list {
+  display: grid;
+  gap: var(--space-8);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.p5a-milestone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.p5a-milestone__marker {
+  display: inline-flex;
+  color: var(--p5a-ms-color);
+  flex: none;
+}
+.p5a-milestone__label {
+  flex: 1;
+  font: var(--text-body-s);
+  color: var(--text-primary);
+}
+.p5a-milestone__date {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.p5a-milestone[data-state="at-risk"] {
+  border-color: color-mix(in oklch, var(--danger) 40%, var(--border-subtle));
+}
+
+/* ═══════════════════════════════════════════════ PROGRESS TIMELINE ═══ */
+.p5a-progress-timeline {
+  display: grid;
+  gap: var(--space-16);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: var(--border-width-default) solid var(--border-subtle);
+}
+.p5a-progress-timeline__step {
+  position: relative;
+  padding-left: var(--space-20);
+}
+.p5a-progress-timeline__dot {
+  position: absolute;
+  left: calc(-1 * var(--space-6) - 1px);
+  top: var(--space-4);
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  border: var(--border-width-strong) solid var(--border-default);
+}
+.p5a-progress-timeline__step[data-state="done"] .p5a-progress-timeline__dot {
+  background: var(--success);
+  border-color: var(--success);
+}
+.p5a-progress-timeline__step[data-state="current"] .p5a-progress-timeline__dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.p5a-progress-timeline__quarter {
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p5a-progress-timeline__items {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-16);
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════ PIPELINE VIEW ═══ */
+.p5a-pipeline-view {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.p5a-pipeline-view__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.p5a-pipeline-view__chip .p5a-ico {
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════ WORKFLOW GRAPH ═══ */
+.p5a-wf-graph {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.p5a-wf-edge {
+  stroke: var(--ai-edge);
+  stroke-width: 1.5;
+}
+.p5a-wf-edge-arrow {
+  fill: var(--ai-edge);
+}
+.p5a-wf-node__rect {
+  fill: var(--surface-raised);
+  stroke: var(--ai-node-border);
+  stroke-width: 1.5;
+}
+.p5a-wf-node__label {
+  fill: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-family: var(--font-sans);
+}
+
+/* ═══════════════════════════════════════════════ DEPENDENCY GRAPH ═══ */
+.p5a-dep-graph {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-raised);
+}
+.p5a-dep-graph__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p5a-dep-graph__row:last-child { border-bottom: none; }
+.p5a-dep-graph__node {
+  font: var(--text-body-s);
+  color: var(--text-primary);
+}
+.p5a-dep-graph__deps {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.p5a-dep-graph__deps .p5a-ico {
+  color: var(--warning);
+}
+
+/* ═══════════════════════════════════════════════ EXECUTION QUEUE ═══ */
+.p5a-queue {
+  display: grid;
+  gap: 0;
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-raised);
+}
+.p5a-queue__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.p5a-queue__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.p5a-queue-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-12);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  color: var(--p5a-queue-color);
+}
+.p5a-queue-item:last-child { border-bottom: none; }
+.p5a-queue-item__rank {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  width: var(--space-20);
+  text-align: center;
+  flex: none;
+}
+.p5a-queue-item__name {
+  flex: 1;
+  min-width: 0;
+  font: var(--text-body-s);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+.p5a-queue-item__cursor {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.p5a-queue-item__time {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+[data-density="compact"] .p5a-status-badge { height: var(--space-16); padding: 0 var(--space-6); }
+[data-density="compact"] .p5a-task-card { gap: var(--space-4); }
+[data-density="compact"] .p5a-queue-item { padding: var(--space-8) var(--space-12); }
+
+@media (prefers-reduced-motion: reduce) {
+  .p5a-wf-edge { stroke-dasharray: none; }
+}
