@@ -12,11 +12,14 @@ lives in ``DecisionService``; this layer maps a name to that work.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 
 from productagents.platform import events as ev
 from productagents.platform.session import Session
+
+logger = logging.getLogger(__name__)
 
 _L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
@@ -36,6 +39,36 @@ class Workflow:
     start: Callable[..., tuple[Session, AsyncIterator[ev.Event]]]
 
 
+def build_evaluate_initiative(
+    model,
+    *,
+    recorder=None,
+    human_in_the_loop: bool = False,
+    persist_events: bool = True,
+) -> Workflow:
+    """Build the advisory decision pipeline as a Workflow over ``model``.
+
+    The first-party ``productagents.workflows`` entry point resolves here.
+    """
+    from productagents.platform.decision_service import DecisionService
+
+    service = DecisionService.for_model(
+        model,
+        recorder=recorder,
+        human_in_the_loop=human_in_the_loop,
+        persist_events=persist_events,
+    )
+    return Workflow(
+        name="evaluate_initiative",
+        title="Evaluate Initiative",
+        description=(
+            "Advisory pipeline: evidence → analysts → debate → "
+            "strategist → judge → risk → governance."
+        ),
+        start=service.start_session,
+    )
+
+
 class WorkflowService:
     def __init__(self, workflows: _L[Workflow]) -> None:
         self._workflows: dict[str, Workflow] = {w.name: w for w in workflows}
@@ -49,29 +82,26 @@ class WorkflowService:
         human_in_the_loop: bool = False,
         persist_events: bool = True,
     ) -> WorkflowService:
-        """Build the default registry: the ``evaluate_initiative`` workflow wired
-        to a ``DecisionService`` over ``model``."""
-        from productagents.platform.decision_service import DecisionService
+        """Build the registry from every installed ``productagents.workflows``
+        plugin. The first-party ``evaluate_initiative`` is one such plugin."""
+        from productagents.platform.workflow_registry import discover
 
-        service = DecisionService.for_model(
-            model,
-            recorder=recorder,
-            human_in_the_loop=human_in_the_loop,
-            persist_events=persist_events,
-        )
-        return cls(
-            [
-                Workflow(
-                    name="evaluate_initiative",
-                    title="Evaluate Initiative",
-                    description=(
-                        "Advisory pipeline: evidence → analysts → debate → "
-                        "strategist → judge → risk → governance."
-                    ),
-                    start=service.start_session,
+        built: _L[Workflow] = []
+        for name, build in discover().items():
+            try:
+                built.append(
+                    build(
+                        model,
+                        recorder=recorder,
+                        human_in_the_loop=human_in_the_loop,
+                        persist_events=persist_events,
+                    )
                 )
-            ]
-        )
+            except Exception:  # noqa: BLE001 — one bad workflow must not break the rest
+                logger.warning(
+                    "workflow %r failed to build; skipping", name, exc_info=True
+                )
+        return cls(built)
 
     def list(self) -> _L[Workflow]:
         return list(self._workflows.values())

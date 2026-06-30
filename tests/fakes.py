@@ -3,9 +3,9 @@
 from uuid import uuid4
 
 from productagents.agents.evidence import collect_evidence
-from productagents.app.setup import ConfigStatus
 from productagents.platform import events as ev
 from productagents.platform._event_translation import translate
+from productagents.platform.configuration import ConfigStatus
 from productagents.platform.decision_service import DecisionService
 from productagents.platform.session import Session
 

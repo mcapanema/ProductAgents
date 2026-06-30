@@ -9,8 +9,12 @@ dependencies = [
     "productagents-memory",
     "productagents-connectors",
     "pydantic>=2.7",
+    "python-dotenv>=1.0",
     "pyyaml>=6",
 ]
+
+[project.entry-points."productagents.workflows"]
+evaluate_initiative = "productagents.platform.workflow:build_evaluate_initiative"
 
 [build-system]
 requires = ["hatchling"]

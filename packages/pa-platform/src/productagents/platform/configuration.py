@@ -1,11 +1,16 @@
-"""Provider/config preflight + .env provisioning for first-run setup.
+"""Provider/config preflight + .env provisioning — platform-layer config service.
 
 `check_config()` is a *static* readiness check: it determines the active model,
 the provider that model implies, and whether the matching API-key environment
 variable is present. It never makes a network call. `write_env()` persists the
 values the setup wizard collects to a `.env` file (and the live process env) so
 the next run is configured.
+
+`ConfigurationService` wraps these helpers as an Application-Layer service that
+targets the active workspace's `.env` on writes.
 """
+
+from __future__ import annotations
 
 import os
 from collections.abc import Mapping
@@ -14,6 +19,7 @@ from dataclasses import dataclass, field
 from dotenv import find_dotenv, set_key
 
 from productagents.platform.llm import DEFAULT_MODEL
+from productagents.platform.workspace import WorkspaceService
 
 
 @dataclass(frozen=True)
@@ -168,3 +174,48 @@ def write_env(
         set_key(path, key, value)
         os.environ[key] = value
     return path
+
+
+class ConfigurationService:
+    """Application-Layer owner of read/write config for the active workspace.
+
+    Reading is the static, no-network ``check_config`` over ``os.environ``.
+    Writing targets the active workspace's ``.env`` (first GUI write creates it),
+    derives the provider from the model prefix when not given, and never writes a
+    blank API key over an existing one.
+    """
+
+    def __init__(
+        self,
+        *,
+        workspaces: WorkspaceService | None = None,
+        active_name: str | None = None,
+    ) -> None:
+        self._workspaces = workspaces if workspaces is not None else WorkspaceService()
+        self._active_name = active_name
+
+    def status(self) -> ConfigStatus:
+        return check_config()
+
+    def providers(self) -> dict[str, ProviderInfo]:
+        return PROVIDERS
+
+    def set(
+        self,
+        model: str,
+        *,
+        provider: str | None = None,
+        api_key: str | None = None,
+    ) -> ConfigStatus:
+        values: dict[str, str] = {"PRODUCTAGENTS_MODEL": model}
+        if provider:
+            values["PRODUCTAGENTS_MODEL_PROVIDER"] = provider
+        if api_key:  # never write a blank key over an existing one
+            key_var = api_key_var_for(provider or provider_for(model))
+            if key_var:
+                values[key_var] = api_key
+        write_env(values, dotenv_path=self._env_path())
+        return self.status()
+
+    def _env_path(self) -> str:
+        return str(self._workspaces.resolve(self._active_name).env_file)
