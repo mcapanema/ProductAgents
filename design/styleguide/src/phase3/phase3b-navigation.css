@@ -186,7 +186,9 @@
 
 /* ── search explorer (live search + status filters + sort) ───────────────── */
 .nv-explorer { display: grid; gap: var(--space-12); width: 100%; max-width: var(--width-dialog-md); }
-.nv-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-12); }
+/* Two stable columns: chips wrap WITHIN the left column; the sort stays pinned
+ * right so it never shifts when "Clear filters" appears. */
+.nv-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-12); }
 .nv-filter-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); }
 .nv-filter-chip {
   display: inline-flex; align-items: center; gap: var(--space-4);
