@@ -3,7 +3,7 @@ import type { Density } from "../sg";
 import { Section, Specimen } from "../sg";
 import "./phase9-empty-states.css";
 
-type IconName = "folder" | "users" | "layers" | "play" | "search" | "rocket" | "check" | "circle";
+type IconName = "folder" | "users" | "layers" | "play" | "search" | "rocket" | "check" | "circle" | "wifi-off" | "tool";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />,
@@ -38,6 +38,16 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
   ),
   check: <path d="M5 13l4 4 10-10" />,
   circle: <circle cx={12} cy={12} r={9} />,
+  "wifi-off": (
+    <>
+      <path d="M2 8.5a15 15 0 0 1 20 0" />
+      <path d="M5 12a10 10 0 0 1 14 0" />
+      <path d="M8.5 15.5a5 5 0 0 1 7 0" />
+      <line x1={3} y1={3} x2={21} y2={21} />
+      <circle cx={12} cy={19} r={1} fill="currentColor" stroke="none" />
+    </>
+  ),
+  tool: <path d="M14.7 6.3a4 4 0 1 0-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.3-2.3-2.1 2.1z" />,
 };
 
 function Icon({ name, size = "md" }: { name: IconName; size?: "sm" | "md" | "lg" }) {
@@ -138,6 +148,46 @@ function LoadingState({ label }: { label: string }) {
   );
 }
 
+function OfflineState({ lastSynced }: { lastSynced: string }) {
+  return (
+    <div className="p9-state" data-kind="offline" role="alert">
+      <span className="p9-state__icon">
+        <Icon name="wifi-off" size="lg" />
+      </span>
+      <p className="p9-state__title">Offline</p>
+      <p className="p9-state__text">
+        Can&rsquo;t reach the platform sidecar. Showing the last synced state; live runs are paused.
+      </p>
+      <p className="p9-state__meta">Last synced {lastSynced}</p>
+      <div className="p9-state__actions">
+        <button type="button" className="p9-btn p9-btn--primary">
+          Retry connection
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MaintenanceState({ eta }: { eta: string }) {
+  return (
+    <div className="p9-state" data-kind="maintenance" role="status">
+      <span className="p9-state__icon">
+        <Icon name="tool" size="lg" />
+      </span>
+      <p className="p9-state__title">Scheduled maintenance</p>
+      <p className="p9-state__text">
+        ProductAgents is being upgraded. Decision runs are paused until maintenance completes.
+      </p>
+      <p className="p9-state__meta">Expected back {eta}</p>
+      <div className="p9-state__actions">
+        <button type="button" className="p9-btn p9-btn--secondary">
+          Status page
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Phase9EmptyStates({ density }: { density: Density }) {
   void density;
   return (
@@ -213,6 +263,26 @@ export function Phase9EmptyStates({ density }: { density: Density }) {
       >
         <Specimen label="default">
           <LoadingState label="Loading workspace…" />
+        </Specimen>
+      </Section>
+
+      <Section
+        id="p9-offline"
+        title="Offline mode"
+        desc="The platform sidecar is unreachable. Blocking, not a dismissible toast — live runs are paused until it returns."
+      >
+        <Specimen label="default">
+          <OfflineState lastSynced="2 minutes ago" />
+        </Specimen>
+      </Section>
+
+      <Section
+        id="p9-maintenance"
+        title="Maintenance state"
+        desc="A planned, server-driven pause — distinct from Offline, which is an unplanned connectivity loss."
+      >
+        <Specimen label="default">
+          <MaintenanceState eta="in 30 minutes" />
         </Specimen>
       </Section>
     </>

@@ -130,3 +130,17 @@
   .p9-spinner__arc { stroke-dasharray: 60 40; }
   .p9-skeleton__row { animation: none; background-image: none; }
 }
+
+/* Offline / Maintenance — blocking states render a solid card, not dashed,
+ * to read as "interruption" rather than "nothing here yet". */
+.p9-state[data-kind="offline"],
+.p9-state[data-kind="maintenance"] {
+  border-style: solid;
+  background: var(--p9-surface);
+}
+
+.p9-state__meta {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-tertiary);
+}
