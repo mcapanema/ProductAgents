@@ -150,7 +150,7 @@
   height: var(--gauge-height);
   background: var(--gauge-track);
   border-radius: var(--gauge-radius);
-  overflow: hidden;
+  overflow: clip;
 }
 .p4a-agent-card__conf-fill {
   height: 100%;
@@ -593,7 +593,7 @@
   font: var(--text-body-s);
   color: var(--text-primary);
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 .p4a-queue-item__sub {
