@@ -28,6 +28,7 @@ from productagents.platform import events as ev
 from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
+from productagents.platform.memory_service import MemoryService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
@@ -100,6 +101,7 @@ def build_services(active_name: str) -> dict:
         "prompts": PromptService.create(),
         "config": ConfigurationService(active_name=active_name),
         "reflection": _build_reflection(),
+        "memory": MemoryService.create(),
     }
 
 
@@ -212,6 +214,16 @@ def _session_dict(s: Session) -> dict:
     }
 
 
+def _lesson_dict(lesson) -> dict:
+    return {
+        "decision_id": lesson.decision_id,
+        "title": lesson.title,
+        "text": lesson.text,
+        "validated": lesson.validated,
+        "prediction_accuracy": lesson.prediction_accuracy,
+    }
+
+
 def _decision_summary(d) -> dict:
     return {
         "id": d.decision_id,
@@ -300,6 +312,7 @@ async def handle(
     prompts: Any = None,
     config: Any = None,
     reflection: Any = None,
+    memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     emit: Emit,
 ) -> None:
@@ -470,6 +483,12 @@ async def handle(
             )
             await emit({"id": rid, "result": _config_dict(config)})
 
+        async def _memory_lessons(_p: dict) -> None:
+            if memory is None:
+                raise RuntimeError("memory service not available")
+            rows = await memory.lessons()
+            await emit({"id": rid, "result": [_lesson_dict(x) for x in rows]})
+
         table: dict[str, Callable[[dict], Awaitable[None]]] = {
             "workflows.list": _workflows_list,
             "workspaces.list": _workspaces_list,
@@ -489,6 +508,7 @@ async def handle(
             "config.get": _config_get,
             "config.set": _config_set,
             "reflection.record": _reflection_record,
+            "memory.lessons": _memory_lessons,
         }
 
         handler = table.get(method)
@@ -512,6 +532,7 @@ async def serve(
     prompts: Any = None,
     config: Any = None,
     reflection: Any = None,
+    memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -559,6 +580,7 @@ async def serve(
             prompts=prompts,
             config=config,
             reflection=reflection,
+            memory=memory,
             read_line=read_line,
             emit=emit,
         )
