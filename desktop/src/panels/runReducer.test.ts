@@ -52,4 +52,23 @@ describe("runReducer", () => {
     s = runReducer(s, { kind: "approved" });
     expect(s.awaiting).toBe(false);
   });
+
+  it("captures the session id from a streamed event", () => {
+    let s = runReducer(initialRunState, { kind: "start" });
+    s = runReducer(s, { kind: "event", event: { type: "SessionStarted", payload: { session_id: "sx" } } });
+    expect(s.sessionId).toBe("sx");
+  });
+
+  it("marks cancelling on the cancel action", () => {
+    let s = runReducer(initialRunState, { kind: "start" });
+    s = runReducer(s, { kind: "cancel" });
+    expect(s.cancelling).toBe(true);
+  });
+
+  it("records a cancelled terminal result", () => {
+    let s = runReducer(initialRunState, { kind: "start" });
+    s = runReducer(s, { kind: "done", result: { status: "cancelled", session_id: "sx" } });
+    expect(s.status).toBe("cancelled");
+    expect(s.cancelling).toBe(false);
+  });
 });

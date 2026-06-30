@@ -23,7 +23,7 @@ export interface RunHandlers {
 }
 
 export interface RunResult {
-  status: "finished" | "failed";
+  status: "finished" | "failed" | "cancelled";
   session_id: string;
 }
 

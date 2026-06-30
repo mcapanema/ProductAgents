@@ -160,4 +160,8 @@ export class IpcClient {
   run(params: RunParams, handlers: RunHandlers): Promise<RunResult> {
     return this.call<RunResult>("run", { ...params }, handlers);
   }
+
+  runCancel(sessionId: string): Promise<{ ok: boolean }> {
+    return this.call<{ ok: boolean }>("run.cancel", { session_id: sessionId });
+  }
 }
