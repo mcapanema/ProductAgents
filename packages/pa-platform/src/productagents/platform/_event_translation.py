@@ -14,6 +14,8 @@ def status_for(event: ev.Event) -> str | None:
     match event:
         case ev.ApprovalRequested():
             return "awaiting_approval"
+        case ev.SessionCancelled():
+            return "cancelled"
         case ev.SessionFinished():
             return "finished"
         case ev.SessionFailed():

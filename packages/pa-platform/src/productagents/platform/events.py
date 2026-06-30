@@ -117,6 +117,11 @@ class SessionFailed(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class SessionCancelled(Event):
+    """A run was cancelled cooperatively at the user's request."""
+
+
+@dataclass(frozen=True, kw_only=True)
 class SessionFinished(Event):
     recommendation: Recommendation | None
     reports: list[AnalystReport]
