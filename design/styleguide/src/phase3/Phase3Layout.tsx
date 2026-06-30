@@ -346,6 +346,63 @@ function SplitPane() {
   );
 }
 
+/** Docked bottom panel with working tabs (Logs / Problems). Roving tabindex —
+ *  click or ←/→ switches the selected tab and the panel body. */
+const DOCK_TABS = [
+  { id: "logs", label: "Logs", body: "span event · node.4 · debate.round_2 · 312 ms" },
+  { id: "problems", label: "Problems", body: "No problems detected in the current run." },
+];
+function DockedPanel() {
+  const [active, setActive] = useState(0);
+  const tablistRef = useRef<HTMLDivElement>(null);
+
+  function focusTab(i: number) {
+    setActive(i);
+    tablistRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[i]?.focus();
+  }
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    switch (e.key) {
+      case "ArrowRight": e.preventDefault(); focusTab((active + 1) % DOCK_TABS.length); break;
+      case "ArrowLeft": e.preventDefault(); focusTab((active - 1 + DOCK_TABS.length) % DOCK_TABS.length); break;
+      case "Home": e.preventDefault(); focusTab(0); break;
+      case "End": e.preventDefault(); focusTab(DOCK_TABS.length - 1); break;
+    }
+  }
+
+  return (
+    <div className="la-dock">
+      <div className="la-dock-main">Main editor area</div>
+      <div className="la-dock-panel">
+        <div className="la-dock-tabs" role="tablist" aria-label="Docked panels" ref={tablistRef} onKeyDown={onKeyDown}>
+          {DOCK_TABS.map((t, i) => (
+            <button
+              key={t.id}
+              id={`la-dock-tab-${t.id}`}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              aria-controls="la-dock-body"
+              tabIndex={i === active ? 0 : -1}
+              className={`la-dock-tab${i === active ? " is-active" : ""}`}
+              onClick={() => setActive(i)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div
+          className="la-dock-body"
+          id="la-dock-body"
+          role="tabpanel"
+          aria-labelledby={`la-dock-tab-${DOCK_TABS[active].id}`}
+        >
+          {DOCK_TABS[active].body}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Phase3Layout() {
   return (
     <>
@@ -426,20 +483,7 @@ export function Phase3Layout() {
             <SplitPane />
           </Specimen>
           <Specimen label="docked panel">
-            <div className="la-dock">
-              <div className="la-dock-main">Main editor area</div>
-              <div className="la-dock-panel">
-                <div className="la-dock-tabs" role="tablist" aria-label="Docked panels">
-                  <button type="button" role="tab" aria-selected="true" className="la-dock-tab is-active">
-                    Logs
-                  </button>
-                  <button type="button" role="tab" aria-selected="false" className="la-dock-tab">
-                    Problems
-                  </button>
-                </div>
-                <div className="la-dock-body">Docked at the bottom edge — collapsible, like a terminal panel.</div>
-              </div>
-            </div>
+            <DockedPanel />
           </Specimen>
         </div>
       </Section>
