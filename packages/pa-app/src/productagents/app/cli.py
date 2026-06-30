@@ -18,6 +18,7 @@ from productagents.core.models import Initiative
 from productagents.platform import events as ev
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
+from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.llm import get_model
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.reflection_service import ReflectionService
@@ -177,6 +178,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_pr_rb.add_argument("name")
     p_pr_rb.add_argument("version", type=int)
 
+    p_de = sub.add_parser("decisions", help="export recorded decisions")
+    de_sub = p_de.add_subparsers(dest="de_command")
+    p_de_export = de_sub.add_parser(
+        "export", help="write decisions.jsonl + outcomes.jsonl to DIR"
+    )
+    p_de_export.add_argument("directory", help="target directory")
+
     p_rf = sub.add_parser("reflect", help="record the outcome of a past decision")
     p_rf.add_argument(
         "decision_id", nargs="?", default=None, help="omit to list past decisions"
@@ -252,6 +260,15 @@ def prompts_rollback(name: str, version: int, *, service: PromptService) -> int:
         print(f"no version {version} for {name}")
         return 1
     print(f"rolled back {name} to v{version} (now v{new})")
+    return 0
+
+
+async def decisions_export(directory: str, *, service) -> int:
+    """Export the decision store to decisions.jsonl + outcomes.jsonl in DIR."""
+    n_decisions, n_outcomes = await service.export(directory)
+    print(
+        f"exported {n_decisions} decision(s) and {n_outcomes} outcome(s) to {directory}"
+    )
     return 0
 
 
@@ -361,6 +378,13 @@ def main(argv: list[str] | None = None) -> None:
         if args.pr_command == "rollback":
             raise SystemExit(prompts_rollback(args.name, args.version, service=service))
         raise SystemExit(prompts_list(service=service))  # bare `prompts` or `list`
+    if args.command == "decisions":
+        if args.de_command == "export":
+            code = asyncio.run(
+                decisions_export(args.directory, service=DecisionReadService.create())
+            )
+            raise SystemExit(code)
+        raise SystemExit("usage: productagents decisions export DIR")
     if args.command == "reflect":
         if args.decision_id is None:  # list mode needs no model
             code = asyncio.run(reflect_list(service=ReflectionService.for_model(None)))

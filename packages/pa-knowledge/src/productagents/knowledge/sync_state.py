@@ -25,6 +25,11 @@ class SyncStateStore:
         rows = (await self._session.exec(select(SyncStateRecord))).all()
         return {row.connector_key: row.cursor_value for row in rows}
 
+    async def last_synced(self) -> dict[str, str]:
+        """Each connector's last sync time (updated_at, ISO-8601), by connector key."""
+        rows = (await self._session.exec(select(SyncStateRecord))).all()
+        return {row.connector_key: row.updated_at.isoformat() for row in rows}
+
     async def save(self, connector_key: str, cursor_value: str | None) -> None:
         """Upsert one connector's cursor (keyed on ``connector_key``)."""
         await self._session.merge(

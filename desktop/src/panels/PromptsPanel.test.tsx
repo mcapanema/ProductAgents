@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PromptsPanel } from "./PromptsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { PromptSummary } from "../ipc/types";
+import type { PromptSummary, PromptVersion } from "../ipc/types";
 
 const list: PromptSummary[] = [
   { name: "strategist", versions: [0, 1, 2], active: 2 },
@@ -46,7 +46,7 @@ describe("PromptsPanel", () => {
     renderPanel(fake());
     fireEvent.click(await screen.findByText("strategist"));
     await waitFor(() =>
-      expect(screen.getByText(/text of strategist@2/)).toBeInTheDocument(),
+      expect(screen.getByDisplayValue(/text of strategist@2/)).toBeInTheDocument(),
     );
   });
 
@@ -64,8 +64,41 @@ describe("PromptsPanel", () => {
     renderPanel(fake());
     fireEvent.click(await screen.findByText("judge"));
     await waitFor(() =>
-      expect(screen.getByText(/text of judge@0/)).toBeInTheDocument(),
+      expect(screen.getByDisplayValue(/text of judge@0/)).toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: /diff vs default/i })).toBeNull();
+  });
+});
+
+const editorSummary: PromptSummary = { name: "market", versions: [0], active: 0 };
+
+function fakeEditor(saved: { name?: string; text?: string }): IpcClient {
+  return {
+    promptsList: async () => [editorSummary],
+    promptsShow: async (_n: string, v: number): Promise<PromptVersion> => ({
+      name: "market", version: v, text: "default body",
+    }),
+    promptsSave: async (name: string, text: string) => {
+      saved.name = name;
+      saved.text = text;
+      return { name: "market", versions: [0, 1], active: 1 };
+    },
+  } as unknown as IpcClient;
+}
+
+describe("PromptsPanel editor", () => {
+  it("saves an edited prompt as a new version", async () => {
+    const saved: { name?: string; text?: string } = {};
+    render(
+      <IpcProvider client={fakeEditor(saved)}>
+        <PromptsPanel />
+      </IpcProvider>,
+    );
+    fireEvent.click(await screen.findByText("market"));
+    const box = await screen.findByRole("textbox");
+    fireEvent.change(box, { target: { value: "new body" } });
+    fireEvent.click(screen.getByRole("button", { name: /save as new version/i }));
+    await waitFor(() => expect(saved.text).toBe("new body"));
+    expect(saved.name).toBe("market");
   });
 });

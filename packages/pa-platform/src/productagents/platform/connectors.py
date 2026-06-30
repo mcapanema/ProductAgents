@@ -185,6 +185,22 @@ async def run_connector_sync(
     return SyncReport(results=results, problems=plan.problems)
 
 
+async def last_sync_times(*, engine=None) -> dict[str, str]:
+    """Each connector's last sync timestamp from the sync_state table (no sync run).
+
+    ponytail: only connectors that have ever persisted a cursor appear here — a
+    sync that wrote 0 rows with no cursor change leaves no timestamp. Good enough
+    for a 'last synced' badge; add an explicit sync-attempt log if that matters.
+    """
+    from productagents.platform.context import get_engine
+
+    engine = engine if engine is not None else get_engine()
+    await create_all(engine)  # idempotent local bootstrap of sync_state
+    sessionmaker = make_sessionmaker(engine)
+    async with sessionmaker() as session:
+        return await SyncStateStore(session).last_synced()
+
+
 def static_connector_plan(
     *,
     config_path: str | None = None,

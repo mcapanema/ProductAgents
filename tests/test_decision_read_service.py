@@ -81,3 +81,15 @@ async def test_get_unknown_id_returns_none_and_empty():
     record, outcomes = await svc.get("missing")
     assert record is None
     assert outcomes == []
+
+
+async def test_export_writes_decisions_and_outcomes_jsonl(tmp_path):
+    store = _FakeStore(decisions=[_record("d1")], outcomes=[_outcome("d1")])
+    svc = DecisionReadService(_opener(store))
+    counts = await svc.export(tmp_path)
+    assert counts == (1, 1)
+    decisions = (tmp_path / "decisions.jsonl").read_text(encoding="utf-8")
+    outcomes = (tmp_path / "outcomes.jsonl").read_text(encoding="utf-8")
+    assert decisions.strip().count("\n") == 0  # one record == one line
+    assert '"decision_id":"d1"' in decisions.replace(" ", "")
+    assert "adoption flat" in outcomes

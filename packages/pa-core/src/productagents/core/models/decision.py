@@ -214,6 +214,7 @@ class DecisionRecord(BaseModel):
     """A persisted record of one decision run."""
 
     decision_id: str = Field(default_factory=lambda: uuid4().hex)
+    session_id: str | None = None  # the Session that produced this run, for tracing
     initiative: Initiative
     recommendation: Recommendation
     reports: list[AnalystReport]

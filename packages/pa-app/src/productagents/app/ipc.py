@@ -383,7 +383,9 @@ async def handle(
         async def _connectors_list(_p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
-            await emit({"id": rid, "result": _connector_plan_dict(connectors.plan())})
+            result = _connector_plan_dict(connectors.plan())
+            result["last_synced"] = await connectors.last_synced()
+            await emit({"id": rid, "result": result})
 
         async def _connectors_health(_p: dict) -> None:
             if connectors is None:
@@ -426,6 +428,20 @@ async def handle(
                     "result": {"name": name, "old": old, "new": new, "diff": diff},
                 }
             )
+
+        async def _prompts_save(p: dict) -> None:
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            name = p["name"]
+            prompts.save(name, p["text"])
+            await emit({"id": rid, "result": _prompt_summary(prompts, name)})
+
+        async def _prompts_rollback(p: dict) -> None:
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            name = p["name"]
+            prompts.rollback(name, p["version"])
+            await emit({"id": rid, "result": _prompt_summary(prompts, name)})
 
         async def _config_get(_p: dict) -> None:
             if config is None:
@@ -477,6 +493,8 @@ async def handle(
             "prompts.list": _prompts_list,
             "prompts.show": _prompts_show,
             "prompts.diff": _prompts_diff,
+            "prompts.save": _prompts_save,
+            "prompts.rollback": _prompts_rollback,
             "config.get": _config_get,
             "config.set": _config_set,
             "reflection.record": _reflection_record,

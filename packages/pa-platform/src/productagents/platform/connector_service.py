@@ -14,3 +14,7 @@ class ConnectorService:
 
     async def health(self) -> HealthReport:
         return await connectors.check_connector_health()
+
+    async def last_synced(self) -> dict[str, str]:
+        """Each connector's last successful-sync timestamp (ISO-8601), by key."""
+        return await connectors.last_sync_times()
