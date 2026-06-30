@@ -59,10 +59,10 @@
   gap: var(--space-4);
 }
 .p4c-thinking__dot {
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--space-8);
+  height: var(--space-8);
   border-radius: var(--radius-pill);
-  background: var(--ai-thinking);
+  background: var(--p4c-thinking-color, var(--ai-thinking));
   flex: none;
   animation: p4c-dot-pulse 1.4s ease-in-out infinite;
 }
@@ -71,7 +71,7 @@
 .p4c-thinking__label {
   font: var(--text-caption);
   font-weight: var(--fw-semibold);
-  color: var(--ai-thinking);
+  color: var(--p4c-thinking-color, var(--ai-thinking));
 }
 
 [data-density="compact"] .p4c-thinking__dot {
@@ -79,7 +79,7 @@
   height: var(--space-4);
 }
 [data-density="compact"] .p4c-thinking {
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 
 
@@ -192,10 +192,11 @@
   border: var(--border-width-default) solid var(--card-border);
   border-radius: var(--card-radius);
   overflow: clip;
+  width: 100%;
 }
 .p4c-cost-panel__head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   padding: var(--space-12) var(--card-pad);
   background: var(--surface-sunken);
@@ -207,9 +208,9 @@
   color: var(--text-secondary);
 }
 .p4c-cost-panel__total {
-  font: var(--text-terminal);
+  font: var(--text-body-s);
   font-variant-numeric: tabular-nums;
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
 }
 .p4c-cost-panel__rows {
@@ -220,18 +221,61 @@
   background: var(--card-bg);
 }
 .p4c-cost-panel__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-10) var(--card-pad);
+  gap: var(--space-12);
+  padding: var(--space-12) var(--card-pad);
   border-bottom: var(--border-width-default) solid var(--border-subtle);
-  font: var(--text-body-s);
 }
 .p4c-cost-panel__row:last-child { border-bottom: none; }
-.p4c-cost-panel__row dt { color: var(--text-secondary); margin: 0; }
-.p4c-cost-panel__row dd { font-variant-numeric: tabular-nums; color: var(--text-primary); margin: 0; }
 
-[data-density="compact"] .p4c-cost-panel__row { padding: var(--space-8) var(--card-pad); }
+.p4c-cost-panel__label {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  padding-left: var(--space-8);
+  border-left: 2px solid var(--p4c-cost-color, var(--border-subtle));
+  margin: 0;
+}
+.p4c-cost-panel__bar-wrap {
+  height: var(--space-8);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-pill);
+  overflow: clip;
+}
+.p4c-cost-panel__bar {
+  height: 100%;
+  width: var(--p4c-cost-pct, 0%);
+  background: var(--p4c-cost-color, var(--border-subtle));
+  border-radius: var(--radius-pill);
+}
+.p4c-cost-panel__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin: 0;
+}
+.p4c-cost-panel__tokens {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4c-cost-panel__pct {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  min-width: 2.5rem;
+  text-align: right;
+}
+.p4c-cost-panel__val {
+  font: var(--text-terminal);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  min-width: 4rem;
+  text-align: right;
+}
+
+[data-density="compact"] .p4c-cost-panel__row { padding: var(--space-8) var(--card-pad); gap: var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ CONTEXT WINDOW VIEWER ═══
@@ -294,7 +338,7 @@
   color: var(--text-tertiary);
 }
 
-[data-density="compact"] .p4c-ctx-window__track { height: var(--space-10); }
+[data-density="compact"] .p4c-ctx-window__track { height: var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ PROMPT INSPECTOR ═══
@@ -306,13 +350,14 @@
   border: var(--border-width-default) solid var(--border-subtle);
   border-radius: var(--card-radius);
   overflow: clip;
+  width: 100%;
 }
 .p4c-prompt-inspector__toggle {
   display: flex;
   align-items: center;
   gap: var(--space-8);
   width: 100%;
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-12) var(--space-16);
   background: var(--surface-raised);
   border: none;
   cursor: var(--cursor-interactive);
@@ -369,7 +414,7 @@
   padding: 0 var(--space-2);
 }
 
-[data-density="compact"] .p4c-prompt-inspector__toggle { padding: var(--space-8) var(--space-12); }
+[data-density="compact"] .p4c-prompt-inspector__toggle { padding: var(--space-8) var(--space-16); }
 [data-density="compact"] .p4c-prompt-inspector__body   { padding: var(--space-8) var(--space-12); }
 
 

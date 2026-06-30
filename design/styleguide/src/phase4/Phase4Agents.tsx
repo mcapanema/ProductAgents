@@ -679,9 +679,9 @@ export function Phase4Agents() {
         title="Agent selector"
         desc="Multi-select listbox for choosing which agents run. Filter by name or keyword; toggle items with click or Enter / Space. Shows a checkmark on selected items."
       >
-        <div className="sg-card p4a-grid-2">
+        <div className="sg-card" style={{ display: "grid", gridTemplateColumns: "minmax(0, 380px) 1fr", gap: "var(--gap-grid)", alignItems: "center" }}>
           <AgentSelector />
-          <div style={{ font: "var(--text-body-s)", color: "var(--text-secondary)", display: "grid", gap: "var(--space-8)", alignContent: "start" }}>
+          <div style={{ font: "var(--text-body-s)", color: "var(--text-secondary)", display: "grid", gap: "var(--space-8)", alignContent: "center" }}>
             <p style={{ margin: 0, fontWeight: "var(--fw-semibold)", color: "var(--text-primary)" }}>Usage</p>
             <p style={{ margin: 0 }}>Toggle any analyst off to exclude it from the next run. The Strategist and Judge are always enabled — they synthesise whatever analysts provide.</p>
             <p style={{ margin: 0 }}>The filter is case-insensitive and matches name or meta tags (e.g. "metrics" finds Analytics).</p>

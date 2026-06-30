@@ -68,8 +68,8 @@
   flex: none;
 }
 .p4b-status-badge__dot {
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--space-8);
+  height: var(--space-8);
   border-radius: var(--radius-pill);
   background: var(--p4b-badge-fill);
   flex: none;
@@ -83,7 +83,7 @@
 
 [data-density="compact"] .p4b-status-badge {
   height: var(--space-16);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
 }
 
 
@@ -91,7 +91,7 @@
 .p4b-conf-bar {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 .p4b-conf-bar__track {
   width: 72px;
@@ -124,8 +124,8 @@
 .p4b-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-6) var(--space-12);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-12);
   border-radius: var(--radius-control);
   font: var(--text-body-s);
   font-weight: var(--fw-semibold);
@@ -158,18 +158,24 @@
 .p4b-btn--danger:hover { background: color-mix(in oklch, var(--ai-failed) 25%, transparent); }
 
 [data-density="compact"] .p4b-btn {
-  padding: var(--space-4) var(--space-10);
+  padding: var(--space-4) var(--space-8);
 }
 
 
 /* ═══════════════════════════════════════════════ 1. EXECUTION CARD ═══ */
 .p4b-exec-card {
   display: flex;
+  width: 100%;
   border: var(--border-width-default) solid var(--card-border);
   border-radius: var(--card-radius);
   background: var(--card-bg);
   overflow: clip;
   transition: var(--transition-surface);
+}
+
+/* ponytail: pins specimen column to running card's natural width so all 4 variants are uniform */
+.p4b-exec-card-gallery .sg-specimen {
+  grid-template-columns: 160px 320px;
 }
 .p4b-exec-card__bar {
   width: 4px;
@@ -199,6 +205,10 @@
   font: var(--text-body-s);
   font-weight: var(--fw-semibold);
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .p4b-exec-card__wf {
   margin: 0;
@@ -228,6 +238,7 @@
 .p4b-timeline {
   display: grid;
   gap: 0;
+  width: 100%;
 }
 
 /* ── Parallel group (analysts + recall) ── */
@@ -258,7 +269,7 @@
   background: var(--surface-sunken);
   border: var(--border-width-default) solid var(--border-subtle);
   border-radius: var(--radius-pill);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
 }
 .p4b-tl-parallel-body {
   display: grid;
@@ -283,12 +294,14 @@
 .p4b-tl-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-10);
+  gap: var(--space-8);
   padding: var(--space-8) var(--space-4);
   border-radius: var(--radius-control);
   cursor: pointer;
   position: relative;
   border: var(--border-width-default) solid transparent;
+  /* overflow:clip prevents the detail paragraph from widening the row */
+  overflow: clip;
   transition: background var(--dur-fast) var(--ease-standard),
               border-color var(--dur-fast) var(--ease-standard);
 }
@@ -315,6 +328,7 @@
   border-color: var(--ai-awaiting-human);
   background: color-mix(in oklch, var(--ai-awaiting-human) 8%, var(--card-bg));
   animation: p4b-border-glow 2s ease-in-out infinite;
+  padding-block: var(--space-12);
 }
 .p4b-tl-row--human:hover {
   background: color-mix(in oklch, var(--ai-awaiting-human) 14%, var(--card-bg));
@@ -393,12 +407,13 @@
   background: var(--surface-sunken);
   border-radius: var(--radius-control);
   border-left: 2px solid var(--p4b-tl-fill, var(--border-subtle));
+  overflow-wrap: break-word;
 }
 .p4b-tl-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-8);
-  padding-top: var(--space-4);
+  padding-top: var(--space-8);
 }
 
 /* Timing meta */
@@ -449,7 +464,7 @@
   color: var(--text-primary);
 }
 
-[data-density="compact"] .p4b-tl-row { padding: var(--space-6) var(--space-4); }
+[data-density="compact"] .p4b-tl-row { padding: var(--space-4) var(--space-4); }
 [data-density="compact"] .p4b-tl-marker { width: var(--space-20); height: var(--space-20); }
 [data-density="compact"] .p4b-tl-parallel-group { padding-left: var(--space-8); }
 [data-density="compact"] .p4b-tl-meta { min-width: 64px; }
@@ -492,7 +507,7 @@
 .p4b-debate-card__side-head {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 .p4b-debate-card__side--advocate .p4b-debate-card__side-icon { color: var(--ai-advocate); }
 .p4b-debate-card__side--skeptic  .p4b-debate-card__side-icon { color: var(--ai-skeptic);  }
@@ -534,7 +549,7 @@
 .p4b-rec-card__label {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   font: var(--text-caption);
   font-weight: var(--fw-semibold);
   color: var(--accent);
@@ -557,12 +572,12 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 .p4b-rec-card__outcome {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-6);
+  gap: var(--space-4);
   font: var(--text-body-s);
   color: var(--text-secondary);
 }
@@ -593,7 +608,7 @@
 .p4b-judgment-card__label {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   font: var(--text-caption);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
@@ -681,7 +696,7 @@
 .p4b-approval-card__label {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   font: var(--text-caption);
   font-weight: var(--fw-semibold);
   color: var(--ai-awaiting-human);
@@ -741,6 +756,7 @@
   border-radius: var(--card-radius);
   background: var(--card-bg);
   overflow: clip;
+  width: 100%;
 }
 .p4b-parallel-viewer__label {
   padding: var(--space-8) var(--space-12);
@@ -754,14 +770,14 @@
 }
 .p4b-parallel-viewer__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 0;
 }
 .p4b-mini-agent {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-10) var(--space-12);
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-12);
   border-right: var(--border-width-default) solid var(--border-subtle);
   border-bottom: var(--border-width-default) solid var(--border-subtle);
 }
@@ -789,7 +805,7 @@
   text-overflow: ellipsis;
 }
 
-[data-density="compact"] .p4b-mini-agent { padding: var(--space-6) var(--space-8); }
+[data-density="compact"] .p4b-mini-agent { padding: var(--space-4) var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ 9. RETRY CARD ═══ */
@@ -799,7 +815,7 @@
   background: color-mix(in oklch, var(--ai-degraded) 8%, var(--card-bg));
   padding: var(--card-pad);
   display: grid;
-  gap: var(--space-10);
+  gap: var(--space-8);
 }
 .p4b-retry-card__head {
   display: flex;
@@ -827,14 +843,14 @@
 .p4b-retry-card__status {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   font: var(--text-caption);
   font-weight: var(--fw-semibold);
   color: var(--ai-running-text, var(--ai-running));
 }
 .p4b-retry-card__status-dot {
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--space-4);
+  height: var(--space-4);
   border-radius: var(--radius-pill);
   background: var(--ai-running);
   flex: none;
@@ -849,7 +865,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-8) var(--space-12);
+  width: 100%;
   background: color-mix(in oklch, var(--ai-cancelled) 12%, var(--surface-raised));
   border: var(--border-width-default) solid var(--ai-cancelled);
   border-radius: var(--radius-control);
@@ -882,7 +899,7 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-[data-density="compact"] .p4b-cancel-banner { padding: var(--space-6) var(--space-10); }
+[data-density="compact"] .p4b-cancel-banner { padding: var(--space-4) var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ 11. RESUME PANEL CARD ═══ */
@@ -985,7 +1002,7 @@
 .p4b-log-row--critical .p4b-log-row__level { color: var(--ai-log-critical); }
 .p4b-log-row--critical { background: color-mix(in oklch, var(--ai-failed) 10%, transparent); }
 
-[data-density="compact"] .p4b-log-row { padding: var(--space-2) var(--space-10); }
+[data-density="compact"] .p4b-log-row { padding: var(--space-2) var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ 13. STREAMING CONSOLE ═══
@@ -1020,7 +1037,7 @@
 }
 .p4b-console__line {
   display: flex;
-  gap: var(--space-10);
+  gap: var(--space-8);
   padding: var(--space-2) var(--space-12);
   font: var(--text-terminal);
   font-size: 0.75rem;
@@ -1046,7 +1063,7 @@
   animation: p4b-blink 1s step-end infinite;
 }
 
-[data-density="compact"] .p4b-console__line { padding: var(--space-1, 1px) var(--space-10); }
+[data-density="compact"] .p4b-console__line { padding: var(--space-1, 1px) var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ 14. TOOL EXECUTION CARD ═══ */
@@ -1056,6 +1073,7 @@
   border-radius: var(--card-radius);
   background: var(--card-bg);
   overflow: clip;
+  width: 100%;
 }
 .p4b-tool-card__border {
   width: 4px;
@@ -1065,9 +1083,9 @@
 .p4b-tool-card__body {
   flex: 1;
   min-width: 0;
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-8) var(--space-12);
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 .p4b-tool-card__head {
   display: flex;
@@ -1091,20 +1109,20 @@
   font: var(--text-terminal);
   font-size: 0.6875rem;
   color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: clip;
-  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-all;
 }
 .p4b-tool-card__result {
   margin: 0;
   font: var(--text-caption);
   color: var(--text-secondary);
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-4) var(--space-8);
   background: var(--surface-sunken);
   border-radius: var(--radius-control);
 }
 
-[data-density="compact"] .p4b-tool-card__body { padding: var(--space-6) var(--space-10); }
+[data-density="compact"] .p4b-tool-card__body { padding: var(--space-4) var(--space-8); }
 
 
 /* ═══════════════════════════════════════════════ 15. TOOL CALL INSPECTOR ═══ */
@@ -1119,7 +1137,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-8) var(--space-12);
   cursor: var(--cursor-interactive);
   user-select: none;
   transition: background var(--dur-fast) var(--ease-standard);
@@ -1159,9 +1177,9 @@
   border-top: var(--border-width-default) solid var(--border-subtle);
 }
 .p4b-tool-inspector__section {
-  padding: var(--space-10) var(--space-12);
+  padding: var(--space-8) var(--space-12);
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
   border-bottom: var(--border-width-default) solid var(--border-subtle);
 }
 .p4b-tool-inspector__section:last-child { border-bottom: none; }
@@ -1179,13 +1197,13 @@
   color: var(--text-secondary);
   background: var(--surface-sunken);
   border-radius: var(--radius-control);
-  padding: var(--space-8) var(--space-10);
+  padding: var(--space-8) var(--space-8);
   overflow-x: auto;
   white-space: pre;
 }
 
-[data-density="compact"] .p4b-tool-inspector__trigger  { padding: var(--space-6) var(--space-10); }
-[data-density="compact"] .p4b-tool-inspector__section  { padding: var(--space-6) var(--space-10); }
+[data-density="compact"] .p4b-tool-inspector__trigger  { padding: var(--space-4) var(--space-8); }
+[data-density="compact"] .p4b-tool-inspector__section  { padding: var(--space-4) var(--space-8); }
 
 
 /* ── Gallery scaffolding ─────────────────────────────────────────────────────

@@ -51,6 +51,7 @@
   color: var(--p4a-badge-text, var(--text-secondary));
   white-space: nowrap;
   line-height: 1;
+  vertical-align: middle;
 }
 /* The running dot pulses; all other statuses get a static glyph. */
 .p4a-status-badge__dot {
@@ -263,6 +264,8 @@
 .p4a-cap-list {
   display: grid;
   gap: var(--space-4);
+  padding: 0;
+  list-style: none;
 }
 .p4a-cap-item {
   display: flex;

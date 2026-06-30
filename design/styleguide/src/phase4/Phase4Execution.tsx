@@ -275,7 +275,7 @@ function ExecutionTimeline({
           </div>
           {isExp && stage.detail && <p className="p4b-tl-detail">{stage.detail}</p>}
           {isHuman && showApprovalActions && (
-            <div className="p4b-tl-actions">
+            <div className="p4b-tl-actions" onClick={(e) => e.stopPropagation()}>
               <button className="p4b-btn p4b-btn--primary"   type="button">Approve</button>
               <button className="p4b-btn p4b-btn--danger"    type="button">Reject</button>
               <button className="p4b-btn p4b-btn--secondary" type="button">Request analysis</button>
@@ -745,7 +745,7 @@ export function Phase4Execution() {
         title="Execution card"
         desc="Summary card for one run: status colour-bar on the left edge, initiative title, workflow name, timing, and a confidence bar. Status is reinforced by colour + badge."
       >
-        <div className="sg-card p4b-stack">
+        <div className="sg-card p4b-stack p4b-exec-card-gallery">
           <Specimen label="running">
             <ExecutionCard
               title="Adopt usage-based pricing tier"

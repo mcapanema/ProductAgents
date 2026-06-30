@@ -37,15 +37,30 @@ function StreamingText({ text, done = false }: { text: string; done?: boolean })
 
 /* ═══════════════════════════════════════════════ 2. THINKING INDICATOR ═══ */
 
-function ThinkingIndicator({ label = "Thinking" }: { label?: string }) {
+type ThinkingAction = "reasoning" | "tool" | "retrieving" | "generating";
+const THINKING_CFG: Record<ThinkingAction, { color: string; label: string }> = {
+  reasoning:  { color: "var(--ai-thinking)",  label: "Thinking"       },
+  tool:       { color: "var(--ai-tool)",      label: "Calling tool"   },
+  retrieving: { color: "var(--ai-done)",      label: "Retrieving"     },
+  generating: { color: "var(--ai-streaming)", label: "Generating"     },
+};
+
+function ThinkingIndicator({ action = "reasoning", label }: { action?: ThinkingAction; label?: string }) {
+  const cfg = THINKING_CFG[action];
+  const displayLabel = label ?? cfg.label;
   return (
-    <span className="p4c-thinking" role="status" aria-label={label}>
+    <span
+      className="p4c-thinking"
+      role="status"
+      aria-label={displayLabel}
+      style={{ "--p4c-thinking-color": cfg.color } as React.CSSProperties}
+    >
       <span className="p4c-thinking__dots" aria-hidden="true">
         <span className="p4c-thinking__dot" />
         <span className="p4c-thinking__dot" />
         <span className="p4c-thinking__dot" />
       </span>
-      <span className="p4c-thinking__label">{label}</span>
+      <span className="p4c-thinking__label">{displayLabel}</span>
     </span>
   );
 }
@@ -103,11 +118,19 @@ function TokenUsageBar({ usage }: { usage: TokenUsage }) {
 
 /* ═══════════════════════════════════════════════ 4. COST INDICATOR ═══ */
 
-type CostData = { model: string; prompt: number; completion: number; total: number };
+type CostData = {
+  model: string; prompt: number; completion: number; total: number;
+  promptTokens?: number; completionTokens?: number;
+};
 
 function CostBadge({ cost }: { cost: number }) {
   return <span className="p4c-cost-badge">${cost.toFixed(4)}</span>;
 }
+
+const COST_ROWS = [
+  { key: "prompt",     label: "Prompt",     color: "--ai-analyst-customer"   },
+  { key: "completion", label: "Completion", color: "--ai-analyst-analytics"  },
+] as const;
 
 function CostPanel({ data }: { data: CostData }) {
   return (
@@ -117,14 +140,30 @@ function CostPanel({ data }: { data: CostData }) {
         <span className="p4c-cost-panel__total">${data.total.toFixed(4)}</span>
       </div>
       <dl className="p4c-cost-panel__rows">
-        <div className="p4c-cost-panel__row">
-          <dt>Prompt tokens</dt>
-          <dd>${data.prompt.toFixed(4)}</dd>
-        </div>
-        <div className="p4c-cost-panel__row">
-          <dt>Completion tokens</dt>
-          <dd>${data.completion.toFixed(4)}</dd>
-        </div>
+        {COST_ROWS.map(({ key, label, color }) => {
+          const cost   = data[key];
+          const tokens = data[`${key}Tokens` as "promptTokens" | "completionTokens"];
+          const pct    = Math.round((cost / data.total) * 100);
+          return (
+            <div
+              key={key}
+              className="p4c-cost-panel__row"
+              style={vars({ "--p4c-cost-pct": `${pct}%`, "--p4c-cost-color": `var(${color})` })}
+            >
+              <dt className="p4c-cost-panel__label">{label}</dt>
+              <div className="p4c-cost-panel__bar-wrap" aria-hidden="true">
+                <div className="p4c-cost-panel__bar" />
+              </div>
+              <dd className="p4c-cost-panel__meta">
+                {tokens != null && (
+                  <span className="p4c-cost-panel__tokens">{tokens.toLocaleString()} tok</span>
+                )}
+                <span className="p4c-cost-panel__pct">{pct}%</span>
+                <span className="p4c-cost-panel__val">${cost.toFixed(4)}</span>
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </div>
   );
@@ -410,13 +449,14 @@ export function Phase4LLM() {
       >
         <div className="sg-card p4c-stack">
           <Specimen label="default">
-            <ThinkingIndicator />
+            <ThinkingIndicator action="reasoning" />
           </Specimen>
-          <Specimen label="multiple labels">
+          <Specimen label="action variants">
             <div className="p4c-row">
-              <ThinkingIndicator label="Reasoning" />
-              <ThinkingIndicator label="Calling tool" />
-              <ThinkingIndicator label="Retrieving lessons" />
+              <ThinkingIndicator action="reasoning" />
+              <ThinkingIndicator action="tool" />
+              <ThinkingIndicator action="retrieving" />
+              <ThinkingIndicator action="generating" />
             </div>
           </Specimen>
         </div>
@@ -457,7 +497,7 @@ export function Phase4LLM() {
           </Specimen>
           <Specimen label="breakdown panel">
             <CostPanel
-              data={{ model: "claude-sonnet-4-6", prompt: 0.0247, completion: 0.0654, total: 0.0901 }}
+              data={{ model: "claude-sonnet-4-6", prompt: 0.0247, completion: 0.0654, total: 0.0901, promptTokens: 2130, completionTokens: 5640 }}
             />
           </Specimen>
         </div>
