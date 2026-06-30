@@ -1,0 +1,746 @@
+/*
+ * Phase 4A — Agent Components. Self-contained styleguide CSS (prefix: p4a-).
+ * ============================================================================
+ * StatusBadge, AgentCard, Profile, CapabilityList, Selector, Timeline, Queue,
+ * DependencyGraph — built ONLY from the token layer (semantic + component +
+ * theme). AI state colour uses --ai-* tokens exclusively. Every animation
+ * has a prefers-reduced-motion fallback parked at a legible static frame.
+ *
+ * Colour is never the only channel: every status pairs hue with a glyph +
+ * label. The running state is further distinguished by animation.
+ */
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+/* ponytail: p4a-pulse is the canonical running-indicator animation for Phase 4.
+   All running-state glyphs reference it; reduced-motion parks it at full opacity. */
+@keyframes p4a-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+@keyframes p4a-spin {
+  to { transform: rotate(1turn); }
+}
+@keyframes p4a-edge-flow {
+  from { stroke-dashoffset: 16; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ── Inline SVG icon sizing ────────────────────────────────────────────────── */
+.p4a-ico {
+  display: block;
+  flex: none;
+  width: var(--size-icon);
+  height: var(--size-icon);
+}
+.p4a-ico--xs  { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+.p4a-ico--sm  { width: var(--icon-sm); height: var(--icon-sm); }
+.p4a-ico--md  { width: var(--icon-md); height: var(--icon-md); }
+
+
+/* ═══════════════════════════════════════════════ STATUS BADGE ═══
+ * Colour+glyph+label pill for every agent lifecycle state.
+ * Running gets an animated dot instead of a static glyph.
+ * CSS custom props --p4a-badge-fill/text are set per status in TSX. */
+.p4a-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--space-20);
+  padding: 0 var(--space-8);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, var(--p4a-badge-fill) 15%, transparent);
+  color: var(--p4a-badge-text, var(--text-secondary));
+  white-space: nowrap;
+  line-height: 1;
+}
+/* The running dot pulses; all other statuses get a static glyph. */
+.p4a-status-badge__dot {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--p4a-badge-fill);
+  flex: none;
+  animation: p4a-pulse var(--dur-slow) ease-in-out infinite;
+}
+.p4a-status-badge__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--p4a-badge-fill);
+}
+
+[data-density="compact"] .p4a-status-badge {
+  height: var(--space-16);
+  padding: 0 var(--space-6);
+  font-size: var(--fs-xs, 0.6875rem);
+}
+
+
+/* ═══════════════════════════════════════════════ AGENT CARD ═══
+ * Card for one agent in a grid: avatar icon, name, role, status,
+ * confidence gauge. Interactive — has hover + selected state. */
+.p4a-agent-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-12);
+  padding: var(--card-pad);
+  background: var(--card-bg);
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+}
+.p4a-agent-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}
+.p4a-agent-card[aria-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--card-bg));
+}
+.p4a-agent-card:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p4a-agent-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-inline);
+}
+.p4a-agent-card__avatar {
+  display: grid;
+  place-items: center;
+  width: var(--avatar-md);
+  height: var(--avatar-md);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, var(--p4a-agent-color, var(--accent)) 18%, var(--surface-sunken));
+  color: var(--p4a-agent-color, var(--accent));
+  flex: none;
+}
+.p4a-agent-card__name {
+  font: var(--text-title);
+  letter-spacing: var(--text-title-tracking);
+  color: var(--text-primary);
+  margin: 0;
+}
+.p4a-agent-card__role {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+.p4a-agent-card__body {
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+.p4a-agent-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+/* Inline confidence bar on the card footer */
+.p4a-agent-card__conf {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex: 1;
+  min-width: 0;
+}
+.p4a-agent-card__conf-track {
+  flex: 1;
+  height: var(--gauge-height);
+  background: var(--gauge-track);
+  border-radius: var(--gauge-radius);
+  overflow: hidden;
+}
+.p4a-agent-card__conf-fill {
+  height: 100%;
+  border-radius: var(--gauge-radius);
+  background: var(--p4a-conf-fill, var(--ai-confidence-high));
+  width: var(--p4a-conf-pct, 0%);
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+.p4a-agent-card__conf-val {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  flex: none;
+}
+
+[data-density="compact"] .p4a-agent-card {
+  gap: var(--space-8);
+  padding: var(--space-12) var(--pad-card);
+}
+[data-density="compact"] .p4a-agent-card__avatar {
+  width: var(--avatar-sm);
+  height: var(--avatar-sm);
+}
+
+/* ═══════════════════════════════════════════════ PROFILE ═══
+ * Full agent profile panel: large avatar, name, role description,
+ * analyst colour strip, capability count, recent-run stats. */
+.p4a-profile {
+  display: flex;
+  gap: var(--space-24);
+  padding: var(--card-pad);
+  background: var(--card-bg);
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+}
+.p4a-profile__avatar {
+  display: grid;
+  place-items: center;
+  width: var(--avatar-lg);
+  height: var(--avatar-lg);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, var(--p4a-agent-color, var(--accent)) 18%, var(--surface-sunken));
+  color: var(--p4a-agent-color, var(--accent));
+  flex: none;
+  font: var(--text-heading-4);
+  letter-spacing: var(--text-heading-4-tracking);
+}
+.p4a-profile__body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-12);
+}
+.p4a-profile__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4a-profile__name {
+  margin: 0;
+  font: var(--text-heading-4);
+  letter-spacing: var(--text-heading-4-tracking);
+  color: var(--text-primary);
+}
+.p4a-profile__role {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+}
+.p4a-profile__desc {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+.p4a-profile__stats {
+  display: flex;
+  gap: var(--space-24);
+  flex-wrap: wrap;
+}
+.p4a-profile__stat {
+  display: grid;
+  gap: var(--space-2);
+}
+.p4a-profile__stat-val {
+  font: var(--text-terminal);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.p4a-profile__stat-label {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+[data-density="compact"] .p4a-profile {
+  gap: var(--space-16);
+}
+[data-density="compact"] .p4a-profile__avatar {
+  width: var(--avatar-md);
+  height: var(--avatar-md);
+  font: var(--text-title);
+}
+
+
+/* ═══════════════════════════════════════════════ CAPABILITY LIST ═══
+ * A list of tools/capabilities an agent has access to, each with
+ * an icon, name, and short description. Tinted by category colour. */
+.p4a-cap-list {
+  display: grid;
+  gap: var(--space-4);
+}
+.p4a-cap-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid transparent;
+  transition: var(--transition-surface);
+}
+.p4a-cap-item:hover {
+  border-color: var(--border-subtle);
+  background: var(--surface-hover);
+}
+.p4a-cap-item__icon {
+  display: grid;
+  place-items: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border-radius: var(--radius-control);
+  background: color-mix(in oklch, var(--p4a-cap-color, var(--accent)) 15%, transparent);
+  color: var(--p4a-cap-color, var(--accent));
+  flex: none;
+}
+.p4a-cap-item__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.p4a-cap-item__name {
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4a-cap-item__desc {
+  font: var(--text-caption);
+  color: var(--text-secondary);
+}
+.p4a-cap-item__tag {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--p4a-cap-color, var(--accent));
+  background: color-mix(in oklch, var(--p4a-cap-color, var(--accent)) 12%, transparent);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+
+[data-density="compact"] .p4a-cap-item {
+  padding: var(--space-6) var(--space-10);
+}
+[data-density="compact"] .p4a-cap-item__icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+
+/* ═══════════════════════════════════════════════ SELECTOR ═══
+ * Model/agent chooser: a listbox with search filter and radio-style
+ * selection. Each option shows icon + name + meta. */
+.p4a-selector {
+  display: grid;
+  gap: var(--space-8);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-default);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+.p4a-selector__search {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-8) var(--space-12);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4a-selector__search-icon {
+  color: var(--text-tertiary);
+  flex: none;
+}
+.p4a-selector__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: var(--text-body-s);
+  color: var(--text-primary);
+  outline: none;
+}
+.p4a-selector__input::placeholder { color: var(--text-tertiary); }
+.p4a-selector__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.p4a-selector__item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-control);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+  border: var(--border-width-default) solid transparent;
+}
+.p4a-selector__item:hover {
+  background: var(--surface-hover);
+}
+.p4a-selector__item[aria-selected="true"] {
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface-hover));
+  border-color: var(--accent);
+}
+.p4a-selector__item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p4a-selector__item-icon {
+  display: grid;
+  place-items: center;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border-radius: var(--radius-control);
+  color: var(--p4a-agent-color, var(--text-secondary));
+  flex: none;
+}
+.p4a-selector__item-text {
+  flex: 1;
+  min-width: 0;
+}
+.p4a-selector__item-name {
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4a-selector__item-meta {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4a-selector__item-check {
+  color: var(--accent);
+  flex: none;
+}
+.p4a-selector__empty {
+  padding: var(--space-16) var(--space-12);
+  text-align: center;
+  font: var(--text-body-s);
+  color: var(--text-tertiary);
+}
+
+[data-density="compact"] .p4a-selector__item {
+  padding: var(--space-6) var(--space-10);
+}
+[data-density="compact"] .p4a-selector__list {
+  max-height: 200px;
+}
+
+
+/* ═══════════════════════════════════════════════ TIMELINE ═══
+ * Vertical pipeline execution timeline. Each stage: marker dot on a
+ * vertical rail, stage name, badge, timing meta. Amber = running. */
+.p4a-timeline {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.p4a-tl-row {
+  display: flex;
+  gap: var(--space-12);
+  padding: var(--space-8) 0;
+  position: relative;
+  min-height: var(--space-48);
+  align-items: flex-start;
+}
+/* Vertical rail connecting markers */
+.p4a-tl-row::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-12) - 1px);
+  top: var(--space-24);
+  bottom: calc(var(--space-4) * -1);
+  width: var(--border-width-default);
+  background: var(--border-subtle);
+}
+.p4a-tl-row:last-child::before { display: none; }
+
+.p4a-tl-marker {
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  border-radius: var(--radius-pill);
+  flex: none;
+  background: color-mix(in oklch, var(--p4a-tl-fill, var(--border-default)) 20%, var(--surface-raised));
+  color: var(--p4a-tl-fill, var(--text-secondary));
+  position: relative;
+  z-index: 1;
+  margin-top: var(--space-4);
+}
+.p4a-tl-row[data-live="true"] .p4a-tl-marker {
+  background: color-mix(in oklch, var(--ai-running) 20%, var(--surface-raised));
+  color: var(--ai-running);
+}
+.p4a-tl-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+}
+.p4a-tl-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4a-tl-node {
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4a-tl-note {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-secondary);
+}
+.p4a-tl-meta {
+  flex: none;
+  display: grid;
+  gap: var(--space-2);
+  text-align: right;
+  padding-top: var(--space-4);
+}
+.p4a-tl-time {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.p4a-tl-dur {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+[data-density="compact"] .p4a-tl-row {
+  padding: var(--space-6) 0;
+  min-height: var(--space-32);
+  gap: var(--space-8);
+}
+[data-density="compact"] .p4a-tl-marker {
+  width: var(--space-20);
+  height: var(--space-20);
+}
+[data-density="compact"] .p4a-tl-row::before {
+  left: calc(var(--space-10) - 1px);
+}
+
+
+/* ═══════════════════════════════════════════════ QUEUE ═══
+ * Work queue: ordered list of evaluation runs with status, priority,
+ * initiative name. Items are keyboard-focusable rows. */
+.p4a-queue {
+  display: grid;
+  gap: 0;
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-raised);
+}
+.p4a-queue__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.p4a-queue-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-12) var(--space-12);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+  background: var(--surface-raised);
+}
+.p4a-queue-item:last-child { border-bottom: none; }
+.p4a-queue-item:hover { background: var(--surface-hover); }
+.p4a-queue-item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p4a-queue-item[aria-current="true"] {
+  background: color-mix(in oklch, var(--ai-running) 8%, var(--surface-raised));
+}
+.p4a-queue-item__rank {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  width: var(--space-20);
+  text-align: center;
+  flex: none;
+}
+.p4a-queue-item__priority {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--p4a-priority-color, var(--border-default));
+  flex: none;
+}
+.p4a-queue-item__text {
+  flex: 1;
+  min-width: 0;
+}
+.p4a-queue-item__title {
+  font: var(--text-body-s);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.p4a-queue-item__sub {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4a-queue-item__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: none;
+}
+.p4a-queue-item__time {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+[data-density="compact"] .p4a-queue-item {
+  padding: var(--space-8) var(--space-12);
+}
+
+
+/* ═══════════════════════════════════════════════ DEPENDENCY GRAPH ═══
+ * SVG pipeline dependency graph. Nodes are circles with status colours;
+ * edges are stroked paths. Active (running) edges animate a travelling
+ * dash. Nodes are focusable; keyboard nav is via tabIndex on each <g>. */
+.p4a-dep-graph {
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+.p4a-dep-graph__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* Edges — solid inactive, animated dash for active (running downstream) */
+.p4a-edge {
+  fill: none;
+  stroke: var(--ai-edge);
+  stroke-width: 1.5;
+  marker-end: url(#p4a-arrow);
+}
+.p4a-edge--active {
+  stroke: var(--ai-edge-active);
+  stroke-dasharray: 6 4;
+  animation: p4a-edge-flow 0.8s linear infinite;
+}
+.p4a-edge--recall {
+  stroke-dasharray: 4 4;
+  stroke: var(--ai-thinking);
+  opacity: 0.7;
+}
+/* Node groups — focusable */
+.p4a-node:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p4a-node-circle {
+  fill: color-mix(in oklch, var(--p4a-node-fill, var(--surface-raised)) 30%, var(--surface-sunken));
+  stroke: var(--p4a-node-stroke, var(--ai-node-border));
+  stroke-width: 1.5;
+  transition: fill var(--dur-fast) var(--ease-standard),
+              stroke var(--dur-fast) var(--ease-standard);
+}
+.p4a-node--active .p4a-node-circle {
+  stroke: var(--ai-node-active-border);
+  fill: color-mix(in oklch, var(--ai-running) 18%, var(--surface-sunken));
+}
+.p4a-node--done .p4a-node-circle {
+  stroke: var(--ai-done);
+  fill: color-mix(in oklch, var(--ai-done) 12%, var(--surface-sunken));
+}
+.p4a-node--degraded .p4a-node-circle {
+  stroke: var(--ai-degraded);
+  fill: color-mix(in oklch, var(--ai-degraded) 12%, var(--surface-sunken));
+}
+.p4a-node--failed .p4a-node-circle {
+  stroke: var(--ai-failed);
+  fill: color-mix(in oklch, var(--ai-failed) 12%, var(--surface-sunken));
+}
+.p4a-node-label {
+  fill: var(--text-secondary);
+  font-size: var(--fs-xs);
+  text-anchor: middle;
+  font-family: var(--font-sans);
+  pointer-events: none;
+}
+.p4a-node--active .p4a-node-label {
+  fill: var(--ai-running-text);
+}
+.p4a-node--done .p4a-node-label {
+  fill: var(--ai-done-text);
+}
+/* Pulsing glyph for running nodes */
+.p4a-node-pulse {
+  fill: var(--ai-running);
+  animation: p4a-pulse var(--dur-slow) ease-in-out infinite;
+}
+.p4a-graph-legend {
+  display: flex;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+  padding: var(--space-8) var(--space-12);
+  border-top: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4a-graph-legend__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.p4a-graph-legend__dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+
+
+/* ── Gallery scaffolding ──────────────────────────────────────────────────── */
+/* ponytail: layout helpers for the gallery card only — not part of the component contract. */
+.p4a-stack  { display: grid; gap: var(--gap-stack); }
+.p4a-row    { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.p4a-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid); }
+.p4a-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap-grid); }
+.p4a-agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--gap-grid);
+}
+@media (max-width: 640px) {
+  .p4a-grid-2 { grid-template-columns: 1fr; }
+  .p4a-grid-3 { grid-template-columns: 1fr 1fr; }
+}
+
+
+/* ─────────────────────────────────────── REDUCED MOTION ───
+ * Park every p4a animation at a legible static frame. */
+@media (prefers-reduced-motion: reduce) {
+  .p4a-status-badge__dot { animation: none; opacity: 1; }
+  .p4a-edge--active      { animation: none; }
+  .p4a-node-pulse        { animation: none; }
+}
