@@ -594,6 +594,7 @@
   padding: var(--card-pad);
   display: grid;
   gap: var(--space-12);
+  width: min(100%, 400px);
 }
 .p4b-judgment-card--pass   { border-color: var(--ai-done); }
 .p4b-judgment-card--retry  { border-color: var(--ai-degraded); }
