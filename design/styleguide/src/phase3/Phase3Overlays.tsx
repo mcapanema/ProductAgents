@@ -4,7 +4,7 @@
 // the product portals these same surfaces to <body> with position:fixed. Each
 // component ships both an interactive instance (trigger + Esc/focus management)
 // and a static always-open preview so reviewers see the surface without acting.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Section } from "../sg";
 
 /* ── Inline Phosphor-style icons (SVG only; sized via CSS class) ─────────── */
@@ -232,32 +232,60 @@ const CMD_GROUPS: { group: string; items: { icon: keyof typeof ICONS; label: str
 ];
 
 function CommandSurface({ onClose, inputRef }: { onClose?: () => void; inputRef?: React.Ref<HTMLInputElement> }) {
+  const total = CMD_GROUPS.reduce((n, g) => n + g.items.length, 0);
+  const [active, setActive] = useState(0);
+  const uid = useId(); // unique per instance — the interactive dialog + the static preview both render this
+  // Focus stays in the input (combobox); ↑/↓ move the active option via
+  // aria-activedescendant, Enter activates it.
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => (a + 1) % total); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => (a - 1 + total) % total); }
+    else if (e.key === "Enter") { e.preventDefault(); onClose?.(); }
+  }
+  let idx = -1; // running flat index across groups
   return (
     <>
       <div className="ov-cmd-search">
         <I name="search" cls="ov-ico--sm" />
-        <input ref={inputRef} type="text" placeholder="Type a command or search…" aria-label="Command" />
+        <input
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls={`${uid}-listbox`}
+          aria-autocomplete="list"
+          aria-activedescendant={`${uid}-opt-${active}`}
+          placeholder="Type a command or search…"
+          aria-label="Command"
+          onKeyDown={onKeyDown}
+        />
         <kbd>Esc</kbd>
       </div>
-      <div className="ov-cmd-list" role="listbox" aria-label="Commands">
-        {CMD_GROUPS.map((g, gi) => (
+      <div className="ov-cmd-list" id={`${uid}-listbox`} role="listbox" aria-label="Commands">
+        {CMD_GROUPS.map((g) => (
           <div key={g.group}>
             <div className="ov-cmd-group">{g.group}</div>
-            {g.items.map((it, ii) => (
-              <button
-                key={it.label}
-                className="ov-cmd-item"
-                role="option"
-                aria-selected={gi === 0 && ii === 0}
-                type="button"
-                onClick={onClose}
-              >
-                <I name={it.icon} cls="ov-ico--sm" />
-                {it.label}
-                <span className="ov-spacer" />
-                <span className="ov-menu-shortcut">{it.hint}</span>
-              </button>
-            ))}
+            {g.items.map((it) => {
+              idx += 1;
+              const i = idx;
+              return (
+                <button
+                  key={it.label}
+                  id={`${uid}-opt-${i}`}
+                  className="ov-cmd-item"
+                  role="option"
+                  aria-selected={i === active}
+                  type="button"
+                  onMouseMove={() => setActive(i)}
+                  onClick={onClose}
+                >
+                  <I name={it.icon} cls="ov-ico--sm" />
+                  {it.label}
+                  <span className="ov-spacer" />
+                  <span className="ov-menu-shortcut">{it.hint}</span>
+                </button>
+              );
+            })}
           </div>
         ))}
       </div>
