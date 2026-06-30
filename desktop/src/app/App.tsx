@@ -9,15 +9,17 @@ import { PromptsPanel } from "../panels/PromptsPanel";
 import { WorkflowsPanel } from "../panels/WorkflowsPanel";
 import { SettingsPanel } from "../panels/SettingsPanel";
 import { ReflectionPanel } from "../panels/ReflectionPanel";
+import { OrgMemoryPanel } from "../panels/OrgMemoryPanel";
 import "./App.css";
 
-type View = "run" | "workflows" | "sessions" | "decisions" | "connectors" | "prompts" | "settings" | "reflection";
+type View = "run" | "workflows" | "sessions" | "decisions" | "connectors" | "prompts" | "settings" | "reflection" | "memory";
 
 const NAV: { view: View; label: string }[] = [
   { view: "run", label: "Run" },
   { view: "workflows", label: "Workflows" },
   { view: "sessions", label: "Sessions" },
   { view: "decisions", label: "Decisions" },
+  { view: "memory", label: "Memory" },
   { view: "connectors", label: "Connectors" },
   { view: "prompts", label: "Prompts" },
   { view: "settings", label: "Settings" },
@@ -45,6 +47,7 @@ export function App({ client }: { client?: IpcClient }) {
           {view === "run" && <RunPanel />}
           {view === "sessions" && <SessionsPanel />}
           {view === "decisions" && <DecisionsPanel />}
+          {view === "memory" && <OrgMemoryPanel />}
           {view === "connectors" && <ConnectorsPanel />}
           {view === "prompts" && <PromptsPanel />}
           {view === "workflows" && <WorkflowsPanel />}

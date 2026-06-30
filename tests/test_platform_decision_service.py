@@ -4,6 +4,9 @@ Happy path: emits SessionStarted … SessionFinished, seq monotone, records once
 HITL path: emits ApprovalRequested + FinalVerdict, approver callback invoked.
 """
 
+import asyncio
+
+from productagents.platform import decision_service as ds
 from productagents.platform import events as ev
 from productagents.platform.decision_service import DecisionService
 
@@ -70,3 +73,36 @@ async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
     assert "ApprovalRequested" in kinds
     assert "FinalVerdict" in kinds
     assert seen_request  # approver was actually invoked
+
+
+async def test_cancel_emits_session_cancelled_and_closes(decision_inputs, monkeypatch):
+    from productagents.agents import runner as rn
+
+    started = asyncio.Event()
+
+    async def blocking_run(graph, initiative, evidence, *, approver=None):
+        yield rn.ProgressEvent(node="market", message="scanning")
+        started.set()
+        await asyncio.Event().wait()  # block until the task is cancelled
+        yield rn.ProgressEvent(node="never", message="unreached")
+
+    monkeypatch.setattr(ds.rn, "run_decision", blocking_run)
+
+    initiative, evidence_spec, context_opener = decision_inputs
+    service = ds.DecisionService(context_opener)
+    session, stream = service.start_session(initiative, evidence_spec)
+
+    received = []
+
+    async def consume():
+        async for e in stream:
+            received.append(e)
+
+    task = asyncio.ensure_future(consume())
+    await started.wait()
+    assert service.cancel(session.id) is True
+    await task
+
+    assert isinstance(received[-1], ev.SessionCancelled)
+    assert session.status == "cancelled"
+    assert service.cancel(session.id) is False  # run task already gone

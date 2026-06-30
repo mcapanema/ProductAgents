@@ -43,6 +43,7 @@ class DecisionService:
         self._hitl = human_in_the_loop
         self._event_store_opener = event_store_opener
         self._tasks: set[asyncio.Task] = set()
+        self._runs: dict[str, asyncio.Task] = {}
 
     @classmethod
     def for_model(
@@ -84,8 +85,21 @@ class DecisionService:
             # (now-narrowed non-None) opener in so _persist needs no None check.
             opener = self._event_store_opener
             self._spawn(self._persist(session, bus.subscribe(), opener))
-        self._spawn(self._run(session, bus, initiative, evidence_spec, approver))
+        run_task = self._spawn(
+            self._run(session, bus, initiative, evidence_spec, approver)
+        )
+        self._runs[session.id] = run_task
+        run_task.add_done_callback(lambda _t, sid=session.id: self._runs.pop(sid, None))
         return session, stream
+
+    def cancel(self, session_id: str) -> bool:
+        """Cancel a live run task. Cooperative: the run's _run coroutine catches
+        CancelledError, emits SessionCancelled, and closes the bus."""
+        task = self._runs.get(session_id)
+        if task is None or task.done():
+            return False
+        task.cancel()
+        return True
 
     async def _persist(
         self, session: Session, stream: AsyncIterator[ev.Event], opener
@@ -156,6 +170,10 @@ class DecisionService:
                     if isinstance(r, rn.FinishedEvent):
                         await self._record(session, initiative, evidence, r)
                         session.status = "finished"
+        except asyncio.CancelledError:
+            session.status = "cancelled"
+            emit(lambda s: ev.SessionCancelled(session_id=session.id, seq=s))
+            raise
         except Exception:
             logger.exception("decision session %s crashed", session.id)
             session.status = "failed"

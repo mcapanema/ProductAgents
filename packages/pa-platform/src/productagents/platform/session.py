@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal
 
-SessionStatus = Literal["running", "awaiting_approval", "finished", "failed"]
+SessionStatus = Literal[
+    "running", "awaiting_approval", "finished", "failed", "cancelled"
+]
 
 
 @dataclass

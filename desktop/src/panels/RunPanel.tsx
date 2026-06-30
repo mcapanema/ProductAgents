@@ -39,6 +39,16 @@ export function RunPanel() {
     }
   }
 
+  async function cancel() {
+    if (!ipc || !state.sessionId) return;
+    dispatch({ kind: "cancel" });
+    try {
+      await ipc.runCancel(state.sessionId);
+    } catch {
+      // terminal result/error will surface the outcome
+    }
+  }
+
   const running = state.status === "running";
   return (
     <div>
@@ -61,6 +71,11 @@ export function RunPanel() {
         <button className="primary" onClick={start} disabled={running || !ipc}>
           {running ? "Running…" : "Run"}
         </button>
+        {running && !state.awaiting && (
+          <button onClick={cancel} disabled={!state.sessionId || state.cancelling}>
+            {state.cancelling ? "Cancelling…" : "Cancel"}
+          </button>
+        )}
       </div>
       <label className="row" style={{ gap: 6, marginBottom: 8 }}>
         <input

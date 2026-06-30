@@ -7,6 +7,7 @@ import type {
   DecisionDetail,
   DecisionSummary,
   IpcMessage,
+  Lesson,
   OutcomeRecord,
   PromptDiff,
   PromptSummary,
@@ -97,6 +98,10 @@ export class IpcClient {
     return this.call<DecisionSummary[]>("decisions.list");
   }
 
+  memoryLessons(): Promise<Lesson[]> {
+    return this.call<Lesson[]>("memory.lessons");
+  }
+
   decisionsShow(decisionId: string): Promise<DecisionDetail> {
     return this.call<DecisionDetail>("decisions.show", { decision_id: decisionId });
   }
@@ -154,5 +159,9 @@ export class IpcClient {
 
   run(params: RunParams, handlers: RunHandlers): Promise<RunResult> {
     return this.call<RunResult>("run", { ...params }, handlers);
+  }
+
+  runCancel(sessionId: string): Promise<{ ok: boolean }> {
+    return this.call<{ ok: boolean }>("run.cancel", { session_id: sessionId });
   }
 }

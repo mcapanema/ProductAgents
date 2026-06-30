@@ -39,4 +39,21 @@ describe("RunPanel approval flow", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^reject$/i }));
     await waitFor(() => expect(approve).toHaveBeenCalledWith("reject", ""));
   });
+
+  it("cancels a running session via run.cancel", async () => {
+    const runCancel = vi.fn(async () => ({ ok: true }));
+    const run = vi.fn((_p: RunParams, handlers: RunHandlers) => {
+      handlers.onEvent({ type: "SessionStarted", payload: { session_id: "sx" } });
+      return new Promise<{ status: "finished"; session_id: string }>(() => {});
+    });
+    render(
+      <IpcProvider client={{ run, runCancel } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+    await waitFor(() => expect(runCancel).toHaveBeenCalledWith("sx"));
+  });
 });

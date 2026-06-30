@@ -23,7 +23,7 @@ export interface RunHandlers {
 }
 
 export interface RunResult {
-  status: "finished" | "failed";
+  status: "finished" | "failed" | "cancelled";
   session_id: string;
 }
 
@@ -160,4 +160,12 @@ export interface ConfigSetParams {
   model: string;
   provider?: string;
   api_key?: string;
+}
+
+export interface Lesson {
+  decision_id: string;
+  title: string;
+  text: string;
+  validated: boolean;
+  prediction_accuracy: number | null;
 }
