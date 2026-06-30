@@ -4,8 +4,9 @@ import { Foundation } from "./Foundation";
 import { Tokens } from "./Tokens";
 import { Components } from "./Components";
 import { AIComponents } from "./AIComponents";
+import { WorkflowCli } from "./WorkflowCli";
 
-type Category = "foundation" | "tokens" | "components" | "ai-components";
+type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli";
 
 /** Top-level categories. `soon` entries are placeholders for future work
  *  (Design patterns = Phase 10, Documentation = Phase 11) — shown disabled so
@@ -15,6 +16,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "tokens", label: "Tokens" },
   { id: "components", label: "Components" },
   { id: "ai-components", label: "AI Components" },
+  { id: "workflow-cli", label: "Workflow & CLI" },
 ];
 const SOON: { label: string }[] = [
   { label: "Design patterns" },
@@ -104,6 +106,7 @@ export function App() {
         {category === "tokens" && <Tokens theme={theme} density={density} />}
         {category === "components" && <Components />}
         {category === "ai-components" && <AIComponents />}
+        {category === "workflow-cli" && <WorkflowCli />}
       </main>
     </div>
   );

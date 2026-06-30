@@ -1,0 +1,269 @@
+/*
+ * Phase 5B — CLI components. Self-contained styleguide CSS (prefix: p5b-).
+ * ============================================================================
+ * Terminal chrome, console output, ANSI-style tokenized coloring, history,
+ * suggestions, streaming output. Reuses --text-terminal, --ai-log-* and
+ * --surface-sunken (the same "always-dark terminal surface" pattern as
+ * Phase 4B's StreamingConsole) — no new tokens.
+ */
+
+@keyframes p5b-blink {
+  0%, 49%  { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.p5b-ico {
+  display: block;
+  flex: none;
+  width: var(--size-icon-inline);
+  height: var(--size-icon-inline);
+}
+.p5b-ico--xs { width: var(--icon-sm); height: var(--icon-sm); }
+
+.p5b-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-inline);
+  align-items: center;
+}
+
+/* ═══════════════════════════════════════════════ COMMAND BADGE ═══ */
+.p5b-cmd-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2, 2px) var(--space-8);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  font: var(--text-code);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════ EXIT STATUS ═══ */
+.p5b-exit-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--ai-failed);
+}
+.p5b-exit-status[data-ok="true"] {
+  color: var(--ai-done-text, var(--ai-done));
+}
+
+/* ═══════════════════════════════════════════════ ANSI RENDERER ═══ */
+.p5b-ansi-block {
+  margin: 0;
+  padding: var(--space-12);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  font: var(--text-terminal);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+}
+.p5b-ansi--info  { color: var(--ai-log-info); }
+.p5b-ansi--warn  { color: var(--ai-log-warn); }
+.p5b-ansi--error { color: var(--ai-log-error); }
+.p5b-ansi--done  { color: var(--ai-done-text, var(--ai-done)); }
+.p5b-ansi--dim   { color: var(--text-tertiary); }
+
+/* ═══════════════════════════════════════════════ CONSOLE OUTPUT ═══ */
+.p5b-console-output {
+  display: grid;
+  gap: var(--space-2, 2px);
+  padding: var(--space-12);
+  background: var(--surface-sunken);
+  border-radius: var(--card-radius);
+  font: var(--text-terminal);
+  font-size: 0.8125rem;
+}
+.p5b-console-output__line {
+  display: flex;
+  gap: var(--space-8);
+  color: var(--text-secondary);
+}
+.p5b-console-output__prompt {
+  color: var(--text-tertiary);
+  flex: none;
+}
+.p5b-console-output__line--info  { color: var(--ai-log-info); }
+.p5b-console-output__line--warn  { color: var(--ai-log-warn); }
+.p5b-console-output__line--error { color: var(--ai-log-error); }
+.p5b-console-output__line--done  { color: var(--ai-done-text, var(--ai-done)); }
+
+/* ═══════════════════════════════════════════════ TERMINAL ═══ */
+.p5b-terminal {
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+}
+.p5b-terminal__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p5b-terminal__dots {
+  display: inline-flex;
+  gap: var(--space-4);
+}
+.p5b-terminal__dots span {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--border-default);
+}
+.p5b-terminal__title {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p5b-terminal__body .p5b-console-output {
+  border-radius: 0;
+}
+
+/* ═══════════════════════════════════════════════ COPY OUTPUT ═══ */
+.p5b-copy-output {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  font: var(--text-caption);
+  color: var(--text-secondary);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+}
+.p5b-copy-output:hover { background: var(--surface-hover); }
+.p5b-copy-output:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ═══════════════════════════════════════════════ COMMAND HISTORY ═══ */
+.p5b-history {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+}
+.p5b-history__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-raised);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+}
+.p5b-history__row:last-child { border-bottom: none; }
+.p5b-history__row:hover { background: var(--surface-hover); }
+.p5b-history__row:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+.p5b-history__cmd {
+  flex: 1;
+  min-width: 0;
+  font: var(--text-code);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+.p5b-history__time {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+[data-density="compact"] .p5b-history__row { padding: var(--space-4) var(--space-12); }
+
+/* ═══════════════════════════════════════════════ COMMAND SUGGESTION ═══ */
+.p5b-suggest {
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-raised);
+}
+.p5b-suggest__input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-code);
+  color: var(--text-primary);
+}
+.p5b-suggest__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--text-secondary);
+  animation: p5b-blink 1s step-end infinite;
+}
+.p5b-suggest__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4) 0;
+}
+.p5b-suggest__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-12);
+  cursor: var(--cursor-interactive);
+}
+.p5b-suggest__item[aria-selected="true"] {
+  background: color-mix(in oklch, var(--accent) 10%, transparent);
+}
+.p5b-suggest__item code {
+  font: var(--text-code);
+  color: var(--text-primary);
+  flex: none;
+}
+.p5b-suggest__desc {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════ LIVE STREAMING OUTPUT ═══ */
+.p5b-live-output {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  background: var(--surface-sunken);
+  border-radius: var(--card-radius);
+  font: var(--text-terminal);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.p5b-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--text-secondary);
+  vertical-align: text-bottom;
+  animation: p5b-blink 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p5b-cursor, .p5b-suggest__cursor { animation: none; opacity: 1; }
+}
