@@ -10,7 +10,7 @@ or `connectors`.
 | Module | Role |
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 | `setup.py` | `check_config` / `write_env` readiness + `.env` writer, shared by both adapters. |
 
@@ -86,9 +86,10 @@ kwarg (mirrors `decisions`) and emit a human-facing `error` if the service is ab
 version list (`0` = bundled default) and active (highest) version, from `PromptService`.
 `prompts.show {name, version}` → `{name, version, text}` reads one version's template.
 `prompts.diff {name, old, new}` → `{name, old, new, diff}` returns the unified diff between
-two versions. All three are read-only and guarded by a `prompts=None` kwarg (mirrors
-`connectors`), emitting a human-facing `error` if the service is absent. GUI prompt
-*editing* (save/rollback) is deferred; the `prompts` CLI still owns the write surface.
+two versions. All read methods are guarded by a `prompts=None` kwarg (mirrors
+`connectors`), emitting a human-facing `error` if the service is absent.
+`prompts.save {name, text}` → updated `{name, versions, active}` — appends a new version.
+`prompts.rollback {name, version}` → updated `{name, versions, active}` — re-saves an old version as the new active.
 
 `config.get` → `{model, provider, key_var, key_present, problems, providers:
 [{id, label, key_var, default_model}]}` — the static readiness check
