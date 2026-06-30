@@ -125,6 +125,14 @@ export class IpcClient {
     return this.call<PromptDiff>("prompts.diff", { name, old, new: next });
   }
 
+  promptsSave(name: string, text: string): Promise<PromptSummary> {
+    return this.call<PromptSummary>("prompts.save", { name, text });
+  }
+
+  promptsRollback(name: string, version: number): Promise<PromptSummary> {
+    return this.call<PromptSummary>("prompts.rollback", { name, version });
+  }
+
   configGet(): Promise<ConfigStatus> {
     return this.call<ConfigStatus>("config.get");
   }

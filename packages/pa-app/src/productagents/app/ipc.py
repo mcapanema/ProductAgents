@@ -427,6 +427,20 @@ async def handle(
                 }
             )
 
+        async def _prompts_save(p: dict) -> None:
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            name = p["name"]
+            prompts.save(name, p["text"])
+            await emit({"id": rid, "result": _prompt_summary(prompts, name)})
+
+        async def _prompts_rollback(p: dict) -> None:
+            if prompts is None:
+                raise RuntimeError("prompts service not available")
+            name = p["name"]
+            prompts.rollback(name, p["version"])
+            await emit({"id": rid, "result": _prompt_summary(prompts, name)})
+
         async def _config_get(_p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
@@ -477,6 +491,8 @@ async def handle(
             "prompts.list": _prompts_list,
             "prompts.show": _prompts_show,
             "prompts.diff": _prompts_diff,
+            "prompts.save": _prompts_save,
+            "prompts.rollback": _prompts_rollback,
             "config.get": _config_get,
             "config.set": _config_set,
             "reflection.record": _reflection_record,
