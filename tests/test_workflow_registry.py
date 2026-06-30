@@ -46,3 +46,8 @@ def test_build_evaluate_initiative_returns_named_workflow():
     assert wf.name == "evaluate_initiative"
     assert wf.title == "Evaluate Initiative"
     assert callable(wf.start)
+
+
+def test_discover_finds_real_evaluate_initiative():
+    found = reg.discover()
+    assert found.get("evaluate_initiative") is build_evaluate_initiative
