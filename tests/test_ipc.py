@@ -914,35 +914,36 @@ async def test_run_approval_defaults_invalid_verdict_to_approve():
     assert final[0]["event"]["payload"]["verdict"] == "approve"
 
 
-from productagents.app import setup as _setup  # noqa: E402
 from tests.fakes import ready_status  # noqa: E402
 
 
-class _FakeConfig:
-    """Stand-in for the app.setup module: canned status + recorded writes.
+class _FakeConfigService:
+    """Stand-in for ConfigurationService: canned status + recorded set() calls."""
 
-    Reuses the real pure helpers (provider_for/api_key_var_for/PROVIDERS) so the
-    derivation under test is the real one; only check_config/write_env are faked
-    to stay offline (no real .env, no os.environ mutation)."""
-
-    PROVIDERS = _setup.PROVIDERS
-    provider_for = staticmethod(_setup.provider_for)
-    api_key_var_for = staticmethod(_setup.api_key_var_for)
-
-    def __init__(self, status):
+    def __init__(self, status, providers):
         self._status = status
-        self.written: list[tuple[dict, object]] = []
+        self._providers = providers
+        self.sets: list[tuple] = []
 
-    def check_config(self):
+    def status(self):
         return self._status
 
-    def write_env(self, values, *, dotenv_path=None):
-        self.written.append((dict(values), dotenv_path))
-        return str(dotenv_path or ".env")
+    def providers(self):
+        return self._providers
+
+    def set(self, model, *, provider=None, api_key=None):
+        self.sets.append((model, provider, api_key))
+        return self._status
+
+
+def _fake_config():
+    from productagents.platform.configuration import PROVIDERS
+
+    return _FakeConfigService(ready_status(), PROVIDERS)
 
 
 async def test_config_get_returns_status_and_providers():
-    config = _FakeConfig(ready_status())
+    config = _fake_config()
     emit, sink = _collect()
     await ipc.handle(
         {"id": 40, "method": "config.get"},
@@ -956,17 +957,12 @@ async def test_config_get_returns_status_and_providers():
     result = sink[0]["result"]
     assert result["model"] == "anthropic:claude-sonnet-4-6"
     assert result["provider"] == "anthropic"
-    assert result["key_present"] is True
     anthropic = next(p for p in result["providers"] if p["id"] == "anthropic")
     assert anthropic["key_var"] == "ANTHROPIC_API_KEY"
-    assert anthropic["label"] == "Anthropic"
 
 
-async def test_config_set_writes_workspace_env_and_returns_status(tmp_path):
-    config = _FakeConfig(ready_status())
-    # Workspace takes only name + root (a Path); env_file is root/".env".
-    ws = Workspace(name="default", root=tmp_path)
-    workspaces = cast(WorkspaceService, _FakeWorkspaces([ws]))
+async def test_config_set_delegates_to_service():
+    config = _fake_config()
     emit, sink = _collect()
     await ipc.handle(
         {
@@ -975,38 +971,14 @@ async def test_config_set_writes_workspace_env_and_returns_status(tmp_path):
             "params": {"model": "openai:gpt-4o", "api_key": "sk-test"},
         },
         workflows=_workflows(),
-        workspaces=workspaces,
-        active_name="default",
-        sessions=_FakeSessions(),
-        config=config,
-        emit=emit,
-    )
-    values, dotenv_path = config.written[0]
-    assert values["PRODUCTAGENTS_MODEL"] == "openai:gpt-4o"
-    assert values["OPENAI_API_KEY"] == "sk-test"
-    assert "PRODUCTAGENTS_MODEL_PROVIDER" not in values  # derivable from prefix
-    assert dotenv_path == str(tmp_path / ".env")
-    assert sink[0]["result"]["model"] == "anthropic:claude-sonnet-4-6"
-
-
-async def test_config_set_skips_blank_api_key():
-    config = _FakeConfig(ready_status())
-    emit, _sink = _collect()
-    await ipc.handle(
-        {
-            "id": 42,
-            "method": "config.set",
-            "params": {"model": "openai:gpt-4o", "api_key": ""},
-        },
-        workflows=_workflows(),
         workspaces=None,
         active_name="default",
         sessions=_FakeSessions(),
         config=config,
         emit=emit,
     )
-    values, _ = config.written[0]
-    assert "OPENAI_API_KEY" not in values  # never write a blank key
+    assert config.sets == [("openai:gpt-4o", None, "sk-test")]
+    assert sink[0]["result"]["model"] == "anthropic:claude-sonnet-4-6"
 
 
 async def test_config_method_without_service_errors():

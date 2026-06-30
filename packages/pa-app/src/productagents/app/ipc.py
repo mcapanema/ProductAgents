@@ -23,9 +23,9 @@ import sys
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from productagents.app import setup
 from productagents.core.models import HumanDecision, Initiative
 from productagents.platform import events as ev
+from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.prompt_service import PromptService
@@ -98,7 +98,7 @@ def build_services(active_name: str) -> dict:
         "decisions": DecisionReadService.create(),
         "connectors": ConnectorService(),
         "prompts": PromptService.create(),
-        "config": setup,
+        "config": ConfigurationService(active_name=active_name),
         "reflection": _build_reflection(),
     }
 
@@ -269,7 +269,7 @@ def _prompt_summary(prompts, name: str) -> dict:
 
 
 def _config_dict(config) -> dict:
-    status = config.check_config()
+    status = config.status()
     return {
         "model": status.model,
         "provider": status.provider,
@@ -283,7 +283,7 @@ def _config_dict(config) -> dict:
                 "key_var": info.key_var,
                 "default_model": info.default_model,
             }
-            for pid, info in config.PROVIDERS.items()
+            for pid, info in config.providers().items()
         ],
     }
 
@@ -463,20 +463,11 @@ async def handle(
         async def _config_set(p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
-            model = p["model"]
-            provider = p.get("provider")
-            values = {"PRODUCTAGENTS_MODEL": model}
-            if provider:
-                values["PRODUCTAGENTS_MODEL_PROVIDER"] = provider
-            api_key = p.get("api_key")
-            if api_key:  # never write a blank key over an existing one
-                key_var = config.api_key_var_for(provider or config.provider_for(model))
-                if key_var:
-                    values[key_var] = api_key
-            dotenv_path = None
-            if workspaces is not None:
-                dotenv_path = str(workspaces.resolve(active_name).env_file)
-            config.write_env(values, dotenv_path=dotenv_path)
+            config.set(
+                p["model"],
+                provider=p.get("provider"),
+                api_key=p.get("api_key"),
+            )
             await emit({"id": rid, "result": _config_dict(config)})
 
         table: dict[str, Callable[[dict], Awaitable[None]]] = {
