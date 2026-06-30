@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { RunPanel } from "./RunPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { RunHandlers, RunParams } from "../ipc/types";
+import type { RunHandlers, RunParams, IpcEvent } from "../ipc/types";
 
 describe("RunPanel approval flow", () => {
   it("passes approval=true when the checkbox is checked", async () => {
@@ -55,5 +55,41 @@ describe("RunPanel approval flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     fireEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
     await waitFor(() => expect(runCancel).toHaveBeenCalledWith("sx"));
+  });
+});
+
+describe("RunPanel stage timeline", () => {
+  it("shows all pipeline stage labels when a run is in progress", async () => {
+    const run = vi.fn(() => new Promise<never>(() => {})); // never resolves
+    render(
+      <IpcProvider client={{ run } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(await screen.findByText("Customer Research")).toBeInTheDocument();
+    expect(screen.getByText("Final Verdict")).toBeInTheDocument();
+  });
+
+  it("marks a stage running on NodeProgress", async () => {
+    let onEvent: ((e: IpcEvent) => void) | undefined;
+    const run = vi.fn((_p: RunParams, handlers: RunHandlers) => {
+      onEvent = handlers.onEvent;
+      return new Promise<never>(() => {});
+    });
+    render(
+      <IpcProvider client={{ run } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await screen.findByText("Customer Research"); // wait for timeline to mount
+    await act(async () => {
+      onEvent?.({ type: "NodeProgress", payload: { node: "judge" } });
+    });
+    const item = screen.getByText("Judge").closest("[data-status]");
+    expect(item).toHaveAttribute("data-status", "running");
   });
 });

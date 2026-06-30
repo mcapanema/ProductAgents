@@ -1,5 +1,5 @@
 import type { IpcEvent } from "../ipc/types";
-import type { StageKey, StageState, StageStatus, StageDetail } from "../ipc/events";
+import type { StageKey, StageState, StageStatus } from "../ipc/events";
 import { STAGE_DEFS, nodeToStage, NO_TERMINAL, emptyDetail } from "../ipc/events";
 import type {
   AnalystReportPayload,

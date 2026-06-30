@@ -1,6 +1,9 @@
 import { useReducer, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import { runReducer, initialRunState } from "./runReducer";
+import { deriveStages } from "./runTimeline";
+import { StageTimeline } from "./StageTimeline";
+import { RawEvents } from "./RawEvents";
 
 const VERDICTS: { verdict: string; label: string }[] = [
   { verdict: "approve", label: "Approve" },
@@ -108,14 +111,8 @@ export function RunPanel() {
           {state.error ? ` · ${state.error}` : ""}
         </p>
       )}
-      <div>
-        {state.events.map((event, i) => (
-          <div className="event" key={i}>
-            <strong>{event.type}</strong>{" "}
-            <span className="muted">{JSON.stringify(event.payload)}</span>
-          </div>
-        ))}
-      </div>
+      {state.status !== "idle" && <StageTimeline stages={deriveStages(state.events)} />}
+      <RawEvents events={state.events} />
     </div>
   );
 }
