@@ -7,6 +7,7 @@ import type {
   DecisionDetail,
   DecisionSummary,
   IpcMessage,
+  Lesson,
   OutcomeRecord,
   PromptDiff,
   PromptSummary,
@@ -95,6 +96,10 @@ export class IpcClient {
 
   decisionsList(): Promise<DecisionSummary[]> {
     return this.call<DecisionSummary[]>("decisions.list");
+  }
+
+  memoryLessons(): Promise<Lesson[]> {
+    return this.call<Lesson[]>("memory.lessons");
   }
 
   decisionsShow(decisionId: string): Promise<DecisionDetail> {

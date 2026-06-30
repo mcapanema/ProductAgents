@@ -161,3 +161,11 @@ export interface ConfigSetParams {
   provider?: string;
   api_key?: string;
 }
+
+export interface Lesson {
+  decision_id: string;
+  title: string;
+  text: string;
+  validated: boolean;
+  prediction_accuracy: number | null;
+}
