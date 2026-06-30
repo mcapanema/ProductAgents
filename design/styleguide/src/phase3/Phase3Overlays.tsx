@@ -450,6 +450,18 @@ function CommandDemo() {
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ref = useOverlay(open, () => setOpen(false));
+  // ⌘K / Ctrl+K toggles the palette — the defining global shortcut. preventDefault
+  // stops the browser's own ⌘K. Esc closes (via useOverlay).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // Command palette opens focused on its input, not the first button.
   useEffect(() => {
     if (open) inputRef.current?.focus();
