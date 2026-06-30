@@ -245,6 +245,45 @@ const CODE = [
   "print(verdict.confidence)  # 0.91",
 ];
 
+const PY_KW = new Set(["from", "import", "await", "async", "def", "return", "class", "if", "else", "elif", "for", "while", "in", "not", "and", "or", "with", "as", "None", "True", "False", "lambda", "yield", "try", "except", "raise", "pass", "is"]);
+const PY_BUILTIN = new Set(["print", "len", "range", "int", "str", "float", "list", "dict", "set", "bool", "open", "super"]);
+
+type CodeTok = { t: string; cls: string };
+/** Tiny Python tokenizer for the code-block demo — tints via the SAME semantic
+ *  text roles the JSON viewer uses (keyword / string / number / call / comment),
+ *  not a rainbow. No syntax-highlight dependency (the system ships no exotic deps). */
+function tokenizePy(line: string): CodeTok[] {
+  const out: CodeTok[] = [];
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === "#") { out.push({ t: line.slice(i), cls: "comment" }); break; }
+    if (ch === '"' || ch === "'") {
+      let j = i + 1;
+      while (j < line.length && line[j] !== ch) j++;
+      out.push({ t: line.slice(i, Math.min(j + 1, line.length)), cls: "str" });
+      i = j + 1; continue;
+    }
+    if (/\s/.test(ch)) {
+      let j = i; while (j < line.length && /\s/.test(line[j])) j++;
+      out.push({ t: line.slice(i, j), cls: "ws" }); i = j; continue;
+    }
+    if (/[0-9]/.test(ch)) {
+      let j = i; while (j < line.length && /[0-9._]/.test(line[j])) j++;
+      out.push({ t: line.slice(i, j), cls: "num" }); i = j; continue;
+    }
+    if (/[A-Za-z_]/.test(ch)) {
+      let j = i; while (j < line.length && /[A-Za-z0-9_]/.test(line[j])) j++;
+      const word = line.slice(i, j);
+      const cls = PY_KW.has(word) ? "kw" : PY_BUILTIN.has(word) ? "builtin" : line[j] === "(" ? "fn" : "id";
+      out.push({ t: word, cls }); i = j; continue;
+    }
+    let j = i; while (j < line.length && /[^\w\s"'#]/.test(line[j])) j++;
+    out.push({ t: line.slice(i, j), cls: "op" }); i = j;
+  }
+  return out;
+}
+
 const RUN_PARAMS: [string, string][] = [
   ["model", "anthropic:claude-sonnet-4-6"],
   ["debate_rounds", "2"],
@@ -715,7 +754,11 @@ export function Phase3DataDisplay() {
                 {CODE.map((line, i) => (
                   <span className="dd-code-line" key={i}>
                     <span className="dd-code-gutter dd-num">{i + 1}</span>
-                    <span className="dd-code-text">{line || " "}</span>
+                    <span className="dd-code-text">
+                      {line === "" ? " " : tokenizePy(line).map((tok, k) => (
+                        <span key={k} className={`dd-tok dd-tok--${tok.cls}`}>{tok.t}</span>
+                      ))}
+                    </span>
                   </span>
                 ))}
               </code></pre>

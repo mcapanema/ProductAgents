@@ -56,7 +56,7 @@ glyph + label (WCAG 1.4.1). Gallery: "3D · Data display". Source:
 - **Tokens:** `--ai-*` status, `--accent-subtle`, `--avatar-{sm,md,lg}`, `--radius-pill`.
 
 ## Code Block & JSON Viewer
-- **Code Block:** mono source, line-number gutter, copy button with a copied-confirmation (`aria-live`).
+- **Code Block:** mono source, line-number gutter, copy button with a copied-confirmation (`aria-live`), and **syntax tinting** — a tiny built-in tokenizer (no highlighter dependency) colors keyword / string / number / call / comment via the same semantic text roles as the JSON viewer (not a rainbow).
 - **JSON Viewer:** collapsible tree tinted via semantic text roles (key = link, string = resolved, number = warning, bool = info) — **not** a rainbow; toggles are real buttons with `aria-expanded`.
 - **Tokens:** `--text-code`, `--surface-sunken`, `--dd-json-indent` (= `--space-16`), `--text-link`/`--text-resolved`/`--text-warning`/`--text-info`.
 

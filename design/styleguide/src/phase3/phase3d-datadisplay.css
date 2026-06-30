@@ -234,6 +234,14 @@
 .dd-code-line { display: grid; grid-template-columns: 3ch 1fr; gap: var(--space-12); }
 .dd-code-gutter { color: var(--text-tertiary); text-align: right; user-select: none; }
 .dd-code-text { color: var(--text-primary); white-space: pre; }
+/* Syntax tinting — semantic text roles (same palette as the JSON viewer), not a
+ * rainbow. Already contrast-gated for text on --surface-sunken. */
+.dd-tok--kw { color: var(--text-link); }
+.dd-tok--str { color: var(--text-resolved); }
+.dd-tok--num { color: var(--text-warning); }
+.dd-tok--fn,
+.dd-tok--builtin { color: var(--text-info); }
+.dd-tok--comment { color: var(--text-tertiary); font-style: italic; }
 
 /* ── JSON viewer (tinted via text roles, not rainbow) ────────────────────── */
 .dd-json { font: var(--text-code); background: var(--surface-sunken); border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); padding: var(--space-12); overflow-x: auto; }
