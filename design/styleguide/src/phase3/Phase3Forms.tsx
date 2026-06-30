@@ -108,14 +108,24 @@ export function Phase3Forms() {
             <button className="fm-btn fm-btn--secondary" type="button">Medium</button>
             <button className="fm-btn fm-btn--secondary fm-btn--lg" type="button">Large</button>
           </Specimen>
-          <Specimen label="with icon">
+          <Specimen label="leading icon">
             <button className="fm-btn fm-btn--primary" type="button"><IcoSparkle /> New run</button>
             <button className="fm-btn fm-btn--secondary" type="button"><IcoUpload /> Import</button>
           </Specimen>
-          <Specimen label="icon button">
-            <button className="fm-btn fm-btn--secondary fm-btn--icon fm-btn--sm" type="button" aria-label="Search"><IcoSearch /></button>
-            <button className="fm-btn fm-btn--secondary fm-btn--icon" type="button" aria-label="Add filter"><IcoSparkle /></button>
+          <Specimen label="trailing icon">
+            <button className="fm-btn fm-btn--secondary" type="button">Continue <IcoCaretRight /></button>
+            <button className="fm-btn fm-btn--ghost" type="button">More <IcoCaretDown /></button>
+          </Specimen>
+          <Specimen label="icon button · variants">
+            <button className="fm-btn fm-btn--primary fm-btn--icon" type="button" aria-label="New run"><IcoSparkle /></button>
+            <button className="fm-btn fm-btn--secondary fm-btn--icon" type="button" aria-label="Search"><IcoSearch /></button>
             <button className="fm-btn fm-btn--ghost fm-btn--icon" type="button" aria-label="Calendar"><IcoCalendar /></button>
+            <button className="fm-btn fm-btn--danger fm-btn--icon" type="button" aria-label="Delete"><IcoX /></button>
+          </Specimen>
+          <Specimen label="icon button · sizes">
+            <button className="fm-btn fm-btn--secondary fm-btn--icon fm-btn--sm" type="button" aria-label="Search (small)"><IcoSearch /></button>
+            <button className="fm-btn fm-btn--secondary fm-btn--icon" type="button" aria-label="Search (medium)"><IcoSearch /></button>
+            <button className="fm-btn fm-btn--secondary fm-btn--icon fm-btn--lg" type="button" aria-label="Search (large)"><IcoSearch /></button>
           </Specimen>
           <Specimen label="toggle button">
             <button className="fm-btn fm-btn--secondary" type="button" aria-pressed={live} onClick={() => setLive((v) => !v)}>
@@ -126,17 +136,24 @@ export function Phase3Forms() {
           <Specimen label="link button">
             <button className="fm-btn fm-btn--link" type="button">View full evidence</button>
           </Specimen>
+          <Specimen label="block (full width)">
+            <button className="fm-btn fm-btn--primary fm-btn--block" type="button"><IcoSparkle /> Run evaluation</button>
+          </Specimen>
           <Specimen label="loading">
             <button className="fm-btn fm-btn--primary" type="button" data-loading="true" aria-busy="true"><span className="fm-spinner" aria-hidden="true" /> Running…</button>
             <button className="fm-btn fm-btn--secondary" type="button" data-loading="true" aria-busy="true"><span className="fm-spinner" aria-hidden="true" /> Syncing</button>
           </Specimen>
-          <Specimen label="hover (note)">
-            <span className="fm-inline-note">Hover any button: background steps to its -hover token; :active uses -pressed.</span>
+          <Specimen label="interaction states">
+            <div className="fm-states">
+              <span className="fm-state"><button className="fm-btn fm-btn--primary" type="button">Run</button><span className="fm-state-cap">default</span></span>
+              <span className="fm-state"><button className="fm-btn fm-btn--primary fm-btn--state-hover" type="button">Run</button><span className="fm-state-cap">hover</span></span>
+              <span className="fm-state"><button className="fm-btn fm-btn--primary fm-btn--state-active" type="button">Run</button><span className="fm-state-cap">pressed</span></span>
+              <span className="fm-state"><button className="fm-btn fm-btn--primary fm-btn--state-focus" type="button">Run</button><span className="fm-state-cap">focus</span></span>
+              <span className="fm-state"><button className="fm-btn fm-btn--primary" type="button" disabled>Run</button><span className="fm-state-cap">disabled</span></span>
+            </div>
+            <span className="fm-inline-note">Forced states for review — hovering/pressing any real button shows the same -hover / -pressed token transition.</span>
           </Specimen>
-          <Specimen label="focus">
-            <button className="fm-btn fm-btn--secondary" type="button">Tab to me — focus ring</button>
-          </Specimen>
-          <Specimen label="disabled">
+          <Specimen label="disabled · variants">
             <button className="fm-btn fm-btn--primary" type="button" disabled>Run analysis</button>
             <button className="fm-btn fm-btn--secondary" type="button" disabled>Save draft</button>
             <button className="fm-btn fm-btn--danger" type="button" disabled>Discard</button>

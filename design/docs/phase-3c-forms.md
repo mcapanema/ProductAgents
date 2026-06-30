@@ -14,7 +14,8 @@ Files: `styleguide/src/phase3/Phase3Forms.tsx` · `phase3c-forms.css` (prefix `f
 
 ## Button
 - **Purpose:** trigger actions. One accent (primary) CTA per view; danger is the only other filled variant.
-- **Variants:** primary · secondary · ghost · danger · icon (square) · toggle (`aria-pressed`) · link · loading (spinner).
+- **Variants:** primary · secondary · ghost · danger · icon (square, uniform per size tier; all four variants available) · leading-/trailing-icon · toggle (`aria-pressed`) · link · block (full-width) · loading (spinner).
+- **Layout/order note:** the gallery's "interaction states" row shows default / hover / pressed / focus / disabled side-by-side via forced-state classes (the real pseudo-classes still drive on pointer + keyboard).
 - **Sizes:** sm (`--control-sm`) · md (`--control-md`, default) · lg (`--control-lg`); type stays `--text-button` across sizes.
 - **States:** default · hover (`-bg-hover`) · active (`-bg-pressed`) · focus · disabled (`--state-disabled-*`) · loading (`--state-loading-opacity` + `<span class="fm-spinner">`).
 - **Keyboard:** native `<button>` — Tab to focus, Enter/Space to activate. Toggle latches via `aria-pressed`.

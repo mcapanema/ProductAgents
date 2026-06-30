@@ -144,6 +144,22 @@
 /* Icon button — square; aspect-ratio keeps it square at every size tier. */
 .fm-btn--icon { padding-inline: 0; aspect-ratio: 1; }
 
+/* Block button — fills its container width. */
+.fm-btn--block { width: 100%; }
+
+/* Forced interaction states — let the gallery SHOW hover/pressed/focus
+ * statically; the real pseudo-classes still fire on pointer + keyboard. */
+.fm-btn--state-hover.fm-btn--primary { background: var(--btn-primary-bg-hover); }
+.fm-btn--state-active.fm-btn--primary { background: var(--btn-primary-bg-pressed); }
+.fm-btn--state-hover.fm-btn--secondary { background: var(--btn-secondary-bg-hover); }
+.fm-btn--state-active.fm-btn--secondary { background: var(--btn-secondary-bg-pressed); }
+.fm-btn--state-focus { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* Interaction-states specimen layout: each button captioned with its state. */
+.fm-states { display: flex; flex-wrap: wrap; gap: var(--space-16); align-items: flex-start; }
+.fm-state { display: grid; gap: var(--space-6); justify-items: center; }
+.fm-state-cap { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+
 /* Link button — text affordance, not a surface. */
 .fm-btn--link {
   height: auto;
