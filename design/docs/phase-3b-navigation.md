@@ -59,12 +59,13 @@ alone. Gallery: `styleguide` → "3B · Navigation". Source:
 - **Keyboard/A11y:** ↑/↓ move; `combobox` + `aria-activedescendant` over `listbox`, same pattern as the palette.
 - **Tokens:** `--ai-running` / `--ai-running-text`, `--resolved` / `--text-resolved`, `--nv-switcher-w`.
 
-## Search Bar
-- **Purpose:** inline filter field.
-- **Anatomy:** leading magnifier + input + clear button that appears once there's a value.
-- **States:** default · focus-within (ring on the wrapper) · has-value (clear shown).
-- **Keyboard/A11y:** input has an accessible label; clear button is a labelled `button`.
-- **Tokens:** `--field-*`, `--focus-ring-*`.
+## Search, filter & order
+- **Purpose:** inline search that filters a result set **live as you type**, with composable status filters and a sort control.
+- **Anatomy:** search field (leading magnifier + input + clear) · status filter chips (toggle) · sort `select` · live result count · result rows (title + id + status + confidence + date) · empty state.
+- **Behavior:** typing filters immediately and highlights the matched substring; status chips toggle (multiple compose, empty = all); sort offers Relevance / Newest / Confidence / A–Z. Filters + sort + query all compose.
+- **States:** field default · focus-within · has-value (clear shown); chip default · hover · active (accent border + tinted ground + glyph); empty result set → designed empty message.
+- **Keyboard/A11y:** input + clear are labelled; chips are `aria-pressed` toggle buttons; the count is `aria-live="polite"`; status is color **+** glyph **+** label, with the label in the contrast-safe `-text` token (4.5:1 on light). Color is never the only channel.
+- **Tokens:** `--field-*`, `--focus-ring-*`, `--surface-selected`/`--accent` (active chip), `--ai-done-text`/`--ai-degraded-text`/`--ai-failed-text`/`--ai-awaiting-human` (status), `--width-dialog-md`.
 
 ## Pagination
 - **Purpose:** page through long lists (sessions, decisions).

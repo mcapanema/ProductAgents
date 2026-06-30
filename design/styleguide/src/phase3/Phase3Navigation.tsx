@@ -113,6 +113,14 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M18 13.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4.5" />
     </>
   ),
+  warning: (
+    <>
+      <path d="M12 4l9 16H3z" />
+      <path d="M12 10v4" />
+      <path d="M12 17h.01" />
+    </>
+  ),
+  diamond: <path d="M12 3l9 9-9 9-9-9z" />,
 };
 
 function Icon({ name, size = "var(--size-icon-inline)" }: { name: string; size?: string }) {
@@ -672,6 +680,155 @@ function SearchBar() {
   );
 }
 
+/* ──────────────────────────────── search + filters + order ─── */
+/* Status meta — color + glyph + label (color is never the only channel). */
+type StatusId = "approved" | "degraded" | "failed" | "awaiting";
+const STATUS: Record<StatusId, { label: string; icon: string; tone: string }> = {
+  // `tone` is the contrast-safe TEXT step (not the 500 fill) so the small status
+  // labels clear 4.5:1 on the light theme; --ai-awaiting-human is already at the
+  // link level (indigo-600 light / 400 dark). Each status also carries a glyph.
+  approved: { label: "Approved", icon: "check", tone: "--ai-done-text" },
+  degraded: { label: "Degraded", icon: "warning", tone: "--ai-degraded-text" },
+  failed: { label: "Failed", icon: "x", tone: "--ai-failed-text" },
+  awaiting: { label: "Awaiting you", icon: "diamond", tone: "--ai-awaiting-human" },
+};
+type Decision = { id: string; title: string; status: StatusId; date: string; ts: number; confidence: number };
+const DECISIONS: Decision[] = [
+  { id: "dec-1042", title: "Adopt usage-based pricing tier", status: "approved", date: "Jun 28", ts: 8, confidence: 0.82 },
+  { id: "dec-1041", title: "Sunset legacy mobile SDK v2", status: "degraded", date: "Jun 27", ts: 7, confidence: 0.64 },
+  { id: "dec-1040", title: "Prioritize SSO for enterprise", status: "approved", date: "Jun 26", ts: 6, confidence: 0.91 },
+  { id: "dec-1039", title: "Launch AI changelog digest", status: "failed", date: "Jun 25", ts: 5, confidence: 0.48 },
+  { id: "dec-1038", title: "Expand to EU data residency", status: "awaiting", date: "Jun 24", ts: 4, confidence: 0.73 },
+  { id: "dec-1037", title: "Bundle analytics into the Pro plan", status: "approved", date: "Jun 22", ts: 3, confidence: 0.79 },
+  { id: "dec-1036", title: "Deprecate REST v1 endpoints", status: "degraded", date: "Jun 20", ts: 2, confidence: 0.61 },
+  { id: "dec-1035", title: "Self-serve onboarding checklist", status: "approved", date: "Jun 18", ts: 1, confidence: 0.86 },
+];
+const SORTS: { id: string; label: string }[] = [
+  { id: "relevance", label: "Relevance" },
+  { id: "newest", label: "Newest" },
+  { id: "confidence", label: "Confidence" },
+  { id: "az", label: "A–Z" },
+];
+
+function SearchExplorer() {
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState<Set<StatusId>>(new Set());
+  const [sort, setSort] = useState("relevance");
+
+  function toggleStatus(s: StatusId) {
+    setActive((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  const query = q.trim().toLowerCase();
+  const filtered = DECISIONS.filter(
+    (d) => d.title.toLowerCase().includes(query) && (active.size === 0 || active.has(d.status)),
+  );
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sort) {
+      case "newest": return b.ts - a.ts;
+      case "confidence": return b.confidence - a.confidence;
+      case "az": return a.title.localeCompare(b.title);
+      default: // relevance — earliest match position first; fall back to newest
+        if (!query) return b.ts - a.ts;
+        return a.title.toLowerCase().indexOf(query) - b.title.toLowerCase().indexOf(query) || b.ts - a.ts;
+    }
+  });
+
+  return (
+    <div className="nv-explorer">
+      <div className="nv-search">
+        <Icon name="search" size="var(--size-icon-inline)" />
+        <input
+          className="nv-search-input"
+          type="text"
+          aria-label="Search decisions"
+          placeholder="Search decisions…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        {q && (
+          <button type="button" className="nv-search-clear" aria-label="Clear search" onClick={() => setQ("")}>
+            <Icon name="x" size="var(--icon-sm)" />
+          </button>
+        )}
+      </div>
+
+      <div className="nv-controls">
+        <div className="nv-filter-chips" role="group" aria-label="Filter by status">
+          {(Object.keys(STATUS) as StatusId[]).map((id) => {
+            const s = STATUS[id];
+            const on = active.has(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`nv-filter-chip${on ? " is-active" : ""}`}
+                aria-pressed={on}
+                onClick={() => toggleStatus(id)}
+              >
+                <span className="nv-chip-ico" style={{ color: `var(${s.tone})` }}>
+                  <Icon name={s.icon} size="var(--icon-xs)" />
+                </span>
+                {s.label}
+              </button>
+            );
+          })}
+          {active.size > 0 && (
+            <button type="button" className="nv-filter-clear" onClick={() => setActive(new Set())}>
+              Clear filters
+            </button>
+          )}
+        </div>
+        <label className="nv-sort">
+          <span className="nv-sort-label">Sort</span>
+          <select aria-label="Sort results" value={sort} onChange={(e) => setSort(e.target.value)}>
+            {SORTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="nv-count" aria-live="polite">
+        {sorted.length} of {DECISIONS.length} decisions
+      </div>
+
+      <ul className="nv-results">
+        {sorted.length === 0 ? (
+          <li className="nv-empty">No decisions match “{q.trim()}”{active.size > 0 ? " with these filters" : ""}.</li>
+        ) : (
+          sorted.map((d) => {
+            const s = STATUS[d.status];
+            return (
+              <li className="nv-result" key={d.id}>
+                <span className="nv-result-main">
+                  <span className="nv-result-title">{highlight(d.title, q)}</span>
+                  <span className="nv-result-id">{d.id}</span>
+                </span>
+                <span className="nv-result-meta">
+                  <span className="nv-result-status" style={{ color: `var(${s.tone})` }}>
+                    <Icon name={s.icon} size="var(--icon-xs)" />
+                    {s.label}
+                  </span>
+                  <span className="nv-result-conf">{Math.round(d.confidence * 100)}%</span>
+                  <span className="nv-result-date">{d.date}</span>
+                </span>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  );
+}
+
 /* ────────────────────────────────────────────────── pagination ─── */
 function pageList(cur: number, total: number): (number | "…")[] {
   const out: (number | "…")[] = [];
@@ -973,12 +1130,15 @@ export function Phase3Navigation() {
 
       <Section
         id="nav-search"
-        title="Search Bar"
-        desc="Inline filter field with a leading magnifier and a clear affordance that appears once there's a value."
+        title="Search, filter & order"
+        desc="The field filters the result set live as you type; status filters and the sort control compose on top. Matches are highlighted, with a live count and a designed empty state."
       >
-        <div className="sg-card">
-          <Specimen label="Search">
+        <div className="sg-card" style={{ display: "grid", gap: "var(--space-20)" }}>
+          <Specimen label="search bar">
             <SearchBar />
+          </Specimen>
+          <Specimen label="search + filters + order">
+            <SearchExplorer />
           </Specimen>
         </div>
       </Section>
