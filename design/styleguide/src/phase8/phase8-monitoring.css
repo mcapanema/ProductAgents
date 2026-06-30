@@ -1,0 +1,126 @@
+/* design/styleguide/src/phase8/phase8-monitoring.css
+ * Phase 8 — Monitoring & observability. Token-only (no new colors); reuses the
+ * --timeline-* / --gauge-* component tokens Phase 2 reserved for exactly this.
+ */
+
+.p8-root { display: flex; flex-direction: column; gap: var(--space-24); }
+.p8-row { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.p8-stack { display: flex; flex-direction: column; gap: var(--space-16); max-width: 420px; }
+.p8-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-12); }
+
+.p8-ico { display: block; width: var(--icon-sm); height: var(--icon-sm); }
+.p8-ico--xs { width: var(--icon-xs); height: var(--icon-xs); }
+.p8-ico--md { width: var(--icon-md); height: var(--icon-md); }
+
+/* ───────────────────────────────────────────────────────── Event Timeline ─ */
+.p8-timeline { list-style: none; margin: 0; padding: 0; max-width: 480px; }
+.p8-timeline__row {
+  display: grid; grid-template-columns: var(--timeline-node-size) 1fr;
+  column-gap: var(--space-12); position: relative; padding-bottom: var(--timeline-row-gap);
+}
+.p8-timeline__row:not(:last-child)::before {
+  content: ""; position: absolute; left: calc(var(--timeline-node-size) / 2 - var(--timeline-connector-width) / 2);
+  top: var(--timeline-node-size); bottom: 0; width: var(--timeline-connector-width);
+  background: var(--timeline-rail);
+}
+.p8-timeline__node {
+  width: var(--timeline-node-size); height: var(--timeline-node-size); border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-raised); color: var(--p8-tl-color);
+  border: var(--border-width-default) solid var(--p8-tl-color); z-index: 1;
+}
+.p8-timeline__body { padding-top: var(--space-2); }
+.p8-timeline__head { display: flex; justify-content: space-between; gap: var(--space-12); }
+.p8-timeline__label { color: var(--text-primary); font: var(--text-body-m); font-weight: var(--fw-medium); }
+.p8-timeline__ts { color: var(--text-tertiary); font: var(--text-code); flex-shrink: 0; }
+.p8-timeline__detail { margin: var(--space-2) 0 0; color: var(--text-secondary); font: var(--text-caption); }
+
+/* ───────────────────────────────────────────────────────────── Metrics Card */
+.p8-metric {
+  background: var(--card-bg); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius); padding: var(--card-pad);
+  display: flex; flex-direction: column; gap: var(--space-8);
+}
+.p8-metric__head { display: flex; align-items: center; gap: var(--space-6); color: var(--text-tertiary); }
+.p8-metric__label { font: var(--text-caption); letter-spacing: var(--ls-wide); text-transform: uppercase; }
+.p8-metric__value { font: var(--text-heading-3); color: var(--text-primary); }
+.p8-metric__foot { display: flex; align-items: center; justify-content: space-between; }
+.p8-metric__tier { font: var(--text-caption); color: var(--p8-tier-color); }
+.p8-metric__delta { display: inline-flex; align-items: center; gap: var(--space-2); font: var(--text-caption); color: var(--text-secondary); }
+.p8-metric__delta[data-dir="up"] { color: var(--text-success); }
+.p8-metric__delta[data-dir="down"] { color: var(--text-error); }
+.p8-metric[data-tier="critical"] { border-color: var(--border-error); }
+.p8-metric[data-tier="warning"] { border-color: var(--border-warning); }
+
+/* ──────────────────────────────────────── Resource/Memory/Token Usage ───── */
+.p8-usage { display: flex; flex-direction: column; gap: var(--space-4); }
+.p8-usage__head { display: flex; justify-content: space-between; gap: var(--space-12); }
+.p8-usage__label { display: inline-flex; align-items: center; gap: var(--space-6); color: var(--text-primary); font: var(--text-body-m); }
+.p8-usage__reading { color: var(--text-secondary); font: var(--text-code); }
+.p8-usage__track {
+  height: var(--gauge-height); border-radius: var(--gauge-radius); background: var(--gauge-track);
+  overflow: hidden;
+}
+.p8-usage__fill { height: 100%; width: var(--p8-usage-pct); border-radius: inherit; background: var(--success); }
+.p8-usage__fill[data-tier="warning"] { background: var(--signal); }
+.p8-usage__fill[data-tier="critical"] { background: var(--danger); }
+.p8-usage__pct { font: var(--text-caption); color: var(--text-tertiary); }
+.p8-usage__pct[data-tier="warning"] { color: var(--text-warning); }
+.p8-usage__pct[data-tier="critical"] { color: var(--text-error); }
+
+/* ──────────────────────────────────────────────────────── Cost Dashboard ── */
+.p8-cost {
+  background: var(--card-bg); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius); padding: var(--card-pad); width: 100%; max-width: 420px;
+}
+.p8-cost__total { display: flex; align-items: baseline; gap: var(--space-8); color: var(--text-primary); }
+.p8-cost__total-value { font: var(--text-heading-2); }
+.p8-cost__total-label { color: var(--text-tertiary); font: var(--text-caption); }
+.p8-cost__list { list-style: none; margin: var(--space-16) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-8); }
+.p8-cost__row { display: grid; grid-template-columns: 9rem 1fr 3.5rem; align-items: center; gap: var(--space-8); }
+.p8-cost__node { font: var(--text-code); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p8-cost__bar-track { height: var(--gauge-height); border-radius: var(--gauge-radius); background: var(--gauge-track); overflow: hidden; }
+.p8-cost__bar-fill { height: 100%; width: var(--p8-cost-pct); background: var(--accent); border-radius: inherit; }
+.p8-cost__amount { font: var(--text-code); color: var(--text-primary); text-align: right; }
+
+/* ───────────────────────────────────────────────────── Performance Graph ── */
+.p8-perf { max-width: 520px; }
+.p8-perf__legend { display: flex; gap: var(--space-12); margin-bottom: var(--space-8); }
+.p8-perf__legend-item { display: inline-flex; align-items: center; gap: var(--space-6); font: var(--text-caption); color: var(--text-secondary); }
+.p8-perf__swatch { width: var(--space-12); height: 2px; background: var(--accent); display: inline-block; }
+.p8-perf__svg { width: 100%; height: auto; }
+.p8-perf__grid { stroke: var(--border-subtle); stroke-width: 1; }
+.p8-perf__axis { stroke: var(--text-tertiary); stroke-width: 1; }
+.p8-perf__axis-label { fill: var(--text-tertiary); font: var(--text-caption); }
+.p8-perf__line { stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.p8-perf__point { fill: var(--accent); stroke: var(--surface-default); stroke-width: 1.5; }
+.p8-perf__point:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p8-perf__table-toggle { margin-top: var(--space-8); }
+.p8-perf__table-toggle summary { cursor: pointer; color: var(--text-link); font: var(--text-caption); }
+.p8-perf__table-toggle summary:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p8-perf__table { margin-top: var(--space-8); border-collapse: collapse; font: var(--text-code); }
+.p8-perf__table th, .p8-perf__table td { padding: var(--space-4) var(--space-12); border-bottom: var(--border-width-default) solid var(--border-subtle); text-align: left; }
+
+/* ───────────────────────────────────────────────────────── Health Indicator */
+.p8-health {
+  display: inline-flex; align-items: center; gap: var(--space-6);
+  padding: var(--space-4) var(--space-8); border-radius: var(--radius-pill);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  color: var(--text-primary); font: var(--text-caption);
+}
+.p8-health__dot { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full); background: var(--p8-health-color); flex-shrink: 0; }
+.p8-health__subject { color: var(--text-secondary); }
+.p8-health__word { color: var(--p8-health-color, var(--text-tertiary)); font-weight: var(--fw-medium); }
+.p8-health[data-state="healthy"] .p8-health__word { color: var(--text-success); }
+.p8-health[data-state="degraded"] .p8-health__word { color: var(--text-warning); }
+.p8-health[data-state="error"] .p8-health__word { color: var(--text-error); }
+.p8-health[data-state="running"] .p8-health__word { color: var(--ai-running-text); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p8-timeline__node { transition: none; }
+}

@@ -7,8 +7,9 @@ import { AIComponents } from "./AIComponents";
 import { WorkflowCli } from "./WorkflowCli";
 import { Phase6Project } from "./phase6/Phase6Project";
 import { Phase7Settings } from "./phase7/Phase7Settings";
+import { Phase8Monitoring } from "./phase8/Phase8Monitoring";
 
-type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli" | "project" | "settings";
+type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli" | "project" | "settings" | "monitoring";
 
 /** Top-level categories. `soon` entries are placeholders for future work
  *  (Design patterns = Phase 10, Documentation = Phase 11) — shown disabled so
@@ -21,6 +22,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "workflow-cli", label: "Workflow & CLI" },
   { id: "project", label: "Project" },
   { id: "settings", label: "Settings" },
+  { id: "monitoring", label: "Monitoring" },
 ];
 const SOON: { label: string }[] = [
   { label: "Design patterns" },
@@ -113,6 +115,7 @@ export function App() {
         {category === "workflow-cli" && <WorkflowCli density={density} />}
         {category === "project" && <Phase6Project density={density} />}
         {category === "settings" && <Phase7Settings density={density} />}
+        {category === "monitoring" && <Phase8Monitoring density={density} />}
       </main>
     </div>
   );
