@@ -49,10 +49,15 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   `DecisionsPanel.tsx`, `ConnectorsPanel.tsx`, `PromptsPanel.tsx` (read-only
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
   (registered workflow list), `SettingsPanel.tsx` (model/provider/key —
-  the one GUI **write**, via `config.get`/`config.set`). `RunPanel.tsx` also
-  drives human-in-the-loop approval: a "Require approval" run streams an
-  `ApprovalRequested` event, the panel shows approve/reject/request-analysis
-  buttons and sends `approve {verdict}` to resume.
+  the one GUI **write**, via `config.get`/`config.set`), `OrgMemoryPanel.tsx`
+  (Organizational Memory: cross-decision lesson corpus from `memory.lessons`,
+  newest-first, validated lessons distinguished from predicted ones).
+  `RunPanel.tsx` also drives human-in-the-loop approval: a "Require approval"
+  run streams an `ApprovalRequested` event, the panel shows
+  approve/reject/request-analysis buttons and sends `approve {verdict}` to
+  resume. It also shows a **Cancel** button while a run is in flight: clicking
+  it dispatches `run.cancel {session_id}` (session_id captured from the first
+  streamed event); the run ends with `SessionCancelled` + `{status:"cancelled"}`.
 - `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`).
 - `e2e/` — Playwright browser tests (see `e2e/CLAUDE.md`).
 

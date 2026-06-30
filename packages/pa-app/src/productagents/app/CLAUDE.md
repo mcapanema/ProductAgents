@@ -103,3 +103,16 @@ surface; connector/prompt editing stays deferred.
 (`{decision_id, actual_outcomes, prediction_accuracy, lessons_learned, reflected_at, failed}`);
 `error` "no such decision: <id>" if unknown. Guarded by a `reflection=None` kwarg.
 This is the GUI's outcome-capture write surface (desktop **Reflection** panel).
+
+`memory.lessons` → `[{decision_id, title, text, validated, prediction_accuracy}]` — the
+organizational-memory lesson corpus (newest-first, up to 50 by default). Validated lessons
+come from reflected outcomes; derived lessons come from the recommendation itself. Guarded by
+a `memory=None` kwarg; emits `error` "memory service not available" if the service is absent.
+Backed by `MemoryService` from `productagents.platform`.
+
+`run.cancel {session_id}` → `{ok: bool}` — cooperatively cancels an in-flight run. During
+a live (non-approval) `run` call, the serve loop reads control lines concurrently via
+`_watch_cancel`; a matching `run.cancel` cancels the asyncio task, which emits
+`SessionCancelled` and the terminal `{status:"cancelled", session_id}`. If sent as a
+standalone request (no run in flight or wrong session_id), returns `{ok: false}` via the
+dispatch table. HITL runs are excluded — the approver already owns the control line.
