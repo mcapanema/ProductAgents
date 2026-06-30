@@ -3,7 +3,7 @@ import type { Density } from "../sg";
 import { Section, Specimen } from "../sg";
 import "./phase9-empty-states.css";
 
-type IconName = "folder" | "users" | "layers" | "play" | "search";
+type IconName = "folder" | "users" | "layers" | "play" | "search" | "rocket" | "check" | "circle";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />,
@@ -29,6 +29,15 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <line x1={15} y1={15} x2={20} y2={20} />
     </>
   ),
+  rocket: (
+    <>
+      <path d="M14.5 3.5c2.5 1 4 2.5 5 5-1 3-3 5.5-6 7l-3-3c1.5-3 2-5.5 4-9z" />
+      <path d="M9 14c-2 1-3 3-3 6 3 0 5-1 6-3" />
+      <circle cx={15} cy={9} r={1.5} />
+    </>
+  ),
+  check: <path d="M5 13l4 4 10-10" />,
+  circle: <circle cx={12} cy={12} r={9} />,
 };
 
 function Icon({ name, size = "md" }: { name: IconName; size?: "sm" | "md" | "lg" }) {
@@ -77,14 +86,60 @@ function EmptyCollectionState(props: {
   );
 }
 
+type ChecklistStep = { label: string; done: boolean };
+
+function FirstRunState({ steps }: { steps: ChecklistStep[] }) {
+  return (
+    <div className="p9-state" data-kind="first-run">
+      <span className="p9-state__icon">
+        <Icon name="rocket" size="lg" />
+      </span>
+      <p className="p9-state__title">Welcome to ProductAgents</p>
+      <p className="p9-state__text">
+        Connect a workspace, add an evidence source, then run your first evaluation — three steps to your first decision.
+      </p>
+      <ol className="p9-checklist">
+        {steps.map((step) => (
+          <li key={step.label} className="p9-checklist__item" data-done={step.done}>
+            <Icon name={step.done ? "check" : "circle"} size="sm" />
+            <span>{step.label}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="p9-state__actions">
+        <button type="button" className="p9-btn p9-btn--primary">
+          Connect a workspace
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Phase9EmptyStates({ density }: { density: Density }) {
   void density;
   return (
-    <Section
-      id="p9-empty-collections"
-      title="Empty collections"
-      desc="One parameterized card for every list that can be empty — workspaces, agents, projects, executions, and search results."
-    >
+    <>
+      <Section
+        id="p9-first-run"
+        title="First-run experience"
+        desc="The very first thing a new workspace sees — a welcome, a three-step checklist, and a single primary action."
+      >
+        <Specimen label="default">
+          <FirstRunState
+            steps={[
+              { label: "Connect a workspace", done: true },
+              { label: "Add an evidence source", done: false },
+              { label: "Run your first evaluation", done: false },
+            ]}
+          />
+        </Specimen>
+      </Section>
+
+      <Section
+        id="p9-empty-collections"
+        title="Empty collections"
+        desc="One parameterized card for every list that can be empty — workspaces, agents, projects, executions, and search results."
+      >
       <Specimen label="Empty workspace">
         <EmptyCollectionState
           icon="folder"
@@ -126,6 +181,7 @@ export function Phase9EmptyStates({ density }: { density: Density }) {
           primary="Clear filters"
         />
       </Specimen>
-    </Section>
+      </Section>
+    </>
   );
 }

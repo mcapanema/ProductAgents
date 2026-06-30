@@ -72,3 +72,21 @@
 .p9-ico { width: var(--icon-md); height: var(--icon-md); }
 .p9-ico--sm { width: var(--icon-sm); height: var(--icon-sm); }
 .p9-ico--lg { width: var(--icon-xl); height: var(--icon-xl); }
+
+/* First-run checklist */
+.p9-checklist {
+  display: grid;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.p9-checklist__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--text-secondary);
+}
+.p9-checklist__item[data-done="true"] { color: var(--text-primary); }
+.p9-checklist__item[data-done="true"] .p9-ico { color: var(--ai-running); }
