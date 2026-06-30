@@ -28,6 +28,7 @@
   --fm-check-on-bg: var(--accent);
   --fm-check-on-border: var(--accent);
   --fm-check-mark: var(--text-on-accent);
+  --fm-radio-dot: calc(var(--fm-check-size) / 2);   /* inner dot — fixed px, not % */
 
   /* ── Toggle switch ── */
   --fm-switch-h: var(--control-sm);
@@ -488,8 +489,8 @@
 /* Radio inner dot — a fill, not an icon. */
 .fm-radio::before {
   content: "";
-  width: 50%;
-  height: 50%;
+  width: var(--fm-radio-dot);
+  height: var(--fm-radio-dot);
   border-radius: var(--radius-full);
   background: var(--fm-check-on-bg);
   transform: scale(0);
