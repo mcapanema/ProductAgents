@@ -29,11 +29,7 @@
   50%       { box-shadow: 0 0 0 4px color-mix(in oklch, var(--ai-awaiting-human) 30%, transparent); }
 }
 
-/* Travelling dash on active edges / streaming fills */
-@keyframes p4b-fill-advance {
-  from { background-position: 100% 0; }
-  to   { background-position:   0% 0; }
-}
+/* Travelling dash on active edges / streaming fills — UNUSED (removed in phase4b) */
 
 /* Blinking cursor in the streaming console */
 @keyframes p4b-blink {
@@ -144,7 +140,7 @@
 }
 .p4b-btn--primary {
   background: var(--accent);
-  color: var(--text-on-accent, #fff);
+  color: var(--text-on-accent);
   border-color: var(--accent);
 }
 .p4b-btn--primary:hover { filter: brightness(1.1); }
@@ -895,6 +891,7 @@
   align-items: center;
   gap: var(--space-16);
   padding: var(--card-pad);
+  /* ponytail: 2px emphasis border — add --border-width-emphasis token when DS standardises it */
   border: 2px solid var(--ai-awaiting-human);
   border-radius: var(--card-radius);
   background: color-mix(in oklch, var(--ai-awaiting-human) 8%, var(--card-bg));
