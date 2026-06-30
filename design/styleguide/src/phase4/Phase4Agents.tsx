@@ -486,8 +486,6 @@ function nodeStatusClass(status: AgentStatus): string {
 }
 
 function DependencyGraph() {
-  const [focusId, setFocusId] = useState<string | null>(null);
-
   return (
     <div className="p4a-dep-graph">
       <svg
@@ -537,18 +535,13 @@ function DependencyGraph() {
         {/* Nodes */}
         {GRAPH_NODES.map((node) => {
           const cfg = STATUS_CFG[node.status];
-          const isFocused = focusId === node.id;
           return (
             <g
               key={node.id}
               className={`p4a-node ${nodeStatusClass(node.status)}`}
               role="button"
               aria-label={`${node.label}: ${cfg.label}`}
-              aria-pressed={isFocused}
               tabIndex={0}
-              onFocus={() => setFocusId(node.id)}
-              onBlur={() => setFocusId(null)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setFocusId(node.id); }}
             >
               <circle
                 className="p4a-node-circle"
@@ -569,18 +562,6 @@ function DependencyGraph() {
               >
                 {node.label}
               </text>
-              {/* Focus ring drawn as a larger circle */}
-              {isFocused && (
-                <circle
-                  cx={node.cx}
-                  cy={node.cy}
-                  r={node.r + 3}
-                  fill="none"
-                  stroke="var(--border-focus)"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                />
-              )}
             </g>
           );
         })}

@@ -17,9 +17,6 @@
   0%, 100% { opacity: 1; }
   50%       { opacity: .4; }
 }
-@keyframes p4a-spin {
-  to { transform: rotate(1turn); }
-}
 @keyframes p4a-edge-flow {
   from { stroke-dashoffset: 16; }
   to   { stroke-dashoffset: 0; }
@@ -334,7 +331,7 @@
   background: var(--surface-raised);
   border: var(--border-width-default) solid var(--border-default);
   border-radius: var(--card-radius);
-  overflow: hidden;
+  overflow: clip;
 }
 .p4a-selector__search {
   display: flex;
@@ -628,7 +625,7 @@
   background: var(--surface-sunken);
   border: var(--border-width-default) solid var(--border-subtle);
   border-radius: var(--card-radius);
-  overflow: hidden;
+  overflow: clip;
 }
 .p4a-dep-graph__svg {
   display: block;
@@ -719,13 +716,20 @@
   flex: none;
 }
 
+[data-density="compact"] .p4a-dep-graph {
+  padding: var(--space-8);
+}
+[data-density="compact"] .p4a-dep-graph__svg {
+  transform: scale(0.9);
+  transform-origin: top left;
+}
+
 
 /* ── Gallery scaffolding ──────────────────────────────────────────────────── */
 /* ponytail: layout helpers for the gallery card only — not part of the component contract. */
 .p4a-stack  { display: grid; gap: var(--gap-stack); }
 .p4a-row    { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
 .p4a-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid); }
-.p4a-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap-grid); }
 .p4a-agents-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -733,7 +737,6 @@
 }
 @media (max-width: 640px) {
   .p4a-grid-2 { grid-template-columns: 1fr; }
-  .p4a-grid-3 { grid-template-columns: 1fr 1fr; }
 }
 
 
