@@ -231,6 +231,8 @@
 /* ════════════════════════════════════════════════════ SPLIT / DOCKED ═══ */
 .la-split { display: flex; width: 100%; height: var(--la-region-h);
   border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-card); overflow: hidden; }
+/* While dragging the handle, suppress text selection + keep the resize cursor. */
+.la-split[data-dragging] { user-select: none; cursor: var(--cursor-col-resize); }
 .la-pane { flex: 1; min-width: var(--width-panel-min); padding: var(--pad-card); background: var(--surface-default); overflow: auto; }
 .la-pane:first-child { background: var(--surface-sunken); }
 .la-pane-head { font: var(--text-title); color: var(--text-primary); margin-bottom: var(--space-8); }
@@ -243,6 +245,7 @@
   background: var(--bg-secondary);
   border-inline: var(--border-width-default) solid var(--border-subtle);
   cursor: var(--cursor-col-resize);
+  touch-action: none;                      /* pointer-drag, not scroll */
   transition: var(--transition-surface);
 }
 .la-resize:hover { background: var(--surface-hover); }

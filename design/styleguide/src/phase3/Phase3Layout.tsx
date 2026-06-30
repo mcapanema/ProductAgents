@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import type React from "react";
 import { Section, Specimen } from "../sg";
 
@@ -257,6 +258,94 @@ function AppShell() {
   );
 }
 
+/** Split panes with a WORKING resize handle. The left pane's width is
+ *  state-driven (% of the container); the handle is a focusable separator —
+ *  drag it, or focus it and press ←/→ (Home/End jump to the clamped extremes).
+ *  The clamp respects each pane's --width-panel-min, read live from the DOM so
+ *  state and rendered width never diverge. */
+function SplitPane() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+  const [pct, setPct] = useState(50); // left pane width, % of container
+  const [dragging, setDragging] = useState(false);
+
+  // Live geometry: container width + handle width + the pane min-width floor.
+  function bounds() {
+    const width = containerRef.current!.getBoundingClientRect().width;
+    const left = containerRef.current!.getBoundingClientRect().left;
+    const handleW = handleRef.current?.offsetWidth ?? 0;
+    const minPx = leftRef.current ? parseFloat(getComputedStyle(leftRef.current).minWidth) || 0 : 0;
+    return { width, left, handleW, lo: minPx, hi: width - handleW - minPx };
+  }
+  function applyPx(px: number) {
+    const { width, lo, hi } = bounds();
+    if (hi < lo) return; // container too narrow to honor both minimums
+    setPct((Math.max(lo, Math.min(hi, px)) / width) * 100);
+  }
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    draggingRef.current = true;
+    setDragging(true);
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current || !containerRef.current) return;
+    const { left, handleW } = bounds();
+    applyPx(e.clientX - left - handleW / 2);
+  }
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    draggingRef.current = false;
+    setDragging(false);
+  }
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!containerRef.current) return;
+    const { width, lo, hi } = bounds();
+    const cur = (pct / 100) * width;
+    let next: number;
+    switch (e.key) {
+      case "ArrowLeft": next = cur - 24; break;
+      case "ArrowRight": next = cur + 24; break;
+      case "Home": next = lo; break;
+      case "End": next = hi; break;
+      default: return;
+    }
+    e.preventDefault();
+    applyPx(next);
+  }
+
+  return (
+    <div className="la-split" ref={containerRef} data-dragging={dragging || undefined}>
+      <div className="la-pane" ref={leftRef} style={{ flex: "none", width: `${pct}%` }}>
+        <div className="la-pane-head">Evidence</div>
+        <p className="la-pane-body">Five synced sources, weighted by recency.</p>
+      </div>
+      <div
+        ref={handleRef}
+        className="la-resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panels"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onKeyDown={onKeyDown}
+      >
+        <span className="la-resize-grip" aria-hidden="true" />
+      </div>
+      <div className="la-pane">
+        <div className="la-pane-head">Detail</div>
+        <p className="la-pane-body">Drag the handle, or focus it and press ← / → (Home / End jump to the extremes).</p>
+      </div>
+    </div>
+  );
+}
+
 export function Phase3Layout() {
   return (
     <>
@@ -334,19 +423,7 @@ export function Phase3Layout() {
       >
         <div className="sg-card">
           <Specimen label="split · resizable">
-            <div className="la-split">
-              <div className="la-pane">
-                <div className="la-pane-head">Evidence</div>
-                <p className="la-pane-body">Five synced sources, weighted by recency.</p>
-              </div>
-              <div className="la-resize" role="separator" aria-orientation="vertical" aria-label="Resize panels" tabIndex={0}>
-                <span className="la-resize-grip" aria-hidden="true" />
-              </div>
-              <div className="la-pane">
-                <div className="la-pane-head">Detail</div>
-                <p className="la-pane-body">Drag the handle (col-resize) to retitle column widths.</p>
-              </div>
-            </div>
+            <SplitPane />
           </Specimen>
           <Specimen label="docked panel">
             <div className="la-dock">
