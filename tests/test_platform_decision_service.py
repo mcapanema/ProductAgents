@@ -34,6 +34,22 @@ async def test_start_session_streams_platform_events_and_records(decision_inputs
     assert len(recorded) == 1
 
 
+async def test_recorded_decision_carries_its_session_id(decision_inputs):
+    """The persisted DecisionRecord links back to the Session that produced it."""
+    initiative, evidence_spec, context_opener = decision_inputs
+    recorded = []
+
+    async def recorder(record):
+        recorded.append(record)
+
+    service = DecisionService(context_opener, recorder=recorder)
+    session, stream = service.start_session(initiative, evidence_spec)
+    _ = [e async for e in stream]
+
+    assert len(recorded) == 1
+    assert recorded[0].session_id == session.id
+
+
 async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
     initiative, evidence_spec, context_opener = decision_inputs_hitl
     seen_request = {}

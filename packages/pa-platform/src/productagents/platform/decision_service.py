@@ -220,9 +220,8 @@ class DecisionService:
         return None
 
     def _build_record(self, session, initiative, evidence, finished) -> DecisionRecord:
-        # Ported field-for-field from tui/app.py ProductAgentsApp._record.
-        # Task 9 will delete that copy; keep these fields in sync until then.
         return DecisionRecord(
+            session_id=session.id,
             initiative=initiative,
             recommendation=finished.recommendation,
             reports=finished.reports,
