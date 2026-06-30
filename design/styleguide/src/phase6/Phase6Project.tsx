@@ -345,14 +345,57 @@ const FILE_PREVIEWS: Record<string, FilePreviewData> = {
   p6tsx: {
     id: "p6tsx", name: "Phase6Project.tsx", path: "src/phase6/Phase6Project.tsx", kind: "code",
     sizeLabel: "11.4 KB", modified: "2m ago",
-    snippet: ["export function Phase6Project({ density }: Props) {", "  return (", "    <Section id=\"p6-workspace-selector\" …>", "      <WorkspaceSelector />", "    </Section>", "  );", "}"],
+    snippet: [
+      "export function Phase6Project({ density }: Props) {",
+      "  return (",
+      "    <Section id=\"p6-workspace-selector\" …>",
+      "      <WorkspaceSelector startOpen />",
+      "    </Section>",
+      "  );",
+      "}",
+    ],
+  },
+  connectors: {
+    id: "connectors", name: "connectors.yaml", path: "connectors.yaml", kind: "code",
+    sizeLabel: "612 B", modified: "1h ago",
+    snippet: [
+      "github:",
+      "  enabled: true",
+      "  repo: acme/productagents",
+      "  poll_interval: 5m",
+      "",
+      "jira:",
+      "  enabled: false",
+    ],
+  },
+  readme: {
+    id: "readme", name: "README.md", path: "README.md", kind: "code",
+    sizeLabel: "4.8 KB", modified: "6d ago",
+    snippet: [
+      "# ProductAgents",
+      "",
+      "Multi-agent framework for product decisions",
+      "under uncertainty.",
+      "",
+      "## Pipeline",
+      "evidence → analysts → debate → strategist",
+    ],
   },
   logo: { id: "logo", name: "logo.png", path: "logo.png", kind: "image", sizeLabel: "84 KB", modified: "3d ago" },
+  db: { id: "db", name: "productagents.db", path: "productagents.db", kind: "other", sizeLabel: "2.4 MB", modified: "2m ago" },
 };
 
 function FilePreview({ data }: { data: FilePreviewData | null }) {
   if (!data) {
-    return <div className="p6-preview__empty">Select a file to preview it</div>;
+    return (
+      <div className="p6-preview__empty">
+        <span className="p6-preview__empty-badge">
+          <Icon name="file" size="md" />
+        </span>
+        <span className="p6-preview__empty-title">No file selected</span>
+        <span className="p6-preview__empty-hint">Choose a file from the explorer on the left to preview its contents here.</span>
+      </div>
+    );
   }
   return (
     <div className="p6-preview">
@@ -362,11 +405,18 @@ function FilePreview({ data }: { data: FilePreviewData | null }) {
       </div>
       <span className="p6-preview__meta">{data.path} · {data.sizeLabel} · modified {data.modified}</span>
       {data.kind === "image" ? (
-        <div className="p6-preview__image-tile"><Icon name="file-image" size="md" /></div>
+        <div className="p6-preview__placeholder">
+          <Icon name="file-image" size="md" />
+        </div>
+      ) : data.kind === "other" ? (
+        <div className="p6-preview__placeholder">
+          <Icon name="file" size="md" />
+          <span className="p6-preview__placeholder-label">No preview available</span>
+        </div>
       ) : (
         <div className="p6-preview__body">
           {(data.snippet ?? []).map((line, i) => (
-            <div className="p6-preview__line" key={i}><span className="p6-preview__line-no">{i + 1}</span>{line}</div>
+            <div className="p6-preview__line" key={i}><span className="p6-preview__line-no">{i + 1}</span>{line || " "}</div>
           ))}
         </div>
       )}
@@ -437,8 +487,7 @@ export function Phase6Project({ density }: { density: Density }) {
       </div>
 
       <Section id="p6-workspace-selector" title="Workspace Selector" desc="Switch the active workspace (WorkspaceService.list()/resolve()); active workspace marked with a dot.">
-        <Specimen label="closed"><WorkspaceSelector /></Specimen>
-        <Specimen label="open"><WorkspaceSelector startOpen /></Specimen>
+        <Specimen label="default"><WorkspaceSelector startOpen /></Specimen>
       </Section>
 
       <Section id="p6-project-card" title="Project Card" desc="Workspace summary: name, path, initiative/feature counts, last connector sync.">
@@ -485,10 +534,13 @@ export function Phase6Project({ density }: { density: Density }) {
         </Specimen>
       </Section>
 
-      <Section id="p6-file-preview" title="File Preview" desc="Selected-file detail: name, path, size, modified time, and a code snippet or image tile.">
-        <Specimen label="code"><FilePreview data={FILE_PREVIEWS.p6tsx} /></Specimen>
+      <Section id="p6-file-preview" title="File Preview" desc="Selected-file detail: name, path, size, modified time, and a code snippet, image tile, or unsupported-type placeholder.">
+        <Specimen label="code — TSX"><FilePreview data={FILE_PREVIEWS.p6tsx} /></Specimen>
+        <Specimen label="code — YAML"><FilePreview data={FILE_PREVIEWS.connectors} /></Specimen>
+        <Specimen label="docs — Markdown"><FilePreview data={FILE_PREVIEWS.readme} /></Specimen>
         <Specimen label="image"><FilePreview data={FILE_PREVIEWS.logo} /></Specimen>
-        <Specimen label="empty"><FilePreview data={null} /></Specimen>
+        <Specimen label="binary — no preview available"><FilePreview data={FILE_PREVIEWS.db} /></Specimen>
+        <Specimen label="no file selected"><FilePreview data={null} /></Specimen>
       </Section>
 
       <Section id="p6-recent-projects" title="Recent Projects" desc="Recently opened workspaces, most recent first — each row is keyboard-operable.">

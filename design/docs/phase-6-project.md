@@ -25,8 +25,9 @@ in `themes/dark.css`) and `--text-tertiary` for neutral/untracked.
 - **Anatomy** — `p6-ws-trigger` button (folder icon + name + chevron) opening
   a `p6-ws-list` of `p6-ws-item` buttons, each with name, path, and an
   active-state dot.
-- **States** — closed / open; `aria-current="true"` on the active item paints
-  its dot `--success`.
+- **States** — toggled open/closed by the trigger button (the gallery shows
+  the open state, which demonstrates the trigger and the list together);
+  `aria-current="true"` on the active item paints its dot `--success`.
 - **Keyboard** — trigger is a real `button` with `aria-haspopup="listbox"` /
   `aria-expanded`; each item is a real `button` in normal tab order.
 - **Tokens** — `--surface-raised`, `--card-bg-raised`, `--card-border`,
@@ -118,16 +119,23 @@ in `themes/dark.css`) and `--text-tertiary` for neutral/untracked.
 ## File Preview
 
 - **Purpose** — selected-file detail: name, path, size, modified time, and
-  either a code snippet or an image placeholder tile.
+  either a code snippet, an image placeholder tile, or an
+  unsupported-type notice.
 - **When to use / not** — the right pane of File Explorer, or standalone when
   a single file needs inspecting. Not a full code editor.
 - **Anatomy** — `p6-preview` → head (icon + name), meta line (path · size ·
-  modified), then either `p6-preview__body` (line-numbered monospace
-  snippet) or `p6-preview__image-tile` (icon placeholder for non-code files).
-- **States** — `code` / `image` / empty (`p6-preview__empty`, "Select a file
-  to preview it").
+  modified), then one of: `p6-preview__body` (line-numbered monospace
+  snippet, for code/docs files), `p6-preview__placeholder` (icon tile, for
+  images and unsupported binary files, with an optional caption).
+- **States** — `code` (any text-like kind — TSX, YAML, Markdown, etc. all
+  share the same snippet rendering) / `image` / `other` (binary, e.g.
+  `productagents.db` — "No preview available") / no selection
+  (`p6-preview__empty`, an icon + "No file selected" + a hint sentence,
+  distinct from the `other` state: nothing is selected at all, vs. a file is
+  selected but can't be rendered).
 - **Tokens** — `--text-code`, `--surface-sunken`, `--card-bg-raised`,
-  `--text-disabled` (line numbers).
+  `--text-disabled` (line numbers), `--text-secondary` (empty-state title),
+  `--space-24` (empty-state padding).
 
 ## Recent Projects
 

@@ -52,7 +52,7 @@ function Toggle<T extends string>(props: {
 export function App() {
   const [theme, setTheme] = useState<Theme>("light"); // light is the default theme (owner decision)
   const [density, setDensity] = useState<Density>("comfortable");
-  const [category, setCategory] = useState<Category>("ai-components");
+  const [category, setCategory] = useState<Category>("foundation");
 
   // Layout effects so the attribute write happens BEFORE useResolvedVars' passive
   // read (which displays the resolved hexes) — otherwise the values lag a theme.

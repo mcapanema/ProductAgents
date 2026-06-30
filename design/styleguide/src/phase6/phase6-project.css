@@ -150,14 +150,22 @@
 .p6-preview__line { font: var(--text-code); color: var(--text-secondary); white-space: pre; }
 .p6-preview__line-no { display: inline-block; width: 2em; color: var(--text-disabled); user-select: none; }
 .p6-preview__empty {
-  display: grid; place-items: center; min-height: 120px;
-  color: var(--text-tertiary); font: var(--text-body-s);
-  background: var(--surface-sunken); border-radius: var(--radius-control);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-12);
+  min-height: 240px; padding: var(--space-32) var(--space-16); text-align: center;
+  background: var(--card-bg-raised); border: var(--border-width-default) dashed var(--border-subtle);
+  border-radius: var(--card-radius); color: var(--text-tertiary);
 }
-.p6-preview__image-tile {
-  display: grid; place-items: center; min-height: 120px;
-  background: var(--surface-sunken); border-radius: var(--radius-control); color: var(--text-tertiary);
+.p6-preview__empty-badge {
+  display: grid; place-items: center; width: 48px; height: 48px;
+  background: var(--surface-sunken); border-radius: var(--radius-full); color: var(--text-tertiary);
 }
+.p6-preview__empty-title { font: var(--text-body-m); font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.p6-preview__empty-hint { font: var(--text-caption); color: var(--text-tertiary); max-width: 240px; }
+.p6-preview__placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-8);
+  min-height: 120px; background: var(--surface-sunken); border-radius: var(--radius-control); color: var(--text-tertiary);
+}
+.p6-preview__placeholder-label { font: var(--text-caption); }
 
 /* ═══════════════════════════════════════════════ RECENT PROJECTS ═══ */
 .p6-recent { display: flex; flex-direction: column; gap: var(--space-4); }
