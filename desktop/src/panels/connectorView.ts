@@ -7,6 +7,7 @@ export interface ConnectorRow {
   written: number | null;
   synced: "ok" | "error" | null;
   error: string | null;
+  lastSynced: string | null;
 }
 
 /** Merge the three connector views into one row per configured connector. */
@@ -25,6 +26,7 @@ export function connectorRows(
       written: result ? result.written : null,
       synced: result ? (result.ok ? "ok" : "error") : null,
       error: result ? result.error : null,
+      lastSynced: list.last_synced?.[c.name] ?? null,
     };
   });
 }

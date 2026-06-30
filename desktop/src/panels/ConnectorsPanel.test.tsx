@@ -8,6 +8,7 @@ import type { ConnectorHealth, ConnectorList, ConnectorSync } from "../ipc/types
 const list: ConnectorList = {
   connectors: [{ name: "github" }],
   problems: ["connector 'slack': unknown (not installed)"],
+  last_synced: { github: "2026-06-29T10:00:00+00:00" },
 };
 const health: ConnectorHealth = {
   statuses: { github: { ok: true, detail: "reachable" } },
@@ -62,6 +63,18 @@ describe("ConnectorsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
     await waitFor(() =>
       expect(screen.getByText(/7 written/)).toBeInTheDocument(),
+    );
+  });
+
+  it("shows the last-sync timestamp on load", async () => {
+    render(
+      <IpcProvider client={fake()}>
+        <ConnectorsPanel />
+      </IpcProvider>,
+    );
+    await screen.findByText("github");
+    await waitFor(() =>
+      expect(screen.getByText(/last sync 2026-06-29/)).toBeInTheDocument(),
     );
   });
 

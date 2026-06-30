@@ -67,6 +67,7 @@ export function ConnectorsPanel() {
             {r.synced === "error"
               ? ` · ⚠ ${r.error}`
               : r.written !== null && ` · ${r.written} written`}
+            {r.lastSynced && ` · last sync ${r.lastSynced}`}
           </div>
         </div>
       ))}

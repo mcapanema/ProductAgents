@@ -96,6 +96,7 @@ export interface ConnectorSummary {
 export interface ConnectorList {
   connectors: ConnectorSummary[];
   problems: string[];
+  last_synced?: Record<string, string>;
 }
 
 export interface ConnectorHealthStatus {

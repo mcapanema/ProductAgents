@@ -383,7 +383,9 @@ async def handle(
         async def _connectors_list(_p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
-            await emit({"id": rid, "result": _connector_plan_dict(connectors.plan())})
+            result = _connector_plan_dict(connectors.plan())
+            result["last_synced"] = await connectors.last_synced()
+            await emit({"id": rid, "result": result})
 
         async def _connectors_health(_p: dict) -> None:
             if connectors is None:

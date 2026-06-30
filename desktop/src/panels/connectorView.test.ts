@@ -11,8 +11,8 @@ describe("connectorRows", () => {
   it("marks connectors unknown when no health or sync is loaded yet", () => {
     const rows = connectorRows(list, null, null);
     expect(rows).toEqual([
-      { name: "github", health: "unknown", detail: "", written: null, synced: null, error: null },
-      { name: "jira", health: "unknown", detail: "", written: null, synced: null, error: null },
+      { name: "github", health: "unknown", detail: "", written: null, synced: null, error: null, lastSynced: null },
+      { name: "jira", health: "unknown", detail: "", written: null, synced: null, error: null, lastSynced: null },
     ]);
   });
 
@@ -45,6 +45,7 @@ describe("connectorRows", () => {
       written: 7,
       synced: "ok",
       error: null,
+      lastSynced: null,
     });
     expect(rows[1]).toEqual({
       name: "jira",
@@ -53,6 +54,17 @@ describe("connectorRows", () => {
       written: null,
       synced: null,
       error: null,
+      lastSynced: null,
     });
+  });
+
+  it("carries the last-sync timestamp onto the row", () => {
+    const list: ConnectorList = {
+      connectors: [{ name: "github" }],
+      problems: [],
+      last_synced: { github: "2026-06-29T10:00:00+00:00" },
+    };
+    const rows = connectorRows(list, null, null);
+    expect(rows[0].lastSynced).toBe("2026-06-29T10:00:00+00:00");
   });
 });

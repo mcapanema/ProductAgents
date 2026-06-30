@@ -56,10 +56,11 @@ class _FakeWorkspaces:
 class _FakeConnectors:
     """Stand-in for ConnectorService returning canned reports."""
 
-    def __init__(self, plan=None, health=None, sync=None):
+    def __init__(self, plan=None, health=None, sync=None, last_synced=None):
         self._plan = plan
         self._health = health
         self._sync = sync
+        self._last_synced = last_synced or {}
 
     def plan(self):
         return self._plan
@@ -69,6 +70,9 @@ class _FakeConnectors:
 
     async def sync(self):
         return self._sync
+
+    async def last_synced(self):
+        return self._last_synced
 
 
 def _workflows():
@@ -531,9 +535,30 @@ async def test_connectors_list_returns_names_only():
             "result": {
                 "connectors": [{"name": "github"}, {"name": "jira"}],
                 "problems": ["connector 'slack': unknown (not installed)"],
+                "last_synced": {},
             },
         }
     ]
+
+
+async def test_connectors_list_includes_last_synced_timestamps():
+    from productagents.connectors import ConnectorConfig
+    from productagents.platform.connectors import ConnectorPlan
+
+    plan = ConnectorPlan(configs={"github": ConnectorConfig()}, problems=[])
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 24, "method": "connectors.list"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=_FakeConnectors(
+            plan=plan, last_synced={"github": "2026-06-29T10:00:00+00:00"}
+        ),
+        emit=emit,
+    )
+    assert sink[0]["result"]["last_synced"] == {"github": "2026-06-29T10:00:00+00:00"}
 
 
 async def test_connectors_health_returns_statuses():
