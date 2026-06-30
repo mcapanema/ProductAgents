@@ -1,0 +1,174 @@
+/*
+ * Phase 7 — Settings components. Self-contained styleguide CSS (prefix: p7-).
+ * ============================================================================
+ * Configuration surfaces: settings navigation, grouped preferences, theme
+ * choice, keyboard-shortcut rebinding, provider/model + MCP configuration,
+ * an environment-variable editor, and the one security-sensitive control —
+ * API Key Input (masked, never pre-filled from a stored secret). Built ONLY
+ * from the existing token layer — no new colours. Status hues reuse
+ * --success/--danger/--info/--signal (amber = state, never "warning" as a
+ * literal token).
+ */
+
+.p7-ico { display: block; flex: none; width: var(--size-icon-inline); height: var(--size-icon-inline); }
+.p7-ico--xs { width: var(--icon-sm); height: var(--icon-sm); }
+.p7-ico--md { width: var(--icon-md); height: var(--icon-md); }
+
+.p7-hint { font: var(--text-caption); color: var(--text-tertiary); margin: 0; }
+.p7-code { font: var(--text-code); color: var(--text-secondary); }
+
+/* Shared icon-only button (reveal/remove actions). */
+.p7-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: var(--control-sm); height: var(--control-sm);
+  background: none; border: var(--border-width-default) solid transparent; border-radius: var(--radius-control);
+  color: var(--text-tertiary); cursor: var(--cursor-interactive);
+}
+.p7-icon-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+.p7-icon-btn:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p7-icon-btn:disabled { opacity: var(--state-disabled-opacity); cursor: var(--state-disabled-cursor); }
+
+.p7-add-row {
+  display: inline-flex; align-items: center; gap: var(--space-8);
+  margin-top: var(--space-8); height: var(--control-sm); padding: 0 var(--space-12);
+  background: none; border: var(--border-width-default) dashed var(--border-subtle); border-radius: var(--radius-control);
+  color: var(--text-secondary); font: var(--text-body-s); cursor: var(--cursor-interactive);
+}
+.p7-add-row:hover { background: var(--surface-hover); border-style: solid; color: var(--text-primary); }
+.p7-add-row:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* Shared text field — same vocabulary as Phase 3C forms (no new tokens). */
+.p7-field { display: flex; flex-direction: column; gap: var(--space-4); }
+.p7-field__label { font: var(--text-label); color: var(--text-secondary); }
+.p7-field__hint { color: var(--text-tertiary); font-weight: var(--fw-regular); }
+
+.p7-input, .p7-select {
+  height: var(--field-height); padding: var(--field-pad-y) var(--field-pad-x);
+  font: var(--field-font); color: var(--field-text);
+  background: var(--field-bg); border: var(--border-width-default) solid var(--field-border);
+  border-radius: var(--field-radius); transition: var(--field-transition);
+}
+.p7-input--mono { font: var(--text-code); }
+.p7-input::placeholder { color: var(--field-placeholder); }
+.p7-input:hover, .p7-select:hover { border-color: var(--field-border-hover); }
+.p7-input:focus-visible, .p7-select:focus-visible {
+  border-color: var(--field-border-focus); outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p7-select { cursor: var(--cursor-interactive); }
+
+/* ═══════════════════════════════════════════════ SETTINGS NAVIGATION ═══ */
+.p7-shell { display: grid; grid-template-columns: 200px 1fr; gap: var(--space-16); min-height: var(--p7-shell-h, auto); }
+.p7-shell__body {
+  background: var(--surface-sunken); border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius); padding: var(--space-16);
+}
+
+.p7-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.p7-nav__item {
+  display: flex; align-items: center; gap: var(--space-8); width: 100%;
+  height: var(--control-md); padding: 0 var(--space-12);
+  background: none; border: none; border-radius: var(--radius-control);
+  color: var(--text-secondary); font: var(--text-body-s); text-align: left; cursor: var(--cursor-interactive);
+}
+.p7-nav__item:hover { background: var(--surface-hover); color: var(--text-primary); }
+.p7-nav__item:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.p7-nav__item[aria-current="page"] { background: var(--accent-subtle); color: var(--accent-text); font-weight: var(--fw-semibold); }
+
+/* ═══════════════════════════════════════════════ SECTION ═══ */
+.p7-section { display: flex; flex-direction: column; gap: var(--space-12); }
+.p7-section__head { display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-8); border-bottom: var(--border-width-default) solid var(--border-subtle); }
+.p7-section__title { font: var(--text-heading-4); color: var(--text-primary); margin: 0; }
+.p7-section__desc { font: var(--text-body-s); color: var(--text-tertiary); margin: 0; }
+.p7-section__body { display: flex; flex-direction: column; gap: var(--space-12); }
+
+/* ═══════════════════════════════════════════════ PREFERENCE CARD / SWITCH ═══ */
+.p7-pref-list { display: flex; flex-direction: column; gap: var(--space-8); }
+.p7-pref {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-16);
+  padding: var(--space-12); background: var(--card-bg); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+}
+.p7-pref__meta { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.p7-pref__label { font: var(--text-body-m); color: var(--text-primary); font-weight: var(--fw-medium); }
+.p7-pref__desc { font: var(--text-caption); color: var(--text-tertiary); }
+.p7-pref__control { flex: none; }
+
+.p7-switch {
+  position: relative; flex: none; appearance: none;
+  width: var(--space-48); height: var(--control-sm);
+  background: var(--surface-pressed); border: none; border-radius: var(--radius-full);
+  cursor: var(--cursor-interactive); transition: var(--field-transition);
+}
+.p7-switch__knob {
+  position: absolute; top: var(--space-4); left: var(--space-4);
+  width: var(--space-20); height: var(--space-20); border-radius: var(--radius-full);
+  background: var(--surface-raised); transition: var(--field-transition);
+}
+.p7-switch[data-on="true"] { background: var(--accent); }
+.p7-switch[data-on="true"] .p7-switch__knob { left: calc(100% - var(--space-20) - var(--space-4)); }
+.p7-switch:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* ═══════════════════════════════════════════════ THEME SELECTOR ═══ */
+.p7-theme { display: inline-flex; gap: var(--space-4); padding: var(--space-4); background: var(--surface-sunken); border-radius: var(--radius-control); }
+.p7-theme__opt {
+  display: inline-flex; align-items: center; gap: var(--space-8);
+  height: var(--control-sm); padding: 0 var(--space-12);
+  background: none; border: none; border-radius: var(--radius-control);
+  color: var(--text-secondary); font: var(--text-body-s); cursor: var(--cursor-interactive);
+}
+.p7-theme__opt:hover { color: var(--text-primary); }
+.p7-theme__opt:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p7-theme__opt[data-active="true"] { background: var(--card-bg-raised); color: var(--text-primary); box-shadow: var(--card-shadow); font-weight: var(--fw-semibold); }
+
+/* ═══════════════════════════════════════════════ KEYBOARD-SHORTCUT EDITOR ═══ */
+.p7-shortcut-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.p7-shortcut-row {
+  display: flex; align-items: center; gap: var(--space-12);
+  padding: var(--space-8) var(--space-12); border-radius: var(--card-radius);
+}
+.p7-shortcut-row:hover { background: var(--surface-hover); }
+.p7-shortcut-row__action { flex: 1; font: var(--text-body-s); color: var(--text-primary); }
+.p7-shortcut-row__keys { display: inline-flex; gap: var(--space-4); }
+.p7-kbd {
+  display: inline-flex; align-items: center; justify-content: center; min-width: var(--space-24);
+  height: var(--space-24); padding: 0 var(--space-8); font: var(--text-code);
+  background: var(--card-bg-raised); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--radius-control); box-shadow: var(--card-shadow);
+}
+.p7-shortcut-row__capture { font: var(--text-caption); color: var(--text-warning); font-style: italic; }
+
+/* ═══════════════════════════════════════════════ PROVIDER/MODEL CONFIG ═══ */
+.p7-provider { display: flex; flex-direction: column; gap: var(--space-12); max-width: 420px; }
+
+/* ═══════════════════════════════════════════════ MCP CONFIGURATION ═══ */
+.p7-mcp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-8); }
+.p7-mcp-row {
+  display: flex; align-items: center; gap: var(--space-12);
+  padding: var(--space-12); background: var(--card-bg); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+}
+.p7-mcp-row__meta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.p7-mcp-row__name { font: var(--text-body-s); color: var(--text-primary); font-weight: var(--fw-medium); }
+.p7-mcp-row__cmd { font: var(--text-code); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p7-mcp-row__status { display: inline-flex; align-items: center; gap: var(--space-4); font: var(--text-caption); font-weight: var(--fw-semibold); flex: none; }
+.p7-mcp-row__status[data-status="connected"] { color: var(--text-success); }
+.p7-mcp-row__status[data-status="error"] { color: var(--text-error); }
+.p7-mcp-row__status[data-status="disconnected"] { color: var(--text-warning); }
+
+/* ═══════════════════════════════════════════════ ENVIRONMENT-VARIABLE EDITOR ═══ */
+.p7-envvar-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-8); }
+.p7-envvar-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: var(--space-8); align-items: center; }
+
+/* ═══════════════════════════════════════════════ API KEY INPUT ═══ */
+.p7-apikey { display: flex; flex-direction: column; gap: var(--space-8); max-width: 420px; }
+.p7-apikey__row { display: flex; gap: var(--space-8); align-items: center; }
+.p7-apikey__row .p7-input { flex: 1; }
+.p7-apikey__status { display: inline-flex; align-items: center; gap: var(--space-4); font: var(--text-caption); font-weight: var(--fw-semibold); }
+.p7-apikey__status[data-present="true"] { color: var(--text-success); }
+.p7-apikey__status[data-present="false"] { color: var(--text-warning); }
+
+/* ── Compact density ─────────────────────────────────────────────────────── */
+[data-density="compact"] .p7-pref { padding: var(--space-8); }
+[data-density="compact"] .p7-mcp-row { padding: var(--space-8); }
+[data-density="compact"] .p7-shell__body { padding: var(--space-12); }
