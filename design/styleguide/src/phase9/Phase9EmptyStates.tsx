@@ -125,9 +125,9 @@ function FirstRunState({ steps }: { steps: ChecklistStep[] }) {
   );
 }
 
-function Spinner({ label }: { label: string }) {
+function Spinner() {
   return (
-    <svg className="p9-spinner" viewBox="0 0 24 24" role="status" aria-label={label}>
+    <svg className="p9-spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <circle className="p9-spinner__track" cx={12} cy={12} r={10} />
       <circle className="p9-spinner__arc" cx={12} cy={12} r={10} pathLength={100} />
     </svg>
@@ -137,7 +137,7 @@ function Spinner({ label }: { label: string }) {
 function LoadingState({ label }: { label: string }) {
   return (
     <div className="p9-state" data-kind="loading" role="status" aria-live="polite">
-      <Spinner label={label} />
+      <Spinner />
       <p className="p9-state__title">{label}</p>
       <div className="p9-skeleton">
         <div className="p9-skeleton__row" />
