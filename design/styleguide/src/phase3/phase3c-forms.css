@@ -287,8 +287,12 @@
   outline-offset: calc(var(--focus-ring-offset) * -1);
 }
 
-/* Number stepper — affix with a right-edge button column. */
+/* Number stepper — affix with a right-edge button column. The custom caret
+ * buttons own increment/decrement, so hide the browser's native spinner. */
 .fm-affix--stepper { padding-right: 0; }
+.fm-affix--stepper input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.fm-affix--stepper input[type="number"]::-webkit-outer-spin-button,
+.fm-affix--stepper input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .fm-stepper-btns {
   display: flex;
   flex-direction: column;
