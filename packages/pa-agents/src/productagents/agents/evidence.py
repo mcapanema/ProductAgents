@@ -1,12 +1,22 @@
 """Load mock evidence for a named scenario from bundled data files."""
 
 import json
+import logging
+from collections.abc import Callable
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Protocol
 
 from productagents.core.models import Evidence, EvidenceSourceRef
 
 SCENARIOS_DIR = Path(__file__).parent / "data" / "scenarios"
+
+logger = logging.getLogger(__name__)
+
+_EVIDENCE_GROUP = "productagents.evidence_sources"
+
+# A resolver claims a spec by returning an EvidenceSource, else None.
+Resolver = Callable[[str, "Path | None"], "EvidenceSource | None"]
 
 _FEEDBACK_FILE = "customer_feedback.md"
 _ANALYTICS_FILE = "product_analytics.json"
@@ -168,19 +178,47 @@ def load_scenario(name: str, base_dir: Path | None = None) -> Evidence:
     return ScenarioSource(name, base_dir).collect()
 
 
+def _scenario_resolver(spec: str, base_dir: Path | None) -> EvidenceSource | None:
+    return ScenarioSource(spec, base_dir) if spec in list_scenarios(base_dir) else None
+
+
+def _directory_resolver(spec: str, base_dir: Path | None) -> EvidenceSource | None:
+    return DirectorySource(Path(spec)) if Path(spec).is_dir() else None
+
+
+# Built-ins are tried first, preserving the historical order
+# (known scenario name → directory path). Third-party resolvers append after.
+_BUILTIN_RESOLVERS: list[Resolver] = [_scenario_resolver, _directory_resolver]
+
+
+def _discovered_resolvers() -> list[Resolver]:
+    found: list[Resolver] = []
+    for ep in entry_points(group=_EVIDENCE_GROUP):
+        try:
+            found.append(ep.load())
+        except Exception:  # noqa: BLE001 — one bad plugin must not break resolution
+            logger.warning(
+                "evidence-source plugin %r failed to load; skipping",
+                ep.name,
+                exc_info=True,
+            )
+    return found
+
+
 def collect_evidence(spec: str | None = None, base_dir: Path | None = None) -> Evidence:
     """Resolve a user-supplied source spec to Evidence.
 
-    A falsy spec loads the bundled 'sample' scenario. A spec matching a known
-    scenario name loads that scenario; an existing directory path is read as a
-    DirectorySource. Anything else raises EvidenceError.
+    A falsy spec loads the bundled 'sample' scenario. Otherwise each resolver is
+    tried in order — built-ins first (known scenario name → directory path), then
+    any third-party resolver registered under ``productagents.evidence_sources``.
+    The first resolver that claims the spec wins; if none do, raises EvidenceError.
     """
     if not spec:
         return ScenarioSource("sample", base_dir).collect()
-    if spec in list_scenarios(base_dir):
-        return ScenarioSource(spec, base_dir).collect()
-    if Path(spec).is_dir():
-        return DirectorySource(Path(spec)).collect()
+    for resolver in (*_BUILTIN_RESOLVERS, *_discovered_resolvers()):
+        source = resolver(spec, base_dir)
+        if source is not None:
+            return source.collect()
     raise EvidenceError(
         f"No evidence source for {spec!r}: not a known scenario or a directory"
     )

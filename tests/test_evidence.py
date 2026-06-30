@@ -1,8 +1,30 @@
 import json
+from pathlib import Path
 
 import pytest
 
 from productagents.agents.evidence import EvidenceError, list_scenarios, load_scenario
+from productagents.core.models import Evidence
+
+
+class _RemoteSource:
+    def __init__(self, spec: str):
+        self.spec = spec
+
+    def collect(self) -> Evidence:
+        return Evidence(
+            scenario=self.spec,
+            customer_feedback="remote feedback",
+            product_analytics={},
+            market_intelligence="",
+            business_metrics={},
+            technical_context="",
+            sources=[],
+        )
+
+
+def _remote_resolver(spec: str, base_dir: Path | None):
+    return _RemoteSource(spec) if spec.startswith("remote:") else None
 
 
 def test_loads_bundled_sample_scenario():
@@ -178,3 +200,54 @@ def test_collect_evidence_unknown_spec_raises():
 
     with pytest.raises(EvidenceError):
         collect_evidence("definitely-not-a-scenario-or-path")
+
+
+def test_collect_evidence_uses_registered_resolver(monkeypatch):
+    from importlib.metadata import EntryPoint
+
+    from productagents.agents import evidence as ev
+
+    ep = EntryPoint(
+        name="remote",
+        value="tests.test_evidence:_remote_resolver",
+        group="productagents.evidence_sources",
+    )
+    monkeypatch.setattr(ev, "entry_points", lambda group: [ep])
+    result = ev.collect_evidence("remote:thing")
+    assert result.scenario == "remote:thing"
+    assert result.customer_feedback == "remote feedback"
+
+
+def test_collect_evidence_builtins_take_priority(monkeypatch, tmp_path):
+    from importlib.metadata import EntryPoint
+
+    from productagents.agents import evidence as ev
+
+    scenario = tmp_path / "alpha"
+    scenario.mkdir()
+    (scenario / "customer_feedback.md").write_text("f")
+    (scenario / "product_analytics.json").write_text('{"x": 1}')
+    ep = EntryPoint(  # a greedy resolver that would claim everything
+        name="greedy",
+        value="tests.test_evidence:_remote_resolver",
+        group="productagents.evidence_sources",
+    )
+    monkeypatch.setattr(ev, "entry_points", lambda group: [ep])
+    result = ev.collect_evidence("alpha", base_dir=tmp_path)
+    # The built-in ScenarioSource wins for a known scenario name.
+    assert result.sources[0].source == "scenario:alpha"
+
+
+def test_collect_evidence_skips_broken_resolver_entry_point(monkeypatch):
+    from importlib.metadata import EntryPoint
+
+    from productagents.agents import evidence as ev
+
+    bad = EntryPoint(
+        name="broken",
+        value="tests.test_evidence:does_not_exist",
+        group="productagents.evidence_sources",
+    )
+    monkeypatch.setattr(ev, "entry_points", lambda group: [bad])
+    with pytest.raises(EvidenceError):  # broken plugin skipped → falls through to error
+        ev.collect_evidence("definitely-not-a-scenario-or-path")
