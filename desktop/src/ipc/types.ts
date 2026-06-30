@@ -56,6 +56,7 @@ export interface DecisionSummary {
 export interface DecisionDetail {
   record: {
     decision_id: string;
+    session_id?: string | null;
     initiative: { title: string; description: string };
     recommendation: {
       recommendation: string;
@@ -63,6 +64,10 @@ export interface DecisionDetail {
       rationale: string;
       expected_outcomes: string[];
     };
+    evidence_sources?: { field: string; source: string; location: string }[];
+    debate?: { round: number; side: string; argument: string }[];
+    risks?: { reviewer: string; role: string; level: string; rationale: string }[];
+    governance?: { verdict: string; rationale: string; decided_by: string } | null;
     timestamp: string;
     [key: string]: unknown;
   };
