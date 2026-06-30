@@ -225,7 +225,10 @@ async def _watch_cancel(
         except json.JSONDecodeError, TypeError:
             continue
         if msg.get("method") == "run.cancel":
-            ok = workflows.cancel((msg.get("params") or {}).get("session_id", ""))
+            incoming_sid = (msg.get("params") or {}).get("session_id", "")
+            if incoming_sid != session_id:
+                continue  # not for this session, ignore
+            ok = workflows.cancel(session_id)
             if msg.get("id") is not None:
                 await emit({"id": msg["id"], "result": {"ok": ok}})
             return
