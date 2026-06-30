@@ -249,7 +249,10 @@
   font: var(--text-title);
 }
 .ov-hc-head b { font: var(--text-title); color: var(--text-primary); }
-.ov-hc-head span { font: var(--text-caption); color: var(--text-tertiary); display: block; }
+/* Scope to the name block's subtitle — `.ov-hc-head span` also matched the
+ * avatar span (a direct child) and, being more specific than .ov-hc-avatar,
+ * forced the initial to a top-left block glyph instead of a centered badge. */
+.ov-hc-head div span { font: var(--text-caption); color: var(--text-tertiary); display: block; }
 .ov-hovercard p { margin: 0; font: var(--text-body-s); color: var(--text-secondary); }
 .ov-hc-stats { display: flex; gap: var(--space-16); margin-top: var(--space-12); }
 .ov-hc-stat b { font: var(--text-terminal); font-variant-numeric: tabular-nums; color: var(--text-primary); display: block; }
