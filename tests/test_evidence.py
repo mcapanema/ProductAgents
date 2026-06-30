@@ -27,6 +27,12 @@ def _remote_resolver(spec: str, base_dir: Path | None):
     return _RemoteSource(spec) if spec.startswith("remote:") else None
 
 
+def _greedy_resolver(spec: str, base_dir: Path | None):
+    return _RemoteSource(
+        spec
+    )  # claims everything — used to verify built-ins take priority
+
+
 def test_loads_bundled_sample_scenario():
     evidence = load_scenario("sample")
     assert evidence.scenario == "sample"
@@ -229,7 +235,7 @@ def test_collect_evidence_builtins_take_priority(monkeypatch, tmp_path):
     (scenario / "product_analytics.json").write_text('{"x": 1}')
     ep = EntryPoint(  # a greedy resolver that would claim everything
         name="greedy",
-        value="tests.test_evidence:_remote_resolver",
+        value="tests.test_evidence:_greedy_resolver",
         group="productagents.evidence_sources",
     )
     monkeypatch.setattr(ev, "entry_points", lambda group: [ep])

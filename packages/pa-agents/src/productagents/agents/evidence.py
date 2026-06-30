@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 _EVIDENCE_GROUP = "productagents.evidence_sources"
 
 # A resolver claims a spec by returning an EvidenceSource, else None.
-Resolver = Callable[[str, "Path | None"], "EvidenceSource | None"]
+Resolver = Callable[[str, Path | None], "EvidenceSource | None"]
 
 _FEEDBACK_FILE = "customer_feedback.md"
 _ANALYTICS_FILE = "product_analytics.json"
