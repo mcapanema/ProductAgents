@@ -38,7 +38,8 @@ type IconName =
   | "eye-off"
   | "check-circle"
   | "alert-triangle"
-  | "x-circle";
+  | "x-circle"
+  | "chevron-down";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   gear: <><circle cx="12" cy="12" r="3" /><path d="M19.4 13a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V19a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.2a1.7 1.7 0 00-1.4 1z" /></>,
@@ -57,6 +58,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   "check-circle": <><circle cx="12" cy="12" r="8" /><path d="M8.5 12.5l2.3 2.3L16 9.5" /></>,
   "alert-triangle": <><path d="M12 4l9 16H3z" /><path d="M12 10v4" /><path d="M12 17h.01" /></>,
   "x-circle": <><circle cx="12" cy="12" r="8" /><path d="M9 9l6 6M15 9l-6 6" /></>,
+  "chevron-down": <path d="M6 9l6 6 6-6" />,
 };
 
 function Icon({ name, size = "sm" }: { name: IconName; size?: "xs" | "sm" | "md" }) {
@@ -74,6 +76,27 @@ function Icon({ name, size = "sm" }: { name: IconName; size?: "xs" | "sm" | "md"
     >
       {PATHS[name]}
     </svg>
+  );
+}
+
+// `<select>` left at appearance:auto fights its own box model (the native
+// widget ignores our padding/height for text layout), cropping and
+// flickering the label. appearance:none hands layout fully to CSS — same
+// fix Phase 3C's fm-select uses — with a decorative caret standing in for
+// the native arrow.
+// `block`: fill the field's width (paired with a sibling full-width input,
+// e.g. Provider/Model Configuration). Omit it to size to content, e.g. inside
+// a Preference Card row that shouldn't stretch.
+function Select({ value, onChange, options, label, block = false }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label: string; block?: boolean;
+}) {
+  return (
+    <span className={block ? "p7-select-wrap p7-select-wrap--block" : "p7-select-wrap"}>
+      <select className="p7-select" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <span className="p7-select-caret"><Icon name="chevron-down" size="xs" /></span>
+    </span>
   );
 }
 
@@ -159,6 +182,7 @@ function PreferenceCard({ label, description, control }: { label: string; descri
 function PreferenceCardDemo() {
   const [autosave, setAutosave] = useState(true);
   const [telemetry, setTelemetry] = useState(false);
+  const [density, setDensity] = useState("comfortable");
   return (
     <div className="p7-pref-list">
       <PreferenceCard
@@ -175,10 +199,12 @@ function PreferenceCardDemo() {
         label="Default density"
         description="Applies to every resource panel; overridable per view."
         control={
-          <select className="p7-select" defaultValue="comfortable" aria-label="Default density">
-            <option value="comfortable">Comfortable</option>
-            <option value="compact">Compact</option>
-          </select>
+          <Select
+            value={density}
+            onChange={setDensity}
+            label="Default density"
+            options={[{ value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" }]}
+          />
         }
       />
     </div>
@@ -306,9 +332,13 @@ function ProviderModelConfig() {
     <div className="p7-provider">
       <label className="p7-field">
         <span className="p7-field__label">Provider</span>
-        <select className="p7-select" value={providerId} onChange={(e) => onProviderChange(e.target.value)}>
-          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-        </select>
+        <Select
+          value={providerId}
+          onChange={onProviderChange}
+          label="Provider"
+          options={PROVIDERS.map((p) => ({ value: p.id, label: p.label }))}
+          block
+        />
       </label>
       <label className="p7-field">
         <span className="p7-field__label">Model</span>

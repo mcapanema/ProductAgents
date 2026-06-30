@@ -42,7 +42,7 @@
 .p7-field__label { font: var(--text-label); color: var(--text-secondary); }
 .p7-field__hint { color: var(--text-tertiary); font-weight: var(--fw-regular); }
 
-.p7-input, .p7-select {
+.p7-input {
   height: var(--field-height); padding: var(--field-pad-y) var(--field-pad-x);
   font: var(--field-font); color: var(--field-text);
   background: var(--field-bg); border: var(--border-width-default) solid var(--field-border);
@@ -50,12 +50,35 @@
 }
 .p7-input--mono { font: var(--text-code); }
 .p7-input::placeholder { color: var(--field-placeholder); }
-.p7-input:hover, .p7-select:hover { border-color: var(--field-border-hover); }
-.p7-input:focus-visible, .p7-select:focus-visible {
+.p7-input:hover { border-color: var(--field-border-hover); }
+.p7-input:focus-visible {
   border-color: var(--field-border-focus); outline: var(--focus-ring-width) solid var(--border-focus);
   outline-offset: var(--focus-ring-offset);
 }
-.p7-select { cursor: var(--cursor-interactive); }
+
+/* appearance:auto leaves the native widget fighting our padding/height for
+ * text layout (crops + flickers the label) — appearance:none hands layout
+ * fully to CSS, with a decorative Icon standing in for the native arrow. */
+.p7-select-wrap { position: relative; display: inline-flex; }
+.p7-select-wrap--block { display: flex; width: 100%; }
+.p7-select-wrap--block .p7-select { flex: 1; min-width: 0; }
+.p7-select {
+  appearance: none; -webkit-appearance: none;
+  height: var(--field-height); padding: 0 calc(var(--field-pad-x) + var(--icon-sm) + var(--space-8)) 0 var(--field-pad-x);
+  font: var(--field-font); color: var(--field-text);
+  background: var(--field-bg); border: var(--border-width-default) solid var(--field-border);
+  border-radius: var(--field-radius); transition: var(--field-transition);
+  cursor: var(--cursor-interactive);
+}
+.p7-select:hover { border-color: var(--field-border-hover); }
+.p7-select:focus-visible {
+  border-color: var(--field-border-focus); outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p7-select-caret {
+  position: absolute; top: 50%; right: var(--field-pad-x); transform: translateY(-50%);
+  color: var(--text-tertiary); pointer-events: none;
+}
 
 /* ═══════════════════════════════════════════════ SETTINGS NAVIGATION ═══ */
 .p7-shell { display: grid; grid-template-columns: 200px 1fr; gap: var(--space-16); min-height: var(--p7-shell-h, auto); }
