@@ -283,17 +283,48 @@ function ShortcutRow({ data, recording, onStartRecord, onCancelRecord }: {
   );
 }
 
+const BARE_MODIFIERS = new Set(["Control", "Shift", "Alt", "Meta"]);
+
+function formatKeyLabel(key: string): string {
+  if (key === " ") return "Space";
+  return key.length === 1 ? key.toUpperCase() : key;
+}
+
+// A bare modifier press (e.g. just tapping Cmd) isn't a complete binding —
+// keep waiting until a non-modifier key arrives, then combine it with
+// whichever modifiers are still held.
+function describeKeyCombo(e: ReactKeyboardEvent): string[] | null {
+  if (BARE_MODIFIERS.has(e.key)) return null;
+  const keys: string[] = [];
+  if (e.metaKey) keys.push("⌘");
+  if (e.ctrlKey) keys.push("Ctrl");
+  if (e.altKey) keys.push("⌥");
+  if (e.shiftKey) keys.push("⇧");
+  keys.push(formatKeyLabel(e.key));
+  return keys;
+}
+
 function KeyboardShortcutEditor() {
+  const [shortcuts, setShortcuts] = useState(SHORTCUTS);
   const [recordingId, setRecordingId] = useState<string | null>(null);
+
   function onKeyDownCapture(e: ReactKeyboardEvent<HTMLUListElement>) {
-    if (recordingId && e.key === "Escape") {
+    if (!recordingId) return;
+    if (e.key === "Escape") {
       e.preventDefault();
       setRecordingId(null);
+      return;
     }
+    const combo = describeKeyCombo(e);
+    if (!combo) return; // bare modifier — still waiting for the real key
+    e.preventDefault();
+    setShortcuts((prev) => prev.map((s) => (s.id === recordingId ? { ...s, keys: combo } : s)));
+    setRecordingId(null);
   }
+
   return (
     <ul className="p7-shortcut-list" onKeyDown={onKeyDownCapture}>
-      {SHORTCUTS.map((s) => (
+      {shortcuts.map((s) => (
         <ShortcutRow
           key={s.id}
           data={s}
