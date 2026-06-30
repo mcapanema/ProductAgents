@@ -115,6 +115,29 @@ function FirstRunState({ steps }: { steps: ChecklistStep[] }) {
   );
 }
 
+function Spinner({ label }: { label: string }) {
+  return (
+    <svg className="p9-spinner" viewBox="0 0 24 24" role="status" aria-label={label}>
+      <circle className="p9-spinner__track" cx={12} cy={12} r={10} />
+      <circle className="p9-spinner__arc" cx={12} cy={12} r={10} pathLength={100} />
+    </svg>
+  );
+}
+
+function LoadingState({ label }: { label: string }) {
+  return (
+    <div className="p9-state" data-kind="loading" role="status" aria-live="polite">
+      <Spinner label={label} />
+      <p className="p9-state__title">{label}</p>
+      <div className="p9-skeleton">
+        <div className="p9-skeleton__row" />
+        <div className="p9-skeleton__row" />
+        <div className="p9-skeleton__row" />
+      </div>
+    </div>
+  );
+}
+
 export function Phase9EmptyStates({ density }: { density: Density }) {
   void density;
   return (
@@ -181,6 +204,16 @@ export function Phase9EmptyStates({ density }: { density: Density }) {
           primary="Clear filters"
         />
       </Specimen>
+      </Section>
+
+      <Section
+        id="p9-loading"
+        title="Initial loading"
+        desc="Shown while a workspace's first data load is in flight — a spinner plus skeleton rows, never a blank screen."
+      >
+        <Specimen label="default">
+          <LoadingState label="Loading workspace…" />
+        </Specimen>
       </Section>
     </>
   );

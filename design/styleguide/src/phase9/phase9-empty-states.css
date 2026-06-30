@@ -90,3 +90,43 @@
 }
 .p9-checklist__item[data-done="true"] { color: var(--text-primary); }
 .p9-checklist__item[data-done="true"] .p9-ico { color: var(--ai-running); }
+
+/* Loading state — spinner + skeleton rows. */
+.p9-spinner {
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+  color: var(--ai-running);
+  animation: p9-spin var(--dur-slow) linear infinite;
+}
+.p9-spinner__track { fill: none; stroke: var(--border-subtle); stroke-width: var(--space-4); }
+.p9-spinner__arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--space-4);
+  stroke-linecap: round;
+  stroke-dasharray: 25 75;
+}
+@keyframes p9-spin { to { transform: rotate(1turn); } }
+
+.p9-skeleton {
+  display: grid;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: var(--measure-prose);
+}
+.p9-skeleton__row {
+  height: var(--space-12);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  background-image: linear-gradient(90deg, transparent 0%, var(--surface-raised) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: p9-shimmer var(--dur-slower) var(--ease-standard) infinite;
+}
+@keyframes p9-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .p9-spinner { animation: none; }
+  .p9-spinner__arc { stroke-dasharray: 60 40; }
+  .p9-skeleton__row { animation: none; background-image: none; }
+}
