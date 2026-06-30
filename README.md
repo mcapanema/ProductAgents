@@ -219,8 +219,7 @@ panel lets you run a sync or check health; per-connector cursors are persisted
 so each run only pulls records changed since the last sync.
 
 You can also sync headlessly: `uv run productagents sync` runs a one-shot
-headless sync (for cron/launchd; it exits non-zero on failure), and setting
-`PRODUCTAGENTS_SYNC_INTERVAL` makes a long-running process auto-sync on a timer.
+headless sync (for cron/launchd; it exits non-zero on failure).
 
 ### Run
 
