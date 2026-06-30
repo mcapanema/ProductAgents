@@ -10,6 +10,7 @@ from productagents.platform.configuration import (
     api_key_var_for,
     check_config,
     provider_for,
+    write_env,
 )
 from productagents.platform.workspace import WorkspaceService
 
@@ -47,6 +48,30 @@ def test_providers_have_prefixed_default_models():
     for pid, info in PROVIDERS.items():
         assert isinstance(info, ProviderInfo)
         assert info.default_model.startswith(f"{pid}:")
+
+
+def test_openrouter_default_is_a_free_tool_calling_model():
+    info = PROVIDERS.get("openrouter")
+    assert info is not None
+    model = info.default_model
+    # The default must stay a free tool-calling model (see CLAUDE.md).
+    assert ":free" in model or "free" in model.split("/")[-1]
+
+
+def test_write_env_preserves_existing_lines(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("EXISTING_VAR=keep\n")
+    write_env({"NEW_VAR": "value"}, dotenv_path=str(env_file))
+    contents = env_file.read_text()
+    assert "EXISTING_VAR=keep" in contents
+    assert "NEW_VAR=" in contents
+    assert "value" in contents
+
+
+def test_provider_for_explicit_override_wins():
+    # The second-arg override path in provider_for must stay covered.
+    result = provider_for("some-bare-model", explicit_provider="openai")
+    assert result == "openai"
 
 
 def test_service_set_writes_active_workspace_env(tmp_path, monkeypatch):
