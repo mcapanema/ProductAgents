@@ -37,6 +37,7 @@ class Workflow:
     title: str
     description: str
     start: Callable[..., tuple[Session, AsyncIterator[ev.Event]]]
+    cancel: Callable[[str], bool] | None = None
 
 
 def build_evaluate_initiative(
@@ -66,6 +67,7 @@ def build_evaluate_initiative(
             "strategist → judge → risk → governance."
         ),
         start=service.start_session,
+        cancel=service.cancel,
     )
 
 
@@ -116,3 +118,12 @@ class WorkflowService:
         if workflow is None:
             raise KeyError(f"unknown workflow: {name!r}")
         return workflow.start(*args, **kwargs)
+
+    def cancel(self, session_id: str) -> bool:
+        """Ask every workflow to cancel the session; True if any owned it.
+
+        ponytail: the session→workflow map isn't tracked (one workflow today);
+        DecisionService.cancel is a no-op for sessions it doesn't own, so a
+        fan-out is safe. Add a session index only when many workflows coexist.
+        """
+        return any(w.cancel(session_id) for w in self._workflows.values() if w.cancel)

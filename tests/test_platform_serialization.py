@@ -94,9 +94,10 @@ def _all_events() -> list[ev.Event]:
             category="rate_limit",
             message="429",
         ),
+        ev.SessionCancelled(session_id="s", seq=13, ts=_TS),
         ev.SessionFinished(
             session_id="s",
-            seq=13,
+            seq=14,
             ts=_TS,
             recommendation=_rec(),
             reports=[_report()],
