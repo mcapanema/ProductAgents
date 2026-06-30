@@ -1153,6 +1153,7 @@ dependencies = [
     { name = "productagents-core" },
     { name = "productagents-memory" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
 ]
 
@@ -1163,6 +1164,7 @@ requires-dist = [
     { name = "productagents-core", editable = "packages/pa-core" },
     { name = "productagents-memory", editable = "packages/pa-memory" },
     { name = "pydantic", specifier = ">=2.7" },
+    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6" },
 ]
 

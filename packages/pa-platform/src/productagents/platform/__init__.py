@@ -5,6 +5,7 @@ Presentation adapters (TUI, CLI, IPC, GUI) depend only on this package and
 or ``connectors`` directly.
 """
 
+from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.decision_service import DecisionService
@@ -15,6 +16,7 @@ from productagents.platform.workflow import Workflow, WorkflowService
 from productagents.platform.workspace import Workspace, WorkspaceService
 
 __all__ = [
+    "ConfigurationService",
     "ConnectorService",
     "DecisionReadService",
     "DecisionService",
