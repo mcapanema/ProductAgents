@@ -8,6 +8,7 @@ import { Phase3Feedback } from "./phase3/Phase3Feedback";
 import { Phase3Overlays } from "./phase3/Phase3Overlays";
 import { Phase4Agents } from "./phase4/Phase4Agents";
 import { Phase4Execution } from "./phase4/Phase4Execution";
+import { Phase4LLM } from "./phase4/Phase4LLM";
 
 export function Components() {
   return (
@@ -28,6 +29,7 @@ export function Components() {
       <Phase3Overlays />
       <Phase4Agents />
       <Phase4Execution />
+      <Phase4LLM />
     </>
   );
 }
