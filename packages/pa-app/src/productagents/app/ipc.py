@@ -17,6 +17,7 @@ reuses ``handle`` + ``build_services`` for browser/Playwright UI testing.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import sys
@@ -148,21 +149,34 @@ async def _run(
     session, stream = workflows.run(
         params["workflow"], initiative, params.get("evidence", ""), approver=approver
     )
-    failed = False
-    async for event in stream:
-        if isinstance(event, ev.SessionFailed):
-            failed = True
-        etype, payload = serialize_event(event)
-        await emit({"id": rid, "event": {"type": etype, "payload": payload}})
-    await emit(
-        {
-            "id": rid,
-            "result": {
-                "status": "failed" if failed else "finished",
-                "session_id": session.id,
-            },
-        }
-    )
+
+    # Concurrent cancel watcher — only for non-approval runs (HITL already owns
+    # the control line via its approver; two stdin readers would race).
+    watch = None
+    if (
+        not params.get("approval")
+        and read_line is not None
+        and hasattr(workflows, "cancel")
+    ):
+        watch = asyncio.ensure_future(
+            _watch_cancel(session.id, workflows, read_line, emit)
+        )
+
+    status = "finished"
+    try:
+        async for event in stream:
+            if isinstance(event, ev.SessionFailed):
+                status = "failed"
+            elif isinstance(event, ev.SessionCancelled):
+                status = "cancelled"
+            etype, payload = serialize_event(event)
+            await emit({"id": rid, "event": {"type": etype, "payload": payload}})
+    finally:
+        if watch is not None:
+            watch.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watch
+    await emit({"id": rid, "result": {"status": status, "session_id": session.id}})
 
 
 async def _ipc_approve(
@@ -187,6 +201,34 @@ async def _ipc_approve(
     if msg.get("id") is not None:
         await emit({"id": msg["id"], "result": {"ok": True}})
     return HumanDecision(verdict=verdict, rationale=p.get("rationale", ""))
+
+
+async def _watch_cancel(
+    session_id: str,
+    workflows: WorkflowService,
+    read_line: Callable[[], Awaitable[str]],
+    emit: Emit,
+) -> None:
+    """Read control lines while a run streams; act on a run.cancel.
+
+    The serve loop is parked in _run, so this is the sole stdin consumer during
+    a (non-approval) run. ponytail: only run.cancel is honored here; any other
+    line during an active run violates the single-in-flight protocol and is
+    ignored.
+    """
+    while True:
+        raw = await read_line()
+        if not raw:
+            return
+        try:
+            msg = json.loads(raw)
+        except json.JSONDecodeError, TypeError:
+            continue
+        if msg.get("method") == "run.cancel":
+            ok = workflows.cancel((msg.get("params") or {}).get("session_id", ""))
+            if msg.get("id") is not None:
+                await emit({"id": msg["id"], "result": {"ok": ok}})
+            return
 
 
 def _workflow_dict(w: Workflow) -> dict:
@@ -489,6 +531,10 @@ async def handle(
             rows = await memory.lessons()
             await emit({"id": rid, "result": [_lesson_dict(x) for x in rows]})
 
+        async def _run_cancel(p: dict) -> None:
+            ok = workflows.cancel(p.get("session_id", ""))
+            await emit({"id": rid, "result": {"ok": ok}})
+
         table: dict[str, Callable[[dict], Awaitable[None]]] = {
             "workflows.list": _workflows_list,
             "workspaces.list": _workspaces_list,
@@ -509,6 +555,7 @@ async def handle(
             "config.set": _config_set,
             "reflection.record": _reflection_record,
             "memory.lessons": _memory_lessons,
+            "run.cancel": _run_cancel,
         }
 
         handler = table.get(method)
@@ -544,9 +591,19 @@ async def serve(
     """
     if read_line is None:
         loop = asyncio.get_running_loop()
+        _lines: asyncio.Queue[str] = asyncio.Queue()
+
+        async def _pump() -> None:
+            while True:
+                line = await loop.run_in_executor(None, sys.stdin.readline)
+                await _lines.put(line)
+                if not line:  # EOF
+                    return
+
+        pump_task = asyncio.ensure_future(_pump())  # noqa: F841, RUF006 — keepalive; task runs for the serve-loop lifetime
 
         async def read_line() -> str:
-            return await loop.run_in_executor(None, sys.stdin.readline)
+            return await _lines.get()
 
     if write_line is None:
 

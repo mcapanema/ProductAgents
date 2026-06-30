@@ -1,5 +1,6 @@
 """Tests for the JSON-over-stdio IPC adapter."""
 
+import asyncio
 import json
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
@@ -1128,3 +1129,74 @@ async def test_memory_method_without_service_errors():
     )
     assert sink[0]["id"] == 51
     assert "memory service not available" in sink[0]["error"]
+
+
+class _CancellableWorkflows:
+    """run() streams SessionStarted then blocks until cancel() fires."""
+
+    def __init__(self):
+        self._fire = asyncio.Event()
+        self.cancelled = None
+
+    def run(self, name, initiative, evidence, *, approver=None):
+        session = Session(id="s-cancel", workflow="evaluate_initiative")
+        return session, self._stream(session)
+
+    async def _stream(self, session):
+        from productagents.platform import events as ev
+
+        yield ev.SessionStarted(session_id=session.id, seq=0, workflow=session.workflow)
+        await self._fire.wait()
+        yield ev.SessionCancelled(session_id=session.id, seq=1)
+
+    def cancel(self, session_id):
+        self.cancelled = session_id
+        self._fire.set()
+        return True
+
+
+async def test_run_cancel_mid_stream_reports_cancelled():
+    wf = _CancellableWorkflows()
+    read_line = _line_reader(
+        [
+            json.dumps(
+                {"id": 77, "method": "run.cancel", "params": {"session_id": "s-cancel"}}
+            )
+        ]
+    )
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 5,
+            "method": "run",
+            "params": {"workflow": "evaluate_initiative", "title": "X"},
+        },
+        workflows=cast(WorkflowService, wf),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        read_line=read_line,
+        emit=emit,
+    )
+    assert wf.cancelled == "s-cancel"
+    assert {"id": 77, "result": {"ok": True}} in sink
+    types = [m["event"]["type"] for m in sink if "event" in m]
+    assert "SessionCancelled" in types
+    assert sink[-1] == {
+        "id": 5,
+        "result": {"status": "cancelled", "session_id": "s-cancel"},
+    }
+
+
+async def test_run_cancel_standalone_when_no_active_run():
+    # run.cancel with no in-flight run goes through the dispatch table.
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 6, "method": "run.cancel", "params": {"session_id": "ghost"}},
+        workflows=_workflows(),  # plain WorkflowService, cancel → False
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink == [{"id": 6, "result": {"ok": False}}]
