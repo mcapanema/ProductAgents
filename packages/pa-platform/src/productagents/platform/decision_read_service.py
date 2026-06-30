@@ -38,3 +38,28 @@ class DecisionReadService:
         if record is None:
             return None, []
         return record, [o for o in outcomes if o.decision_id == decision_id]
+
+    async def export(self, directory) -> tuple[int, int]:
+        """Write decisions.jsonl + outcomes.jsonl to ``directory``; return counts.
+
+        The DB is the system of record; this is the export/audit dump
+        (productagents.memory.jsonl). Existing files are overwritten.
+        """
+        from pathlib import Path
+
+        from productagents.memory import jsonl
+
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        async with self._open() as store:
+            decisions = await store.decisions()
+            outcomes = await store.outcomes()
+        dpath = directory / "decisions.jsonl"
+        opath = directory / "outcomes.jsonl"
+        dpath.unlink(missing_ok=True)
+        opath.unlink(missing_ok=True)
+        for d in decisions:
+            jsonl.record_decision(d, dpath)
+        for o in outcomes:
+            jsonl.record_outcome(o, opath)
+        return len(decisions), len(outcomes)
