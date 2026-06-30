@@ -131,10 +131,13 @@
   .p9-skeleton__row { animation: none; background-image: none; }
 }
 
-/* Offline / Maintenance — blocking states render a solid card, not dashed,
- * to read as "interruption" rather than "nothing here yet". */
+/* Offline / Maintenance / Loading — blocking/transitional states render a
+ * solid, raised card, not dashed, to read as "interruption" rather than
+ * "nothing here yet". Loading needs this too: its skeleton rows are
+ * --surface-sunken, which is invisible against a --surface-sunken card. */
 .p9-state[data-kind="offline"],
-.p9-state[data-kind="maintenance"] {
+.p9-state[data-kind="maintenance"],
+.p9-state[data-kind="loading"] {
   border-style: solid;
   background: var(--p9-surface);
 }
