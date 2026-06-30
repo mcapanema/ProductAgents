@@ -165,18 +165,15 @@
   --icon-size-lg: var(--icon-lg);
   --icon-size-xl: var(--icon-xl);
 
-  /* Z-index — semantic stack (Base → Notification). Mirrors the primitives;
-   * adds the two roles components need that the primitive scale didn't name. */
+  /* Z-index — primitives.css already defines --z-{base,raised,sticky,dropdown,
+   * overlay,modal,toast,tooltip} in :root, so components reference those names
+   * directly. Only the semantic-only roles are declared here.
+   * NEVER alias a token to itself (`--z-x: var(--z-x)`): that is a cyclic var()
+   * that computes to the guaranteed-invalid value, so `z-index: var(--z-x)`
+   * silently falls back to `auto` and the stacking order collapses. */
   --z-content: var(--z-base);
-  --z-raised: var(--z-raised);
-  --z-sticky: var(--z-sticky);
-  --z-dropdown: var(--z-dropdown);
-  --z-overlay: var(--z-overlay);
-  --z-modal: var(--z-modal);
   --z-popover: var(--z-toast);          /* popovers ride above modals */
-  --z-toast: var(--z-toast);
   --z-notification: var(--z-toast);
-  --z-tooltip: var(--z-tooltip);        /* always topmost */
 
   /* ═══════════════════════════════════════ 2G · ACCESSIBILITY (non-color) ═══
    * Color a11y (contrast-checked pairs, focus color, signal pairings) lives in

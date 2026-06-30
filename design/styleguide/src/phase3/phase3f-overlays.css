@@ -1,0 +1,345 @@
+/*
+ * Phase 3F — Overlays. Self-contained styleguide CSS (every class `ov-`-prefixed).
+ * =============================================================================
+ * Built from the token layer ONLY (semantic.css + components.css + themes/*).
+ * Stacking comes exclusively from the --z-* tokens (overlays are where stacking
+ * matters most). Scrims are CONTAINED: each interactive demo lives in a
+ * `position: relative; overflow: hidden` .ov-stage, so the scrim/panel cover
+ * only the preview box — never the page. In the product these same surfaces are
+ * portalled to <body> with `position: fixed`; only the containment differs.
+ */
+
+:root {
+  /* New tokens — composed from existing tokens, never raw literals. */
+  --ov-arrow-size: var(--space-8);                  /* popover / tooltip pointer */
+  --ov-offset: var(--space-8);                       /* gap: trigger ↔ overlay */
+  --ov-menu-width: calc(var(--width-dialog-sm) / 2); /* ~210px menu min-width */
+  --ov-hovercard-width: var(--width-inspector);      /* richer preview-on-hover */
+  --ov-stage-h: calc(var(--space-96) * 3);           /* contained preview height */
+  --ov-tooltip-delay: var(--dur-slow);               /* hover-intent dwell */
+}
+
+/* ── Contained stage: the scrim's universe ──────────────────────────────── */
+.ov-stage {
+  position: relative;
+  /* clip, not hidden: `hidden` is a scroll container, so focusing the opened
+   * drawer scroll-shifted the stage and the sheet drifted off its edge into the
+   * middle. `overflow: clip` clips identically but is never scrollable. */
+  overflow: clip;
+  min-height: var(--ov-stage-h);
+  display: grid;
+  place-items: center;
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--pad-card);
+}
+.ov-stage-note {
+  position: absolute;
+  top: var(--space-8); left: var(--space-12);
+  font: var(--text-caption); color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+.ov-row { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+
+/* Static "always-open" preview lane — same surfaces, no scrim/portal, so a
+ * reviewer sees the material without interacting. */
+.ov-static {
+  display: flex; flex-wrap: wrap; gap: var(--space-24); align-items: flex-start;
+}
+/* The interactive popover/menu demos live in this flex row and would otherwise
+ * shrink to the trigger button's width (and center it vertically), clipping the
+ * opened surface against the box. Give each real width AND anchor the trigger
+ * near the top so the downward popover/menu has room to show. */
+.ov-static > .ov-stage {
+  flex: 1 1 var(--width-inspector);
+  min-width: 0;
+  min-height: calc(var(--ov-stage-h) + var(--space-48));  /* room for the taller menu */
+  align-items: start;
+  padding-top: var(--space-32);
+}
+
+/* ── Icon ──────────────────────────────────────────────────────────────── */
+.ov-ico { width: var(--size-icon); height: var(--size-icon); flex: none; }
+.ov-ico--sm { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+.ov-ico--lg { width: var(--icon-lg); height: var(--icon-lg); }
+
+/* ── Scrim (tokenized dim + restrained blur) ───────────────────────────── */
+.ov-scrim {
+  position: absolute; inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--overlay-scrim);
+  backdrop-filter: blur(var(--overlay-blur));
+  animation: ov-fade var(--dur-normal) var(--ease-decelerate);
+}
+/* Transparent click-catcher for non-dimming overlays (popover/menu). */
+.ov-catch { position: absolute; inset: 0; z-index: var(--z-dropdown); }
+
+/* ════════════════════════════════════════════════════════ MODAL ═══════ */
+.ov-modal {
+  position: absolute; z-index: var(--z-modal);
+  display: flex; flex-direction: column;
+  width: min(var(--width-dialog-md), calc(100% - var(--space-32)));
+  max-height: calc(100% - var(--space-32));
+  background: var(--dialog-bg);
+  border: var(--border-width-default) solid var(--dialog-border);
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--dialog-shadow);
+  animation: ov-pop var(--dur-normal) var(--ease-decelerate);
+}
+.ov-modal--sm { width: min(var(--width-dialog-sm), calc(100% - var(--space-32))); }
+.ov-modal--lg { width: min(var(--width-dialog-lg), calc(100% - var(--space-32))); }
+
+.ov-head {
+  display: flex; align-items: flex-start; gap: var(--space-12);
+  padding: var(--dialog-pad) var(--dialog-pad) var(--space-12);
+}
+.ov-head h4 { margin: 0; font: var(--text-heading-4); letter-spacing: var(--text-heading-4-tracking); color: var(--text-primary); }
+.ov-head p { margin: var(--space-2) 0 0; font: var(--text-body-s); color: var(--text-secondary); }
+.ov-head .ov-titles { flex: 1; min-width: 0; }
+
+.ov-body {
+  padding: 0 var(--dialog-pad);
+  overflow: auto;
+  font: var(--text-body-m); color: var(--text-secondary);
+}
+.ov-body p { margin: 0 0 var(--space-12); }
+.ov-body p:last-child { margin-bottom: 0; }
+
+.ov-foot {
+  display: flex; justify-content: flex-end; gap: var(--space-8);
+  padding: var(--space-16) var(--dialog-pad) var(--dialog-pad);
+}
+
+/* Icon-only close affordance (ghost). */
+.ov-close {
+  flex: none; display: grid; place-items: center;
+  width: var(--size-control); height: var(--size-control);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent; color: var(--text-secondary);
+  cursor: var(--cursor-interactive); transition: var(--transition-control);
+}
+.ov-close:hover { background: var(--surface-hover); color: var(--text-primary); }
+.ov-close:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* ════════════════════════════════════════════════════════ DRAWER ══════ */
+.ov-drawer {
+  position: absolute; top: 0; bottom: 0; z-index: var(--z-modal);
+  display: flex; flex-direction: column;
+  width: min(var(--width-inspector), calc(100% - var(--space-48)));
+  background: var(--dialog-bg);
+  box-shadow: var(--elevation-overlay);
+}
+.ov-drawer--right { right: 0; border-left: var(--border-width-default) solid var(--dialog-border); animation: ov-slide-r var(--dur-normal) var(--ease-decelerate); }
+.ov-drawer--left  { left: 0;  border-right: var(--border-width-default) solid var(--dialog-border); animation: ov-slide-l var(--dur-normal) var(--ease-decelerate); }
+.ov-drawer .ov-body { padding: var(--space-12) var(--dialog-pad); flex: 1; }
+.ov-drawer .ov-foot { border-top: var(--border-width-default) solid var(--border-subtle); }
+
+/* Inspector key/value rows (drawer body content). */
+.ov-kv { display: grid; gap: var(--space-12); }
+.ov-kv-row { display: grid; grid-template-columns: 96px 1fr; gap: var(--space-12); align-items: baseline; }
+.ov-kv-row dt { font: var(--text-label); letter-spacing: var(--text-label-tracking); text-transform: uppercase; color: var(--text-tertiary); }
+.ov-kv-row dd { margin: 0; font: var(--text-body-s); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* ════════════════════════════════════════════════════════ POPOVER ═════ */
+.ov-popover {
+  position: absolute; z-index: var(--z-popover);
+  width: var(--ov-menu-width);
+  background: var(--popover-bg);
+  border: var(--border-width-default) solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  padding: var(--popover-pad);
+  animation: ov-pop var(--dur-fast) var(--ease-decelerate);
+}
+.ov-popover h5 { margin: 0 0 var(--space-4); font: var(--text-title); color: var(--text-primary); }
+.ov-popover p { margin: 0; font: var(--text-body-s); color: var(--text-secondary); }
+/* Optional arrow — a rotated square borrowing the popover's own border/fill. */
+.ov-arrow {
+  position: absolute; width: var(--ov-arrow-size); height: var(--ov-arrow-size);
+  background: var(--popover-bg);
+  border-left: var(--border-width-default) solid var(--popover-border);
+  border-top: var(--border-width-default) solid var(--popover-border);
+  transform: rotate(45deg);
+}
+.ov-arrow--top { top: calc(var(--ov-arrow-size) / -2); left: calc(50% - var(--ov-arrow-size) / 2); }
+
+/* ══════════════════════════════════════════════ CONTEXT / DROPDOWN MENU ═ */
+.ov-menu {
+  position: absolute; z-index: var(--z-popover);
+  min-width: var(--ov-menu-width);
+  background: var(--popover-bg);
+  border: var(--border-width-default) solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  padding: var(--space-4);
+  animation: ov-pop var(--dur-fast) var(--ease-decelerate);
+}
+.ov-menu-item {
+  display: flex; align-items: center; gap: var(--space-8);
+  width: 100%; box-sizing: border-box;
+  padding: var(--space-6) var(--space-8);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent; color: var(--text-primary);
+  font: var(--text-body-s); text-align: left;
+  cursor: var(--cursor-interactive); transition: var(--transition-control);
+}
+.ov-menu-item .ov-ico { color: var(--text-tertiary); }
+.ov-menu-item:hover { background: var(--surface-hover); }
+.ov-menu-item:focus-visible { background: var(--surface-hover); outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.ov-menu-item[aria-disabled="true"] { color: var(--text-disabled); opacity: var(--state-disabled-opacity); cursor: var(--state-disabled-cursor); }
+.ov-menu-item .ov-spacer { flex: 1; }
+.ov-menu-shortcut { font: var(--text-code); color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.ov-menu-sep { height: var(--border-width-default); background: var(--border-subtle); margin: var(--space-4) 0; border: 0; }
+/* Destructive item: danger color + trash icon + explicit label (1.4.1). */
+.ov-menu-item--danger { color: var(--text-error); }
+.ov-menu-item--danger .ov-ico { color: var(--text-error); }
+.ov-menu-item--danger:hover, .ov-menu-item--danger:focus-visible { background: var(--fb-error-bg); }
+
+/* ════════════════════════════════════════════════════════ TOOLTIP ═════ */
+/* CSS-only: reveals on hover AND keyboard focus, after an intent dwell. */
+.ov-tip-target { position: relative; display: inline-flex; }
+.ov-tooltip {
+  position: absolute; bottom: calc(100% + var(--ov-offset)); left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-tooltip);
+  background: var(--tooltip-bg); color: var(--tooltip-text);
+  border-radius: var(--tooltip-radius);
+  padding: var(--tooltip-pad-y) var(--tooltip-pad-x);
+  font: var(--tooltip-font);
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.ov-tooltip::after { /* down-pointing tail */
+  content: ""; position: absolute; top: 100%; left: 50%;
+  width: var(--ov-arrow-size); height: var(--ov-arrow-size);
+  background: var(--tooltip-bg); transform: translate(-50%, -50%) rotate(45deg);
+}
+.ov-tip-target:hover .ov-tooltip,
+.ov-tip-target:focus-visible .ov-tooltip,
+.ov-tip-target:focus-within .ov-tooltip {
+  opacity: 1; transition-delay: var(--ov-tooltip-delay);
+}
+
+/* ════════════════════════════════════════════════════════ HOVER CARD ══ */
+.ov-hc-target { position: relative; display: inline-flex; }
+.ov-hovercard {
+  position: absolute; top: calc(100% + var(--ov-offset)); left: 0;
+  z-index: var(--z-popover);
+  width: var(--ov-hovercard-width);
+  background: var(--popover-bg);
+  border: var(--border-width-default) solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  padding: var(--popover-pad);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--dur-fast) var(--ease-standard), visibility var(--dur-fast);
+}
+.ov-hc-target:hover .ov-hovercard,
+.ov-hc-target:focus-within .ov-hovercard {
+  opacity: 1; visibility: visible; transition-delay: var(--ov-tooltip-delay);
+}
+.ov-hc-head { display: flex; align-items: center; gap: var(--space-8); margin-bottom: var(--space-8); }
+.ov-hc-avatar {
+  width: var(--size-avatar); height: var(--size-avatar); flex: none;
+  display: grid; place-items: center; border-radius: var(--radius-pill);
+  background: var(--surface-selected); color: var(--text-link);
+  font: var(--text-title);
+}
+.ov-hc-head b { font: var(--text-title); color: var(--text-primary); }
+/* Scope to the name block's subtitle — `.ov-hc-head span` also matched the
+ * avatar span (a direct child) and, being more specific than .ov-hc-avatar,
+ * forced the initial to a top-left block glyph instead of a centered badge. */
+.ov-hc-head div span { font: var(--text-caption); color: var(--text-tertiary); display: block; }
+.ov-hovercard p { margin: 0; font: var(--text-body-s); color: var(--text-secondary); }
+.ov-hc-stats { display: flex; gap: var(--space-16); margin-top: var(--space-12); }
+.ov-hc-stat b { font: var(--text-terminal); font-variant-numeric: tabular-nums; color: var(--text-primary); display: block; }
+.ov-hc-stat span { font: var(--text-caption); color: var(--text-tertiary); }
+
+/* ════════════════════════════════════════════════ COMMAND DIALOG (⌘K) ══ */
+.ov-command {
+  position: absolute; top: var(--space-24); z-index: var(--z-modal);
+  display: flex; flex-direction: column;
+  width: min(var(--width-dialog-md), calc(100% - var(--space-32)));
+  max-height: calc(100% - var(--space-48));
+  background: var(--dialog-bg);
+  border: var(--border-width-default) solid var(--dialog-border);
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--dialog-shadow);
+  overflow: hidden;
+  animation: ov-pop var(--dur-normal) var(--ease-decelerate);
+}
+.ov-cmd-search {
+  display: flex; align-items: center; gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  color: var(--text-tertiary);
+}
+.ov-cmd-search input {
+  flex: 1; border: 0; background: transparent; color: var(--text-primary);
+  font: var(--text-body-m); outline: none;
+}
+.ov-cmd-search input::placeholder { color: var(--text-secondary); }
+.ov-cmd-search kbd {
+  font: var(--text-code); color: var(--text-tertiary);
+  background: var(--surface-sunken); border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control); padding: 0 var(--space-6);
+}
+.ov-cmd-list { padding: var(--space-4); overflow: auto; }
+.ov-cmd-group { font: var(--text-label); letter-spacing: var(--text-label-tracking); text-transform: uppercase; color: var(--text-tertiary); padding: var(--space-8) var(--space-8) var(--space-4); }
+.ov-cmd-item {
+  display: flex; align-items: center; gap: var(--space-8);
+  width: 100%; box-sizing: border-box;
+  padding: var(--space-8); border-radius: var(--radius-control);
+  border: var(--border-width-default) solid transparent;
+  background: transparent; color: var(--text-primary);
+  font: var(--text-body-s); text-align: left; cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.ov-cmd-item .ov-ico { color: var(--text-tertiary); }
+.ov-cmd-item[aria-selected="true"], .ov-cmd-item:hover { background: var(--surface-selected); }
+.ov-cmd-item:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.ov-cmd-item .ov-spacer { flex: 1; }
+
+/* ════════════════════════════════════════════ CONFIRMATION DIALOG ══════ */
+/* Reuses .ov-modal--sm; adds a leading icon medallion. Destructive variant
+ * pairs danger color with a warning glyph and an explicit consequence + a
+ * "Delete workspace"-style confirm label (never color alone — 1.4.1). */
+.ov-medallion {
+  flex: none; display: grid; place-items: center;
+  width: var(--size-avatar); height: var(--size-avatar);
+  border-radius: var(--radius-pill);
+}
+.ov-medallion--danger { background: var(--fb-error-bg); color: var(--fb-error-icon); }
+.ov-medallion--info   { background: var(--fb-info-bg);  color: var(--fb-info-icon); }
+.ov-consequence {
+  display: flex; gap: var(--space-8); align-items: flex-start;
+  margin-top: var(--space-12); padding: var(--space-12);
+  background: var(--fb-error-bg);
+  border: var(--border-width-default) solid var(--fb-error-border);
+  border-radius: var(--radius-control);
+  font: var(--text-body-s); color: var(--fb-error-text);
+}
+.ov-consequence .ov-ico { color: var(--fb-error-icon); }
+
+/* ── Triggers helper (reuses harness .demo-btn; this only adds icon gap) ── */
+.ov-trigger { display: inline-flex; align-items: center; gap: var(--space-6); }
+
+/* ── Enter keyframes ─────────────────────────────────────────────────── */
+@keyframes ov-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ov-pop {
+  from { opacity: 0; transform: translateY(var(--space-8)) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ov-slide-r { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes ov-slide-l { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+/* ── Reduced motion: keyframes are separate from the global duration switch,
+ *    so disable enter animations explicitly. Surfaces appear instantly. ── */
+@media (prefers-reduced-motion: reduce) {
+  .ov-scrim, .ov-modal, .ov-drawer--right, .ov-drawer--left,
+  .ov-popover, .ov-menu, .ov-command { animation: none; }
+  .ov-tooltip, .ov-hovercard { transition-delay: 0ms; }
+}

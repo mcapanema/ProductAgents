@@ -1,0 +1,777 @@
+/*
+ * Phase 3C — Forms. Self-contained styleguide CSS (prefix `fm-` only).
+ * ===================================================================
+ * Every rule consumes the token layer (semantic.css + components.css + the
+ * active theme) — no raw color/space/radius/size/duration/z literals. New
+ * component needs are declared as `--fm-*` tokens below, each composed from
+ * existing tokens, so the whole gallery flips across [data-theme] and
+ * [data-density] with zero markup change. Color is never the only state
+ * channel: validation always pairs a hue with an inline SVG icon + message.
+ */
+
+:root {
+  /* ── Link button underline ── */
+  --fm-underline-offset: var(--space-2);
+
+  /* ── Loading spinner (button + inline) ── */
+  --fm-spinner-size: var(--icon-sm);
+  --fm-spinner-weight: var(--border-width-focus);
+  --fm-spinner-track: color-mix(in oklab, currentColor 24%, transparent);
+  --fm-spinner-dur: var(--dur-slower);
+
+  /* ── Checkbox / radio ── */
+  --fm-check-size: var(--icon-md);
+  --fm-check-radius: var(--radius-xs);
+  --fm-check-bg: var(--field-bg);
+  --fm-check-border: var(--field-border);
+  --fm-check-border-hover: var(--border-strong);
+  --fm-check-on-bg: var(--accent);
+  --fm-check-on-border: var(--accent);
+  --fm-check-mark: var(--text-on-accent);
+  --fm-radio-dot: calc(var(--fm-check-size) / 2);   /* inner dot — fixed px, not % */
+
+  /* ── Toggle switch ── */
+  --fm-switch-h: var(--control-sm);
+  --fm-switch-w: var(--space-48);
+  --fm-switch-thumb: var(--space-20);
+  --fm-switch-pad: var(--space-4);
+  --fm-switch-track-off: var(--surface-pressed);
+  --fm-switch-track-on: var(--accent);
+  --fm-switch-thumb-bg: var(--surface-raised);
+
+  /* ── Slider ── */
+  --fm-slider-track-h: var(--space-6);
+  --fm-slider-thumb: var(--icon-md);
+  --fm-slider-track-bg: var(--surface-pressed);
+  --fm-slider-fill: var(--accent);
+  --fm-slider-thumb-bg: var(--surface-raised);
+  --fm-slider-thumb-border: var(--accent);
+
+  /* ── Textarea ── */
+  --fm-textarea-min: var(--space-80);
+
+  /* ── Affix fields / select caret room ── */
+  --fm-caret-room: calc(var(--field-pad-x) * 2 + var(--icon-sm));
+
+  /* ── Listbox / popover (combobox, multi-select) ── */
+  --fm-listbox-bg: var(--popover-bg);
+  --fm-listbox-border: var(--popover-border);
+  --fm-listbox-radius: var(--popover-radius);
+  --fm-listbox-shadow: var(--elevation-floating);
+  --fm-listbox-maxh: calc(var(--space-96) * 2);
+  --fm-option-pad-y: var(--space-6);
+  --fm-option-pad-x: var(--space-12);
+
+  /* ── File dropzone ── */
+  --fm-dropzone-bg: var(--surface-sunken);
+  --fm-dropzone-bg-active: var(--accent-subtle);
+  --fm-dropzone-border: var(--border-default);
+  --fm-dropzone-border-active: var(--accent);
+  --fm-dropzone-pad: var(--space-32);
+  --fm-dropzone-icon: var(--icon-xl);
+
+  /* ── Calendar ── */
+  --fm-cal-cell: var(--control-md);
+  --fm-cal-gap: var(--space-2);
+
+  /* ── Form field / label ── */
+  --fm-label-font: var(--text-body-s);
+  --fm-field-gap: var(--space-6);
+}
+
+/* ═══════════════════════════════════════════════════════════ ICONS ═══ */
+.fm-ico { flex: none; display: inline-block; vertical-align: middle; }
+
+/* ══════════════════════════════════════════════════════════ BUTTON ═══ */
+.fm-btn {
+  height: var(--btn-height);
+  border-radius: var(--btn-radius);
+  padding: 0 var(--btn-pad-x);
+  font: var(--btn-font);
+  letter-spacing: var(--btn-tracking, 0);
+  border: var(--border-width-default) solid transparent;
+  cursor: var(--cursor-interactive);
+  transition: var(--btn-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  position: relative;
+  white-space: nowrap;
+  user-select: none;
+}
+.fm-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.fm-btn[disabled],
+.fm-btn[aria-disabled="true"] {
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
+}
+.fm-btn[data-loading="true"] { opacity: var(--state-loading-opacity); pointer-events: none; }
+
+/* Sizes (height + inline padding; type stays --text-button across sizes). */
+.fm-btn--sm { height: var(--control-sm); padding-inline: var(--space-12); }
+.fm-btn--lg { height: var(--control-lg); padding-inline: var(--space-20); }
+
+/* Variants — reuse the component-layer button sets verbatim. */
+.fm-btn--primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+.fm-btn--primary:hover { background: var(--btn-primary-bg-hover); }
+.fm-btn--primary:active { background: var(--btn-primary-bg-pressed); }
+
+.fm-btn--secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+}
+.fm-btn--secondary:hover { background: var(--btn-secondary-bg-hover); }
+.fm-btn--secondary:active { background: var(--btn-secondary-bg-pressed); }
+/* Toggle button = a secondary button that latches via aria-pressed. */
+.fm-btn--secondary[aria-pressed="true"] {
+  background: var(--surface-selected);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.fm-btn--ghost { background: var(--btn-ghost-bg); color: var(--btn-ghost-text); }
+.fm-btn--ghost:hover { background: var(--btn-ghost-bg-hover); color: var(--btn-ghost-text-hover); }
+.fm-btn--ghost:active { background: var(--btn-ghost-bg-pressed); }
+
+.fm-btn--danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); }
+.fm-btn--danger:hover { background: var(--btn-danger-bg-hover); }
+.fm-btn--danger:active { background: var(--btn-danger-bg-pressed); }
+
+/* Icon button — square; aspect-ratio keeps it square at every size tier. */
+.fm-btn--icon { padding-inline: 0; aspect-ratio: 1; }
+
+/* Block button — fills its container width. */
+.fm-btn--block { width: 100%; }
+
+/* Forced interaction states — let the gallery SHOW hover/pressed/focus
+ * statically; the real pseudo-classes still fire on pointer + keyboard. */
+.fm-btn--state-hover.fm-btn--primary { background: var(--btn-primary-bg-hover); }
+.fm-btn--state-active.fm-btn--primary { background: var(--btn-primary-bg-pressed); }
+.fm-btn--state-hover.fm-btn--secondary { background: var(--btn-secondary-bg-hover); }
+.fm-btn--state-active.fm-btn--secondary { background: var(--btn-secondary-bg-pressed); }
+.fm-btn--state-focus { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* Interaction-states specimen layout: each button captioned with its state. */
+.fm-states { display: flex; flex-wrap: wrap; gap: var(--space-16); align-items: flex-start; }
+.fm-state { display: grid; gap: var(--space-6); justify-items: center; }
+.fm-state-cap { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-tertiary); }
+
+/* Link button — text affordance, not a surface. */
+.fm-btn--link {
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: var(--fm-underline-offset);
+  border-radius: var(--radius-xs);
+}
+.fm-btn--link:hover { color: var(--accent); }
+
+/* Spinner — currentColor head over a dimmed ring; collapses under reduced motion. */
+.fm-spinner {
+  width: var(--fm-spinner-size);
+  height: var(--fm-spinner-size);
+  border: var(--fm-spinner-weight) solid var(--fm-spinner-track);
+  border-top-color: currentColor;
+  border-radius: var(--radius-full);
+  animation: fm-spin var(--fm-spinner-dur) linear infinite;
+  flex: none;
+}
+@keyframes fm-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .fm-spinner { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════ FIELD ═══ */
+/* Bare text input / textarea base. */
+.fm-input {
+  height: var(--field-height);
+  width: 100%;
+  border-radius: var(--field-radius);
+  padding: 0 var(--field-pad-x);
+  font: var(--field-font);
+  background: var(--field-bg);
+  color: var(--field-text);
+  border: var(--border-width-default) solid var(--field-border);
+  transition: var(--field-transition);
+}
+.fm-input::placeholder { color: var(--field-placeholder); }
+.fm-input:hover:not(:disabled) { border-color: var(--field-border-hover); }
+.fm-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--field-border-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--field-border-focus);
+}
+.fm-input:disabled {
+  background: var(--field-bg-disabled);
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
+}
+.fm-input[aria-invalid="true"] { border-color: var(--field-border-invalid); }
+.fm-input[data-valid="true"] { border-color: var(--border-success); }
+
+/* Textarea — auto height, vertical resize. */
+.fm-textarea {
+  height: auto;
+  min-height: var(--fm-textarea-min);
+  padding: var(--field-pad-y) var(--field-pad-x);
+  line-height: var(--lh-normal);
+  resize: vertical;
+}
+
+/* Affix field — a field shell wrapping leading/trailing icons + a bare input
+ * (search, password reveal, clearable, number stepper, combobox, multi-select). */
+.fm-affix {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  width: 100%;
+  min-height: var(--field-height);
+  border-radius: var(--field-radius);
+  padding: 0 var(--field-pad-x);
+  background: var(--field-bg);
+  color: var(--field-text);
+  border: var(--border-width-default) solid var(--field-border);
+  transition: var(--field-transition);
+}
+.fm-affix:hover { border-color: var(--field-border-hover); }
+.fm-affix:focus-within {
+  outline: var(--focus-ring-width) solid var(--field-border-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--field-border-focus);
+}
+.fm-affix[aria-invalid="true"] { border-color: var(--field-border-invalid); }
+.fm-affix[data-valid="true"] { border-color: var(--border-success); }
+.fm-affix[data-disabled="true"] {
+  background: var(--field-bg-disabled);
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
+}
+.fm-affix .fm-bare {
+  flex: 1;
+  min-width: 0;
+  height: var(--field-height);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: var(--field-font);
+  padding: 0;
+}
+.fm-affix .fm-bare:focus { outline: none; }
+.fm-affix .fm-bare::placeholder { color: var(--field-placeholder); }
+.fm-affix-icon { color: var(--text-tertiary); display: inline-flex; flex: none; }
+
+/* Small inline icon button (clear / reveal). */
+.fm-iconbtn {
+  display: inline-grid;
+  place-content: center;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-control);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+  flex: none;
+}
+.fm-iconbtn:hover { color: var(--text-primary); background: var(--surface-hover); }
+.fm-iconbtn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+/* Number stepper — affix with a right-edge button column. The custom caret
+ * buttons own increment/decrement, so hide the browser's native spinner. */
+.fm-affix--stepper { padding-right: 0; }
+.fm-affix--stepper input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.fm-affix--stepper input[type="number"]::-webkit-outer-spin-button,
+.fm-affix--stepper input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fm-stepper-btns {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  align-self: stretch;
+  border-left: var(--border-width-default) solid var(--field-border);
+}
+.fm-step-btn {
+  display: grid;
+  place-content: center;
+  width: var(--icon-lg);
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.fm-step-btn:first-child { border-bottom: var(--border-width-default) solid var(--field-border); }
+.fm-step-btn:hover { color: var(--text-primary); background: var(--surface-hover); }
+.fm-step-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+/* ══════════════════════════════════════════════════════════ SELECT ═══ */
+.fm-select-wrap { position: relative; display: inline-flex; width: 100%; }
+.fm-select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: var(--field-height);
+  width: 100%;
+  border-radius: var(--field-radius);
+  padding: 0 var(--fm-caret-room) 0 var(--field-pad-x);
+  font: var(--field-font);
+  background: var(--field-bg);
+  color: var(--field-text);
+  border: var(--border-width-default) solid var(--field-border);
+  transition: var(--field-transition);
+  cursor: var(--cursor-interactive);
+}
+.fm-select:hover:not(:disabled) { border-color: var(--field-border-hover); }
+.fm-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--field-border-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--field-border-focus);
+}
+.fm-select:disabled {
+  background: var(--field-bg-disabled);
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
+}
+.fm-select[aria-invalid="true"] { border-color: var(--field-border-invalid); }
+.fm-select-caret {
+  position: absolute;
+  right: var(--field-pad-x);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-tertiary);
+  display: inline-flex;
+}
+
+/* ═══════════════════════════════ LISTBOX (combobox / multi-select) ═══ */
+.fm-combo { position: relative; width: 100%; }
+.fm-listbox {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  left: 0;
+  right: 0;
+  z-index: var(--z-dropdown);
+  max-height: var(--fm-listbox-maxh);
+  overflow-y: auto;
+  background: var(--fm-listbox-bg);
+  border: var(--border-width-default) solid var(--fm-listbox-border);
+  border-radius: var(--fm-listbox-radius);
+  box-shadow: var(--fm-listbox-shadow);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-px);
+}
+.fm-option {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  width: 100%;
+  text-align: left;
+  padding: var(--fm-option-pad-y) var(--fm-option-pad-x);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--text-body-s);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.fm-option:hover,
+.fm-option[data-active="true"] { background: var(--surface-hover); }
+.fm-option[aria-selected="true"] { background: var(--surface-selected); color: var(--text-primary); }
+.fm-option:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.fm-option .fm-option-check { margin-left: auto; color: var(--accent-text); }
+.fm-option-empty {
+  padding: var(--fm-option-pad-y) var(--fm-option-pad-x);
+  color: var(--text-tertiary);
+  font: var(--text-body-s);
+}
+
+/* Multi-select chips inside the affix. */
+.fm-affix--multi { flex-wrap: wrap; padding-block: var(--space-4); min-height: var(--field-height); height: auto; }
+.fm-chip {
+  height: var(--chip-height);
+  border-radius: var(--chip-radius);
+  padding: 0 var(--space-4) 0 var(--chip-pad-x);
+  font: var(--chip-font);
+  letter-spacing: var(--chip-tracking, 0);
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  border: var(--border-width-default) solid var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chip-gap);
+  flex: none;
+}
+.fm-chip-x {
+  display: inline-grid;
+  place-content: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.fm-chip-x:hover { color: var(--text-primary); background: var(--surface-hover); }
+.fm-chip-x:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ════════════════════════════════════════════════ CHECKBOX / RADIO ═══ */
+.fm-checkfield { position: relative; display: inline-flex; flex: none; }
+.fm-checkbox,
+.fm-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: var(--fm-check-size);
+  height: var(--fm-check-size);
+  border: var(--border-width-strong) solid var(--fm-check-border);
+  background: var(--fm-check-bg);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+}
+.fm-checkbox { border-radius: var(--fm-check-radius); }
+.fm-radio { border-radius: var(--radius-full); }
+.fm-checkbox:hover,
+.fm-radio:hover { border-color: var(--fm-check-border-hover); }
+.fm-checkbox:focus-visible,
+.fm-radio:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.fm-checkbox:checked,
+.fm-checkbox:indeterminate {
+  background: var(--fm-check-on-bg);
+  border-color: var(--fm-check-on-border);
+}
+.fm-checkbox:disabled,
+.fm-radio:disabled {
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
+}
+/* Checkmark / indeterminate dash — inline SVG overlay (never a font glyph). */
+.fm-checkmark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  pointer-events: none;
+  color: var(--fm-check-mark);
+  opacity: 0;
+}
+.fm-checkbox:checked:not(:indeterminate) ~ .fm-checkmark--check { opacity: 1; }
+.fm-checkbox:indeterminate ~ .fm-checkmark--minus { opacity: 1; }
+/* Radio inner dot — a fill, not an icon. */
+.fm-radio::before {
+  content: "";
+  width: var(--fm-radio-dot);
+  height: var(--fm-radio-dot);
+  border-radius: var(--radius-full);
+  background: var(--fm-check-on-bg);
+  transform: scale(0);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.fm-radio:checked { border-color: var(--fm-check-on-border); }
+.fm-radio:checked::before { transform: scale(1); }
+
+.fm-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  cursor: var(--cursor-interactive);
+  color: var(--text-primary);
+  font: var(--text-body-m);
+}
+.fm-choice[data-disabled="true"] { color: var(--text-disabled); cursor: var(--state-disabled-cursor); }
+.fm-radio-group { display: grid; gap: var(--space-8); }
+
+/* ═══════════════════════════════════════════════════ TOGGLE SWITCH ═══ */
+.fm-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  position: relative;
+  flex: none;
+  width: var(--fm-switch-w);
+  height: var(--fm-switch-h);
+  border-radius: var(--radius-pill);
+  background: var(--fm-switch-track-off);
+  border: var(--border-width-default) solid var(--field-border);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.fm-switch::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: var(--fm-switch-pad);
+  transform: translateY(-50%);
+  width: var(--fm-switch-thumb);
+  height: var(--fm-switch-thumb);
+  border-radius: var(--radius-full);
+  background: var(--fm-switch-thumb-bg);
+  box-shadow: var(--elevation-raised);
+  transition: left var(--dur-fast) var(--ease-standard);
+}
+.fm-switch:checked {
+  background: var(--fm-switch-track-on);
+  border-color: var(--fm-switch-track-on);
+}
+.fm-switch:checked::before { left: calc(100% - var(--fm-switch-thumb) - var(--fm-switch-pad)); }
+.fm-switch:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.fm-switch:disabled {
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
+}
+
+/* ══════════════════════════════════════════════════════════ SLIDER ═══ */
+.fm-slider-row { display: flex; align-items: center; gap: var(--space-16); width: 100%; }
+.fm-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1;
+  height: var(--fm-slider-thumb);
+  background: transparent;
+  cursor: var(--cursor-interactive);
+}
+.fm-slider:focus-visible { outline: none; }
+/* Filled track via a value-driven gradient (--fm-slider-pct set inline). */
+.fm-slider::-webkit-slider-runnable-track {
+  height: var(--fm-slider-track-h);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--fm-slider-fill) var(--fm-slider-pct, 50%),
+    var(--fm-slider-track-bg) var(--fm-slider-pct, 50%)
+  );
+}
+.fm-slider::-moz-range-track {
+  height: var(--fm-slider-track-h);
+  border-radius: var(--radius-pill);
+  background: var(--fm-slider-track-bg);
+}
+.fm-slider::-moz-range-progress {
+  height: var(--fm-slider-track-h);
+  border-radius: var(--radius-pill);
+  background: var(--fm-slider-fill);
+}
+.fm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--fm-slider-thumb);
+  height: var(--fm-slider-thumb);
+  border-radius: var(--radius-full);
+  background: var(--fm-slider-thumb-bg);
+  border: var(--border-width-focus) solid var(--fm-slider-thumb-border);
+  margin-top: calc((var(--fm-slider-track-h) - var(--fm-slider-thumb)) / 2);
+}
+.fm-slider::-moz-range-thumb {
+  width: var(--fm-slider-thumb);
+  height: var(--fm-slider-thumb);
+  border-radius: var(--radius-full);
+  background: var(--fm-slider-thumb-bg);
+  border: var(--border-width-focus) solid var(--fm-slider-thumb-border);
+}
+.fm-slider:focus-visible::-webkit-slider-thumb {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.fm-slider:focus-visible::-moz-range-thumb {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.fm-slider:disabled { opacity: var(--state-disabled-opacity); cursor: var(--state-disabled-cursor); }
+.fm-slider-val {
+  font: var(--text-terminal);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  min-width: var(--space-48);
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════ DATE / TIME PICKER ═══ */
+.fm-datetrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  height: var(--field-height);
+  padding: 0 var(--field-pad-x);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  color: var(--field-text);
+  border: var(--border-width-default) solid var(--field-border);
+  font: var(--field-font);
+  cursor: var(--cursor-interactive);
+  transition: var(--field-transition);
+}
+.fm-datetrigger:hover { border-color: var(--field-border-hover); }
+.fm-datetrigger:focus-visible {
+  outline: var(--focus-ring-width) solid var(--field-border-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--field-border-focus);
+}
+.fm-datetrigger .fm-affix-icon { color: var(--text-tertiary); }
+.fm-datetrigger .fm-date-caret { margin-left: auto; color: var(--text-tertiary); }
+
+.fm-calendar {
+  width: max-content;
+  background: var(--popover-bg);
+  border: var(--border-width-default) solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--elevation-floating);
+  padding: var(--popover-pad);
+  display: grid;
+  gap: var(--space-12);
+}
+.fm-cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); }
+.fm-cal-title { font: var(--text-title); color: var(--text-primary); }
+.fm-cal-grid { display: grid; grid-template-columns: repeat(7, var(--fm-cal-cell)); gap: var(--fm-cal-gap); }
+.fm-cal-dow {
+  display: grid;
+  place-content: center;
+  height: var(--fm-cal-cell);
+  font: var(--text-label);
+  letter-spacing: var(--text-label-tracking);
+  color: var(--text-tertiary);
+}
+.fm-cal-day {
+  display: grid;
+  place-content: center;
+  width: var(--fm-cal-cell);
+  height: var(--fm-cal-cell);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font: var(--text-body-s);
+  font-variant-numeric: tabular-nums;
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.fm-cal-day:hover { background: var(--surface-hover); }
+.fm-cal-day[data-outside="true"] { color: var(--text-tertiary); }
+.fm-cal-day[data-today="true"] { border-color: var(--border-strong); }
+.fm-cal-day[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
+}
+.fm-cal-day:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+.fm-cal-foot { display: flex; align-items: center; gap: var(--space-8); }
+
+/* ═════════════════════════════════════════════════════ FILE UPLOAD ═══ */
+.fm-dropzone {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-8);
+  padding: var(--fm-dropzone-pad);
+  text-align: center;
+  background: var(--fm-dropzone-bg);
+  border: var(--border-width-strong) dashed var(--fm-dropzone-border);
+  border-radius: var(--radius-card);
+  color: var(--text-secondary);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+}
+.fm-dropzone:hover { border-color: var(--border-strong); }
+.fm-dropzone[data-dragging="true"] {
+  background: var(--fm-dropzone-bg-active);
+  border-color: var(--fm-dropzone-border-active);
+  border-style: solid;
+}
+.fm-dropzone:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.fm-dropzone .fm-dz-icon { color: var(--text-tertiary); }
+.fm-dropzone .fm-dz-title { font: var(--text-body-m); color: var(--text-primary); }
+.fm-dropzone .fm-dz-title b { color: var(--accent-text); font-weight: var(--fw-medium); }
+.fm-dropzone .fm-dz-hint { font: var(--text-caption); color: var(--text-tertiary); }
+.fm-dz-input {
+  position: absolute;
+  width: var(--space-px);
+  height: var(--space-px);
+  padding: 0;
+  margin: calc(var(--space-px) * -1);
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fm-filelist { display: grid; gap: var(--space-8); margin-top: var(--space-12); }
+.fm-file {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-inline);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.fm-file .fm-file-icon { color: var(--text-tertiary); }
+.fm-file .fm-file-name { font: var(--text-body-s); color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-file .fm-file-size { font: var(--text-terminal); font-variant-numeric: tabular-nums; color: var(--text-tertiary); flex: none; }
+
+/* ════════════════════════════════════════ FORM FIELD / LABEL / MSG ═══ */
+.fm-field { display: grid; gap: var(--fm-field-gap); }
+.fm-label {
+  font: var(--fm-label-font);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.fm-label[data-required]::after { content: "*"; color: var(--text-error); }
+.fm-label[data-disabled="true"] { color: var(--text-disabled); }
+.fm-help { font: var(--text-caption); color: var(--text-tertiary); }
+
+.fm-msg {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--gap-inline);
+  font: var(--text-body-s);
+}
+.fm-msg .fm-ico { margin-top: var(--space-2); }
+.fm-msg--error { color: var(--fb-error-text); }
+.fm-msg--error .fm-ico { color: var(--fb-error-icon); }
+.fm-msg--success { color: var(--fb-success-text); }
+.fm-msg--success .fm-ico { color: var(--fb-success-icon); }
+.fm-msg--warning { color: var(--fb-warning-text); }
+.fm-msg--warning .fm-ico { color: var(--fb-warning-icon); }
+
+/* Gallery helpers (layout only; tokens throughout). */
+.fm-stack { display: grid; gap: var(--space-16); }
+.fm-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-20); align-items: start; }
+.fm-inline-note { font: var(--text-caption); color: var(--text-tertiary); }

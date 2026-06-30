@@ -1,0 +1,331 @@
+/*
+ * Phase 3E — Feedback. Self-contained styleguide CSS (prefix: fbk-).
+ * =================================================================
+ * Alerts, toasts, banners, inline messages, progress (linear + circular),
+ * spinners, skeletons, status states, and a loading overlay — built ONLY from
+ * the token layer (semantic + component + theme), so every piece adapts across
+ * both themes and both densities with zero markup change.
+ *
+ * Colour is never the only channel: every variant pairs its hue with an inline
+ * SVG icon + a text label. Every animation has a prefers-reduced-motion fallback
+ * (parked at a sensible static frame).
+ */
+
+:root {
+  /* New feedback-component tokens — composed from existing roles. The kind
+   * colour groups (--fbk-bg/surface/border/text/icon) are *set per variant* by
+   * the .fbk-k-* classes below; defaults keep an un-kinded element neutral. */
+  --fbk-bg: var(--surface-raised);
+  --fbk-surface: var(--surface-raised);
+  --fbk-border: var(--border-default);
+  --fbk-text: var(--text-primary);
+  --fbk-icon: var(--text-secondary);
+
+  --fbk-toast-width: var(--width-inspector);          /* 360px stack column */
+  --fbk-toast-gap: var(--gap-stack);
+  --fbk-toast-dwell: 6000ms;        /* ponytail: new timing primitive — auto-dismiss
+                                       dwell sits above the 560ms motion scale; no
+                                       existing base to compose from. JS timeout matches. */
+  --fbk-timerbar-height: var(--border-width-focus);   /* 2px auto-dismiss bar */
+
+  --fbk-progress-height: var(--gauge-height);         /* linear bar thickness */
+  --fbk-progress-fill: var(--accent);                 /* measured value = neutral accent */
+  --fbk-progress-live: var(--ai-running);             /* unknown duration = amber (live) */
+
+  --fbk-ring-size: var(--space-48);                   /* circular progress diameter */
+  --fbk-ring-track: var(--ai-confidence-track);
+  --fbk-spinner-size: var(--icon-md);                 /* default spinner; --sm/--lg override */
+
+  --fbk-skeleton-base: var(--surface-sunken);
+  --fbk-skeleton-sheen: var(--surface-hover);         /* shimmer highlight band */
+
+  --fbk-state-icon: var(--space-48);                  /* empty/error/success hero glyph box */
+  --fbk-state-max: var(--measure-prose);              /* state copy line-length cap */
+
+  --fbk-overlay-scrim: var(--overlay-scrim);          /* contained-region veil */
+  --fbk-overlay-blur: var(--blur-scrim);
+}
+
+/* ── Kind colour groups — apply alongside any fbk- element (DRY, 1 source) ── */
+.fbk-k-success { --fbk-bg: var(--fb-success-bg); --fbk-surface: var(--fb-success-surface);
+  --fbk-border: var(--fb-success-border); --fbk-text: var(--fb-success-text); --fbk-icon: var(--fb-success-icon); }
+.fbk-k-warning { --fbk-bg: var(--fb-warning-bg); --fbk-surface: var(--fb-warning-surface);
+  --fbk-border: var(--fb-warning-border); --fbk-text: var(--fb-warning-text); --fbk-icon: var(--fb-warning-icon); }
+.fbk-k-error   { --fbk-bg: var(--fb-error-bg);   --fbk-surface: var(--fb-error-surface);
+  --fbk-border: var(--fb-error-border);   --fbk-text: var(--fb-error-text);   --fbk-icon: var(--fb-error-icon); }
+.fbk-k-info    { --fbk-bg: var(--fb-info-bg);    --fbk-surface: var(--fb-info-surface);
+  --fbk-border: var(--fb-info-border);    --fbk-text: var(--fb-info-text);    --fbk-icon: var(--fb-info-icon); }
+
+/* Inline SVG icon sizing (Phosphor-style; stroke = currentColor on the parent). */
+.fbk-ico { width: var(--size-icon); height: var(--size-icon); flex: none; display: block; }
+.fbk-ico--inline { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+
+/* ══════════════════════════════════════════════════════════════ ALERT ═══
+ * Tinted ground + title + body + optional action row + dismiss. Icon anchors
+ * to the title line so it stays put when the body wraps. */
+.fbk-alert {
+  display: flex; align-items: flex-start; gap: var(--gap-inline);
+  padding: var(--alert-pad);
+  background: var(--fbk-bg);
+  border: var(--alert-border-width) solid var(--fbk-border);
+  border-radius: var(--alert-radius);
+  color: var(--text-primary);
+}
+.fbk-alert__icon {
+  color: var(--fbk-icon); flex: none;
+  display: inline-flex; align-items: center;
+  height: calc(var(--fs-base) * var(--lh-normal));   /* centred on the title line */
+}
+.fbk-alert__icon .fbk-ico { width: var(--alert-icon-size); height: var(--alert-icon-size); }
+.fbk-alert__body { flex: 1; min-width: 0; display: grid; gap: var(--space-4); }
+.fbk-alert__title { margin: 0; font: var(--text-title); letter-spacing: var(--text-title-tracking); color: var(--fbk-text); }
+.fbk-alert__text { margin: 0; font: var(--text-body-s); color: var(--text-secondary); }
+.fbk-alert__actions { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-4); }
+
+/* Tinted action button — outlined in the variant hue. */
+.fbk-act {
+  display: inline-flex; align-items: center; gap: var(--gap-inline);
+  height: var(--control-sm); padding: 0 var(--space-12);
+  font: var(--text-button); letter-spacing: var(--text-button-tracking);
+  color: var(--fbk-text); background: transparent;
+  border: var(--border-width-default) solid var(--fbk-border);
+  border-radius: var(--radius-control); cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+}
+.fbk-act:hover { background: var(--fbk-surface); }
+.fbk-act:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+
+/* Dismiss (X) — focusable, keyboard-operable. */
+.fbk-close {
+  flex: none; display: inline-grid; place-items: center;
+  width: var(--control-sm); height: var(--control-sm);
+  color: var(--text-secondary); background: transparent;
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control); cursor: var(--cursor-interactive);
+  transition: var(--transition-surface); margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) 0 0;
+}
+.fbk-close:hover { color: var(--text-primary); background: var(--surface-hover); }
+.fbk-close:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.fbk-close .fbk-ico { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+
+/* ════════════════════════════════════════════════════════════ BANNER ═══
+ * Full-width, page-level (offline / run degraded). Accent left edge, sits flush
+ * across a region. */
+.fbk-banner {
+  display: flex; align-items: center; gap: var(--gap-inline);
+  width: 100%; padding: var(--pad-control-y) var(--pad-card);
+  background: var(--fbk-bg);
+  border: var(--border-width-default) solid var(--fbk-border);
+  border-left-width: var(--border-width-focus);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+}
+.fbk-banner__icon { color: var(--fbk-icon); flex: none; display: inline-flex; }
+.fbk-banner__text { flex: 1; min-width: 0; font: var(--text-body-s); }
+.fbk-banner__text b { color: var(--fbk-text); font-weight: var(--fw-semibold); }
+.fbk-banner__text span { color: var(--text-secondary); }
+.fbk-banner__actions { display: flex; gap: var(--space-8); flex: none; }
+
+/* ════════════════════════════════════════════════════ INLINE MESSAGE ═══
+ * Compact, form-adjacent. Icon + one line of text; no ground fill. */
+.fbk-inline {
+  display: inline-flex; align-items: center; gap: var(--gap-inline);
+  font: var(--text-caption); color: var(--fbk-text);
+}
+.fbk-inline__icon { color: var(--fbk-icon); display: inline-flex; flex: none; }
+.fbk-inline .fbk-ico { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+
+/* ═════════════════════════════════════════════════════════════ TOAST ═══
+ * Transient, stacks, auto-dismiss timer bar. role=status / aria-live in markup.
+ * Rendered into a contained, relatively-positioned region in the gallery. */
+.fbk-toast-region {
+  display: grid; gap: var(--fbk-toast-gap); justify-items: end;
+  min-height: var(--space-48);
+}
+.fbk-toast {
+  position: relative; overflow: hidden;
+  width: 100%; max-width: var(--fbk-toast-width);
+  display: flex; align-items: flex-start; gap: var(--gap-inline);
+  padding: var(--pad-card); padding-bottom: calc(var(--pad-card) + var(--fbk-timerbar-height));
+  background: var(--surface-floating);
+  border: var(--border-width-default) solid var(--fbk-border);
+  border-radius: var(--toast-radius);
+  box-shadow: var(--toast-shadow);
+  animation: fbk-toast-in var(--dur-normal) var(--ease-decelerate);
+}
+.fbk-toast__icon { color: var(--fbk-icon); flex: none; display: inline-flex;
+  height: calc(var(--fs-sm) * var(--lh-normal)); align-items: center; }
+.fbk-toast__body { flex: 1; min-width: 0; display: grid; gap: var(--space-2); }
+.fbk-toast__title { margin: 0; font: var(--text-body-s); font-weight: var(--fw-semibold); color: var(--text-primary); }
+.fbk-toast__text { margin: 0; font: var(--text-caption); color: var(--text-secondary); }
+.fbk-toast__icon .fbk-ico { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+/* Auto-dismiss progress bar pinned to the bottom edge. */
+.fbk-toast__timer {
+  position: absolute; left: 0; bottom: 0; height: var(--fbk-timerbar-height);
+  width: 100%; transform-origin: left center;
+  background: var(--fbk-border);
+  animation: fbk-timer var(--fbk-toast-dwell) linear forwards;
+}
+@keyframes fbk-toast-in { from { opacity: 0; transform: translateY(calc(var(--space-8) * -1)); } to { opacity: 1; transform: none; } }
+@keyframes fbk-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ══════════════════════════════════════════════════ LINEAR PROGRESS ═══ */
+.fbk-progress { display: grid; gap: var(--space-6); }
+.fbk-progress__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-12); }
+.fbk-progress__label { font: var(--text-body-s); color: var(--text-secondary); display: inline-flex; align-items: center; gap: var(--gap-inline); }
+.fbk-progress__val { font: var(--text-terminal); font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.fbk-progress__track {
+  height: var(--fbk-progress-height); width: 100%;
+  background: var(--gauge-track); border-radius: var(--gauge-radius); overflow: hidden;
+}
+.fbk-progress__fill {
+  height: 100%; border-radius: var(--gauge-radius);
+  background: var(--fbk-progress-fill);
+  width: calc(var(--fbk-value, 0) * 1%);
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+/* Indeterminate: a sliding amber sub-bar (unknown duration = live). */
+.fbk-progress__track--indeterminate { position: relative; }
+.fbk-progress__track--indeterminate .fbk-progress__fill {
+  width: 40%; background: var(--fbk-progress-live);
+  position: absolute; left: 0; animation: fbk-indeterminate var(--dur-slower) var(--ease-standard) infinite;
+}
+@keyframes fbk-indeterminate {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+
+/* ════════════════════════════════════════════════ CIRCULAR PROGRESS ═══
+ * Determinate ring (value via --fbk-value) + spinner. SVG strokes; pathLength
+ * normalises the circle to 100 so dashoffset = 100 - value. */
+.fbk-ring { display: inline-grid; place-items: center; position: relative;
+  width: var(--fbk-ring-size); height: var(--fbk-ring-size); }
+.fbk-ring__svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.fbk-ring__track { fill: none; stroke: var(--fbk-ring-track); stroke-width: var(--space-4); }
+.fbk-ring__value {
+  fill: none; stroke: var(--fbk-progress-fill); stroke-width: var(--space-4);
+  stroke-linecap: round; stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--fbk-value, 0));
+  transition: stroke-dashoffset var(--dur-normal) var(--ease-standard);
+}
+.fbk-ring__num { position: absolute; font: var(--text-caption); font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold); color: var(--text-primary); }
+
+/* ═══════════════════════════════════════════════════════════ SPINNER ═══
+ * Rotating arc. Amber = loading/live. Reduced-motion parks it (static arc). */
+.fbk-spinner { display: inline-block; width: var(--fbk-spinner-size); height: var(--fbk-spinner-size); color: var(--ai-running); }
+.fbk-spinner--sm { --fbk-spinner-size: var(--icon-sm); }
+.fbk-spinner--lg { --fbk-spinner-size: var(--icon-xl); }
+.fbk-spinner__svg { width: 100%; height: 100%; animation: fbk-spin var(--dur-slow) linear infinite; }
+.fbk-spinner__track { fill: none; stroke: var(--fbk-ring-track); stroke-width: var(--space-4); }
+.fbk-spinner__arc { fill: none; stroke: currentColor; stroke-width: var(--space-4);
+  stroke-linecap: round; stroke-dasharray: 25 75; }
+@keyframes fbk-spin { to { transform: rotate(1turn); } }
+
+.fbk-spinner-row { display: flex; align-items: center; gap: var(--space-24); }
+.fbk-spinner-cell { display: grid; justify-items: center; gap: var(--space-6); }
+.fbk-spinner-cell code { font: var(--text-caption); font-family: var(--font-mono); color: var(--text-tertiary); }
+
+/* ══════════════════════════════════════════════════════════ SKELETON ═══
+ * Placeholder blocks with a travelling sheen. Reduced-motion → flat fill. */
+.fbk-skel {
+  background: var(--fbk-skeleton-base); border-radius: var(--radius-control);
+  background-image: linear-gradient(90deg,
+    transparent 0%, var(--fbk-skeleton-sheen) 50%, transparent 100%);
+  background-size: 200% 100%; background-repeat: no-repeat;
+  animation: fbk-shimmer var(--dur-slower) var(--ease-standard) infinite;
+}
+@keyframes fbk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.fbk-skel--line { height: var(--space-12); }
+.fbk-skel--text { height: var(--space-12); border-radius: var(--radius-pill); }
+.fbk-skel--w-40 { width: 40%; }
+.fbk-skel--w-60 { width: 60%; }
+.fbk-skel--w-80 { width: 80%; }
+.fbk-skel--avatar { width: var(--avatar-md); height: var(--avatar-md); border-radius: var(--radius-pill); flex: none; }
+.fbk-skel-card {
+  display: grid; gap: var(--space-12);
+  padding: var(--card-pad); background: var(--card-bg);
+  border: var(--border-width-default) solid var(--card-border); border-radius: var(--card-radius);
+}
+.fbk-skel-card__head { display: flex; align-items: center; gap: var(--space-12); }
+.fbk-skel-card__lines { display: grid; gap: var(--space-8); flex: 1; }
+.fbk-skel-stack { display: grid; gap: var(--space-8); }
+
+/* ══════════════════════════════════════════════════════ STATUS STATE ═══
+ * Empty / error / success / warning blocks: hero icon + heading + description
+ * + primary action. Centred, capped line-length. */
+.fbk-state {
+  display: grid; justify-items: center; text-align: center;
+  gap: var(--space-12); padding: var(--space-32) var(--pad-card);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) dashed var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.fbk-state__icon {
+  display: grid; place-items: center;
+  width: var(--fbk-state-icon); height: var(--fbk-state-icon);
+  color: var(--fbk-icon);
+  background: var(--fbk-surface); border-radius: var(--radius-pill);
+}
+.fbk-state__icon .fbk-ico { width: var(--size-icon); height: var(--size-icon); }
+.fbk-state__title { margin: 0; font: var(--text-heading-4); letter-spacing: var(--text-heading-4-tracking); color: var(--text-primary); }
+.fbk-state__text { margin: 0; max-width: var(--fbk-state-max); font: var(--text-body-s); color: var(--text-secondary); }
+.fbk-state__actions { margin-top: var(--space-4); display: flex; gap: var(--space-8); }
+/* Neutral (empty) state keeps the icon muted; semantic states inherit --fbk-*. */
+.fbk-state--neutral { --fbk-icon: var(--text-tertiary); --fbk-surface: var(--surface-raised); }
+
+/* Reused primary/secondary action button (kept local; mirrors btn tokens). */
+.fbk-btn {
+  display: inline-flex; align-items: center; gap: var(--gap-inline);
+  height: var(--btn-height); padding: 0 var(--btn-pad-x);
+  font: var(--btn-font); border: var(--border-width-default) solid transparent;
+  border-radius: var(--btn-radius); cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.fbk-btn:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.fbk-btn--primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+.fbk-btn--primary:hover { background: var(--btn-primary-bg-hover); }
+.fbk-btn--secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); border-color: var(--btn-secondary-border); }
+.fbk-btn--secondary:hover { background: var(--btn-secondary-bg-hover); }
+
+/* ══════════════════════════════════════════════════ LOADING OVERLAY ═══
+ * Scrim + spinner over a CONTAINED region (not the whole page). The region is
+ * position:relative; the overlay fills it and dims the content beneath. */
+.fbk-region { position: relative; border-radius: var(--card-radius); overflow: hidden; }
+.fbk-overlay {
+  position: absolute; inset: 0; z-index: var(--z-overlay);
+  display: grid; place-items: center; align-content: center; gap: var(--space-12);
+  background: var(--fbk-overlay-scrim);
+  -webkit-backdrop-filter: blur(var(--fbk-overlay-blur));
+  backdrop-filter: blur(var(--fbk-overlay-blur));
+  animation: fbk-fade var(--dur-fast) var(--ease-standard);
+}
+.fbk-overlay__label { font: var(--text-body-s); color: var(--text-primary); display: inline-flex; align-items: center; gap: var(--gap-inline); }
+@keyframes fbk-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Content sample sitting under the overlay. */
+.fbk-region__content { display: grid; gap: var(--space-12); padding: var(--card-pad);
+  background: var(--card-bg); border: var(--border-width-default) solid var(--card-border); }
+.fbk-region__content[data-loading="true"] { opacity: var(--state-loading-opacity); }
+
+/* ─────────────────────────────────────────────── REDUCED MOTION ───
+ * Park every keyframe animation at a meaningful static frame. (The token
+ * durations already collapse system-wide; this guarantees the *state* a parked
+ * animation lands on is the honest one — no half-drawn spinner.) */
+@media (prefers-reduced-motion: reduce) {
+  .fbk-spinner__svg { animation: none; }
+  /* Static spinner reads as a fuller arc so it doesn't look broken at rest. */
+  .fbk-spinner__arc { stroke-dasharray: 60 40; }
+  .fbk-progress__track--indeterminate .fbk-progress__fill {
+    animation: none; left: 0; width: 100%; opacity: var(--opacity-muted);
+  }
+  .fbk-skel { animation: none; background-image: none; }
+  .fbk-toast__timer { animation: none; transform: scaleX(1); opacity: var(--opacity-muted); }
+  .fbk-toast, .fbk-overlay { animation: none; }
+}
+
+/* Gallery scaffolding (not part of the component contract). */
+.fbk-stack { display: grid; gap: var(--gap-stack); }
+.fbk-row { display: flex; flex-wrap: wrap; gap: var(--space-16); align-items: center; }
+.fbk-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid); }
+@media (max-width: 640px) { .fbk-grid-2 { grid-template-columns: 1fr; } }
