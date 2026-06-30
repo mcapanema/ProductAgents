@@ -47,6 +47,17 @@
 .ov-static {
   display: flex; flex-wrap: wrap; gap: var(--space-24); align-items: flex-start;
 }
+/* The interactive popover/menu demos live in this flex row and would otherwise
+ * shrink to the trigger button's width (and center it vertically), clipping the
+ * opened surface against the box. Give each real width AND anchor the trigger
+ * near the top so the downward popover/menu has room to show. */
+.ov-static > .ov-stage {
+  flex: 1 1 var(--width-inspector);
+  min-width: 0;
+  min-height: calc(var(--ov-stage-h) + var(--space-48));  /* room for the taller menu */
+  align-items: start;
+  padding-top: var(--space-32);
+}
 
 /* ── Icon ──────────────────────────────────────────────────────────────── */
 .ov-ico { width: var(--size-icon); height: var(--size-icon); flex: none; }
