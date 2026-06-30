@@ -1,0 +1,182 @@
+/*
+ * Phase 6 — Project components. Self-contained styleguide CSS (prefix: p6-).
+ * ============================================================================
+ * ProductAgents-specific surfaces: workspace switching, project/repository
+ * summaries, git status, and a file explorer (directory tree + preview).
+ * Built ONLY from the existing token layer — no new colours. Status hues
+ * reuse --success/--danger/--info/--signal (amber = state, never "warning"
+ * as a literal token — see themes/dark.css "SIGNALS" block) and --text-tertiary
+ * for neutral/untracked.
+ */
+
+.p6-ico { display: block; flex: none; width: var(--size-icon-inline); height: var(--size-icon-inline); }
+.p6-ico--xs { width: var(--icon-sm); height: var(--icon-sm); }
+.p6-ico--md { width: var(--icon-md); height: var(--icon-md); }
+
+.p6-row { display: flex; flex-wrap: wrap; gap: var(--gap-inline); align-items: center; }
+.p6-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-16); }
+
+/* ═══════════════════════════════════════════════ WORKSPACE SELECTOR ═══ */
+.p6-ws-selector { position: relative; display: inline-block; }
+.p6-ws-trigger {
+  display: inline-flex; align-items: center; gap: var(--space-8);
+  height: var(--control-md); padding: 0 var(--space-12);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control); color: var(--text-primary); font: var(--text-body-s);
+  cursor: var(--cursor-interactive);
+}
+.p6-ws-trigger:hover { background: var(--surface-hover); }
+.p6-ws-trigger:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p6-ws-trigger__name { font-weight: var(--fw-semibold); }
+.p6-ws-trigger__chevron { color: var(--text-tertiary); margin-inline-start: auto; }
+
+.p6-ws-list {
+  margin: var(--space-4) 0 0; padding: var(--space-4);
+  list-style: none; min-width: 240px;
+  background: var(--card-bg-raised); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius); box-shadow: var(--card-shadow-hover);
+}
+.p6-ws-item {
+  display: flex; align-items: center; gap: var(--space-8); width: 100%;
+  padding: var(--space-8) var(--space-8); border-radius: var(--radius-control);
+  background: none; border: none; color: var(--text-primary); text-align: left;
+  font: var(--text-body-s); cursor: var(--cursor-interactive);
+}
+.p6-ws-item:hover { background: var(--surface-hover); }
+.p6-ws-item:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.p6-ws-item__meta { display: flex; flex-direction: column; min-width: 0; }
+.p6-ws-item__path { font: var(--text-code); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p6-ws-item__dot {
+  flex: none; width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full);
+  background: var(--text-disabled); margin-inline-start: auto;
+}
+.p6-ws-item[aria-current="true"] .p6-ws-item__dot { background: var(--success); }
+
+/* ═══════════════════════════════════════════════ PROJECT / REPOSITORY CARD ═══ */
+.p6-card {
+  display: flex; flex-direction: column; gap: var(--space-8);
+  background: var(--card-bg); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius); padding: var(--card-pad); box-shadow: var(--card-shadow);
+}
+.p6-card__head { display: flex; align-items: center; gap: var(--space-8); }
+.p6-card__title { font: var(--text-heading-4); color: var(--text-primary); margin: 0; }
+.p6-card__path { font: var(--text-code); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p6-card__stats { display: flex; gap: var(--space-16); }
+.p6-card__stat { display: flex; flex-direction: column; }
+.p6-card__stat-value { font: var(--text-heading-4); color: var(--text-primary); }
+.p6-card__stat-label { font: var(--text-caption); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: var(--ls-wide); }
+.p6-card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); }
+.p6-card__sync { font: var(--text-caption); color: var(--text-tertiary); }
+
+.p6-visibility {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  font: var(--text-caption); color: var(--text-secondary);
+  padding: 0 var(--space-8); height: var(--space-20);
+  border: var(--border-width-default) solid var(--border-subtle); border-radius: var(--radius-pill);
+}
+
+/* ═══════════════════════════════════════════════ CONNECTOR HEALTH ═══ */
+.p6-health { display: inline-flex; align-items: center; gap: var(--space-4); font: var(--text-caption); font-weight: var(--fw-semibold); }
+.p6-health[data-state="healthy"] { color: var(--text-success); }
+.p6-health[data-state="degraded"] { color: var(--text-warning); }
+.p6-health[data-state="error"] { color: var(--text-error); }
+
+/* ═══════════════════════════════════════════════ GIT STATUS / BRANCH BADGE ═══ */
+.p6-git-status { display: inline-flex; align-items: center; gap: var(--space-8); font: var(--text-body-s); }
+.p6-git-status__label { display: inline-flex; align-items: center; gap: var(--space-4); font-weight: var(--fw-semibold); }
+.p6-git-status[data-state="clean"] .p6-git-status__label { color: var(--text-success); }
+.p6-git-status[data-state="dirty"] .p6-git-status__label { color: var(--text-warning); }
+.p6-git-status[data-state="conflict"] .p6-git-status__label { color: var(--text-error); }
+.p6-git-status__counts { display: inline-flex; gap: var(--space-8); color: var(--text-tertiary); font: var(--text-code); }
+.p6-git-status__ahead { color: var(--text-success); }
+.p6-git-status__behind { color: var(--text-error); }
+
+.p6-branch-badge {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  height: var(--space-20); padding: 0 var(--space-8);
+  background: var(--surface-raised); border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-pill); color: var(--text-secondary); font: var(--text-caption); white-space: nowrap;
+}
+.p6-branch-badge[data-current="true"] { color: var(--accent-text); border-color: var(--accent); }
+.p6-branch-badge__default { color: var(--text-tertiary); }
+
+/* ═══════════════════════════════════════════════ DIRECTORY TREE ═══ */
+.p6-tree, .p6-tree-group { list-style: none; margin: 0; padding: 0; }
+.p6-tree-row {
+  display: flex; align-items: center; gap: var(--space-6);
+  min-height: var(--control-md);
+  padding: 0 var(--space-8); padding-left: calc(var(--space-8) + var(--p6-tree-level, 0) * var(--space-20));
+  color: var(--text-primary); cursor: var(--cursor-interactive); border-radius: var(--radius-control);
+}
+.p6-tree-row:hover { background: var(--surface-hover); }
+.p6-tree-row:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.p6-tree-row[aria-selected="true"] { background: var(--accent-subtle); }
+.p6-tree-twist { display: inline-grid; place-items: center; width: var(--icon-sm); color: var(--text-tertiary); flex: none; }
+.p6-tree-row > .p6-ico { color: var(--text-secondary); }
+.p6-tree-label { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p6-tree-status {
+  margin-inline-start: auto; flex: none;
+  width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full);
+}
+.p6-tree-status[data-status="modified"] { background: var(--signal); }
+.p6-tree-status[data-status="added"] { background: var(--success); }
+.p6-tree-status[data-status="untracked"] { background: var(--text-tertiary); }
+
+/* ═══════════════════════════════════════════════ FILE EXPLORER ═══ */
+.p6-explorer {
+  display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: var(--space-16);
+  background: var(--surface-sunken); border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius); padding: var(--space-16);
+}
+.p6-explorer__tree { min-width: 0; }
+.p6-explorer__crumbs {
+  display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-8);
+  font: var(--text-caption); color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════ FILE PREVIEW ═══ */
+.p6-preview {
+  display: flex; flex-direction: column; gap: var(--space-8); min-width: 0;
+  background: var(--card-bg-raised); border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius); padding: var(--card-pad);
+}
+.p6-preview__head { display: flex; align-items: center; gap: var(--space-8); min-width: 0; }
+.p6-preview__name { font: var(--text-body-m); font-weight: var(--fw-semibold); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p6-preview__meta { font: var(--text-caption); color: var(--text-tertiary); }
+.p6-preview__body {
+  background: var(--surface-sunken); border-radius: var(--radius-control);
+  padding: var(--space-12); overflow: auto; max-height: 220px;
+}
+.p6-preview__line { font: var(--text-code); color: var(--text-secondary); white-space: pre; }
+.p6-preview__line-no { display: inline-block; width: 2em; color: var(--text-disabled); user-select: none; }
+.p6-preview__empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-12);
+  min-height: 240px; padding: var(--space-32) var(--space-16); text-align: center;
+  background: var(--card-bg-raised); border: var(--border-width-default) dashed var(--border-subtle);
+  border-radius: var(--card-radius); color: var(--text-tertiary);
+}
+.p6-preview__empty-badge {
+  display: grid; place-items: center; width: 48px; height: 48px;
+  background: var(--surface-sunken); border-radius: var(--radius-full); color: var(--text-tertiary);
+}
+.p6-preview__empty-title { font: var(--text-body-m); font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.p6-preview__empty-hint { font: var(--text-caption); color: var(--text-tertiary); max-width: 240px; }
+.p6-preview__placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-8);
+  min-height: 120px; background: var(--surface-sunken); border-radius: var(--radius-control); color: var(--text-tertiary);
+}
+.p6-preview__placeholder-label { font: var(--text-caption); }
+
+/* ═══════════════════════════════════════════════ RECENT PROJECTS ═══ */
+.p6-recent { display: flex; flex-direction: column; gap: var(--space-4); }
+.p6-recent-row {
+  display: flex; align-items: center; gap: var(--space-12); width: 100%;
+  padding: var(--space-8) var(--space-12); border-radius: var(--radius-control);
+  background: none; border: none; text-align: left; color: var(--text-primary); cursor: var(--cursor-interactive);
+}
+.p6-recent-row:hover { background: var(--surface-hover); }
+.p6-recent-row:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+.p6-recent-row__meta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.p6-recent-row__name { font: var(--text-body-s); font-weight: var(--fw-semibold); }
+.p6-recent-row__path { font: var(--text-code); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p6-recent-row__time { font: var(--text-caption); color: var(--text-tertiary); white-space: nowrap; }
