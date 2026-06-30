@@ -3,8 +3,9 @@ import type { Theme, Density } from "./sg";
 import { Foundation } from "./Foundation";
 import { Tokens } from "./Tokens";
 import { Components } from "./Components";
+import { AIComponents } from "./AIComponents";
 
-type Category = "foundation" | "tokens" | "components";
+type Category = "foundation" | "tokens" | "components" | "ai-components";
 
 /** Top-level categories. `soon` entries are placeholders for future work
  *  (Design patterns = Phase 10, Documentation = Phase 11) — shown disabled so
@@ -13,6 +14,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "foundation", label: "Foundation" },
   { id: "tokens", label: "Tokens" },
   { id: "components", label: "Components" },
+  { id: "ai-components", label: "AI Components" },
 ];
 const SOON: { label: string }[] = [
   { label: "Design patterns" },
@@ -46,7 +48,7 @@ function Toggle<T extends string>(props: {
 export function App() {
   const [theme, setTheme] = useState<Theme>("light"); // light is the default theme (owner decision)
   const [density, setDensity] = useState<Density>("comfortable");
-  const [category, setCategory] = useState<Category>("components");
+  const [category, setCategory] = useState<Category>("ai-components");
 
   // Layout effects so the attribute write happens BEFORE useResolvedVars' passive
   // read (which displays the resolved hexes) — otherwise the values lag a theme.
@@ -101,6 +103,7 @@ export function App() {
         {category === "foundation" && <Foundation theme={theme} />}
         {category === "tokens" && <Tokens theme={theme} density={density} />}
         {category === "components" && <Components />}
+        {category === "ai-components" && <AIComponents />}
       </main>
     </div>
   );
