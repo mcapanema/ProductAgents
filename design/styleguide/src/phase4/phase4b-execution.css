@@ -1,0 +1,1218 @@
+/*
+ * Phase 4B — Execution & Streaming Reasoning. Self-contained styleguide CSS (prefix: p4b-).
+ * ===========================================================================================
+ * 15 components: ExecutionCard, ExecutionTimeline (CENTERPIECE), DebateTurnCard,
+ * RecommendationCard, JudgmentCard, ApprovalRequestCard, ExecutionProgress,
+ * ParallelTaskViewer, RetryCard, CancellationBanner, ResumePanelCard,
+ * LiveLogViewer, StreamingConsole, ToolExecutionCard, ToolCallInspector.
+ *
+ * Rules:
+ *   - overflow: clip (never overflow: hidden — clips focus rings)
+ *   - :focus-visible only (never bare :focus)
+ *   - No hardcoded colours — all from CSS custom properties
+ *   - All keyframe names and class names start with p4b-
+ *   - prefers-reduced-motion parks every animation
+ *   - data-density="compact" block at the end of each component section
+ */
+
+/* ── Animations ─────────────────────────────────────────────────────────────── */
+
+/* ponytail: p4b-pulse is the running/awaiting signal. Reduced-motion parks at full opacity. */
+@keyframes p4b-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .35; }
+}
+
+/* Border glow for awaiting-human row — indigo halo expands and contracts */
+@keyframes p4b-border-glow {
+  0%, 100% { box-shadow: 0 0 0 0   color-mix(in oklch, var(--ai-awaiting-human) 0%,  transparent); }
+  50%       { box-shadow: 0 0 0 4px color-mix(in oklch, var(--ai-awaiting-human) 30%, transparent); }
+}
+
+/* Travelling dash on active edges / streaming fills */
+@keyframes p4b-fill-advance {
+  from { background-position: 100% 0; }
+  to   { background-position:   0% 0; }
+}
+
+/* Blinking cursor in the streaming console */
+@keyframes p4b-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ── Icon sizing ─────────────────────────────────────────────────────────────── */
+
+.p4b-ico {
+  display: block;
+  flex: none;
+  width: var(--size-icon);
+  height: var(--size-icon);
+}
+.p4b-ico--xs { width: var(--size-icon-inline); height: var(--size-icon-inline); }
+.p4b-ico--sm { width: var(--icon-sm);          height: var(--icon-sm);          }
+.p4b-ico--md { width: var(--icon-md);          height: var(--icon-md);          }
+
+
+/* ═══════════════════════════════════════════════ STATUS BADGE ═══
+ * Mirror of Phase4A's p4a-status-badge — independent, p4b- prefixed. */
+.p4b-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--space-20);
+  padding: 0 var(--space-8);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, var(--p4b-badge-fill) 15%, transparent);
+  color: var(--p4b-badge-text, var(--text-secondary));
+  white-space: nowrap;
+  line-height: 1;
+  flex: none;
+}
+.p4b-status-badge__dot {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--p4b-badge-fill);
+  flex: none;
+  animation: p4b-pulse var(--dur-slow) ease-in-out infinite;
+}
+.p4b-status-badge__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--p4b-badge-fill);
+}
+
+[data-density="compact"] .p4b-status-badge {
+  height: var(--space-16);
+  padding: 0 var(--space-6);
+}
+
+
+/* ═══════════════════════════════════════════════ CONFIDENCE BAR ═══ */
+.p4b-conf-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.p4b-conf-bar__track {
+  width: 72px;
+  height: var(--gauge-height, 4px);
+  background: var(--gauge-track, var(--border-subtle));
+  border-radius: var(--gauge-radius, 2px);
+  overflow: clip;
+  flex: none;
+}
+.p4b-conf-bar__fill {
+  height: 100%;
+  border-radius: var(--gauge-radius, 2px);
+  background: var(--p4b-conf-fill, var(--ai-confidence-high));
+  width: var(--p4b-conf-pct, 0%);
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+.p4b-conf-bar__val {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  flex: none;
+}
+
+[data-density="compact"] .p4b-conf-bar__track { width: 56px; }
+
+
+/* ═══════════════════════════════════════════════ BUTTONS ═══
+ * ponytail: minimal button set, just what Phase 4B needs. */
+.p4b-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius-control);
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  border: var(--border-width-default) solid transparent;
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+  white-space: nowrap;
+}
+.p4b-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+.p4b-btn--primary {
+  background: var(--accent);
+  color: var(--text-on-accent, #fff);
+  border-color: var(--accent);
+}
+.p4b-btn--primary:hover { filter: brightness(1.1); }
+.p4b-btn--secondary {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.p4b-btn--secondary:hover { background: var(--surface-hover); }
+.p4b-btn--danger {
+  background: color-mix(in oklch, var(--ai-failed) 15%, transparent);
+  color: var(--ai-failed-text, var(--ai-failed));
+  border-color: var(--ai-failed);
+}
+.p4b-btn--danger:hover { background: color-mix(in oklch, var(--ai-failed) 25%, transparent); }
+
+[data-density="compact"] .p4b-btn {
+  padding: var(--space-4) var(--space-10);
+}
+
+
+/* ═══════════════════════════════════════════════ 1. EXECUTION CARD ═══ */
+.p4b-exec-card {
+  display: flex;
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  overflow: clip;
+  transition: var(--transition-surface);
+}
+.p4b-exec-card__bar {
+  width: 4px;
+  background: var(--p4b-exec-fill, var(--border-default));
+  flex: none;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.p4b-exec-card--running .p4b-exec-card__bar {
+  animation: p4b-pulse var(--dur-slow) ease-in-out infinite;
+}
+.p4b-exec-card__body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--card-pad);
+}
+.p4b-exec-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4b-exec-card__title {
+  margin: 0;
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4b-exec-card__wf {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4b-exec-card__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+.p4b-exec-card__meta {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+[data-density="compact"] .p4b-exec-card__body { padding: var(--space-8) var(--pad-card, var(--space-12)); }
+
+
+/* ═══════════════════════════════════════════════ 2. EXECUTION TIMELINE ═══
+ * The centrepiece. Full pipeline timeline with a parallel-group bracket,
+ * sequential stages with connecting rail, and optional result block.
+ * awaiting-human rows pulse an indigo border to demand attention. */
+
+.p4b-timeline {
+  display: grid;
+  gap: 0;
+}
+
+/* ── Parallel group (analysts + recall) ── */
+.p4b-tl-parallel-group {
+  display: grid;
+  gap: 0;
+  border-left: 2px solid var(--border-subtle);
+  margin-left: var(--space-12);
+  padding-left: var(--space-12);
+  position: relative;
+}
+.p4b-tl-parallel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) 0 var(--space-8);
+}
+.p4b-tl-parallel-label {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.p4b-tl-parallel-count {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-6);
+}
+.p4b-tl-parallel-body {
+  display: grid;
+  gap: 0;
+}
+
+/* ── Join connector between parallel and sequential ── */
+.p4b-tl-join {
+  margin-left: var(--space-12);
+  width: 2px;
+  height: var(--space-20);
+  background: var(--border-subtle);
+}
+
+/* ── Sequential stages ── */
+.p4b-tl-sequential {
+  display: grid;
+  gap: 0;
+}
+
+/* ── Stage row ── */
+.p4b-tl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: var(--space-8) var(--space-4);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  position: relative;
+  border: var(--border-width-default) solid transparent;
+  transition: background var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+/* Connecting rail for sequential stages */
+.p4b-tl-sequential .p4b-tl-row::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-4) + 11px); /* left offset: 4px padding + half of 24px marker */
+  top: var(--space-32);
+  bottom: calc(var(--space-8) * -1);
+  width: var(--border-width-default);
+  background: var(--border-subtle);
+}
+.p4b-tl-sequential .p4b-tl-row:last-child::before { display: none; }
+
+.p4b-tl-row:hover { background: var(--surface-hover); }
+.p4b-tl-row:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* awaiting-human: pulsing indigo border demanding attention */
+.p4b-tl-row--human {
+  border-color: var(--ai-awaiting-human);
+  background: color-mix(in oklch, var(--ai-awaiting-human) 8%, var(--card-bg));
+  animation: p4b-border-glow 2s ease-in-out infinite;
+}
+.p4b-tl-row--human:hover {
+  background: color-mix(in oklch, var(--ai-awaiting-human) 14%, var(--card-bg));
+}
+
+/* Analyst colour strip */
+.p4b-tl-strip {
+  position: absolute;
+  left: 0;
+  top: var(--space-8);
+  bottom: var(--space-8);
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--p4b-analyst-color, var(--border-subtle));
+  flex: none;
+}
+
+/* Status marker */
+.p4b-tl-marker {
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  border-radius: var(--radius-pill);
+  flex: none;
+  margin-top: var(--space-2);
+  background: color-mix(in oklch, var(--p4b-tl-fill, var(--border-default)) 18%, var(--surface-raised));
+  color: var(--p4b-tl-fill, var(--text-secondary));
+  position: relative;
+  z-index: 1;
+}
+.p4b-tl-marker--live {
+  background: color-mix(in oklch, var(--ai-running) 18%, var(--surface-raised));
+  color: var(--ai-running);
+}
+
+/* Animated pulse dot for running stages */
+.p4b-tl-pulse {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--ai-running);
+  animation: p4b-pulse var(--dur-slow) ease-in-out infinite;
+  display: block;
+}
+
+/* Content area */
+.p4b-tl-content {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+}
+.p4b-tl-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4b-tl-name {
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4b-tl-expand-icon {
+  color: var(--text-tertiary);
+  margin-left: auto;
+  flex: none;
+}
+.p4b-tl-detail {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-secondary);
+  padding: var(--space-4) var(--space-8);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-control);
+  border-left: 2px solid var(--p4b-tl-fill, var(--border-subtle));
+}
+.p4b-tl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  padding-top: var(--space-4);
+}
+
+/* Timing meta */
+.p4b-tl-meta {
+  flex: none;
+  display: grid;
+  gap: var(--space-2);
+  text-align: right;
+  min-width: 76px;
+  padding-top: var(--space-4);
+}
+.p4b-tl-time {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.p4b-tl-dur {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+/* Result block (completed state) */
+.p4b-tl-result {
+  margin-top: var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  background: color-mix(in oklch, var(--ai-done) 10%, var(--surface-raised));
+  border: var(--border-width-default) solid var(--ai-done);
+  border-radius: var(--card-radius);
+}
+.p4b-tl-result__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+.p4b-tl-result__label {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ai-done-text, var(--ai-done));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.p4b-tl-result__text {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-primary);
+}
+
+[data-density="compact"] .p4b-tl-row { padding: var(--space-6) var(--space-4); }
+[data-density="compact"] .p4b-tl-marker { width: var(--space-20); height: var(--space-20); }
+[data-density="compact"] .p4b-tl-parallel-group { padding-left: var(--space-8); }
+[data-density="compact"] .p4b-tl-meta { min-width: 64px; }
+
+
+/* ═══════════════════════════════════════════════ 3. DEBATE TURN CARD ═══
+ * Two-column dialectic card: Advocate (teal) vs Skeptic (amber). */
+.p4b-debate-card {
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  overflow: clip;
+}
+.p4b-debate-card__round {
+  padding: var(--space-8) var(--space-12);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+.p4b-debate-card__sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.p4b-debate-card__side {
+  padding: var(--space-12);
+  display: grid;
+  gap: var(--space-8);
+}
+.p4b-debate-card__side--advocate {
+  border-right: var(--border-width-default) solid var(--border-subtle);
+  border-top: 2px solid var(--ai-advocate);
+}
+.p4b-debate-card__side--skeptic {
+  border-top: 2px solid var(--ai-skeptic);
+}
+.p4b-debate-card__side-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.p4b-debate-card__side--advocate .p4b-debate-card__side-icon { color: var(--ai-advocate); }
+.p4b-debate-card__side--skeptic  .p4b-debate-card__side-icon { color: var(--ai-skeptic);  }
+.p4b-debate-card__side-role {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+}
+.p4b-debate-card__side--advocate .p4b-debate-card__side-role { color: var(--ai-advocate); }
+.p4b-debate-card__side--skeptic  .p4b-debate-card__side-role { color: var(--ai-skeptic);  }
+.p4b-debate-card__arg {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 600px) {
+  .p4b-debate-card__sides { grid-template-columns: 1fr; }
+  .p4b-debate-card__side--advocate { border-right: none; border-bottom: var(--border-width-default) solid var(--border-subtle); }
+}
+[data-density="compact"] .p4b-debate-card__side { padding: var(--space-8); }
+
+
+/* ═══════════════════════════════════════════════ 4. RECOMMENDATION CARD ═══ */
+.p4b-rec-card {
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  padding: var(--card-pad);
+  display: grid;
+  gap: var(--space-12);
+}
+.p4b-rec-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4b-rec-card__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.p4b-rec-card__text {
+  margin: 0;
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4b-rec-card__rationale {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+.p4b-rec-card__outcomes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-6);
+}
+.p4b-rec-card__outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+.p4b-rec-card__outcome .p4b-ico { color: var(--ai-done); flex-shrink: 0; margin-top: 1px; }
+
+[data-density="compact"] .p4b-rec-card { gap: var(--space-8); padding: var(--space-12) var(--pad-card, var(--space-12)); }
+
+
+/* ═══════════════════════════════════════════════ 5. JUDGMENT CARD ═══ */
+.p4b-judgment-card {
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  padding: var(--card-pad);
+  display: grid;
+  gap: var(--space-12);
+}
+.p4b-judgment-card--pass   { border-color: var(--ai-done); }
+.p4b-judgment-card--retry  { border-color: var(--ai-degraded); }
+.p4b-judgment-card--fail   { border-color: var(--ai-failed); }
+
+.p4b-judgment-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.p4b-judgment-card__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.p4b-judgment-card__verdict {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-pill);
+}
+.p4b-judgment-card__verdict--pass  { background: color-mix(in oklch, var(--ai-done)     15%, transparent); color: var(--ai-done-text,     var(--ai-done));    }
+.p4b-judgment-card__verdict--retry { background: color-mix(in oklch, var(--ai-degraded) 15%, transparent); color: var(--ai-degraded-text, var(--ai-degraded)); }
+.p4b-judgment-card__verdict--fail  { background: color-mix(in oklch, var(--ai-failed)   15%, transparent); color: var(--ai-failed-text,   var(--ai-failed));   }
+
+.p4b-judgment-card__scores {
+  display: grid;
+  gap: var(--space-8);
+}
+.p4b-judgment-card__score {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.p4b-judgment-card__score-label {
+  font: var(--text-caption);
+  color: var(--text-secondary);
+  min-width: 160px;
+}
+.p4b-judgment-card__score-track {
+  flex: 1;
+  height: var(--gauge-height, 4px);
+  background: var(--gauge-track, var(--border-subtle));
+  border-radius: var(--gauge-radius, 2px);
+  overflow: clip;
+  position: relative;
+}
+.p4b-judgment-card__score-fill {
+  position: absolute;
+  inset: 0;
+  right: calc(100% - var(--p4b-judge-pct, 0%));
+  background: var(--p4b-judge-fill, var(--ai-confidence-high));
+  border-radius: var(--gauge-radius, 2px);
+  transition: right var(--dur-normal) var(--ease-standard);
+}
+.p4b-judgment-card__score-val {
+  font: var(--text-terminal);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  flex: none;
+  width: 36px;
+  text-align: right;
+}
+.p4b-judgment-card__critique {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-control);
+  border-left: 2px solid var(--ai-degraded);
+}
+
+[data-density="compact"] .p4b-judgment-card { gap: var(--space-8); }
+[data-density="compact"] .p4b-judgment-card__score-label { min-width: 120px; }
+
+
+/* ═══════════════════════════════════════════════ 6. APPROVAL REQUEST CARD ═══ */
+.p4b-approval-card {
+  border: 2px solid var(--ai-awaiting-human);
+  border-radius: var(--card-radius);
+  background: color-mix(in oklch, var(--ai-awaiting-human) 8%, var(--card-bg));
+  padding: var(--card-pad);
+  display: grid;
+  gap: var(--space-12);
+  animation: p4b-border-glow 2s ease-in-out infinite;
+}
+.p4b-approval-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4b-approval-card__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ai-awaiting-human);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.p4b-approval-card__text {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-primary);
+}
+.p4b-approval-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+[data-density="compact"] .p4b-approval-card { gap: var(--space-8); padding: var(--space-12) var(--pad-card, var(--space-12)); }
+
+
+/* ═══════════════════════════════════════════════ 7. EXECUTION PROGRESS ═══ */
+.p4b-exec-progress {
+  display: grid;
+  gap: var(--space-8);
+}
+.p4b-exec-progress__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.p4b-exec-progress__stages { color: var(--text-secondary); font-weight: var(--fw-semibold); }
+.p4b-exec-progress__current { color: var(--text-primary); flex: 1; }
+.p4b-exec-progress__bar {
+  height: 6px;
+  background: var(--gauge-track, var(--border-subtle));
+  border-radius: var(--radius-pill);
+  overflow: clip;
+}
+.p4b-exec-progress__fill {
+  height: 100%;
+  background: var(--ai-done);
+  border-radius: var(--radius-pill);
+  width: var(--p4b-prog-pct, 0%);
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+
+[data-density="compact"] .p4b-exec-progress__bar { height: 4px; }
+
+
+/* ═══════════════════════════════════════════════ 8. PARALLEL TASK VIEWER ═══ */
+.p4b-parallel-viewer {
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  overflow: clip;
+}
+.p4b-parallel-viewer__label {
+  padding: var(--space-8) var(--space-12);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-parallel-viewer__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0;
+}
+.p4b-mini-agent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-10) var(--space-12);
+  border-right: var(--border-width-default) solid var(--border-subtle);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-mini-agent:nth-child(5n) { border-right: none; }
+.p4b-mini-agent:nth-last-child(-n+5) { border-bottom: none; }
+
+.p4b-mini-agent__dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--p4b-mini-fill, var(--border-default));
+  flex: none;
+}
+.p4b-mini-agent--live .p4b-mini-agent__dot {
+  animation: p4b-pulse var(--dur-slow) ease-in-out infinite;
+}
+.p4b-mini-agent__name {
+  flex: 1;
+  min-width: 0;
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+
+[data-density="compact"] .p4b-mini-agent { padding: var(--space-6) var(--space-8); }
+
+
+/* ═══════════════════════════════════════════════ 9. RETRY CARD ═══ */
+.p4b-retry-card {
+  border: var(--border-width-default) solid var(--ai-degraded);
+  border-radius: var(--card-radius);
+  background: color-mix(in oklch, var(--ai-degraded) 8%, var(--card-bg));
+  padding: var(--card-pad);
+  display: grid;
+  gap: var(--space-10);
+}
+.p4b-retry-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.p4b-retry-card__icon { color: var(--ai-degraded); flex: none; }
+.p4b-retry-card__label {
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  flex: 1;
+}
+.p4b-retry-card__count {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  flex: none;
+}
+.p4b-retry-card__critique {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+.p4b-retry-card__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ai-running-text, var(--ai-running));
+}
+.p4b-retry-card__status-dot {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--ai-running);
+  flex: none;
+  animation: p4b-pulse var(--dur-slow) ease-in-out infinite;
+}
+
+[data-density="compact"] .p4b-retry-card { gap: var(--space-8); }
+
+
+/* ═══════════════════════════════════════════════ 10. CANCELLATION BANNER ═══ */
+.p4b-cancel-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12);
+  background: color-mix(in oklch, var(--ai-cancelled) 12%, var(--surface-raised));
+  border: var(--border-width-default) solid var(--ai-cancelled);
+  border-radius: var(--radius-control);
+}
+.p4b-cancel-banner__icon {
+  color: var(--ai-cancelled);
+  flex: none;
+}
+.p4b-cancel-banner__text {
+  flex: 1;
+  font: var(--text-body-s);
+  color: var(--text-secondary);
+}
+.p4b-cancel-banner__dismiss {
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-control);
+  cursor: var(--cursor-interactive);
+  flex: none;
+  transition: var(--transition-surface);
+}
+.p4b-cancel-banner__dismiss:hover { color: var(--text-primary); background: var(--surface-hover); }
+.p4b-cancel-banner__dismiss:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+[data-density="compact"] .p4b-cancel-banner { padding: var(--space-6) var(--space-10); }
+
+
+/* ═══════════════════════════════════════════════ 11. RESUME PANEL CARD ═══ */
+.p4b-resume-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--card-pad);
+  border: 2px solid var(--ai-awaiting-human);
+  border-radius: var(--card-radius);
+  background: color-mix(in oklch, var(--ai-awaiting-human) 8%, var(--card-bg));
+  animation: p4b-border-glow 2s ease-in-out infinite;
+}
+.p4b-resume-card__icon {
+  color: var(--ai-awaiting-human);
+  flex: none;
+  animation: p4b-pulse var(--dur-slow) ease-in-out infinite;
+}
+.p4b-resume-card__body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+.p4b-resume-card__text {
+  margin: 0;
+  font: var(--text-body-s);
+  color: var(--text-primary);
+}
+
+[data-density="compact"] .p4b-resume-card { gap: var(--space-12); padding: var(--space-12) var(--pad-card, var(--space-12)); }
+
+
+/* ═══════════════════════════════════════════════ 12. LIVE LOG VIEWER ═══ */
+.p4b-log-viewer {
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-raised);
+}
+.p4b-log-viewer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-log-viewer__title {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.p4b-log-viewer__count {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4b-log-viewer__body {
+  display: grid;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.p4b-log-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-12);
+  padding: var(--space-4) var(--space-12);
+  font: var(--text-terminal);
+  font-size: 0.75rem;
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-log-row:last-child { border-bottom: none; }
+.p4b-log-row__ts {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  flex: none;
+  min-width: 100px;
+}
+.p4b-log-row__level {
+  font-weight: var(--fw-semibold);
+  flex: none;
+  min-width: 56px;
+  text-transform: uppercase;
+}
+.p4b-log-row__msg {
+  color: var(--text-secondary);
+  min-width: 0;
+}
+/* Level colours */
+.p4b-log-row--info     .p4b-log-row__level { color: var(--ai-log-info); }
+.p4b-log-row--debug    .p4b-log-row__level { color: var(--ai-log-debug); }
+.p4b-log-row--trace    .p4b-log-row__level { color: var(--ai-log-trace); }
+.p4b-log-row--warn     .p4b-log-row__level { color: var(--ai-log-warn); }
+.p4b-log-row--warn     .p4b-log-row__msg   { color: var(--ai-log-warn); }
+.p4b-log-row--error    .p4b-log-row__level { color: var(--ai-log-error); }
+.p4b-log-row--error    .p4b-log-row__msg   { color: var(--ai-log-error); }
+.p4b-log-row--critical .p4b-log-row__level { color: var(--ai-log-critical); }
+.p4b-log-row--critical { background: color-mix(in oklch, var(--ai-failed) 10%, transparent); }
+
+[data-density="compact"] .p4b-log-row { padding: var(--space-2) var(--space-10); }
+
+
+/* ═══════════════════════════════════════════════ 13. STREAMING CONSOLE ═══
+ * Terminal-style panel. Always uses a dark surface for console authenticity;
+ * uses a forced dark token rather than a hardcoded hex. */
+.p4b-console {
+  border-radius: var(--card-radius);
+  overflow: clip;
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-console__header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-console__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: var(--text-terminal);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+.p4b-console__body {
+  display: grid;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-8) 0;
+}
+.p4b-console__line {
+  display: flex;
+  gap: var(--space-10);
+  padding: var(--space-2) var(--space-12);
+  font: var(--text-terminal);
+  font-size: 0.75rem;
+}
+.p4b-console__ts {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  flex: none;
+}
+.p4b-console__msg { color: var(--text-secondary); }
+.p4b-console__line--info  .p4b-console__msg { color: var(--ai-log-info); }
+.p4b-console__line--warn  .p4b-console__msg { color: var(--ai-log-warn); }
+.p4b-console__line--error .p4b-console__msg { color: var(--ai-log-error); }
+.p4b-console__line--done  .p4b-console__msg { color: var(--ai-done-text, var(--ai-done)); }
+
+/* Blinking cursor */
+.p4b-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--text-secondary);
+  vertical-align: text-bottom;
+  animation: p4b-blink 1s step-end infinite;
+}
+
+[data-density="compact"] .p4b-console__line { padding: var(--space-1, 1px) var(--space-10); }
+
+
+/* ═══════════════════════════════════════════════ 14. TOOL EXECUTION CARD ═══ */
+.p4b-tool-card {
+  display: flex;
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  overflow: clip;
+}
+.p4b-tool-card__border {
+  width: 4px;
+  background: var(--p4b-tool-fill, var(--border-default));
+  flex: none;
+}
+.p4b-tool-card__body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-10) var(--space-12);
+  display: grid;
+  gap: var(--space-6);
+}
+.p4b-tool-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.p4b-tool-card__icon { color: var(--ai-tool); flex: none; }
+.p4b-tool-card__name {
+  flex: 1;
+  font: var(--text-terminal);
+  font-size: 0.8125rem;
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+.p4b-tool-card__args {
+  margin: 0;
+  font: var(--text-terminal);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+.p4b-tool-card__result {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-secondary);
+  padding: var(--space-6) var(--space-8);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-control);
+}
+
+[data-density="compact"] .p4b-tool-card__body { padding: var(--space-6) var(--space-10); }
+
+
+/* ═══════════════════════════════════════════════ 15. TOOL CALL INSPECTOR ═══ */
+.p4b-tool-inspector {
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  overflow: clip;
+}
+.p4b-tool-inspector__trigger {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12);
+  cursor: var(--cursor-interactive);
+  user-select: none;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+/* Remove default disclosure triangle */
+.p4b-tool-inspector__trigger::-webkit-details-marker { display: none; }
+.p4b-tool-inspector__trigger:hover { background: var(--surface-hover); }
+.p4b-tool-inspector__trigger:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+.p4b-tool-inspector__icon { color: var(--ai-tool); flex: none; }
+.p4b-tool-inspector__name {
+  flex: 1;
+  font: var(--text-terminal);
+  font-size: 0.8125rem;
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4b-tool-inspector__dur {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  flex: none;
+}
+.p4b-tool-inspector__chevron {
+  color: var(--text-tertiary);
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.p4b-tool-inspector[open] .p4b-tool-inspector__chevron {
+  transform: rotate(90deg);
+}
+.p4b-tool-inspector__body {
+  display: grid;
+  gap: 0;
+  border-top: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-tool-inspector__section {
+  padding: var(--space-10) var(--space-12);
+  display: grid;
+  gap: var(--space-6);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4b-tool-inspector__section:last-child { border-bottom: none; }
+.p4b-tool-inspector__label {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.p4b-tool-inspector__code {
+  margin: 0;
+  font: var(--text-terminal);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-control);
+  padding: var(--space-8) var(--space-10);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+[data-density="compact"] .p4b-tool-inspector__trigger  { padding: var(--space-6) var(--space-10); }
+[data-density="compact"] .p4b-tool-inspector__section  { padding: var(--space-6) var(--space-10); }
+
+
+/* ── Gallery scaffolding ─────────────────────────────────────────────────────
+ * ponytail: layout helpers for this gallery only — not part of the component contract. */
+.p4b-stack  { display: grid; gap: var(--gap-stack); }
+.p4b-row    { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.p4b-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid); }
+
+@media (max-width: 640px) {
+  .p4b-grid-2 { grid-template-columns: 1fr; }
+}
+
+
+/* ─────────────────────────────────────────── REDUCED MOTION ───
+ * Park every p4b animation at a legible static frame. */
+@media (prefers-reduced-motion: reduce) {
+  .p4b-status-badge__dot     { animation: none; opacity: 1; }
+  .p4b-tl-pulse              { animation: none; opacity: 1; }
+  .p4b-exec-card__bar        { animation: none; opacity: 1; }
+  .p4b-approval-card         { animation: none; }
+  .p4b-tl-row--human         { animation: none; }
+  .p4b-resume-card           { animation: none; }
+  .p4b-resume-card__icon     { animation: none; }
+  .p4b-retry-card__status-dot { animation: none; opacity: 1; }
+  .p4b-mini-agent--live .p4b-mini-agent__dot { animation: none; opacity: 1; }
+  .p4b-cursor                { animation: none; opacity: 1; }
+}

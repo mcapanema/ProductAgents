@@ -1,4 +1,4 @@
-// Category: COMPONENTS — the working component vocabulary (Phase 3: 3A–3F + Phase 4: 4A).
+// Category: COMPONENTS — the working component vocabulary (Phase 3: 3A–3F + Phase 4: 4A–4B).
 // Each sub-phase is a self-contained module under ./phase3/ or ./phase4/.
 import { Phase3Layout } from "./phase3/Phase3Layout";
 import { Phase3Navigation } from "./phase3/Phase3Navigation";
@@ -7,6 +7,7 @@ import { Phase3DataDisplay } from "./phase3/Phase3DataDisplay";
 import { Phase3Feedback } from "./phase3/Phase3Feedback";
 import { Phase3Overlays } from "./phase3/Phase3Overlays";
 import { Phase4Agents } from "./phase4/Phase4Agents";
+import { Phase4Execution } from "./phase4/Phase4Execution";
 
 export function Components() {
   return (
@@ -26,6 +27,7 @@ export function Components() {
       <Phase3Feedback />
       <Phase3Overlays />
       <Phase4Agents />
+      <Phase4Execution />
     </>
   );
 }
