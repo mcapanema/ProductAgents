@@ -25,8 +25,10 @@ glyph + label (WCAG 1.4.1). Gallery: "3D · Data display". Source:
 
 ## Data Grid
 - **Purpose:** denser table for synced records at scale.
-- **Anatomy:** as Table, compacter rows + a column-resize affordance (`col-resize` cursor) on each header edge.
-- **Tokens:** `--dd-resize-w` (= `--space-6`), `--cursor-col-resize`, `--table-*`.
+- **Anatomy:** as Table, compacter rows + **resizable columns** — each header-edge handle is a focusable `role="separator"`; `table-layout: fixed` with a `<colgroup>` carries per-column widths, and the last column flexes to fill.
+- **Behavior:** drag a handle (col-resize cursor) to resize that column, or focus it and press ←/→; columns clamp to a min width and the cells truncate (ellipsis) when narrowed.
+- **Keyboard/A11y:** handles are tabbable separators with `aria-valuenow`; hover/focus highlights the divider in `--accent`.
+- **Tokens:** `--dd-resize-w` (= `--space-8`, the grab zone), `--cursor-col-resize`, `--accent`, `--table-*`.
 
 ## List
 - **Purpose:** single- or multi-line rows (sessions, pipeline steps).

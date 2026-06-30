@@ -3,8 +3,8 @@
 // diff, markdown). Built from the token layer only; every measured value is
 // mono + tabular-nums; status pairs colour with a glyph + label. Adapts across
 // both themes and both densities with zero markup change.
-import { useState } from "react";
-import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import { useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { Section, Specimen } from "../sg";
 
 /* ── tiny helpers ──────────────────────────────────────────────────────────── */
@@ -371,6 +371,103 @@ function TreeNode({ item, level, expanded, toggle }: {
 
 /* ── the gallery ───────────────────────────────────────────────────────────── */
 
+/* ── Data grid with WORKING column resize ──────────────────────────────────
+ * table-layout: fixed + a <colgroup>; the resizable columns carry explicit
+ * px widths from state, the LAST column flexes to fill. Each header-edge handle
+ * is a focusable separator — drag it, or focus it and press ←/→. */
+const GRID_COLS: { key: string; label: string; num?: boolean }[] = [
+  { key: "src", label: "Source" },
+  { key: "ref", label: "Ref" },
+  { key: "sent", label: "Sentiment" },
+  { key: "votes", label: "Votes", num: true },
+  { key: "when", label: "Synced", num: true },
+];
+const GRID_ROWS = [
+  { src: "github", ref: "#482", sent: "positive", votes: 34, when: "14:21:08" },
+  { src: "github", ref: "#479", sent: "negative", votes: 12, when: "14:21:02" },
+  { src: "jira", ref: "PROD-318", sent: "neutral", votes: 7, when: "14:20:54" },
+  { src: "github", ref: "#471", sent: "positive", votes: 21, when: "14:20:41" },
+];
+
+function DataGrid() {
+  const RESIZABLE = GRID_COLS.length - 1; // last column flexes to fill the table
+  const MIN = 72;
+  const [widths, setWidths] = useState<number[]>([152, 100, 156, 96]);
+  const drag = useRef<{ i: number; x: number; w: number } | null>(null);
+
+  const setW = (i: number, px: number) =>
+    setWidths((prev) => prev.map((v, idx) => (idx === i ? Math.max(MIN, px) : v)));
+
+  function onDown(e: PointerEvent<HTMLSpanElement>, i: number) {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { i, x: e.clientX, w: widths[i] };
+  }
+  function onMove(e: PointerEvent<HTMLSpanElement>) {
+    if (!drag.current) return;
+    setW(drag.current.i, drag.current.w + (e.clientX - drag.current.x));
+  }
+  function onUp(e: PointerEvent<HTMLSpanElement>) {
+    if (drag.current) e.currentTarget.releasePointerCapture(e.pointerId);
+    drag.current = null;
+  }
+  function onKey(e: KeyboardEvent<HTMLSpanElement>, i: number) {
+    if (e.key === "ArrowLeft") { e.preventDefault(); setW(i, widths[i] - 16); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); setW(i, widths[i] + 16); }
+  }
+
+  return (
+    <div className="dd-table-wrap">
+      <table className="dd-table dd-grid">
+        <colgroup>
+          {GRID_COLS.map((c, i) => (
+            <col key={c.key} style={i < RESIZABLE ? { width: `${widths[i]}px` } : undefined} />
+          ))}
+        </colgroup>
+        <thead>
+          <tr>
+            {GRID_COLS.map((c, i) => (
+              <th key={c.key} scope="col" className={c.num ? "dd-num-col" : undefined}>
+                <span className="dd-grid-th">{c.label}</span>
+                {i < RESIZABLE && (
+                  <span
+                    className="dd-grid-resize"
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize ${c.label} column`}
+                    aria-valuenow={widths[i]}
+                    tabIndex={0}
+                    onPointerDown={(e) => onDown(e, i)}
+                    onPointerMove={onMove}
+                    onPointerUp={onUp}
+                    onKeyDown={(e) => onKey(e, i)}
+                  />
+                )}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {GRID_ROWS.map((r) => (
+            <tr key={r.ref} className="dd-tr">
+              <td className="dd-mono-id">{r.src}</td>
+              <td className="dd-num">{r.ref}</td>
+              <td>
+                <span className="dd-tag dd-tag--sent" data-sent={r.sent}>
+                  <Icon name={r.sent === "positive" ? "arrow-up" : r.sent === "negative" ? "arrow-down" : "circle"} size="xs" />
+                  {r.sent}
+                </span>
+              </td>
+              <td className="dd-num-col dd-num">{r.votes}</td>
+              <td className="dd-num-col dd-num">{r.when}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function Phase3DataDisplay() {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "confidence", dir: "desc" });
   const [selected, setSelected] = useState("dec-1040");
@@ -479,43 +576,9 @@ export function Phase3DataDisplay() {
       </Section>
 
       {/* ── Data grid ─────────────────────────────────────────────────────── */}
-      <Section id="dd-grid" title="Data grid" desc="Denser than the table, with a column-resize affordance on each header edge (col-resize cursor). For synced records browsed at scale.">
+      <Section id="dd-grid" title="Data grid" desc="Denser than the table, with resizable columns — drag any header-edge handle (col-resize cursor), or focus it and press ←/→. The last column flexes to fill. For synced records browsed at scale.">
         <div className="sg-card">
-          <div className="dd-table-wrap">
-            <table className="dd-table dd-grid">
-              <thead>
-                <tr>
-                  {["Source", "Ref", "Sentiment", "Votes", "Synced"].map((h, i, a) => (
-                    <th key={h} scope="col" className={i >= 3 ? "dd-num-col" : undefined}>
-                      <span className="dd-grid-th">{h}</span>
-                      {i < a.length - 1 && <span className="dd-grid-resize" aria-hidden="true" />}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { src: "github", ref: "#482", sent: "positive", votes: 34, when: "14:21:08" },
-                  { src: "github", ref: "#479", sent: "negative", votes: 12, when: "14:21:02" },
-                  { src: "jira", ref: "PROD-318", sent: "neutral", votes: 7, when: "14:20:54" },
-                  { src: "github", ref: "#471", sent: "positive", votes: 21, when: "14:20:41" },
-                ].map((r) => (
-                  <tr key={r.ref} className="dd-tr">
-                    <td className="dd-mono-id">{r.src}</td>
-                    <td className="dd-num">{r.ref}</td>
-                    <td>
-                      <span className="dd-tag dd-tag--sent" data-sent={r.sent}>
-                        <Icon name={r.sent === "positive" ? "arrow-up" : r.sent === "negative" ? "arrow-down" : "circle"} size="xs" />
-                        {r.sent}
-                      </span>
-                    </td>
-                    <td className="dd-num-col dd-num">{r.votes}</td>
-                    <td className="dd-num-col dd-num">{r.when}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataGrid />
         </div>
       </Section>
 

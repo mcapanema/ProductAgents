@@ -8,7 +8,7 @@
 :root {
   --dd-rail-w: var(--border-width-strong);          /* timeline rail thickness */
   --dd-marker: var(--icon-md);                      /* timeline node marker box */
-  --dd-resize-w: var(--space-6);                    /* grid column-resize hot zone */
+  --dd-resize-w: var(--space-8);                    /* grid column-resize hot zone */
   --dd-json-indent: var(--space-16);                /* per-depth JSON indent step */
   --dd-tree-indent: var(--space-20);                /* per-level tree indent step */
 }
@@ -137,14 +137,21 @@
 .dd-tr[aria-selected="true"] { background: var(--table-row-bg-selected); box-shadow: inset var(--border-width-focus) 0 0 var(--accent); }
 .dd-tr:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
 
-.dd-grid { font-size: var(--fs-xs); }
+.dd-grid { font-size: var(--fs-xs); table-layout: fixed; width: 100%; }
 .dd-grid tbody td, .dd-grid tbody th { padding: var(--space-6) var(--table-cell-pad-x); }
+/* Fixed layout: clip overflow so a narrowed column truncates instead of forcing width. */
+.dd-grid thead th { overflow: hidden; }
+.dd-grid tbody td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dd-grid-th { display: inline-block; padding: var(--space-6) var(--table-cell-pad-x); }
 .dd-grid thead th { position: relative; }
+/* Column-resize handle: a focusable separator at each header's right edge. */
 .dd-grid-resize { position: absolute; top: 0; right: 0; width: var(--dd-resize-w); height: 100%;
-  cursor: var(--cursor-col-resize); }
-.dd-grid-resize::after { content: ""; position: absolute; top: 25%; right: 0; width: var(--border-width-default);
-  height: 50%; background: var(--border-default); }
+  cursor: var(--cursor-col-resize); touch-action: none; z-index: var(--z-raised); }
+.dd-grid-resize::after { content: ""; position: absolute; top: 25%; right: calc(var(--dd-resize-w) / 2 - var(--border-width-strong) / 2);
+  width: var(--border-width-strong); height: 50%; background: var(--border-default); border-radius: var(--radius-pill);
+  transition: var(--transition-surface); }
+.dd-grid-resize:hover::after, .dd-grid-resize:focus-visible::after { top: 0; height: 100%; background: var(--accent); }
+.dd-grid-resize:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
 
 /* ── tags & chips ────────────────────────────────────────────────────────── */
 .dd-tag {
