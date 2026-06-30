@@ -71,7 +71,7 @@ export function RunPanel() {
         <button className="primary" onClick={start} disabled={running || !ipc}>
           {running ? "Running…" : "Run"}
         </button>
-        {running && (
+        {running && !state.awaiting && (
           <button onClick={cancel} disabled={!state.sessionId || state.cancelling}>
             {state.cancelling ? "Cancelling…" : "Cancel"}
           </button>
