@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { Density } from "../sg";
 import { Section, Specimen } from "../sg";
 import "./phase5b-cli.css";
 
@@ -200,9 +201,7 @@ function LiveStreamingOutput() {
 
 /* ── Gallery ───────────────────────────────────────────────────────────────── */
 
-export function Phase5CLI() {
-  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
-
+export function Phase5CLI({ density }: { density: Density }) {
   return (
     <div data-density={density}>
       <div className="sg-intro">
@@ -212,14 +211,6 @@ export function Phase5CLI() {
           <CommandBadge>productagents</CommandBadge> CLI: history, suggestions,
           streaming output, ANSI-style status coloring.
         </p>
-        <label className="sg-density-toggle">
-          <input
-            type="checkbox"
-            checked={density === "compact"}
-            onChange={(e) => setDensity(e.target.checked ? "compact" : "comfortable")}
-          />
-          Compact density
-        </label>
       </div>
 
       <Section id="p5b-command-badge" title="Command Badge" desc="Inline monospace chip for a subcommand name.">

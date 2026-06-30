@@ -106,7 +106,7 @@ export function App() {
         {category === "tokens" && <Tokens theme={theme} density={density} />}
         {category === "components" && <Components />}
         {category === "ai-components" && <AIComponents />}
-        {category === "workflow-cli" && <WorkflowCli />}
+        {category === "workflow-cli" && <WorkflowCli density={density} />}
       </main>
     </div>
   );

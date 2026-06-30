@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { CSSProperties } from "react";
+import type { Density } from "../sg";
 import { Section, Specimen } from "../sg";
 import "./phase5a-workflow.css";
 
@@ -388,9 +388,7 @@ function ExecutionQueue() {
 
 /* ── Gallery ───────────────────────────────────────────────────────────────── */
 
-export function Phase5Workflow() {
-  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
-
+export function Phase5Workflow({ density }: { density: Density }) {
   return (
     <div data-density={density}>
       <div className="sg-intro">
@@ -401,14 +399,6 @@ export function Phase5Workflow() {
           surface; this layer is the product-planning view (Initiative, Feature,
           RoadmapItem), reusing the same status/priority semantic tokens.
         </p>
-        <label className="sg-density-toggle">
-          <input
-            type="checkbox"
-            checked={density === "compact"}
-            onChange={(e) => setDensity(e.target.checked ? "compact" : "comfortable")}
-          />
-          Compact density
-        </label>
       </div>
 
       <Section id="p5a-task-status" title="Task Status" desc="Initiative/Feature status and priority badges, reusing existing semantic color tokens.">
