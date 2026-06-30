@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import type { IpcEvent, SessionSummary } from "../ipc/types";
+import { deriveStages } from "./runTimeline";
+import { StageTimeline } from "./StageTimeline";
+import { RawEvents } from "./RawEvents";
 
 export function SessionsPanel() {
   const ipc = useIpc();
@@ -36,12 +39,8 @@ export function SessionsPanel() {
         </div>
         {events && (
           <div style={{ flex: 1 }}>
-            {events.map((event, i) => (
-              <div className="event" key={i}>
-                <strong>{event.type}</strong>{" "}
-                <span className="muted">{JSON.stringify(event.payload)}</span>
-              </div>
-            ))}
+            <StageTimeline stages={deriveStages(events)} />
+            <RawEvents events={events} />
           </div>
         )}
       </div>
