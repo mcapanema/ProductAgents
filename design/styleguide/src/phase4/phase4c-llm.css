@@ -41,6 +41,8 @@
   animation: p4c-blink 1s step-end infinite;
 }
 
+[data-density="compact"] .p4c-streaming-text { font-size: var(--text-body-s-size, 0.875em); }
+
 
 /* ═══════════════════════════════════════════════ THINKING INDICATOR ═══
  * Three indigo dots that pulse with a staggered delay. The label sits

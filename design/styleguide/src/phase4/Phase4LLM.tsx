@@ -4,7 +4,7 @@
 // ConversationViewer — the UI vocabulary for LLM state, token accounting,
 // and prompt management. Built from the token layer only (--ai-* tokens).
 import { useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Section, Specimen } from "../sg";
 import "./phase4c-llm.css";
 
@@ -14,7 +14,7 @@ const vars = (o: Record<string, string>): CSSProperties => o as CSSProperties;
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
 // Highlight {{variable}} placeholders in a prompt template body.
-function renderPromptBody(text: string): React.ReactNode[] {
+function renderPromptBody(text: string): ReactNode[] {
   return text.split(/({{[^}]+}})/g).map((part, i) =>
     part.startsWith("{{") ? (
       <span key={i} className="p4c-prompt-var">{part}</span>
