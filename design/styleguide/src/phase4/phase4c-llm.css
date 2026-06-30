@@ -1,0 +1,668 @@
+/*
+ * Phase 4C — LLM Components. Self-contained styleguide CSS (prefix: p4c-).
+ * ============================================================================
+ * StreamingText, ThinkingIndicator, TokenUsageBar, CostIndicator,
+ * ContextWindowViewer, PromptInspector, PromptDiff, PromptHistory,
+ * ConversationViewer — built ONLY from the token layer. --ai-* tokens for
+ * all LLM state. overflow:hidden is banned — use overflow:clip.
+ * Every animation has a prefers-reduced-motion fallback.
+ */
+
+/* ── Keyframe animations ────────────────────────────────────────────────────── */
+
+/* ponytail: p4c-blink is the canonical cursor animation for streaming text. */
+@keyframes p4c-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ponytail: p4c-dot-pulse drives the staggered thinking indicator dots. */
+@keyframes p4c-dot-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40%            { opacity: 1;   transform: scale(1); }
+}
+
+
+/* ═══════════════════════════════════════════════ STREAMING TEXT ═══
+ * Inline wrapper. The cursor is a narrow amber rectangle after the text
+ * that blinks at 1s; it disappears when data-done="true". */
+
+.p4c-streaming-text {
+  /* inline — wraps naturally inside prose */
+}
+.p4c-streaming-text__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--ai-streaming);
+  margin-left: var(--space-2);
+  border-radius: 1px;
+  animation: p4c-blink 1s step-end infinite;
+}
+
+[data-density="compact"] .p4c-streaming-text { font-size: var(--text-body-s-size, 0.875em); }
+
+
+/* ═══════════════════════════════════════════════ THINKING INDICATOR ═══
+ * Three indigo dots that pulse with a staggered delay. The label sits
+ * inline; reduced-motion parks dots at full opacity/scale. */
+
+.p4c-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.p4c-thinking__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.p4c-thinking__dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--p4c-thinking-color, var(--ai-thinking));
+  flex: none;
+  animation: p4c-dot-pulse 1.4s ease-in-out infinite;
+}
+.p4c-thinking__dot:nth-child(2) { animation-delay: 0.2s; }
+.p4c-thinking__dot:nth-child(3) { animation-delay: 0.4s; }
+.p4c-thinking__label {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--p4c-thinking-color, var(--ai-thinking));
+}
+
+[data-density="compact"] .p4c-thinking__dot {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+[data-density="compact"] .p4c-thinking {
+  gap: var(--space-4);
+}
+
+
+/* ═══════════════════════════════════════════════ TOKEN USAGE BAR ═══
+ * Three-segment stacked bar: prompt (indigo) · completion (teal) ·
+ * remaining (track bg). Warn state switches to amber for both filled
+ * segments. Legend below mirrors segment colours + total readout. */
+
+.p4c-token-bar {
+  display: grid;
+  gap: var(--space-8);
+}
+.p4c-token-bar__track {
+  display: flex;
+  height: var(--space-12);
+  border-radius: var(--radius-pill);
+  overflow: clip;
+  background: var(--ai-confidence-track);
+}
+.p4c-token-bar__seg {
+  height: 100%;
+  flex: none;
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+.p4c-token-bar__seg--prompt     { width: var(--p4c-seg-w, 0%); background: var(--ai-thinking); }
+.p4c-token-bar__seg--completion { width: var(--p4c-seg-w, 0%); background: var(--ai-analyst-analytics); }
+.p4c-token-bar__seg--remain     { flex: 1; background: transparent; }
+
+/* Warn state: both filled segments turn amber-ish */
+.p4c-token-bar[data-warn="true"] .p4c-token-bar__seg--prompt {
+  background: var(--ai-degraded);
+}
+.p4c-token-bar[data-warn="true"] .p4c-token-bar__seg--completion {
+  background: color-mix(in oklch, var(--ai-degraded) 70%, var(--ai-thinking));
+}
+
+.p4c-token-bar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  align-items: center;
+  font: var(--text-caption);
+}
+.p4c-token-bar__leg-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+}
+.p4c-token-bar__leg-dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+.p4c-token-bar__leg-item--prompt .p4c-token-bar__leg-dot         { background: var(--ai-thinking); }
+.p4c-token-bar__leg-item--completion .p4c-token-bar__leg-dot     { background: var(--ai-analyst-analytics); }
+.p4c-token-bar__leg-item--remain .p4c-token-bar__leg-dot         { background: var(--border-subtle); }
+.p4c-token-bar[data-warn="true"] .p4c-token-bar__leg-item--prompt .p4c-token-bar__leg-dot,
+.p4c-token-bar[data-warn="true"] .p4c-token-bar__leg-item--completion .p4c-token-bar__leg-dot {
+  background: var(--ai-degraded);
+}
+.p4c-token-bar__leg-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  margin-left: var(--space-2);
+}
+.p4c-token-bar__total {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.p4c-token-bar__warn {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-16);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  background: color-mix(in oklch, var(--ai-degraded) 18%, transparent);
+  color: var(--ai-degraded-text);
+}
+
+[data-density="compact"] .p4c-token-bar__track  { height: var(--space-8); }
+[data-density="compact"] .p4c-token-bar__legend { gap: var(--space-8); }
+
+
+/* ═══════════════════════════════════════════════ COST INDICATOR ═══
+ * Two variants: inline badge (accent pill) and a block breakdown panel
+ * (model header + prompt/completion rows). */
+
+.p4c-cost-badge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-20);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface-raised));
+  color: var(--accent-text);
+}
+
+.p4c-cost-panel {
+  border: var(--border-width-default) solid var(--card-border);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  width: 100%;
+}
+.p4c-cost-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-12) var(--card-pad);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4c-cost-panel__model {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.p4c-cost-panel__total {
+  font: var(--text-body-s);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+}
+.p4c-cost-panel__rows {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  background: var(--card-bg);
+}
+.p4c-cost-panel__row {
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--card-pad);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4c-cost-panel__row:last-child { border-bottom: none; }
+
+.p4c-cost-panel__label {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  padding-left: var(--space-8);
+  border-left: 2px solid var(--p4c-cost-color, var(--border-subtle));
+  margin: 0;
+}
+.p4c-cost-panel__bar-wrap {
+  height: var(--space-8);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-pill);
+  overflow: clip;
+}
+.p4c-cost-panel__bar {
+  height: 100%;
+  width: var(--p4c-cost-pct, 0%);
+  background: var(--p4c-cost-color, var(--border-subtle));
+  border-radius: var(--radius-pill);
+}
+.p4c-cost-panel__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin: 0;
+}
+.p4c-cost-panel__tokens {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4c-cost-panel__pct {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  min-width: 2.5rem;
+  text-align: right;
+}
+.p4c-cost-panel__val {
+  font: var(--text-terminal);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  min-width: 4rem;
+  text-align: right;
+}
+
+[data-density="compact"] .p4c-cost-panel__row { padding: var(--space-8) var(--card-pad); gap: var(--space-8); }
+
+
+/* ═══════════════════════════════════════════════ CONTEXT WINDOW VIEWER ═══
+ * Stacked bar with named, coloured segments + an available (unstyled)
+ * remainder. The track is taller than the token bar for visual distinction.
+ * Legend rows mirror segment colours. */
+
+.p4c-ctx-window {
+  display: grid;
+  gap: var(--space-8);
+}
+.p4c-ctx-window__track {
+  display: flex;
+  height: var(--space-16);
+  border-radius: var(--radius-pill);
+  overflow: clip;
+  background: var(--ai-confidence-track);
+}
+.p4c-ctx-window__seg {
+  width: var(--p4c-ctx-w, 0%);
+  height: 100%;
+  flex: none;
+  background: var(--p4c-ctx-color, var(--border-subtle));
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+.p4c-ctx-window__seg--avail {
+  flex: 1;
+  width: auto;
+  background: transparent;
+}
+.p4c-ctx-window__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  align-items: center;
+  font: var(--text-caption);
+}
+.p4c-ctx-window__leg-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+}
+.p4c-ctx-window__leg-dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  flex: none;
+  background: var(--p4c-ctx-color, var(--border-subtle));
+}
+.p4c-ctx-window__leg-item--avail .p4c-ctx-window__leg-dot { background: var(--border-subtle); }
+.p4c-ctx-window__leg-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  margin-left: var(--space-2);
+}
+.p4c-ctx-window__usage {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+[data-density="compact"] .p4c-ctx-window__track { height: var(--space-8); }
+
+
+/* ═══════════════════════════════════════════════ PROMPT INSPECTOR ═══
+ * A bordered panel with a clickable header row. The chevron rotates 90
+ * degrees when open. Body is a <pre> block in monospace with {{var}}
+ * spans coloured in --accent-text. */
+
+.p4c-prompt-inspector {
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  width: 100%;
+}
+.p4c-prompt-inspector__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface-raised);
+  border: none;
+  cursor: var(--cursor-interactive);
+  text-align: left;
+  transition: var(--transition-surface);
+}
+.p4c-prompt-inspector__toggle:hover { background: var(--surface-hover); }
+.p4c-prompt-inspector__toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+/* CSS chevron — border corners rotated to form an arrow. */
+.p4c-prompt-inspector__chevron {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-tertiary);
+  border-bottom: 2px solid var(--text-tertiary);
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast) var(--ease-standard);
+  flex: none;
+  margin-left: var(--space-2);
+}
+.p4c-prompt-inspector[data-open="true"] .p4c-prompt-inspector__chevron {
+  transform: rotate(45deg);
+}
+.p4c-prompt-inspector__name {
+  flex: 1;
+  font: var(--text-body-s);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.p4c-prompt-inspector__meta {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+  flex: none;
+}
+.p4c-prompt-inspector__body {
+  margin: 0;
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface-sunken);
+  border-top: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-terminal);
+  color: var(--text-secondary);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Variable placeholder highlight */
+.p4c-prompt-var {
+  color: var(--accent-text);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  border-radius: 3px;
+  padding: 0 var(--space-2);
+}
+
+[data-density="compact"] .p4c-prompt-inspector__toggle { padding: var(--space-8) var(--space-16); }
+[data-density="compact"] .p4c-prompt-inspector__body   { padding: var(--space-8) var(--space-12); }
+
+
+/* ═══════════════════════════════════════════════ PROMPT DIFF ═══
+ * Unified diff viewer: added lines tinted green, removed lines tinted red,
+ * context lines neutral. A fixed-width gutter shows +/-/space glyphs.
+ * border-left reinforces the type; background is a subtle tint. */
+
+.p4c-diff {
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+  font: var(--text-terminal);
+}
+.p4c-diff__header {
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.p4c-diff__body { display: grid; gap: 0; }
+.p4c-diff__line {
+  display: flex;
+  align-items: baseline;
+  padding: var(--space-2) var(--space-8);
+  min-height: var(--space-24);
+  background: var(--card-bg);
+  border-left: 3px solid transparent;
+  line-height: 1.6;
+}
+.p4c-diff__line--added {
+  background: color-mix(in oklch, var(--border-success) 10%, var(--card-bg));
+  border-left-color: var(--border-success);
+}
+.p4c-diff__line--removed {
+  background: color-mix(in oklch, var(--border-error) 10%, var(--card-bg));
+  border-left-color: var(--border-error);
+}
+.p4c-diff__gutter {
+  width: var(--space-16);
+  flex: none;
+  color: var(--text-tertiary);
+  user-select: none;
+  font-weight: var(--fw-semibold);
+}
+.p4c-diff__line--added   .p4c-diff__gutter { color: var(--border-success); }
+.p4c-diff__line--removed .p4c-diff__gutter { color: var(--border-error); }
+.p4c-diff__text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: var(--text-terminal);
+  color: var(--text-primary);
+}
+.p4c-diff__line--context .p4c-diff__text { color: var(--text-secondary); }
+
+[data-density="compact"] .p4c-diff__line { min-height: var(--space-20); padding-top: 0; padding-bottom: 0; }
+
+
+/* ═══════════════════════════════════════════════ PROMPT HISTORY ═══
+ * Ordered list of prompt versions in a bordered container. Active version
+ * gets an accent-tinted background and a badge. Delta pill is green/red
+ * based on sign. */
+
+.p4c-prompt-history {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+}
+.p4c-prompt-history__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  background: var(--card-bg);
+  transition: var(--transition-surface);
+}
+.p4c-prompt-history__item:last-child { border-bottom: none; }
+.p4c-prompt-history__item[data-active="true"] {
+  background: color-mix(in oklch, var(--accent) 7%, var(--card-bg));
+}
+.p4c-prompt-history__ver {
+  font: var(--text-terminal);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  flex: none;
+  min-width: var(--space-24);
+}
+.p4c-prompt-history__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: var(--space-16);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.p4c-prompt-history__date {
+  font: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.p4c-prompt-history__chars {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.p4c-prompt-history__delta {
+  font-weight: var(--fw-semibold);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
+  font-variant-numeric: tabular-nums;
+}
+.p4c-prompt-history__delta[data-sign="pos"] {
+  color: var(--ai-done-text);
+  background: color-mix(in oklch, var(--ai-done) 15%, transparent);
+}
+.p4c-prompt-history__delta[data-sign="neg"] {
+  color: var(--ai-failed-text);
+  background: color-mix(in oklch, var(--ai-failed) 15%, transparent);
+}
+.p4c-prompt-history__badge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-20);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  background: color-mix(in oklch, var(--accent) 15%, transparent);
+  color: var(--accent-text);
+  flex: none;
+}
+
+[data-density="compact"] .p4c-prompt-history__item { padding: var(--space-8) var(--space-12); }
+
+
+/* ═══════════════════════════════════════════════ CONVERSATION VIEWER ═══
+ * Inspection transcript — NOT a chat UI. Each turn has a labeled role
+ * row (system=indigo, user=accent, assistant=teal) and a monospace body
+ * for the raw message content or JSON payload. */
+
+.p4c-conv {
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  overflow: clip;
+}
+.p4c-conv__header {
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-sunken);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.p4c-conv__turns {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.p4c-conv__turn {
+  padding: var(--space-12) var(--space-16);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p4c-conv__turn:last-child { border-bottom: none; }
+.p4c-conv__turn--system    { background: color-mix(in oklch, var(--ai-thinking) 5%, var(--card-bg)); }
+.p4c-conv__turn--user      { background: var(--card-bg); }
+.p4c-conv__turn--assistant { background: color-mix(in oklch, var(--ai-done) 5%, var(--card-bg)); }
+
+.p4c-conv__role-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+.p4c-conv__role {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+.p4c-conv__turn--system    .p4c-conv__role { color: var(--ai-thinking); }
+.p4c-conv__turn--user      .p4c-conv__role { color: var(--accent-text); }
+.p4c-conv__turn--assistant .p4c-conv__role { color: var(--ai-done-text); }
+.p4c-conv__tokens {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.p4c-conv__content {
+  margin: 0;
+  font: var(--text-terminal);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+[data-density="compact"] .p4c-conv__turn { padding: var(--space-8) var(--space-12); }
+
+
+/* ── Gallery scaffolding ──────────────────────────────────────────────────── */
+/* ponytail: layout helpers scoped to the gallery card — not part of the component contract. */
+
+.p4c-stack { display: grid; gap: var(--gap-stack); }
+.p4c-row   { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.p4c-prose { font: var(--text-body-s); color: var(--text-primary); }
+
+.p4c-btn {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-32);
+  padding: 0 var(--space-12);
+  border: var(--border-width-default) solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: var(--text-body-s);
+  cursor: var(--cursor-interactive);
+  white-space: nowrap;
+  transition: var(--transition-surface);
+  flex: none;
+}
+.p4c-btn:hover { background: var(--surface-hover); }
+.p4c-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+
+/* ─────────────────────────────────────── REDUCED MOTION ───
+ * Park every p4c animation at a legible static frame. */
+@media (prefers-reduced-motion: reduce) {
+  .p4c-streaming-text__cursor { animation: none; opacity: 1; }
+  .p4c-thinking__dot          { animation: none; opacity: 1; transform: none; }
+}
