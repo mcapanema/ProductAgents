@@ -111,8 +111,12 @@ export function RunPanel() {
           {state.error ? ` · ${state.error}` : ""}
         </p>
       )}
-      {state.status !== "idle" && <StageTimeline stages={deriveStages(state.events)} />}
-      <RawEvents events={state.events} />
+      {state.events.length > 0 && (
+        <>
+          <StageTimeline stages={deriveStages(state.events)} />
+          <RawEvents events={state.events} />
+        </>
+      )}
     </div>
   );
 }

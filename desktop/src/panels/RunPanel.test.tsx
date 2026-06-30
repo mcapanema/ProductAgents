@@ -60,7 +60,10 @@ describe("RunPanel approval flow", () => {
 
 describe("RunPanel stage timeline", () => {
   it("shows all pipeline stage labels when a run is in progress", async () => {
-    const run = vi.fn(() => new Promise<never>(() => {})); // never resolves
+    const run = vi.fn((_p: RunParams, handlers: RunHandlers) => {
+      handlers.onEvent({ type: "SessionStarted", payload: { session_id: "s" } });
+      return new Promise<never>(() => {});
+    });
     render(
       <IpcProvider client={{ run } as unknown as IpcClient}>
         <RunPanel />
@@ -76,6 +79,7 @@ describe("RunPanel stage timeline", () => {
     let onEvent: ((e: IpcEvent) => void) | undefined;
     const run = vi.fn((_p: RunParams, handlers: RunHandlers) => {
       onEvent = handlers.onEvent;
+      handlers.onEvent({ type: "SessionStarted", payload: { session_id: "s" } });
       return new Promise<never>(() => {});
     });
     render(
@@ -91,5 +95,21 @@ describe("RunPanel stage timeline", () => {
     });
     const item = screen.getByText("Judge").closest("[data-status]");
     expect(item).toHaveAttribute("data-status", "running");
+  });
+
+  it("renders the stage timeline for streamed events", async () => {
+    const run = vi.fn((_p: RunParams, handlers: RunHandlers) => {
+      handlers.onEvent({ type: "AnalystCompleted", payload: { node: "market", report: { analyst: "market", role: "M", findings: ["demand up"], signals: [], failed: false } } });
+      return new Promise<{ status: "finished"; session_id: string }>(() => {});
+    });
+    render(
+      <IpcProvider client={{ run } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(await screen.findByText("Market")).toBeInTheDocument();
+    expect(screen.getByText("demand up")).toBeInTheDocument();
   });
 });
