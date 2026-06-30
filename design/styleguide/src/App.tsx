@@ -24,7 +24,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "project", label: "Project" },
   { id: "settings", label: "Settings" },
   { id: "monitoring", label: "Monitoring" },
-  { id: "empty-states", label: "Empty states" },
+  { id: "empty-states", label: "Empty States" },
 ];
 const SOON: { label: string }[] = [
   { label: "Design patterns" },
@@ -118,7 +118,7 @@ export function App() {
         {category === "project" && <Phase6Project density={density} />}
         {category === "settings" && <Phase7Settings density={density} />}
         {category === "monitoring" && <Phase8Monitoring density={density} />}
-        {category === "empty-states" && <Phase9EmptyStates />}
+        {category === "empty-states" && <Phase9EmptyStates density={density} />}
       </main>
     </div>
   );
