@@ -15,6 +15,7 @@ import { Phase10CSystemPatterns } from "./phase10/Phase10CSystemPatterns";
 import { ConfigProvider } from "antd";
 import { buildAntdTheme } from "./antd-pilot/theme";
 import { AntdPilotForms } from "./antd-pilot/AntdPilotForms";
+import { AntdPilotDataDisplay } from "./antd-pilot/AntdPilotDataDisplay";
 
 type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli" | "project" | "settings" | "monitoring" | "empty-states" | "design-patterns" | "antd-pilot";
 
@@ -136,6 +137,7 @@ export function App() {
         {category === "antd-pilot" && (
           <ConfigProvider theme={buildAntdTheme(theme, density)}>
             <AntdPilotForms />
+            <AntdPilotDataDisplay />
           </ConfigProvider>
         )}
       </main>
