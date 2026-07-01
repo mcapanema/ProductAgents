@@ -154,6 +154,9 @@ migrates to `desktop/src/ui/`.
 
 - **Purpose** — the nesting hierarchy inside a resource view: workspace canvas →
   width-capped page → titled section.
+- **When to use / not** — the default content skeleton for a resource view's
+  body. Not the shell itself — that's App Shell; this only structures what
+  renders inside `la-main`.
 - **Anatomy** — `la-workspace` (canvas) → `la-page` (max-width `--width-content-max`,
   page padding, centered) → `la-prim-section` (title + desc).
 - **Sizes** — single size each; page width caps at `--width-content-max`, no
@@ -176,6 +179,9 @@ migrates to `desktop/src/ui/`.
 ## Divider
 
 - **Purpose** — separate content groups.
+- **When to use / not** — a bare rule between adjacent items or labels (nav
+  items, section labels). Not a container — wrap content in Card or Surface
+  instead of using a divider to imply grouping.
 - **Variants** — horizontal `hr.la-divider`; vertical
   `la-divider--v` (`role="separator"` `aria-orientation="vertical"`).
 - **Sizes** — single size; fixed `--border-width-default` thickness (vertical
@@ -202,6 +208,10 @@ migrates to `desktop/src/ui/`.
 ## Scroll Area
 
 - **Purpose** — an overflow region with a styled, unobtrusive scrollbar.
+- **When to use / not** — apply on top of any native `overflow: auto` region
+  that needs the themed scrollbar (log streams, docked panels, long lists).
+  Not a custom scroll implementation — scrolling stays native; only the
+  scrollbar chrome is styled.
 - **Anatomy** — `la-scroll` (thin track, pill thumb via `scrollbar-*` +
   `::-webkit-scrollbar*`).
 - **Sizes** — single size; scrollbar thumb/track width fixed at `--space-8`,
