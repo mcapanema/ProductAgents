@@ -17,15 +17,24 @@ const status: ConfigStatus = {
   ],
 };
 
-function renderPanel(client: IpcClient) {
+function renderPanel(client: IpcClient, onThemeChange = vi.fn()) {
   render(
     <IpcProvider client={client}>
-      <SettingsPanel />
+      <SettingsPanel theme="light" onThemeChange={onThemeChange} />
     </IpcProvider>,
   );
+  return { onThemeChange };
 }
 
 describe("SettingsPanel", () => {
+  it("renders the theme control and reports changes", () => {
+    const { onThemeChange } = renderPanel({ configGet: async () => status } as unknown as IpcClient);
+    // Theme control is independent of config load — present immediately.
+    expect(screen.getByRole("radio", { name: /light/i })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /dark/i }));
+    expect(onThemeChange).toHaveBeenCalledWith("dark");
+  });
+
   it("shows the current model and key status on load", async () => {
     renderPanel({ configGet: async () => status } as unknown as IpcClient);
     expect(await screen.findByDisplayValue("anthropic:claude-sonnet-4-6")).toBeInTheDocument();
