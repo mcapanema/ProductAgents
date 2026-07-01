@@ -76,7 +76,7 @@ the request (HTTP 429)…", "Payload missing the required `action` field…"), n
 retry succeeds) — a `ponytail:` comment in the source notes this keeps the recovery *shape*
 legible rather than simulating a flaky backend.
 
-**Tokens:** `--fb-error-{bg,border,text,icon}`, `--fb-success-icon`, `--ai-running`, `--ai-done`,
+**Tokens:** `--fb-error-{bg,border,text,icon}`, `--fb-success-icon`, `--ai-running`, `--ai-done-text`,
 `--btn-*`, `--dur-slow` (spinner rotation, parked under `prefers-reduced-motion`).
 
 **Do** show the operation's actual failure reason and keep a next action visible at all times.

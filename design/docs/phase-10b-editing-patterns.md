@@ -169,9 +169,12 @@ perform, a keyboard-only user can perform identically, in the same number of lis
 M." template, used identically for both the drag and the button path, so screen-reader users get
 the same sentence regardless of input method.
 
-**Implementation notes:** native HTML5 `draggable`/`onDragStart`/`onDrop` drives the pointer
-path; the move buttons call the exact same reducer (`move`), so both paths guarantee identical
-resulting order — nothing forks between them beyond the input event.
+**Implementation notes:** native HTML5 `draggable`/`onDragStart`/`onDrop` drives the pointer path
+via `onDrop`, which splices the dragged item out and reinserts it at the target index — one drop
+can relocate an item across multiple positions. The move buttons call a separate `move` function
+that swaps two adjacent array entries, one step at a time. Different algorithms over the same
+`items` state, kept observably consistent by sharing the same announcement template, not by
+sharing code.
 
 **Tokens:** `--surface-raised`, `--border-subtle`, `--radius-control`, `--state-disabled-opacity`
 (dragged-item dim and disabled-button states share the token).
