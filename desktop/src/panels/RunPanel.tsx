@@ -1,4 +1,5 @@
 import { useReducer, useState } from "react";
+import { Button, Checkbox, Input } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import { runReducer, initialRunState } from "./runReducer";
 import { deriveStages } from "./runTimeline";
@@ -57,38 +58,38 @@ export function RunPanel() {
     <div>
       <h1>Run a decision</h1>
       <div className="row" style={{ marginBottom: 8 }}>
-        <input
+        <Input
           aria-label="initiative"
           placeholder="Initiative title…"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           style={{ flex: 1 }}
         />
-        <input
+        <Input
           aria-label="evidence"
           placeholder="evidence (scenario or path)"
           value={evidence}
           onChange={(e) => setEvidence(e.target.value)}
           style={{ width: 220 }}
         />
-        <button className="primary" onClick={start} disabled={running || !ipc}>
+        <Button type="primary" onClick={start} disabled={running || !ipc}>
           {running ? "Running…" : "Run"}
-        </button>
+        </Button>
         {running && !state.awaiting && (
-          <button onClick={cancel} disabled={!state.sessionId || state.cancelling}>
+          <Button onClick={cancel} disabled={!state.sessionId || state.cancelling}>
             {state.cancelling ? "Cancelling…" : "Cancel"}
-          </button>
+          </Button>
         )}
       </div>
-      <label className="row" style={{ gap: 6, marginBottom: 8 }}>
-        <input
-          type="checkbox"
+      <div className="row" style={{ gap: 6, marginBottom: 8 }}>
+        <Checkbox
           checked={approval}
           onChange={(e) => setApproval(e.target.checked)}
           disabled={running}
-        />
-        <span>Require approval (human-in-the-loop)</span>
-      </label>
+        >
+          Require approval (human-in-the-loop)
+        </Checkbox>
+      </div>
       {state.awaiting && (
         <div className="approval" style={{ marginBottom: 12 }}>
           <p>
@@ -97,9 +98,9 @@ export function RunPanel() {
           </p>
           <div className="row" style={{ gap: 8 }}>
             {VERDICTS.map((v) => (
-              <button key={v.verdict} onClick={() => decide(v.verdict)}>
+              <Button key={v.verdict} onClick={() => decide(v.verdict)}>
                 {v.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
