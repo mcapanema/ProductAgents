@@ -1,0 +1,229 @@
+/* Phase 10C — System & recovery patterns.
+ * Error recovery, permission requests, and notification strategy. Token-only
+ * (no new colors). Error recovery and permission-request chrome is local
+ * (mirrors the dialog/button/field shells Phase 3C/3F/10A established), kept
+ * local per the one-file-per-phase convention every prior phase module
+ * follows. The notification-strategy pattern deliberately reuses the actual
+ * `.fbk-*` classes from `phase3e-feedback.css` (imported in the .tsx) instead
+ * of re-declaring toast/banner/inline chrome — this file only adds what that
+ * reuse doesn't already cover (the comparison table, field markup, and the
+ * blocking-dialog example, which is genuinely new). */
+
+/* ── Buttons — local, mirrors Phase 10A's .p10a-btn pattern (same tokens). */
+.p10c-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--btn-gap);
+  height: var(--btn-height);
+  padding: 0 var(--btn-pad-x);
+  font: var(--btn-font);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--btn-radius);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+  white-space: nowrap;
+}
+.p10c-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p10c-btn--primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+.p10c-btn--primary:hover { background: var(--btn-primary-bg-hover); }
+.p10c-btn--secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); border-color: var(--btn-secondary-border); }
+.p10c-btn--secondary:hover { background: var(--btn-secondary-bg-hover); }
+.p10c-btn--ghost { background: var(--btn-ghost-bg); color: var(--btn-ghost-text); }
+.p10c-btn--ghost:hover { background: var(--btn-ghost-bg-hover); color: var(--btn-ghost-text-hover); }
+.p10c-btn--danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); }
+.p10c-btn--danger:hover { background: var(--btn-danger-bg-hover); }
+.p10c-btn[disabled] { opacity: var(--state-disabled-opacity); cursor: var(--state-disabled-cursor); }
+
+/* ── Icons — local inline-SVG convention. */
+.p10c-ico { width: var(--icon-md); height: var(--icon-md); flex: none; }
+.p10c-ico--sm { width: var(--icon-sm); height: var(--icon-sm); }
+
+/* ── Contained demo stage (mirrors Phase 3F/10A's .ov-stage/.p10a-stage). */
+.p10c-stage {
+  position: relative;
+  overflow: clip;
+  display: grid;
+  gap: var(--space-12);
+  justify-items: start;
+  /* The absolutely-positioned .p10c-modal is out of flow, so it never
+   * contributes to this box's height — without a floor the stage shrinks to
+   * its in-flow content (the trigger button/label) and clips the dialog
+   * against `overflow: clip`. Reserve room the same way Phase 3F's
+   * `.ov-stage` does. */
+  --p10c-stage-h: calc(var(--space-96) * 4);
+  min-height: var(--p10c-stage-h);
+  /* Same reasoning on the horizontal axis: the stage is a flex child of the
+   * harness's specimen row and otherwise shrinks to whatever in-flow content
+   * it has (sometimes just a single trigger button), squeezing the
+   * out-of-flow modal down to an awkwardly narrow, tall-wrapping column. */
+  min-width: min(var(--width-dialog-sm), 100%);
+  padding: var(--card-pad);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.p10c-row { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.p10c-status { display: inline-flex; align-items: center; gap: var(--space-4); font: var(--text-body-s); color: var(--text-secondary); }
+.p10c-status[data-tone="success"] { color: var(--ai-done-text); }
+
+/* ── Spinner — mirrors Phase 10A's .p10a-spinner. */
+.p10c-spinner {
+  width: var(--icon-md); height: var(--icon-md);
+  color: var(--ai-running);
+  animation: p10c-spin var(--dur-slow) linear infinite;
+  flex: none;
+}
+.p10c-spinner__track { fill: none; stroke: var(--border-subtle); stroke-width: var(--space-4); }
+.p10c-spinner__arc { fill: none; stroke: currentColor; stroke-width: var(--space-4); stroke-linecap: round; stroke-dasharray: 25 75; }
+@keyframes p10c-spin { to { transform: rotate(1turn); } }
+
+/* ═══════════════════════════════════════════════════════ ERROR RECOVERY ═ */
+.p10c-error-card {
+  display: flex; gap: var(--space-12); align-items: flex-start;
+  width: 100%; max-width: var(--measure-prose);
+  padding: var(--space-12);
+  background: var(--fb-error-bg);
+  border: var(--border-width-default) solid var(--fb-error-border);
+  border-radius: var(--radius-control);
+}
+.p10c-error-card__icon { color: var(--fb-error-icon); flex: none; }
+.p10c-error-card__body { display: grid; gap: var(--space-4); flex: 1; min-width: 0; }
+.p10c-error-card__title { margin: 0; font: var(--text-body-s); font-weight: var(--fw-semibold); color: var(--fb-error-text); }
+.p10c-error-card__cause { margin: 0; font: var(--text-body-s); color: var(--fb-error-text); }
+.p10c-error-card__actions { margin-top: var(--space-4); display: flex; gap: var(--space-8); }
+
+.p10c-item-list { display: grid; gap: var(--space-8); width: 100%; max-width: var(--measure-prose); list-style: none; margin: 0; padding: 0; }
+.p10c-item-row {
+  display: flex; gap: var(--space-8); align-items: flex-start;
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.p10c-item-row[data-state="failed"] { border-color: var(--fb-error-border); background: var(--fb-error-bg); }
+.p10c-item-row__icon {
+  flex: none; display: inline-flex; align-items: center;
+  height: calc(var(--fs-base) * var(--lh-normal));
+  color: var(--text-tertiary);
+}
+.p10c-item-row[data-state="ok"] .p10c-item-row__icon { color: var(--fb-success-icon); }
+.p10c-item-row[data-state="failed"] .p10c-item-row__icon { color: var(--fb-error-icon); }
+.p10c-item-row__dot { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-pill); background: var(--border-subtle); display: block; }
+.p10c-item-row__body { display: grid; gap: var(--space-2); min-width: 0; }
+.p10c-item-row__label { font: var(--text-body-s); color: var(--text-primary); }
+.p10c-item-row__cause { font: var(--text-caption); color: var(--fb-error-text); }
+
+/* ═══════════════════════════════════════════════ PERMISSION REQUESTS ═══ */
+/* Dialog shell mirrors Phase 10A's .p10a-scrim/.p10a-modal (same tokens),
+ * kept local rather than cross-imported per the established convention. */
+.p10c-scrim {
+  position: absolute; inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--overlay-scrim);
+  backdrop-filter: blur(var(--overlay-blur));
+}
+.p10c-modal {
+  position: absolute; z-index: var(--z-modal);
+  /* The stage keeps `justify-items: start` for its other in-flow content
+   * (trigger buttons/labels) — center only the modal within the now-tall
+   * stage rather than centering everything. */
+  align-self: center; justify-self: center;
+  width: min(var(--width-dialog-sm), calc(100% - var(--space-32)));
+  /* Safety net mirroring `.ov-modal`: if a dialog's content ever exceeds the
+   * reserved stage height (e.g. the approval dialog's rationale list), it
+   * scrolls internally instead of overflowing. */
+  max-height: calc(100% - var(--space-32));
+  display: flex; flex-direction: column;
+  background: var(--dialog-bg);
+  border: var(--border-width-default) solid var(--dialog-border);
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--dialog-shadow);
+}
+.p10c-head { display: flex; align-items: flex-start; gap: var(--space-12); padding: var(--dialog-pad) var(--dialog-pad) var(--space-12); }
+.p10c-head h4 { margin: 0; font: var(--text-heading-4); color: var(--text-primary); }
+.p10c-head p { margin: var(--space-2) 0 0; font: var(--text-body-s); color: var(--text-secondary); }
+.p10c-titles { flex: 1; min-width: 0; }
+.p10c-medallion {
+  flex: none; display: grid; place-items: center;
+  width: var(--size-avatar); height: var(--size-avatar);
+  border-radius: var(--radius-pill);
+  background: var(--fb-info-bg); color: var(--fb-info-icon);
+}
+.p10c-medallion--warning { background: var(--fb-warning-bg); color: var(--fb-warning-icon); }
+.p10c-consequence {
+  display: flex; gap: var(--space-8); align-items: flex-start;
+  padding: var(--space-12);
+  background: var(--fb-info-bg);
+  border: var(--border-width-default) solid var(--fb-info-border);
+  border-radius: var(--radius-control);
+  font: var(--text-body-s); color: var(--fb-info-text);
+}
+.p10c-consequence .p10c-ico { color: var(--fb-info-icon); }
+.p10c-body { padding: 0 var(--dialog-pad) var(--space-4); display: grid; gap: var(--space-12); overflow: auto; }
+.p10c-foot { display: flex; justify-content: flex-end; gap: var(--space-8); padding: var(--space-16) var(--dialog-pad) var(--dialog-pad); }
+
+.p10c-rationale { margin: 0; padding-left: var(--space-20); display: grid; gap: var(--space-4); font: var(--text-body-s); color: var(--text-secondary); }
+
+.p10c-info-panel { display: grid; gap: var(--space-4); }
+.p10c-label { font: var(--text-body-s); font-weight: var(--fw-medium); color: var(--text-secondary); }
+.p10c-textarea {
+  width: 100%; box-sizing: border-box;
+  padding: var(--pad-control-x);
+  font: var(--text-body-s); color: var(--text-primary);
+  background: var(--field-bg);
+  border: var(--border-width-default) solid var(--field-border);
+  border-radius: var(--radius-control);
+  resize: vertical;
+}
+.p10c-textarea:hover { border-color: var(--field-border-hover); }
+.p10c-textarea:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--field-border-focus);
+}
+
+/* ── Field markup for the inline-message specimen (mirrors Phase 10A's
+ * .p10a-label/.p10a-input). */
+.p10c-input {
+  width: 100%; box-sizing: border-box;
+  height: var(--size-control);
+  padding: 0 var(--pad-control-x);
+  font: var(--text-body-s);
+  color: var(--text-primary);
+  background: var(--field-bg);
+  border: var(--border-width-default) solid var(--field-border);
+  border-radius: var(--radius-control);
+}
+.p10c-input:hover { border-color: var(--field-border-hover); }
+.p10c-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-color: var(--field-border-focus);
+}
+.p10c-input[aria-invalid="true"] { border-color: var(--fb-error-border); }
+
+/* ═══════════════════════════════════════════════ NOTIFICATION STRATEGY ═ */
+.p10c-matrix { width: 100%; max-width: var(--measure-prose); border-collapse: collapse; font: var(--text-body-s); }
+.p10c-matrix th, .p10c-matrix td { text-align: left; padding: var(--space-8) var(--space-12); border-bottom: var(--border-width-default) solid var(--border-subtle); color: var(--text-secondary); }
+.p10c-matrix thead th { font: var(--text-caption); color: var(--text-tertiary); font-weight: var(--fw-medium); }
+.p10c-matrix tbody th { color: var(--text-primary); font-weight: var(--fw-semibold); white-space: nowrap; }
+
+/* Visually-hidden utility — same recipe used system-wide (Phase 10B's
+ * .p10b-sr-only) for content that must reach assistive tech only. */
+.p10c-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p10c-spinner { animation: none; }
+  .p10c-spinner__arc { stroke-dasharray: 60 40; }
+}

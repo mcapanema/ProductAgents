@@ -1,0 +1,276 @@
+/* Phase 10B — Direct-manipulation & editing patterns.
+ * Inline editing, keyboard-first interactions, drag-and-drop, selection, bulk
+ * actions, and undo/redo. Token-only (no new colors) — mirrors the form/button
+ * chrome Phase 3C established (`.fm-*`), the kbd-chip chrome Phase 3B's
+ * command palette established (`.nv-kbd`/`.nv-keys`), and the toast chrome
+ * Phase 3E established (`.fbk-toast`), kept local per the one-file-per-phase
+ * convention every prior phase module follows. */
+
+/* ── Buttons — local, mirrors Phase 3C's .fm-btn / Phase 10A's .p10a-btn. */
+.p10b-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--btn-gap);
+  height: var(--btn-height);
+  padding: 0 var(--btn-pad-x);
+  font: var(--btn-font);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--btn-radius);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+  white-space: nowrap;
+}
+.p10b-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p10b-btn--secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-text); border-color: var(--btn-secondary-border); }
+.p10b-btn--secondary:hover { background: var(--btn-secondary-bg-hover); }
+.p10b-btn--ghost { background: var(--btn-ghost-bg); color: var(--btn-ghost-text); }
+.p10b-btn--ghost:hover { background: var(--btn-ghost-bg-hover); color: var(--btn-ghost-text-hover); }
+.p10b-btn--danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); }
+.p10b-btn--danger:hover { background: var(--btn-danger-bg-hover); }
+
+/* Icon-only button — inline-edit save/cancel, reorder move buttons, connector
+ * remove. Square, no label; ghost chrome, same focus ring as .p10b-btn. */
+.p10b-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--size-control); height: var(--size-control);
+  padding: 0;
+  background: transparent;
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-control);
+}
+.p10b-icon-btn:hover { background: var(--btn-ghost-bg-hover); color: var(--text-primary); }
+.p10b-icon-btn:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p10b-icon-btn[disabled] { opacity: var(--state-disabled-opacity); cursor: var(--state-disabled-cursor); }
+
+/* ── Icons — local inline-SVG convention, same as every other phase module. */
+.p10b-ico { width: var(--icon-md); height: var(--icon-md); flex: none; }
+.p10b-ico--sm { width: var(--icon-sm); height: var(--icon-sm); }
+
+/* ── Contained demo stage — mirrors Phase 10A's .p10a-stage. */
+.p10b-stage {
+  position: relative;
+  overflow: clip;
+  display: grid;
+  gap: var(--space-12);
+  justify-items: start;
+  padding: var(--card-pad);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--card-radius);
+}
+.p10b-row { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; }
+.p10b-status { font: var(--text-body-s); color: var(--text-secondary); }
+
+/* ── Keyboard-shortcut chip — mirrors Phase 3B's .nv-keys/.nv-kbd. */
+.p10b-keys { display: inline-flex; align-items: center; gap: var(--space-2); }
+.p10b-kbd {
+  display: inline-grid; place-items: center;
+  min-width: var(--space-20); height: var(--space-20);
+  padding: 0 var(--space-4);
+  font: var(--text-caption); font-family: inherit;
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-keycap, none);
+}
+
+/* ── Shared table — Inline editing's table-cell demo, Selection, Bulk actions. */
+.p10b-table { width: 100%; border-collapse: collapse; font: var(--text-body-s); }
+.p10b-table th {
+  text-align: left;
+  font: var(--text-label); font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
+  padding: var(--space-8) var(--space-12);
+  border-bottom: var(--border-width-default) solid var(--border-subtle);
+}
+.p10b-table td { padding: var(--space-8) var(--space-12); color: var(--text-primary); vertical-align: middle; }
+.p10b-table__row { border-bottom: var(--border-width-default) solid var(--border-subtle); }
+.p10b-table__row:last-child { border-bottom: 0; }
+.p10b-table__row.is-selected { background: var(--surface-selected); }
+.p10b-table__check { width: var(--space-32); }
+.p10b-table__check input[type="checkbox"],
+.p10b-bulk-bar input[type="checkbox"] {
+  width: var(--icon-md); height: var(--icon-md);
+  accent-color: var(--accent);
+  cursor: var(--cursor-interactive);
+}
+.p10b-table__check input[type="checkbox"]:focus-visible,
+.p10b-bulk-bar input[type="checkbox"]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+[data-density="compact"] .p10b-table th,
+[data-density="compact"] .p10b-table td { padding: var(--space-4) var(--space-8); }
+
+/* ════════════════════════════════════════════════════ 1. INLINE EDITING ══ */
+.p10b-inline-display { display: inline-flex; align-items: center; gap: var(--space-8); }
+.p10b-inline-trigger {
+  display: inline-flex; align-items: center; gap: var(--space-6);
+  padding: var(--space-2) var(--space-6);
+  margin: calc(var(--space-2) * -1) calc(var(--space-6) * -1);
+  background: transparent;
+  border: var(--border-width-default) dashed transparent;
+  border-radius: var(--radius-control);
+  font: var(--text-body-s); color: var(--text-primary);
+  cursor: var(--cursor-interactive);
+  text-align: left;
+}
+.p10b-inline-trigger--title { font: var(--text-heading-4); }
+.p10b-inline-trigger:hover { border-color: var(--border-subtle); }
+.p10b-inline-trigger:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p10b-inline-pencil { color: var(--text-tertiary); opacity: 0; transition: opacity var(--dur-fast) var(--ease-standard); }
+.p10b-inline-trigger:hover .p10b-inline-pencil,
+.p10b-inline-trigger:focus-visible .p10b-inline-pencil { opacity: 1; }
+
+.p10b-inline-edit { display: inline-flex; align-items: center; gap: var(--space-4); }
+.p10b-inline-input {
+  height: var(--size-control);
+  padding: 0 var(--pad-control-x);
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--field-bg);
+  border: var(--border-width-default) solid var(--field-border-focus);
+  border-radius: var(--radius-control);
+}
+.p10b-inline-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.p10b-inline-actions { display: inline-flex; gap: var(--space-2); }
+.p10b-inline-ack {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  font: var(--text-caption); color: var(--ai-done-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p10b-inline-pencil { transition: none; }
+}
+
+/* ═══════════════════════════════════════ 2. KEYBOARD-FIRST INTERACTIONS ══ */
+.p10b-conventions { display: grid; gap: var(--space-12); width: 100%; max-width: var(--measure-prose); margin: 0; }
+.p10b-conventions__row { display: grid; gap: var(--space-4); }
+.p10b-conventions__row dt {
+  display: flex; align-items: center; gap: var(--space-6);
+  font: var(--text-body-s); font-weight: var(--fw-semibold); color: var(--text-primary);
+}
+.p10b-conventions__row dd { margin: 0; font: var(--text-body-s); color: var(--text-secondary); }
+.p10b-conventions__row code {
+  font: var(--text-caption); font-family: var(--font-mono, monospace);
+  padding: 0 var(--space-4);
+  background: var(--surface-raised);
+  border-radius: var(--radius-control);
+}
+
+.p10b-menu {
+  display: grid; gap: var(--space-2);
+  width: 100%; max-width: var(--width-dialog-sm);
+  margin: 0; padding: var(--space-4);
+  list-style: none;
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.p10b-menu__item {
+  display: flex; align-items: center;
+  width: 100%; box-sizing: border-box;
+  padding: var(--space-8) var(--space-12);
+  background: transparent; border: 0; border-radius: var(--radius-control);
+  font: var(--text-body-s); color: var(--text-primary);
+  cursor: var(--cursor-interactive); text-align: left;
+}
+.p10b-menu__item:hover { background: var(--surface-hover); }
+.p10b-menu__item:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: calc(var(--focus-ring-offset) * -1); }
+
+/* ════════════════════════════════════════════════════ 3. DRAG-AND-DROP ═══ */
+.p10b-reorder { display: grid; gap: var(--space-4); width: 100%; max-width: var(--measure-prose); margin: 0; padding: 0; list-style: none; }
+.p10b-reorder__item {
+  display: flex; align-items: center; gap: var(--space-8);
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-4);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.p10b-reorder__item.is-dragging { opacity: var(--state-disabled-opacity); }
+.p10b-reorder__handle { display: grid; place-items: center; color: var(--text-tertiary); cursor: grab; }
+.p10b-reorder__handle:active { cursor: grabbing; }
+.p10b-reorder__label { flex: 1; font: var(--text-body-s); color: var(--text-primary); }
+.p10b-reorder__controls { display: inline-flex; gap: var(--space-2); }
+
+[data-density="compact"] .p10b-reorder__item { padding: var(--space-4) var(--space-4) var(--space-4) var(--space-2); }
+
+/* Visually-hidden live-region for the move-buttons' position announcement —
+ * local utility, same recipe used system-wide. */
+.p10b-sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ═══════════════════════════════════════════════════ 5. BULK ACTIONS ═════ */
+.p10b-bulk-bar {
+  display: flex; align-items: center; gap: var(--space-12); flex-wrap: wrap;
+  width: 100%; box-sizing: border-box;
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-selected);
+  border: var(--border-width-default) solid var(--border-focus);
+  border-radius: var(--radius-control);
+}
+.p10b-bulk-bar__count { font: var(--text-body-s); font-weight: var(--fw-semibold); color: var(--text-primary); }
+.p10b-bulk-bar__clear { margin-left: auto; }
+
+/* ═══════════════════════════════════════════════════════ 6. UNDO/REDO ════ */
+.p10b-connector-list { display: grid; gap: var(--space-4); width: 100%; max-width: var(--measure-prose); margin: 0; padding: 0; list-style: none; }
+.p10b-connector-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  font: var(--text-body-s); color: var(--text-primary);
+}
+
+.p10b-toast {
+  --p10b-toast-dwell: 6000ms;
+  position: absolute; left: var(--space-16); bottom: var(--space-16);
+  z-index: var(--z-toast);
+  display: flex; align-items: center; gap: var(--space-8);
+  width: min(var(--width-inspector), calc(100% - var(--space-32)));
+  padding: var(--space-12) var(--space-12) var(--space-16);
+  background: var(--surface-floating);
+  border: var(--border-width-default) solid var(--border-default);
+  border-radius: var(--toast-radius);
+  box-shadow: var(--toast-shadow);
+  animation: p10b-toast-in var(--dur-normal) var(--ease-standard);
+}
+.p10b-toast__icon { display: flex; flex: none; color: var(--ai-done-text); }
+.p10b-toast__text { flex: 1; font: var(--text-body-s); color: var(--text-primary); }
+.p10b-toast__action {
+  flex: none;
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  background: transparent; border: 0; padding: 0;
+  font: var(--text-body-s); font-weight: var(--fw-medium); color: var(--text-link);
+  cursor: var(--cursor-interactive);
+}
+.p10b-toast__action:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: var(--focus-ring-offset); }
+.p10b-toast__timer {
+  position: absolute; left: 0; bottom: 0; height: var(--border-width-focus);
+  width: 100%; transform-origin: left center;
+  background: var(--border-default);
+  animation: p10b-timer var(--p10b-toast-dwell) linear forwards;
+}
+
+@keyframes p10b-toast-in { from { opacity: 0; transform: translateY(var(--space-8)); } to { opacity: 1; transform: none; } }
+@keyframes p10b-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .p10b-toast { animation: none; }
+  .p10b-toast__timer { animation: none; transform: scaleX(0.5); }
+}
