@@ -22,3 +22,15 @@ Object.defineProperty(window, "matchMedia", {
 const realGetComputedStyle = window.getComputedStyle.bind(window);
 window.getComputedStyle = ((elt: Element, pseudoElt?: string | null) =>
   pseudoElt ? ({ getPropertyValue: () => "" } as unknown as CSSStyleDeclaration) : realGetComputedStyle(elt)) as typeof window.getComputedStyle;
+
+// antd Input.TextArea (via rc-textarea/@rc-component/resize-observer) constructs a
+// ResizeObserver to track its own size; jsdom doesn't implement the API at all.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+Object.defineProperty(window, "ResizeObserver", {
+  writable: true,
+  value: ResizeObserverStub,
+});
