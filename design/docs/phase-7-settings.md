@@ -146,9 +146,11 @@ migrates to `desktop/src/ui/`.
 - **Content guidelines** — action labels are short imperative phrases
   ("Open command palette"); key chips render exactly what was pressed
   (single characters upper-cased, Space spelled out).
-- **Implementation notes** — capture listens at the list level via
-  `onKeyDownCapture`, not per-row, so any keydown while a row is
-  `recording` is intercepted regardless of which element has focus; a bare
+- **Implementation notes** — capture listens at the list level via a bubble-
+  phase `onKeyDown` (the handler is named `onKeyDownCapture`, but nothing
+  binds the capture-phase prop), not per-row, so any keydown from a focused
+  row descendant reaches it while `recording`, since nothing stops
+  propagation in between; a bare
   modifier press (Cmd/Ctrl/Alt/Shift alone) doesn't complete a binding —
   `describeKeyCombo` returns `null` and capture keeps waiting for the
   following non-modifier key.
