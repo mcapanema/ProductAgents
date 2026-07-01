@@ -39,7 +39,7 @@ export function AntdPilotForms() {
         <Form
           form={form}
           layout="vertical"
-          style={{ maxWidth: 360 }}
+          style={{ maxWidth: "var(--width-dialog-sm)" }}
           onFinish={(values) => setSubmitted(values)}
         >
           <Form.Item
