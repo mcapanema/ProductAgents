@@ -33,7 +33,7 @@
     "jsdom": "^25",
     "typescript": "^5.6",
     "vite": "^6",
-    "vitest": "^2"
+    "vitest": "^4.1.9"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,
