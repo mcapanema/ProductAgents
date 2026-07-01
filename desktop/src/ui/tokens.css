@@ -1,0 +1,15 @@
+/*
+ * desktop/src/ui/tokens.css — the desktop's stable public entry point to the
+ * "Instrument" design system. Re-exports the layered token source of truth
+ * (design/tokens/*.css) plus the local @font-face block, so the app imports ONE
+ * file (src/ui/tokens.css) instead of reaching into design/ or the styleguide.
+ * Token VALUES stay sourced from design/tokens/*.css (single source of truth);
+ * the dev server's fs.allow already permits the repo root.
+ * Layer order: primitives -> semantic -> components -> themes (color, [data-theme]).
+ */
+@import "../../../design/tokens/primitives.css";
+@import "../../../design/tokens/semantic.css";
+@import "../../../design/tokens/components.css";
+@import "../../../design/tokens/themes/dark.css";
+@import "../../../design/tokens/themes/light.css";
+@import "./fonts.css";
