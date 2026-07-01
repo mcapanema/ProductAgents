@@ -45,6 +45,7 @@ export function DecisionsPanel() {
 function DecisionDetailView({ detail }: { detail: DecisionDetail }) {
   const rows = predictionRows(detail);
   const rec = detail.record.recommendation;
+  const sections = decisionSections(detail);
   return (
     <div style={{ flex: 1 }}>
       <h2 style={{ marginTop: 0 }}>{detail.record.initiative.title}</h2>
@@ -66,29 +67,22 @@ function DecisionDetailView({ detail }: { detail: DecisionDetail }) {
       ) : (
         <p className="muted">—</p>
       )}
-      {(() => {
-        const s = decisionSections(detail);
-        return (
-          <>
-            <h3>Evidence</h3>
-            {s.evidence.length ? (
-              <ul>{s.evidence.map((e, i) => <li key={i}>{e.field} — <span className="muted">{e.source}</span></li>)}</ul>
-            ) : (<p className="muted">—</p>)}
-            <h3>Debate</h3>
-            {s.debate.length ? (
-              <ul>{s.debate.map((t, i) => <li key={i}><strong>R{t.round} {t.side}:</strong> {t.argument}</li>)}</ul>
-            ) : (<p className="muted">—</p>)}
-            <h3>Risk</h3>
-            {s.risks.length ? (
-              <ul>{s.risks.map((r, i) => <li key={i}><strong>{r.level}</strong> — {r.rationale}</li>)}</ul>
-            ) : (<p className="muted">—</p>)}
-            <h3>Approval</h3>
-            {s.governance ? (
-              <p>{s.governance.verdict} <span className="muted">({s.governance.decided_by}) — {s.governance.rationale}</span></p>
-            ) : (<p className="muted">—</p>)}
-          </>
-        );
-      })()}
+      <h3>Evidence</h3>
+      {sections.evidence.length ? (
+        <ul>{sections.evidence.map((e, i) => <li key={i}>{e.field} — <span className="muted">{e.source}</span></li>)}</ul>
+      ) : (<p className="muted">—</p>)}
+      <h3>Debate</h3>
+      {sections.debate.length ? (
+        <ul>{sections.debate.map((t, i) => <li key={i}><strong>R{t.round} {t.side}:</strong> {t.argument}</li>)}</ul>
+      ) : (<p className="muted">—</p>)}
+      <h3>Risk</h3>
+      {sections.risks.length ? (
+        <ul>{sections.risks.map((r, i) => <li key={i}><strong>{r.level}</strong> — {r.rationale}</li>)}</ul>
+      ) : (<p className="muted">—</p>)}
+      <h3>Approval</h3>
+      {sections.governance ? (
+        <p>{sections.governance.verdict} <span className="muted">({sections.governance.decided_by}) — {sections.governance.rationale}</span></p>
+      ) : (<p className="muted">—</p>)}
     </div>
   );
 }
