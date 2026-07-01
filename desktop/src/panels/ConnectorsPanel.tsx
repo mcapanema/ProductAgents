@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
+import { Button, Table } from "antd";
+import type { TableColumnsType } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { ConnectorHealth, ConnectorList, ConnectorSync } from "../ipc/types";
 import { connectorRows } from "./connectorView";
+
+type ConnectorRow = ReturnType<typeof connectorRows>[number];
 
 export function ConnectorsPanel() {
   const ipc = useIpc();
@@ -45,32 +49,38 @@ export function ConnectorsPanel() {
 
   const rows = connectorRows(list, health, sync);
 
+  const columns: TableColumnsType<ConnectorRow> = [
+    { title: "Connector", dataIndex: "name", key: "name" },
+    {
+      title: "Status",
+      key: "status",
+      render: (_, r) => (
+        <span className="muted">
+          {r.health === "unknown" ? "health unknown" : `health: ${r.detail || r.health}`}
+          {r.synced === "error"
+            ? ` · ⚠ ${r.error}`
+            : r.written !== null && ` · ${r.written} written`}
+          {r.lastSynced && ` · last sync ${r.lastSynced}`}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div>
       <h1>Connectors</h1>
       <div className="row" style={{ gap: 8, marginBottom: 16 }}>
-        <button onClick={checkHealth} disabled={!ipc || busy}>
+        <Button onClick={checkHealth} disabled={!ipc || busy} loading={busy}>
           Check health
-        </button>
-        <button onClick={runSync} disabled={!ipc || busy}>
+        </Button>
+        <Button onClick={runSync} disabled={!ipc || busy} loading={busy}>
           Sync now
-        </button>
+        </Button>
       </div>
-      {list.connectors.length === 0 && (
-        <p className="muted">No connectors configured.</p>
+      {list.connectors.length === 0 && <p className="muted">No connectors configured.</p>}
+      {rows.length > 0 && (
+        <Table<ConnectorRow> columns={columns} dataSource={rows} rowKey="name" pagination={false} size="middle" />
       )}
-      {rows.map((r) => (
-        <div className="list-item" key={r.name}>
-          <div>{r.name}</div>
-          <div className="muted">
-            {r.health === "unknown" ? "health unknown" : `health: ${r.detail || r.health}`}
-            {r.synced === "error"
-              ? ` · ⚠ ${r.error}`
-              : r.written !== null && ` · ${r.written} written`}
-            {r.lastSynced && ` · last sync ${r.lastSynced}`}
-          </div>
-        </div>
-      ))}
       {list.problems.map((p, i) => (
         <p className="muted" key={`list-${i}`}>
           ⚠ {p}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button, Input } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { PromptDiff, PromptSummary, PromptVersion } from "../ipc/types";
 import { defaultDiffPair, versionLabel } from "./promptView";
@@ -96,22 +97,22 @@ export function PromptsPanel() {
         {selected && (
           <div style={{ flex: 1 }}>
             <h2 style={{ marginTop: 0 }}>{selected.name}</h2>
-            <div
-              className="row"
-              style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}
-            >
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
               {selected.versions.map((v) => (
                 <span key={v} style={{ display: "inline-flex", gap: 4 }}>
-                  <button onClick={() => showVersion(selected.name, v)}>
+                  <Button
+                    type={v === selected.active ? "primary" : "default"}
+                    onClick={() => showVersion(selected.name, v)}
+                  >
                     {versionLabel(v, selected.active)}
-                  </button>
+                  </Button>
                   {v !== selected.active && (
-                    <button onClick={() => rollback(selected.name, v)}>↺</button>
+                    <Button onClick={() => rollback(selected.name, v)}>↺</Button>
                   )}
                 </span>
               ))}
               {defaultDiffPair(selected) && (
-                <button onClick={() => showDiff(selected)}>Diff vs default</button>
+                <Button onClick={() => showDiff(selected)}>Diff vs default</Button>
               )}
             </div>
             {diff ? (
@@ -119,13 +120,13 @@ export function PromptsPanel() {
             ) : (
               version && (
                 <div>
-                  <textarea
+                  <Input.TextArea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     style={{ width: "100%", minHeight: 240, ...pre }}
                   />
                   <div className="row" style={{ gap: 8, marginTop: 8 }}>
-                    <button onClick={save} disabled={!ipc}>Save as new version</button>
+                    <Button onClick={save} disabled={!ipc}>Save as new version</Button>
                   </div>
                 </div>
               )

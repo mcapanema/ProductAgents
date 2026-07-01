@@ -6,5 +6,13 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
-  server: { port: 1420, strictPort: true },
+  server: {
+    port: 1420,
+    strictPort: true,
+    // main.tsx imports the design-system token CSS + fonts.css directly from
+    // ../design/ (repo root sibling) so those files stay the single source of
+    // truth instead of a copy — the dev server's default fs allowlist only
+    // covers desktop/, so widen it to the repo root.
+    fs: { allow: [".."] },
+  },
 });

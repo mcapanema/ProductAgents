@@ -1,34 +1,16 @@
-:root {
-  --bg: #0e1116;
-  --panel: #161b22;
-  --border: #2a3038;
-  --text: #d6deeb;
-  --muted: #8b98a9;
-  --accent: #4c8eda;
-}
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; }
+body { margin: 0; background: var(--bg-primary); color: var(--text-primary);
+  font: 14px/1.5 var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
 .shell { display: flex; height: 100vh; }
-.sidebar { width: 200px; background: var(--panel); border-right: 1px solid var(--border);
+.sidebar { width: 200px; background: var(--surface-raised); border-right: 1px solid var(--border-default);
   display: flex; flex-direction: column; padding: 12px 8px; gap: 4px; }
-.brand { font-weight: 600; padding: 8px; color: var(--muted); letter-spacing: 0.5px; }
-.nav { text-align: left; background: none; border: none; color: var(--text);
-  padding: 8px 10px; border-radius: 6px; cursor: pointer; }
-.nav:hover { background: #1d2530; }
-.nav.active { background: #1d2530; color: var(--accent); }
+.brand { font-weight: 600; padding: 8px; color: var(--text-secondary); letter-spacing: 0.5px; }
 .content { flex: 1; overflow: auto; padding: 24px; }
 h1 { font-size: 18px; margin: 0 0 16px; }
 .row { display: flex; gap: 8px; align-items: center; }
-.list-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
-  margin-bottom: 6px; cursor: pointer; background: var(--panel); }
+.list-item { padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 6px;
+  margin-bottom: 6px; cursor: pointer; background: var(--surface-raised); }
 .list-item:hover { border-color: var(--accent); }
-.muted { color: var(--muted); }
-.event { font-family: ui-monospace, monospace; font-size: 12px; padding: 4px 8px;
-  border-left: 2px solid var(--border); margin: 2px 0; }
-input, textarea, button.primary { font: inherit; }
-input, textarea { background: var(--bg); color: var(--text);
-  border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
-button.primary { background: var(--accent); color: #fff; border: none;
-  padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-button.primary:disabled { opacity: 0.5; cursor: default; }
+.muted { color: var(--text-secondary); }
+.event { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; padding: 4px 8px;
+  border-left: 2px solid var(--border-default); margin: 2px 0; }

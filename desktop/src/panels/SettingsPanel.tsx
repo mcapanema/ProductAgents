@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button, Input, Select } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { ConfigStatus } from "../ipc/types";
 import { UpdateSection } from "./UpdateSection";
@@ -50,23 +51,22 @@ export function SettingsPanel() {
         <div style={{ maxWidth: 480 }}>
           <label className="field">
             <span>Model</span>
-            <input aria-label="model" value={model} onChange={(e) => setModel(e.target.value)} />
+            <Input aria-label="model" value={model} onChange={(e) => setModel(e.target.value)} />
           </label>
           <label className="field">
             <span>Provider</span>
-            <select aria-label="provider" value={provider} onChange={(e) => onProviderChange(e.target.value)}>
-              {status.providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              aria-label="provider"
+              value={provider}
+              onChange={onProviderChange}
+              style={{ width: "100%" }}
+              options={status.providers.map((p) => ({ value: p.id, label: p.label }))}
+            />
           </label>
           <label className="field">
             <span>API key ({status.key_var})</span>
-            <input
+            <Input.Password
               aria-label="api key"
-              type="password"
               placeholder={status.key_present ? "•••••• (set — leave blank to keep)" : "required"}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
@@ -78,9 +78,9 @@ export function SettingsPanel() {
               {p}
             </p>
           ))}
-          <button className="primary" onClick={save} disabled={saving || !ipc}>
-            {saving ? "Saving…" : "Save"}
-          </button>
+          <Button type="primary" onClick={save} loading={saving} disabled={saving || !ipc}>
+            Save
+          </Button>
           <UpdateSection />
         </div>
       )}

@@ -58,6 +58,29 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   resume. It also shows a **Cancel** button while a run is in flight: clicking
   it dispatches `run.cancel {session_id}` (session_id captured from the first
   streamed event); the run ends with `SessionCancelled` + `{status:"cancelled"}`.
+- `src/ui/` — the Ant Design–based component foundation. `theme.ts`
+  (`buildAntdTheme`) maps the `design/tokens/*.css` "Instrument" tokens onto
+  AntD's `ConfigProvider` seed tokens — ported from the validated pilot at
+  `design/styleguide/src/antd-pilot/theme.ts`. `ThemeShell` owns
+  theme/density state, writes `data-theme`/`data-density` onto `<html>`, and
+  wraps children in `ConfigProvider`; its two `useLayoutEffect` calls are
+  declared in a specific order (attribute write, then token re-read) to avoid
+  a real race the pilot found (stale colors for one commit on the first
+  theme toggle) — don't reorder them. Panels use AntD's `Button`, `Input`,
+  `Select`, `Checkbox`, `Table`, and the shell nav uses `Menu`. AntD's `List`
+  is NOT used anywhere — the installed antd 6.5.0 marks it deprecated
+  (console.warn on every render), so list-shaped sections (Workflows,
+  OrgMemory, Sessions, Decisions, Prompts' sidebar list, Reflection's
+  outcome/lessons lists) keep their pre-existing hand-rolled `.list-item`/
+  `<ul>` markup instead — the same "hybrid, not full replacement" treatment
+  already applied to `StageTimeline.tsx`/`RawEvents.tsx`, which stay on
+  native `<details>` and are also not part of this migration (`Collapse`
+  isn't in the adopted component set either). `desktop/src/test-setup.ts`
+  stubs three jsdom-vs-antd gaps found during this migration:
+  `window.matchMedia` and `getComputedStyle`'s pseudo-element form (both
+  needed by `Table`'s internal responsive/scrollbar-measurement hooks) and
+  `window.ResizeObserver` (needed by `Input.TextArea`'s internal resize
+  handling) — jsdom implements none of these.
 - `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`).
 - `e2e/` — Playwright browser tests (see `e2e/CLAUDE.md`).
 

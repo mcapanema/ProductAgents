@@ -54,7 +54,8 @@ describe("SettingsPanel", () => {
     renderPanel({ configGet: async () => status } as unknown as IpcClient);
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
 
-    fireEvent.change(screen.getByLabelText(/provider/i), { target: { value: "openai" } });
+    fireEvent.mouseDown(screen.getByLabelText(/provider/i));
+    fireEvent.click(await screen.findByText("OpenAI"));
 
     expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
