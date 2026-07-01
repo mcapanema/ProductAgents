@@ -48,6 +48,18 @@
   display: grid;
   gap: var(--space-12);
   justify-items: start;
+  /* The absolutely-positioned .p10c-modal is out of flow, so it never
+   * contributes to this box's height — without a floor the stage shrinks to
+   * its in-flow content (the trigger button/label) and clips the dialog
+   * against `overflow: clip`. Reserve room the same way Phase 3F's
+   * `.ov-stage` does. */
+  --p10c-stage-h: calc(var(--space-96) * 4);
+  min-height: var(--p10c-stage-h);
+  /* Same reasoning on the horizontal axis: the stage is a flex child of the
+   * harness's specimen row and otherwise shrinks to whatever in-flow content
+   * it has (sometimes just a single trigger button), squeezing the
+   * out-of-flow modal down to an awkwardly narrow, tall-wrapping column. */
+  min-width: min(var(--width-dialog-sm), 100%);
   padding: var(--card-pad);
   background: var(--surface-sunken);
   border: var(--border-width-default) solid var(--border-subtle);
@@ -115,7 +127,15 @@
 }
 .p10c-modal {
   position: absolute; z-index: var(--z-modal);
+  /* The stage keeps `justify-items: start` for its other in-flow content
+   * (trigger buttons/labels) — center only the modal within the now-tall
+   * stage rather than centering everything. */
+  align-self: center; justify-self: center;
   width: min(var(--width-dialog-sm), calc(100% - var(--space-32)));
+  /* Safety net mirroring `.ov-modal`: if a dialog's content ever exceeds the
+   * reserved stage height (e.g. the approval dialog's rationale list), it
+   * scrolls internally instead of overflowing. */
+  max-height: calc(100% - var(--space-32));
   display: flex; flex-direction: column;
   background: var(--dialog-bg);
   border: var(--border-width-default) solid var(--dialog-border);
@@ -142,7 +162,7 @@
   font: var(--text-body-s); color: var(--fb-info-text);
 }
 .p10c-consequence .p10c-ico { color: var(--fb-info-icon); }
-.p10c-body { padding: 0 var(--dialog-pad) var(--space-4); display: grid; gap: var(--space-12); }
+.p10c-body { padding: 0 var(--dialog-pad) var(--space-4); display: grid; gap: var(--space-12); overflow: auto; }
 .p10c-foot { display: flex; justify-content: flex-end; gap: var(--space-8); padding: var(--space-16) var(--dialog-pad) var(--dialog-pad); }
 
 .p10c-rationale { margin: 0; padding-left: var(--space-20); display: grid; gap: var(--space-4); font: var(--text-body-s); color: var(--text-secondary); }
