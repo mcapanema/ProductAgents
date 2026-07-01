@@ -20,6 +20,9 @@ Built only from the existing token layer (no new colors — `contrast.py` still 
 failures, both themes and CVD simulation). Icons are inline SVG (Phosphor-style,
 `stroke="currentColor"`), defined locally in `Phase10BEditingPatterns.tsx`.
 
+React API: not yet productized — each component here is a `design/styleguide/src/phase10/`
+demo; a stable public API is defined when it migrates to `desktop/src/ui/`.
+
 ---
 
 ## Inline Editing
@@ -38,6 +41,13 @@ Enter activates → an input replaces the display, scoped tightly to just that v
 explicit Save (check) and Cancel (×) icon buttons → committing shows a transient "Saved"
 acknowledgment next to the value.
 
+**Variants:** two contexts, same control — a title-sized trigger (`variant="title"`,
+`.p10b-inline-trigger--title`) and a default table-cell trigger, styled via a prop-driven
+modifier class rather than a separate component.
+
+**Sizes:** two sizes — default (inherits the table's `--text-body-s`) and `title`
+(`--text-heading-4`).
+
 **States:** display → editing (input focused, draft state local until committed) → saved
 (value updates, 2-second acknowledgment, then back to plain display). Cancel reverts to the
 last-saved value without committing the draft.
@@ -52,6 +62,13 @@ without stealing focus.
 convention (Notion, Trello) — so there's no way to "lose" focus and leave the value stuck in a
 half-edited state. The Save/Cancel buttons use `onMouseDown` `preventDefault` so clicking them
 doesn't fire blur-commit before their own click handler runs.
+
+**Content guidelines:** the save acknowledgment is a fixed, terse "Saved" — not a per-field
+custom message — since it's meant to be glanced at, not read.
+
+**Implementation notes:** committing an empty/whitespace-only draft reverts to the last-saved
+value rather than saving blank (`draft.trim() || v`) — there's no dedicated empty-value error
+state.
 
 **Tokens:** `--field-bg`, `--field-border-focus`, `--size-control`, `--pad-control-x`,
 `--ai-done-text`, `--text-heading-4` (title variant), `--radius-control`.
@@ -74,6 +91,12 @@ focus rings) followed by one live composite-widget demo — a menu using a **rov
 exactly one item is in the Tab sequence (`tabIndex={0}`) at a time, and arrow keys move which
 one that is, rather than Tab stepping through every item.
 
+**Variants:** n/a — this is a conventions reference plus one composite-widget demo, not a
+component with variant configurations.
+
+**Sizes:** single size — menu caps at `--width-dialog-sm`; kbd chips render at caption scale, no
+size options.
+
 **Grounding.** The `⌘K` command palette referenced here already exists — Phase 3B's
 `.nv-palette` (the embedded omnibox, arrow-key + Enter operable, documented in that phase) and
 Phase 3F's `.ov-command` (the modal it can also open). This doc cross-references rather than
@@ -92,6 +115,14 @@ page's focus order) while arrow keys move freely inside it.
 **Enter** activates · focus rings are visible on every focusable element in this entire
 gallery (and the whole design system) — Tab through any control on the page to see one; none
 rely on color alone (1.4.1).
+
+**Content guidelines:** n/a — this pattern documents system conventions, not user-facing copy of
+its own; each composite widget it's applied to owns its own labels.
+
+**Implementation notes:** the roving tab stop moves DOM focus imperatively via a ref array
+(`itemRefs.current[i]?.focus()`) alongside the `tabIndex` state update, rather than from a
+`useEffect` on `active` — that avoids stealing focus into the menu on mount, before the user
+has touched it.
 
 **Tokens:** `--focus-ring-width`, `--focus-ring-offset`, `--border-focus`, `--surface-hover`,
 `--surface-raised`.
@@ -115,6 +146,12 @@ alternative, never instead of one.
 up**/**move down** icon buttons, always visible, doing the exact same reorder as a completed
 drag. Both paths update the same list state and announce the same way.
 
+**Variants:** none — one reorder shape (handle + label + move buttons); the move buttons are not
+optional/hideable, they're part of the one variant this pattern ships.
+
+**Sizes:** single size — row padding tightens under `[data-density="compact"]` like the rest of
+this system's tables/lists; no other size axis.
+
 **States:** idle → dragging (the dragged item dims to signal it's lifted; `aria-grabbed="true"`)
 → dropped (list re-orders) or move-button pressed (list re-orders immediately, no drag needed).
 
@@ -127,6 +164,14 @@ HTML5 drag-and-drop has no built-in screen-reader announcement.
 **Keyboard:** **Tab** to a row's move buttons, **Enter**/**Space** to activate — this is the
 *complete* alternative to dragging, not a degraded fallback; every reorder a mouse user can
 perform, a keyboard-only user can perform identically, in the same number of list positions.
+
+**Content guidelines:** the live-region announcement follows a fixed "Moved 'X' to position N of
+M." template, used identically for both the drag and the button path, so screen-reader users get
+the same sentence regardless of input method.
+
+**Implementation notes:** native HTML5 `draggable`/`onDragStart`/`onDrop` drives the pointer
+path; the move buttons call the exact same reducer (`move`), so both paths guarantee identical
+resulting order — nothing forks between them beyond the input event.
 
 **Tokens:** `--surface-raised`, `--border-subtle`, `--radius-control`, `--state-disabled-opacity`
 (dragged-item dim and disabled-button states share the token).
@@ -148,6 +193,11 @@ perform — an unused selection UI is pure visual noise.
 indeterminate when some-but-not-all rows are selected) → a visible count ("3 of 4 selected")
 replacing the idle hint text once anything is selected.
 
+**Variants:** none — one checkbox-column shape, reused verbatim by Bulk Actions below.
+
+**Sizes:** single size — checkbox is `--icon-md`; table padding tightens under
+`[data-density="compact"]`.
+
 **States:** none selected (idle hint shown) → partial (count shown, header checkbox
 indeterminate) → all selected (header checkbox checked).
 
@@ -164,6 +214,10 @@ last-toggled checkbox — a mouse *shortcut* for ranges, never the only way to m
 checkbox's own semantics are already additive (it never clears its siblings) — the modifier
 only matters on click surfaces that *aren't* checkboxes, where a plain click would otherwise
 replace the whole selection.
+
+**Content guidelines:** the count line replaces the idle hint verbatim in the same slot — never
+both shown together — and uses the exact "N of M selected" format ("3 of 4 selected"), not "X
+items selected."
 
 **Tokens:** `--surface-selected` (selected-row background), `--accent` (checkbox
 `accent-color`), `--text-tertiary` (column headers).
@@ -187,6 +241,12 @@ the action's severity — `secondary` for Archive, `danger` for Delete, same var
 Destructive Actions established) → a **Clear** button, right-aligned, that empties the
 selection without performing any action.
 
+**Variants:** the action buttons carry their own severity variant (`secondary` for Archive,
+`danger` for Delete); the toolbar shell itself has one shape.
+
+**Sizes:** single size — toolbar padding and button sizing match the standard `.p10b-btn` scale;
+no compact override beyond the shared table-density rule.
+
 **States:** hidden (selection empty) → visible (selection non-empty; replaces the idle hint
 text in the same vertical slot so the toolbar's appearance doesn't shift the table below it).
 
@@ -197,6 +257,13 @@ the idle hint occupied — one place to look, before and after.
 
 **Keyboard:** every toolbar button is a normal focusable `<button>`; nothing here requires a
 mouse beyond what Selection already requires to build the selection in the first place.
+
+**Content guidelines:** the post-action confirmation follows a fixed "Verb N item(s)." template
+(e.g. "Archived 3 items."), singularizing "item" at N=1.
+
+**Implementation notes:** this demo doesn't perform a real archive/delete against a backend (a
+`ponytail:` comment in the source notes this) — the toolbar mechanics (count, actions, clear) are
+the pattern being demonstrated, not a wired feedback API.
 
 **Tokens:** `--surface-selected` (toolbar background — matches the selected-row tint, visually
 tying the bar to the rows it acts on), `--border-focus` (toolbar border), `--btn-secondary-*`,
@@ -224,6 +291,11 @@ toast appears in the corner of the contained stage (never the page, same contain
 established for scrims/dialogs) with an icon, a sentence naming what happened, an **Undo**
 button, and a depleting timer bar showing how long Undo remains available.
 
+**Variants:** none — one toast shape; content (icon, sentence, Undo label) is caller-supplied,
+not a preset set.
+
+**Sizes:** single size — toast width caps at `--width-inspector`.
+
 **States:** idle → pending-undo (toast visible, timer running) → either undone (item restored,
 toast dismissed immediately) or expired (timer reaches zero, toast dismissed, action stands).
 
@@ -238,6 +310,13 @@ native undo elsewhere on the page. **⌘⇧Z** (Redo) isn't wired into this demo
 toast has nothing to redo until another undo happens — the same reasoning Gmail's "Undo Send"
 follows. A multi-level undo/redo stack would wire `⌘⇧Z` to re-apply the most recently undone
 action; that's beyond what one toast demonstrates.
+
+**Content guidelines:** the toast sentence names exactly what happened, in past tense and
+quoting the item name ("Removed 'GitHub'."), never a generic "Item removed."
+
+**Implementation notes:** the timer bar's `key={pending.name}` forces React to remount the
+element when a new removal starts, restarting the CSS `scaleX` animation from full — without the
+key, replacing one pending toast with another would leave the old animation's progress in place.
 
 **Tokens:** `--surface-floating`, `--toast-radius`, `--toast-shadow`, `--z-toast`,
 `--ai-done-text` (toast icon), `--text-link` (Undo action), `--border-default` (timer-bar

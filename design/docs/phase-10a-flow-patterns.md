@@ -25,6 +25,9 @@ Built only from the existing token layer (no new colors — `contrast.py` still 
 failures, both themes and CVD simulation). Icons are inline SVG (Phosphor-style,
 `stroke="currentColor"`), defined locally in `Phase10AFlowPatterns.tsx`.
 
+React API: not yet productized — each component here is a `design/styleguide/src/phase10/`
+demo; a stable public API is defined when it migrates to `desktop/src/ui/`.
+
 ---
 
 ## Confirmation Flows
@@ -44,6 +47,11 @@ without reading, which defeats the gate entirely.
 first in DOM order) → primary confirm action. Built from the same scrim/modal/medallion shell
 Phase 3F's Confirmation Dialog component specs.
 
+**Variants:** one shape, demoed with the info medallion (a tier-3 submit gate); the danger
+medallion is Destructive Actions' concern below, not a variant of this pattern.
+
+**Sizes:** single size — dialog fixed to `--width-dialog-sm`; no compact-density override.
+
 **States:** closed → open (scrim + panel enter) → confirmed or cancelled, both of which close the
 dialog and return focus to the trigger.
 
@@ -53,6 +61,10 @@ at the title; the dialog announces itself as an interruption, not a routine `dia
 **Keyboard:** **Esc** closes (same as Cancel) · **Tab**/**Shift+Tab** are trapped inside the
 panel · focus lands on the first focusable element on open (Cancel, never the confirm action)
 and returns to the trigger on close.
+
+**Content guidelines:** title phrases the action as a yes/no question ("Submit this decision?");
+the consequence line is one sentence naming the concrete effect ("...moves to governance review
+and can no longer be edited"), not a vague warning.
 
 **Tokens:** `--dialog-{bg,border,radius,pad,shadow}`, `--overlay-scrim`, `--overlay-blur`,
 `--width-dialog-sm`, `--fb-info-{bg,icon}`, `--size-avatar`, `--btn-primary-*`, `--btn-ghost-*`.
@@ -78,6 +90,12 @@ cannot be undone") → a deliberate second step scaled to the blast radius: **ty
 name** for the most catastrophic actions (deleting a project), or **an "I understand" checkbox**
 for moderately catastrophic ones (revoking a key) → Cancel and the danger confirm action.
 
+**Variants:** two gate types scaled to severity, both demoed — type-to-confirm (`DeleteProjectDemo`,
+must match the exact resource name) and an acknowledgment checkbox (`RevokeKeyDemo`) — chosen by
+blast radius, not by user preference.
+
+**Sizes:** single size — same `--width-dialog-sm` dialog shell as Confirmation Flows.
+
 **States:** the confirm button stays disabled until its gate is satisfied (typed text matches
 exactly, or the checkbox is checked) — there is no state where the destructive action is one
 click away by default.
@@ -89,6 +107,10 @@ alone (1.4.1). The type-to-confirm input has a `<label>` naming the exact expect
 **Keyboard:** same Esc/trap/restore as Confirmation Flows above. Critically, **Cancel is first in
 DOM order**, so it — not the destructive action — receives initial focus when the dialog opens; a
 stray Enter keypress can never trigger deletion.
+
+**Content guidelines:** the trigger and confirm button both use the concrete verb+object ("Delete
+project", "Revoke API key"), never just "Confirm"; the consequence line states real counts (12
+decisions and 3 connectors), not a generic "this cannot be undone."
 
 **Tokens:** `--btn-danger-{bg,bg-hover,text}`, `--fb-error-{bg,border,text,icon}`, `--field-*`,
 `--accent` (checkbox `accent-color`).
@@ -112,6 +134,13 @@ spinner plus a status line describing what's happening, not how long it'll take.
 trigger control **visible, disabled, and labeled with a spinner** while running — never hidden or
 removed — and both expose a **Cancel** action for the duration of the run.
 
+**Variants:** determinate and indeterminate, both demoed — chosen by whether the operation's
+total is knowable at start (a connector's item count vs. a decision run's duration), not by user
+preference.
+
+**Sizes:** single size for both variants; the determinate bar's track thins from 6px to 4px under
+`[data-density="compact"]`, the only density-driven change in this pattern.
+
 **States:** idle → running (trigger disabled + spinner; determinate also ticks the fill width and
 percentage) → settled (success copy) or cancelled (back to idle immediately, no settle copy).
 
@@ -121,6 +150,14 @@ aria-live="polite"` so screen readers hear the state change once, not on every f
 
 **Keyboard:** the trigger and Cancel are both real `<button>`s in normal tab order — no custom
 key handling is needed because nothing here is a focus-trapped surface.
+
+**Content guidelines:** the status line names what's happening in the operation's own vocabulary
+("Evaluating evidence — this can take a few minutes.", "Syncing issues…"), not a generic
+"Loading…"; the trigger's running label is present-progressive ("Syncing…", "Running…").
+
+**Implementation notes:** the determinate fill's width is driven by an inline custom property
+(`--p10a-pct`, set via `style`) rather than a percentage class per value, so the transition
+animates smoothly between any two percentages.
 
 **Tokens:** `--ai-running`, `--ai-done`, `--gauge-track`, `--dur-slow`, `--ease-standard`,
 `--radius-pill`. `prefers-reduced-motion` parks the spinner rotation and the fill-width
@@ -144,6 +181,12 @@ form fits one screen and any field can be filled in any order, use a single page
 a card holding the current step's fields → a footer with Back (disabled on the first step) and
 Next/primary-action (disabled until the step's required field is filled).
 
+**Variants:** none demoed — one wizard shape (step indicator + card + Back/Next footer); step
+count and field content are caller-supplied, not fixed presets.
+
+**Sizes:** single size — stepper and wizard card both cap at `--measure-prose`; step dots use
+`--space-24`.
+
 **States:** each step indicator entry is `data-state="upcoming"|"current"|"done"`. Per-step
 validation gates Next — the connector-type step requires a selection, the configure step requires
 a non-empty value — so the user can't reach Review with incomplete input. **Going back preserves
@@ -157,6 +200,15 @@ alone.
 **Keyboard:** Back/Next/type-option buttons are plain `<button>`s in document order — Tab moves
 forward through the current step's fields, Shift+Tab back, no trap (this is a normal page region,
 not an overlay).
+
+**Content guidelines:** step labels are short nouns naming the step's content ("Connector type",
+"Configure", "Review"), not instructions; the Review step reuses the exact field labels used to
+collect the values ("Repository"/"Project key"), so nothing is renamed between entry and
+confirmation.
+
+**Implementation notes:** the connecting line between steps tints via an adjacent-sibling
+selector (`.p10a-step[data-state="done"] + .p10a-step__line`), not a JS-driven class — only the
+line following a done step picks up `--ai-done`.
 
 **Tokens:** `--accent`, `--ai-done`, `--card-bg-raised`, `--card-border`, `--card-radius`,
 `--field-*`, `--btn-*`.
@@ -181,6 +233,12 @@ indented under the trigger. The same `Disclosure` primitive backs two demos: a s
 settings" toggle next to two always-visible fields, and a multi-item accordion where each item
 expands independently (not single-open) — both are the same control, used once or in a list.
 
+**Variants:** two demoed configurations of the same `Disclosure` primitive — a single toggle next
+to always-visible fields, and a multi-item accordion where items expand independently (never
+single-open, i.e. no accordion-wide collapse coupling).
+
+**Sizes:** single size — trigger and chevron use `--icon-sm`; no compact-density override.
+
 **States:** collapsed (default) / expanded, per-item — there is no "all expanded" or "all
 collapsed" coupling between accordion items in this pattern.
 
@@ -190,6 +248,13 @@ collapsed" coupling between accordion items in this pattern.
 
 **Keyboard:** the trigger is reachable and operable with Tab + Enter/Space (native `<button>`
 semantics); no custom key handling needed.
+
+**Content guidelines:** the trigger text names what's inside, not a generic "Show more" —
+"Advanced settings", or the FAQ question itself for the accordion variant.
+
+**Implementation notes:** the chevron rotates via a CSS attribute selector on `aria-expanded`
+(`.p10a-disclosure__trigger[aria-expanded="true"] .p10a-disclosure__chevron`), not a class toggle
+— one state, one source of truth.
 
 **Tokens:** `--text-link`, `--dur-fast`, `--ease-standard` (chevron rotation), `--surface-raised`,
 `--border-subtle`, `--radius-control` (accordion item shell).

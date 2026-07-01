@@ -26,6 +26,9 @@ Built only from the existing token layer (no new colors — `contrast.py` still 
 both themes). Icons are inline SVG (Phosphor-style, `stroke="currentColor"`), defined locally in
 `Phase10CSystemPatterns.tsx`.
 
+React API: not yet productized — each component here is a `design/styleguide/src/phase10/`
+demo; a stable public API is defined when it migrates to `desktop/src/ui/`.
+
 ---
 
 ## Error Recovery
@@ -47,6 +50,12 @@ operation's items, each showing its own outcome (succeeded / failed, with the fa
 their own cause inline) → a summary line ("N of M synced, K failed") → a **Retry failed (K)**
 action that re-attempts only the failed subset, never the whole batch.
 
+**Variants:** two demoed — single operation (inline error card + Retry) and partial success
+(per-item list + "Retry failed (K)"), chosen by whether the operation has sub-parts that can
+independently fail.
+
+**Sizes:** single size for both variants — error card and item list cap at `--measure-prose`.
+
 **States:** idle → running (trigger disabled + spinner) → failed (cause + Retry shown) or
 succeeded. Partial success adds a per-item state (`pending` / `ok` / `failed`) independent of the
 overall run state, so a retry only re-runs the items still in `failed`.
@@ -58,6 +67,14 @@ detached error list.
 
 **Keyboard:** Retry and Retry-failed are plain `<button>`s in normal tab order — nothing here is a
 focus-trapped surface, so no custom key handling is needed.
+
+**Content guidelines:** the cause sentence is real and specific ("The model provider rate-limited
+the request (HTTP 429)…", "Payload missing the required `action` field…"), never a generic
+"Something went wrong"; the summary line follows a fixed "N of M synced, K failed" template.
+
+**Implementation notes:** outcomes are deterministic, not randomized (first attempt fails, every
+retry succeeds) — a `ponytail:` comment in the source notes this keeps the recovery *shape*
+legible rather than simulating a flaky backend.
 
 **Tokens:** `--fb-error-{bg,border,text,icon}`, `--fb-success-icon`, `--ai-running`, `--ai-done`,
 `--btn-*`, `--dur-slow` (spinner rotation, parked under `prefers-reduced-motion`).
@@ -86,6 +103,12 @@ order), **Reject**, **Approve** (primary, rightmost). Choosing "Request more inf
 inline question field in place, without closing the dialog or discarding the context already
 shown.
 
+**Variants:** none — one dialog shape; "Request more info" reveals an inline panel in place
+rather than branching to a different dialog variant.
+
+**Sizes:** single size — `--width-dialog-sm`, same shell as Phase 10A's Confirmation Flows and
+Destructive Actions; medallion at `--size-avatar`.
+
 **States:** closed → open → (optionally) asking-for-info → resolved (approved / rejected /
 info-requested), each of which closes the dialog and shows an outcome line at the trigger.
 
@@ -97,6 +120,14 @@ color alone).
 **Keyboard:** **Esc** closes without deciding · **Tab**/**Shift+Tab** are trapped inside the panel
 · initial focus lands on **Request more info** (the least consequential action), never Approve,
 so a stray Enter can't approve by accident · focus returns to the trigger on close.
+
+**Content guidelines:** the rationale list states evidence/debate/judge findings as complete
+sentences with real numbers (cohort counts, judge scores), not bullet fragments; the consequence
+line states both outcomes ("Approving…", "Rejecting…") before either button is reachable.
+
+**Implementation notes:** "Request more info" swaps the footer buttons for Back/Send in place
+rather than closing and reopening the dialog — the rationale and consequence stay visible above
+the question field the whole time.
 
 **Tokens:** `--dialog-{bg,border,radius,pad,shadow}`, `--overlay-scrim`, `--overlay-blur`,
 `--fb-info-{bg,border,text,icon}`, `--size-avatar`, `--btn-primary-*`, `--btn-secondary-*`,
@@ -135,6 +166,13 @@ row, appearing and clearing with that field's own state (a rejected connector to
 reconnected). Blocking dialog (locally, `.p10c-modal`) for the rare case the user genuinely cannot
 proceed without deciding (discarding an unsaved edit).
 
+**Variants:** n/a as a single control — the four matrix rows (Toast/Banner/Inline/Blocking
+dialog) are the decision's options, not variants of one component; each is documented in its own
+phase (Phase 3E for Toast/Banner/Inline, Phase 10A/10C for the blocking dialog).
+
+**Sizes:** n/a — this pattern is a decision matrix, not a component with its own size axis; each
+of the four notification components' sizing is documented in its own phase.
+
 **States:** each component's own lifecycle governs it independently — a toast's timer, a banner's
 dismiss/restore, an inline message's tie to its field's validity, a dialog's open/resolved. The
 matrix itself has no state; it's a lookup, not a widget.
@@ -148,6 +186,11 @@ alone.
 **Keyboard:** toast/banner dismiss buttons and the inline "Reconnect" action are plain `<button>`s
 in tab order; the blocking dialog gets the same Esc/trap/restore as every other dialog in this
 system.
+
+**Content guidelines:** each of the four example messages is real ProductAgents copy voice — a
+concrete cause ("Token rejected — reconnect the GitHub connector.", "Two analysts fell back to
+scenario evidence — read the report before approving."), never a generic status phrase; see
+Phase 3E for the shared `.fbk-*` copy conventions those components already document.
 
 **Tokens:** all four reuse Phase 3E's `--fbk-*` component tokens (`--fbk-bg/border/text/icon` per
 `.fbk-k-*` kind, `--fbk-toast-dwell`, `--fbk-timerbar-height`) — no new tokens introduced. The
