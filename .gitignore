@@ -247,3 +247,6 @@ productagents.log.*
 
 # SQLite scratch databases (Alembic checks, tests)
 *.db
+
+# subagent-driven-development scratch (never committed)
+.superpowers/
