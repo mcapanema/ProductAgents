@@ -1,34 +1,10 @@
 // desktop/src/ui/theme.ts
 import { theme as antdTheme } from "antd";
 import type { ThemeConfig } from "antd";
+import { RUNTIME_TOKENS, readTokens } from "./tokens";
 
 export type Theme = "light" | "dark";
 export type Density = "comfortable" | "compact";
-
-const TOKEN_VARS = [
-  "--accent",
-  "--surface-raised",
-  "--bg-primary",
-  "--text-primary",
-  "--text-secondary",
-  "--border-default",
-  "--text-error",
-  "--text-success",
-  "--text-warning",
-  "--text-info",
-  "--font-sans",
-  "--radius-field",
-  "--control-md",
-] as const;
-
-type TokenVar = (typeof TOKEN_VARS)[number];
-
-function readVars(): Record<TokenVar, string> {
-  const cs = getComputedStyle(document.documentElement);
-  const out = {} as Record<TokenVar, string>;
-  for (const name of TOKEN_VARS) out[name] = cs.getPropertyValue(name).trim();
-  return out;
-}
 
 function toPx(value: string, fallback: number): number {
   const n = parseFloat(value);
@@ -37,14 +13,14 @@ function toPx(value: string, fallback: number): number {
 
 /**
  * Maps the ProductAgents "Instrument" design tokens (design/tokens/*.css,
- * imported in main.tsx and applied to <html> via data-theme/data-density —
- * see ui/ThemeShell.tsx) onto Ant Design's ConfigProvider seed tokens. Ported
- * verbatim from the validated pilot at
- * design/styleguide/src/antd-pilot/theme.ts — keeps the token CSS files as
- * the single source of truth, no color/size hardcoded here.
+ * re-exported via ui/tokens.css and applied to <html> via data-theme/
+ * data-density — see ui/ThemeShell.tsx) onto Ant Design's ConfigProvider seed
+ * tokens. Ported from the validated pilot at
+ * design/styleguide/src/antd-pilot/theme.ts — the token CSS files remain the
+ * single source of truth, nothing hardcoded here.
  */
 export function buildAntdTheme(mode: Theme, density: Density): ThemeConfig {
-  const v = readVars();
+  const v = readTokens(RUNTIME_TOKENS);
   return {
     algorithm: [
       mode === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
