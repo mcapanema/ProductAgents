@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button, Input, Select } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { DecisionSummary, OutcomeRecord } from "../ipc/types";
 import { formatConfidence } from "./decisionView";
@@ -43,30 +44,26 @@ export function ReflectionPanel() {
         <div style={{ maxWidth: 560 }}>
           <label className="field">
             <span>Decision</span>
-            <select
+            <Select
               aria-label="decision"
               value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-            >
-              {decisions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.title} — {d.recommendation}
-                </option>
-              ))}
-            </select>
+              onChange={setSelected}
+              style={{ width: "100%" }}
+              options={decisions.map((d) => ({ value: d.id, label: `${d.title} — ${d.recommendation}` }))}
+            />
           </label>
           <label className="field">
             <span>What happened?</span>
-            <textarea
+            <Input.TextArea
               aria-label="what happened"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={4}
             />
           </label>
-          <button className="primary" onClick={submit} disabled={busy || !ipc}>
-            {busy ? "Reflecting…" : "Reflect"}
-          </button>
+          <Button type="primary" onClick={submit} loading={busy} disabled={busy || !ipc}>
+            Reflect
+          </Button>
           {outcome && (
             <div style={{ marginTop: 16 }}>
               <p>Prediction accuracy: {formatConfidence(outcome.prediction_accuracy)}</p>

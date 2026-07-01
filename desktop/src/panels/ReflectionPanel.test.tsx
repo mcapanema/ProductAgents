@@ -40,7 +40,8 @@ describe("ReflectionPanel", () => {
     } as unknown as IpcClient);
     await screen.findByText(/Add SSO/);
 
-    fireEvent.change(screen.getByLabelText(/decision/i), { target: { value: "dec-1" } });
+    fireEvent.mouseDown(screen.getByLabelText(/decision/i));
+    fireEvent.click(await screen.findByRole("option", { name: "Add SSO — Build it" }));
     fireEvent.change(screen.getByLabelText(/what happened/i), { target: { value: "shipped" } });
     fireEvent.click(screen.getByRole("button", { name: /reflect/i }));
 
