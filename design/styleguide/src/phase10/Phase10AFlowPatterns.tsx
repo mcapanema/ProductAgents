@@ -55,7 +55,7 @@ function useOverlay(active: boolean, onClose: () => void) {
     const restore = document.activeElement as HTMLElement | null;
     const focusables = () =>
       panel
-        ? Array.from(panel.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+        ? Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
         : [];
     focusables()[0]?.focus();
 

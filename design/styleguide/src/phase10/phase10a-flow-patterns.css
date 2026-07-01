@@ -234,6 +234,9 @@
 .p10a-wizard-foot { display: flex; justify-content: space-between; gap: var(--space-8); }
 .p10a-summary { display: grid; gap: var(--space-4); margin: 0; }
 .p10a-summary div { display: flex; gap: var(--space-8); font: var(--text-body-s); }
+/* Deliberate one-off: no space/width token lands near 112px — --space-96
+ * (96px) undershoots and the next token up is a layout width (320px+),
+ * not a label-gutter size. */
 .p10a-summary dt { color: var(--text-tertiary); width: 7rem; flex: none; }
 .p10a-summary dd { margin: 0; color: var(--text-primary); }
 
