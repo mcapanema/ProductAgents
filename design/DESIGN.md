@@ -2,7 +2,10 @@
 
 > Living reference. Built phase by phase (see [`design-system-plan.md`](./design-system-plan.md));
 > the durable brief is [`design-system-context.md`](./design-system-context.md). The v0 attempt is
-> archived in [`_v0/`](./_v0/) as reference, not spec.
+> archived in [`_v0/`](./_v0/) as reference, not spec. This file carries the direction and the
+> Phase 0–2 token foundations in full, then indexes the Phase 3–10 component/pattern detail, which
+> lives in [`design/docs/`](./docs/) (one file per phase or sub-phase) — see the *Component &
+> pattern reference* section below.
 
 ---
 
@@ -216,4 +219,74 @@ themes with zero markup change; `python3 design/contrast.py` → **`TOTAL FAILUR
 
 ---
 
-*Subsequent phases append their foundations, tokens, and component docs below as they land.*
+## Component & pattern reference
+
+Phases 3–10 build the component and pattern library on top of the Phase 0–2 foundations above.
+Each phase is documented in its own file under [`design/docs/`](./docs/) rather than inlined here
+(they total ~2700+ lines; this section is the index, not a duplicate — see the Artifact Strategy
+in `design-system-plan.md`).
+
+- **Phase 3 — Core components** — layout, navigation, forms, data display, feedback, and overlays;
+  ~80 components across six self-contained styleguide modules, built only from the Phase 2 token
+  layer. Signature components: App Shell (3A), ⌘K Command Palette (3B), Stat Card + sortable Table
+  (3D). [`phase-3a-layout.md`](./docs/phase-3a-layout.md) ·
+  [`phase-3b-navigation.md`](./docs/phase-3b-navigation.md) ·
+  [`phase-3c-forms.md`](./docs/phase-3c-forms.md) ·
+  [`phase-3d-data-display.md`](./docs/phase-3d-data-display.md) ·
+  [`phase-3e-feedback.md`](./docs/phase-3e-feedback.md) ·
+  [`phase-3f-overlays.md`](./docs/phase-3f-overlays.md)
+- **Phase 4 — AI components** — agent status/cards/timeline/dependency-graph (4A); execution
+  timeline/debate/judgment/approval/streaming-console/tool-inspection (4B);
+  streaming-text/token-bar/prompt-inspector (4C) — the differentiator layer, built on the `--ai-*`
+  AI-state tokens. [`phase-4a-agents.md`](./docs/phase-4a-agents.md) ·
+  [`phase-4b-execution.md`](./docs/phase-4b-execution.md) ·
+  [`phase-4c-llm.md`](./docs/phase-4c-llm.md)
+- **Phase 5 — Workflow & CLI components** — task status/cards/milestones/timeline/pipeline-view/
+  workflow-graph/dependency-graph/execution-queue (5A), reframed around the
+  roadmap/initiative-planning domain (`Initiative`/`Feature`/`RoadmapItem`,
+  `WorkflowService.evaluate_initiative`); command badge/exit status/ANSI
+  renderer/console/terminal/copy/history/suggestion/live-streaming output for the
+  `productagents` CLI (5B). [`phase-5a-workflow.md`](./docs/phase-5a-workflow.md) ·
+  [`phase-5b-cli.md`](./docs/phase-5b-cli.md)
+- **Phase 6 — Project components** — Workspace Selector, Project Card, Repository Card, Git
+  Status, Branch Badge, Directory Tree, File Explorer, File Preview, Recent Projects; grounded in
+  `WorkspaceService.list`/`resolve` and the GitHub connector's `owner/repo` where a real shape
+  exists. [`phase-6-project.md`](./docs/phase-6-project.md)
+- **Phase 7 — Settings** — Settings Navigation, Section, Preference Card, Theme Selector,
+  Keyboard-Shortcut Editor, Provider/Model Configuration, MCP Configuration, Environment-Variable
+  Editor, API Key Input; Provider/Model Configuration and API Key Input grounded in the real
+  `config.get`/`config.set` contract, with a security review confirming the key/secret inputs
+  never hold a fetched value. [`phase-7-settings.md`](./docs/phase-7-settings.md)
+- **Phase 8 — Monitoring & observability** — Event Timeline, Metrics Card, Resource/Memory/Token
+  Usage, Execution Statistics, Cost Dashboard, Performance Graph, Health Indicator; Event
+  Timeline/Execution Statistics/Performance Graph/Health Indicator grounded in the real
+  `platform.events.Event` taxonomy and `Session` shape via `SessionService`.
+  [`phase-8-monitoring.md`](./docs/phase-8-monitoring.md)
+- **Phase 9 — Empty & transitional states** — First-Run Experience, Empty Collection State
+  (workspace/agents/projects/executions/no-results), Initial Loading, Offline Mode, Maintenance
+  State; illustration stance recorded as **no illustrations — empty states are structural** (icon
+  + copy + primary action). [`phase-9-empty-states.md`](./docs/phase-9-empty-states.md)
+- **Phase 10 — Design patterns** — Flow & risk patterns: confirmation flows, undo, progressive
+  disclosure, wizards (10A); Direct-manipulation & editing patterns: inline editing, drag-and-drop,
+  bulk actions, contextual menus (10B); System & recovery patterns: error recovery, notification
+  strategy, sync status, conflict resolution (10C). Notification Strategy reuses Phase 3E's
+  `.fbk-*` feedback classes rather than a parallel toast system.
+  [`phase-10a-flow-patterns.md`](./docs/phase-10a-flow-patterns.md) ·
+  [`phase-10b-editing-patterns.md`](./docs/phase-10b-editing-patterns.md) ·
+  [`phase-10c-system-patterns.md`](./docs/phase-10c-system-patterns.md)
+
+## Documentation template
+
+Every component/pattern documented from Phase 3 onward satisfies this 14-point per-item template
+(finalized in Phase 11): Purpose · When to use · When not to use · Anatomy · Variants · Sizes ·
+States · Accessibility requirements · Keyboard interactions · Content guidelines · Visual examples
+· Do's and don'ts · Implementation notes · React API · Design tokens used.
+
+Two dimensions are satisfied once per file, not once per component:
+- **React API** — these are gallery/demo components in `design/styleguide/src/`, not yet a
+  published library, so each file carries exactly one line near the top instead of a props table
+  per component, e.g. "React API: not yet productized — each component here is a
+  `design/styleguide/src/phaseN/` demo; a stable public API is defined when it migrates to
+  `desktop/src/ui/`."
+- **Visual examples** — satisfied by the single "Live gallery: ..." / "Files: ..." pointer near
+  the top of each file, identifying the `.tsx`/`.css` source and the styleguide gallery section.
