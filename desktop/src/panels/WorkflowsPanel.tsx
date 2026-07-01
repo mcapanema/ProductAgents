@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { List } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowSummary } from "../ipc/types";
 
@@ -15,15 +14,14 @@ export function WorkflowsPanel() {
     <div>
       <h1>Workflows</h1>
       {list.length === 0 && <p className="muted">No workflows registered.</p>}
-      <List
-        dataSource={list}
-        rowKey="name"
-        renderItem={(w) => (
-          <List.Item>
-            <List.Item.Meta title={w.title} description={w.description} />
-          </List.Item>
-        )}
-      />
+      {list.map((w) => (
+        <div className="list-item" key={w.name}>
+          <div>
+            <strong>{w.title}</strong> <span className="muted">({w.name})</span>
+          </div>
+          <div className="muted">{w.description}</div>
+        </div>
+      ))}
     </div>
   );
 }
