@@ -72,12 +72,12 @@ export function RunPanel() {
           onChange={(e) => setEvidence(e.target.value)}
           style={{ width: 220 }}
         />
-        <Button type="primary" onClick={start} disabled={running || !ipc}>
-          {running ? "Running…" : "Run"}
+        <Button type="primary" onClick={start} loading={running} disabled={running || !ipc}>
+          Run
         </Button>
         {running && !state.awaiting && (
-          <Button onClick={cancel} disabled={!state.sessionId || state.cancelling}>
-            {state.cancelling ? "Cancelling…" : "Cancel"}
+          <Button onClick={cancel} loading={state.cancelling} disabled={!state.sessionId || state.cancelling}>
+            Cancel
           </Button>
         )}
       </div>

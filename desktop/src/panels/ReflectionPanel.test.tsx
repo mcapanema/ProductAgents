@@ -7,6 +7,7 @@ import type { DecisionSummary, OutcomeRecord } from "../ipc/types";
 
 const decisions: DecisionSummary[] = [
   { id: "dec-1", title: "Add SSO", recommendation: "Build it", confidence: 0.8, created_at: "t" },
+  { id: "dec-2", title: "Other thing", recommendation: "Skip it", confidence: 0.3, created_at: "t" },
 ];
 
 const outcome: OutcomeRecord = {
@@ -41,11 +42,11 @@ describe("ReflectionPanel", () => {
     await screen.findByText(/Add SSO/);
 
     fireEvent.mouseDown(screen.getByLabelText(/decision/i));
-    fireEvent.click(await screen.findByRole("option", { name: "Add SSO — Build it" }));
+    fireEvent.click(await screen.findByTitle("Other thing — Skip it"));
     fireEvent.change(screen.getByLabelText(/what happened/i), { target: { value: "shipped" } });
     fireEvent.click(screen.getByRole("button", { name: /reflect/i }));
 
-    await waitFor(() => expect(reflectionRecord).toHaveBeenCalledWith("dec-1", "shipped"));
+    await waitFor(() => expect(reflectionRecord).toHaveBeenCalledWith("dec-2", "shipped"));
     expect(await screen.findByText(/slow adoption/)).toBeInTheDocument();
     expect(screen.getByText(/validate demand earlier/)).toBeInTheDocument();
   });
