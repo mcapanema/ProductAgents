@@ -43,38 +43,38 @@ describe("App shell", () => {
     render(<App client={fakeClient()} />);
     const nav = screen.getByRole("navigation");
     for (const label of ["Run", "Workflows", "Sessions", "Decisions", "Connectors", "Prompts", "Settings"]) {
-      expect(within(nav).getByRole("button", { name: label })).toBeInTheDocument();
+      expect(within(nav).getByRole("menuitem", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByRole("heading", { name: /run a decision/i })).toBeInTheDocument();
   });
 
   it("switches to the Decisions panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Decisions" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Decisions" }));
     expect(await screen.findByRole("heading", { name: /decision explorer/i })).toBeInTheDocument();
   });
 
   it("switches to the Connectors panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Connectors" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Connectors" }));
     expect(await screen.findByRole("heading", { name: /^connectors$/i })).toBeInTheDocument();
   });
 
   it("switches to the Prompts panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Prompts" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Prompts" }));
     expect(await screen.findByRole("heading", { name: /^prompts$/i })).toBeInTheDocument();
   });
 
   it("switches to the Workflows panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Workflows" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Workflows" }));
     expect(await screen.findByRole("heading", { name: /^workflows$/i })).toBeInTheDocument();
   });
 
   it("switches to the Settings panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Settings" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Settings" }));
     expect(await screen.findByRole("heading", { name: /^settings$/i })).toBeInTheDocument();
   });
 });

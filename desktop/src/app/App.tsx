@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Segmented } from "antd";
+import { Menu, Segmented } from "antd";
 import type { IpcClient } from "../ipc/client";
 import { IpcProvider } from "./IpcProvider";
 import { ThemeShell } from "../ui/ThemeShell";
@@ -58,15 +58,12 @@ export function App({ client }: { client?: IpcClient }) {
                 { label: "Compact", value: "compact" },
               ]}
             />
-            {NAV.map((item) => (
-              <button
-                key={item.view}
-                className={view === item.view ? "nav active" : "nav"}
-                onClick={() => setView(item.view)}
-              >
-                {item.label}
-              </button>
-            ))}
+            <Menu
+              mode="inline"
+              selectedKeys={[view]}
+              onClick={({ key }) => setView(key as View)}
+              items={NAV.map((item) => ({ key: item.view, label: item.label }))}
+            />
           </nav>
           <main className="content">
             {view === "run" && <RunPanel />}

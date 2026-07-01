@@ -5,10 +5,6 @@ body { margin: 0; background: var(--bg-primary); color: var(--text-primary);
 .sidebar { width: 200px; background: var(--surface-raised); border-right: 1px solid var(--border-default);
   display: flex; flex-direction: column; padding: 12px 8px; gap: 4px; }
 .brand { font-weight: 600; padding: 8px; color: var(--text-secondary); letter-spacing: 0.5px; }
-.nav { text-align: left; background: none; border: none; color: var(--text-primary);
-  padding: 8px 10px; border-radius: 6px; cursor: pointer; }
-.nav:hover { background: #1d2530; }
-.nav.active { background: #1d2530; color: var(--accent); }
 .content { flex: 1; overflow: auto; padding: 24px; }
 h1 { font-size: 18px; margin: 0 0 16px; }
 .row { display: flex; gap: 8px; align-items: center; }
