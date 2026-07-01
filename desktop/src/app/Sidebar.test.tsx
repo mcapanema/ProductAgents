@@ -22,8 +22,6 @@ function renderSidebar({ view = "run", running = false }: { view?: string; runni
       onNavigate={onNavigate}
       theme="light"
       onThemeChange={vi.fn()}
-      density="comfortable"
-      onDensityChange={vi.fn()}
       running={running}
     />,
   );
@@ -50,7 +48,12 @@ describe("Sidebar", () => {
     expect(onNavigate).toHaveBeenCalledWith("settings");
   });
 
-  it("collapses to an icon-only rail on toggle, hiding labels and theme/density controls", () => {
+  it("does not render a density control", () => {
+    renderSidebar();
+    expect(screen.queryByLabelText("Density")).not.toBeInTheDocument();
+  });
+
+  it("collapses to an icon-only rail on toggle, hiding labels and the theme control", () => {
     const { nav } = renderSidebar();
     expect(screen.getByLabelText("Theme")).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole("button", { name: "Collapse sidebar" }));

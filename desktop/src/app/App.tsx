@@ -15,23 +15,22 @@ import { ReflectionPanel } from "../panels/ReflectionPanel";
 import { OrgMemoryPanel } from "../panels/OrgMemoryPanel";
 import "./App.css";
 
+const DENSITY: Density = "comfortable";
+
 export function App({ client }: { client?: IpcClient }) {
   const [view, setView] = useState<View>("run");
   const [theme, setTheme] = useState<Theme>("light");
-  const [density, setDensity] = useState<Density>("comfortable");
   const [running, setRunning] = useState(false);
 
   return (
     <IpcProvider client={client}>
-      <ThemeShell theme={theme} density={density}>
+      <ThemeShell theme={theme} density={DENSITY}>
         <div className="shell">
           <Sidebar
             view={view}
             onNavigate={setView}
             theme={theme}
             onThemeChange={setTheme}
-            density={density}
-            onDensityChange={setDensity}
             running={running}
           />
           <main className="content">

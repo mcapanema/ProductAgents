@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Segmented } from "antd";
-import type { Density, Theme } from "../ui/theme";
+import type { Theme } from "../ui/theme";
 import "./Sidebar.css";
 
 export type View =
@@ -135,16 +135,12 @@ export function Sidebar({
   onNavigate,
   theme,
   onThemeChange,
-  density,
-  onDensityChange,
   running,
 }: {
   view: View;
   onNavigate: (view: View) => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
-  density: Density;
-  onDensityChange: (density: Density) => void;
   running: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
@@ -165,15 +161,6 @@ export function Sidebar({
             options={[
               { label: "Light", value: "light" },
               { label: "Dark", value: "dark" },
-            ]}
-          />
-          <Segmented
-            aria-label="Density"
-            value={density}
-            onChange={(v) => onDensityChange(v as Density)}
-            options={[
-              { label: "Comfortable", value: "comfortable" },
-              { label: "Compact", value: "compact" },
             ]}
           />
         </div>
