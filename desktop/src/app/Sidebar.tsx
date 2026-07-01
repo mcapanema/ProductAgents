@@ -187,7 +187,7 @@ export function Sidebar({
                 type="button"
                 className="sidebar-item"
                 aria-current={active ? "page" : undefined}
-                aria-label={collapsed ? item.label : undefined}
+                aria-label={collapsed || (item.view === "run" && running) ? item.label : undefined}
                 title={collapsed ? item.label : undefined}
                 onClick={() => onNavigate(item.view)}
               >

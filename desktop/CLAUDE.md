@@ -43,7 +43,7 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   `Sidebar.tsx` (the nine-item resource nav: icon + label per item, an
   active-item accent marker, a `localStorage`-persisted collapsible
   icon-only rail, and an amber pulsing dot on "Run" while a decision run is
-  in flight — ported from `design/styleguide/src/phase3/Phase3Navigation.tsx`'s
+  in flight — ported from `design/docs/phase-3b-navigation.md`'s
   reference nav/rail), `Sidebar.css` (the ported nav-item/rail/live-dot styling, tokens
   only), `IpcProvider.tsx` (`useIpc()` context; builds the client once on
   mount, or takes an injected one in tests; `useIpc()` returns

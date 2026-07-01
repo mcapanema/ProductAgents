@@ -77,4 +77,9 @@ describe("Sidebar", () => {
     const { nav } = renderSidebar({ running: false });
     expect(within(nav).queryByLabelText("run in progress")).toBeNull();
   });
+
+  it("keeps the Run button's accessible name as its visible label while running", () => {
+    const { nav } = renderSidebar({ running: true });
+    expect(within(nav).getByRole("button", { name: "Run" })).toBeInTheDocument();
+  });
 });
