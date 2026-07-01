@@ -1,0 +1,97 @@
+/* desktop/src/app/Sidebar.css — nav-item states and rail-docking ported from
+   design/styleguide/src/phase3/phase3b-navigation.css (nv-sidebar/nv-rail)
+   and phase3a-layout.css (.la-rail full-height docking). Tokens only. */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: var(--width-sidebar);
+  background: var(--surface-raised);
+  border-right: var(--border-width-default) solid var(--border-default);
+  padding: var(--space-8);
+  gap: var(--space-8);
+}
+
+.sidebar-brand {
+  font-weight: var(--fw-semibold);
+  padding: 0 var(--nav-item-pad-x);
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.sidebar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sidebar-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.sidebar-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--nav-item-gap);
+  width: 100%;
+  height: var(--nav-item-height);
+  padding: 0 var(--nav-item-pad-x);
+  border: 0;
+  background: transparent;
+  border-radius: var(--nav-item-radius);
+  color: var(--nav-item-text);
+  font: var(--text-body-m);
+  text-align: left;
+  cursor: var(--cursor-interactive);
+  transition: var(--transition-surface);
+}
+
+.sidebar-icon {
+  width: var(--size-icon);
+  height: var(--size-icon);
+  color: var(--text-tertiary);
+  flex: none;
+}
+
+.sidebar-item:hover {
+  background: var(--nav-item-bg-hover);
+  color: var(--nav-item-text-hover);
+}
+
+.sidebar-item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.sidebar-item[aria-current="page"] {
+  background: var(--nav-item-bg-selected);
+  color: var(--nav-item-text-selected);
+  font-weight: var(--fw-semibold);
+}
+
+.sidebar-item[aria-current="page"] .sidebar-icon {
+  color: var(--accent);
+}
+
+.sidebar-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--border-width-focus);
+  height: 56%;
+  border-radius: var(--radius-pill);
+  background: var(--nav-item-marker-selected);
+}
+
+.sidebar-label {
+  flex: 1;
+}

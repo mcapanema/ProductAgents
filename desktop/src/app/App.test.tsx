@@ -17,6 +17,7 @@ function fakeClient(): IpcClient {
     promptsList: async () => [],
     promptsShow: async () => ({ name: "", version: 0, text: "" }),
     promptsDiff: async () => ({ name: "", old: 0, new: 0, diff: "" }),
+    memoryLessons: async () => [],
     run: async () => ({ status: "finished", session_id: "s" }),
     configGet: async () => ({
       model: "",
@@ -39,42 +40,64 @@ function fakeClient(): IpcClient {
 }
 
 describe("App shell", () => {
-  it("renders the seven nav items and defaults to the Run panel", async () => {
+  it("renders the nine nav items and defaults to the Run panel", async () => {
     render(<App client={fakeClient()} />);
     const nav = screen.getByRole("navigation");
-    for (const label of ["Run", "Workflows", "Sessions", "Decisions", "Connectors", "Prompts", "Settings"]) {
-      expect(await within(nav).findByRole("menuitem", { name: label })).toBeInTheDocument();
+    for (const label of [
+      "Run",
+      "Workflows",
+      "Sessions",
+      "Decisions",
+      "Memory",
+      "Connectors",
+      "Prompts",
+      "Settings",
+      "Reflection",
+    ]) {
+      expect(await within(nav).findByRole("button", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByRole("heading", { name: /run a decision/i })).toBeInTheDocument();
   });
 
   it("switches to the Decisions panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Decisions" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Decisions" }));
     expect(await screen.findByRole("heading", { name: /decision explorer/i })).toBeInTheDocument();
   });
 
   it("switches to the Connectors panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Connectors" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Connectors" }));
     expect(await screen.findByRole("heading", { name: /^connectors$/i })).toBeInTheDocument();
   });
 
   it("switches to the Prompts panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Prompts" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Prompts" }));
     expect(await screen.findByRole("heading", { name: /^prompts$/i })).toBeInTheDocument();
   });
 
   it("switches to the Workflows panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Workflows" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Workflows" }));
     expect(await screen.findByRole("heading", { name: /^workflows$/i })).toBeInTheDocument();
   });
 
   it("switches to the Settings panel on click", async () => {
     render(<App client={fakeClient()} />);
-    fireEvent.click(within(screen.getByRole("navigation")).getByRole("menuitem", { name: "Settings" }));
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Settings" }));
     expect(await screen.findByRole("heading", { name: /^settings$/i })).toBeInTheDocument();
+  });
+
+  it("switches to the Memory panel on click", async () => {
+    render(<App client={fakeClient()} />);
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Memory" }));
+    expect(await screen.findByRole("heading", { name: /organizational memory/i })).toBeInTheDocument();
+  });
+
+  it("switches to the Reflection panel on click", async () => {
+    render(<App client={fakeClient()} />);
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Reflection" }));
+    expect(await screen.findByRole("heading", { name: /^reflection$/i })).toBeInTheDocument();
   });
 });

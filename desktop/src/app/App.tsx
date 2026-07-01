@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Menu, Segmented } from "antd";
 import type { IpcClient } from "../ipc/client";
 import { IpcProvider } from "./IpcProvider";
 import { ThemeShell } from "../ui/ThemeShell";
 import type { Density, Theme } from "../ui/theme";
+import { Sidebar, type View } from "./Sidebar";
 import { RunPanel } from "../panels/RunPanel";
 import { SessionsPanel } from "../panels/SessionsPanel";
 import { DecisionsPanel } from "../panels/DecisionsPanel";
@@ -15,20 +15,6 @@ import { ReflectionPanel } from "../panels/ReflectionPanel";
 import { OrgMemoryPanel } from "../panels/OrgMemoryPanel";
 import "./App.css";
 
-type View = "run" | "workflows" | "sessions" | "decisions" | "connectors" | "prompts" | "settings" | "reflection" | "memory";
-
-const NAV: { view: View; label: string }[] = [
-  { view: "run", label: "Run" },
-  { view: "workflows", label: "Workflows" },
-  { view: "sessions", label: "Sessions" },
-  { view: "decisions", label: "Decisions" },
-  { view: "memory", label: "Memory" },
-  { view: "connectors", label: "Connectors" },
-  { view: "prompts", label: "Prompts" },
-  { view: "settings", label: "Settings" },
-  { view: "reflection", label: "Reflection" },
-];
-
 export function App({ client }: { client?: IpcClient }) {
   const [view, setView] = useState<View>("run");
   const [theme, setTheme] = useState<Theme>("light");
@@ -38,33 +24,14 @@ export function App({ client }: { client?: IpcClient }) {
     <IpcProvider client={client}>
       <ThemeShell theme={theme} density={density}>
         <div className="shell">
-          <nav className="sidebar">
-            <div className="brand">ProductAgents</div>
-            <Segmented
-              aria-label="Theme"
-              value={theme}
-              onChange={(v) => setTheme(v as Theme)}
-              options={[
-                { label: "Light", value: "light" },
-                { label: "Dark", value: "dark" },
-              ]}
-            />
-            <Segmented
-              aria-label="Density"
-              value={density}
-              onChange={(v) => setDensity(v as Density)}
-              options={[
-                { label: "Comfortable", value: "comfortable" },
-                { label: "Compact", value: "compact" },
-              ]}
-            />
-            <Menu
-              mode="inline"
-              selectedKeys={[view]}
-              onClick={({ key }) => setView(key as View)}
-              items={NAV.map((item) => ({ key: item.view, label: item.label }))}
-            />
-          </nav>
+          <Sidebar
+            view={view}
+            onNavigate={setView}
+            theme={theme}
+            onThemeChange={setTheme}
+            density={density}
+            onDensityChange={setDensity}
+          />
           <main className="content">
             {view === "run" && <RunPanel />}
             {view === "sessions" && <SessionsPanel />}
