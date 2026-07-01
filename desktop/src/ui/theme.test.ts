@@ -58,3 +58,52 @@ describe("buildAntdTheme", () => {
     expect(cfg.token?.controlHeight).toBe(36);
   });
 });
+
+import { afterEach, vi } from "vitest";
+import {
+  resolveTheme,
+  readSystemTheme,
+  readStoredPref,
+  writeStoredPref,
+  THEME_STORAGE_KEY,
+} from "./theme";
+
+describe("theme preference helpers", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("resolveTheme returns the concrete choice for light and dark", () => {
+    expect(resolveTheme("light")).toBe("light");
+    expect(resolveTheme("dark")).toBe("dark");
+  });
+
+  it("resolveTheme maps 'system' onto the OS preference (matchMedia stub -> light)", () => {
+    expect(readSystemTheme()).toBe("light");
+    expect(resolveTheme("system")).toBe("light");
+  });
+
+  it("readSystemTheme returns 'dark' when the OS prefers dark", () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+      media: "(prefers-color-scheme: dark)",
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    } as unknown as MediaQueryList);
+    expect(readSystemTheme()).toBe("dark");
+    expect(resolveTheme("system")).toBe("dark");
+  });
+
+  it("readStoredPref returns the stored value when valid, else light", () => {
+    expect(readStoredPref()).toBe("light"); // nothing stored
+    writeStoredPref("dark");
+    expect(readStoredPref()).toBe("dark");
+    writeStoredPref("system");
+    expect(readStoredPref()).toBe("system");
+    localStorage.setItem(THEME_STORAGE_KEY, "bogus");
+    expect(readStoredPref()).toBe("light"); // invalid -> default
+  });
+});
