@@ -101,9 +101,9 @@ migrates to `desktop/src/ui/`.
 
 - **Purpose** — the tools/data sources one agent can reach, each with an
   icon, name, short description, and a category tag.
-- **When to use / not** — an agent detail/inspector view showing what that
-  agent can reach. Not a substitute for the `Capability` tag itself when only
-  a single tag needs to be shown inline.
+- **When to use / not** — an agent detail/inspector view showing the full set
+  of tools/data sources an agent can reach; not for showing a single
+  capability inline elsewhere.
 - **Anatomy** — `p4a-cap-list` (`role="list"`) of `p4a-cap-item` rows: icon
   chip + name/description text + tag pill.
 - **Variants** — none; item colour comes from the per-capability category
