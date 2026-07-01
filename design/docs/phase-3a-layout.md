@@ -27,6 +27,8 @@ migrates to `desktop/src/ui/`.
   (3-column grid: rail / main / inspector). `la-main` is itself a 3-row grid
   (top bar / context toolbar / scrolling content).
 - **Variants** — with or without the inspector column; rail expanded or collapsed.
+- **Sizes** — single size; the composition root fills the window, not a
+  sizable widget.
 - **States** — inherits the states of its child regions.
 - **Keyboard** — every interactive child (nav items, tabs, window controls,
   resize handle, search) is focusable with a visible focus ring.
@@ -44,6 +46,7 @@ migrates to `desktop/src/ui/`.
 - **When to use / not** — top edge of the shell only.
 - **Anatomy** — `la-titlebar`: title + sub + spacer + `la-win-controls`
   (minimize / maximize / close icon buttons).
+- **Sizes** — single size; fixed `--la-titlebar-h`, no size variants.
 - **States** — control hover (close goes `--danger`); `:focus-visible` ring.
 - **Keyboard** — each window control is a real `button` with an `aria-label`.
 - **Accessibility** — `header` landmark; controls grouped with `aria-label`.
@@ -73,8 +76,11 @@ migrates to `desktop/src/ui/`.
 
 - **Purpose** — contextual breadcrumb + global search + the primary action for
   the current resource.
+- **When to use / not** — the single top edge of `la-main`; not a reusable
+  widget, there is exactly one per shell.
 - **Anatomy** — `la-topbar`: `la-crumbs` · spacer · `la-search` (field + `⌘K`
   kbd) · primary button.
+- **Sizes** — single size; fixed `--la-topbar-h`, no size variants.
 - **States** — search `:focus-within` ring; breadcrumb link hover/focus.
 - **Keyboard** — breadcrumb links, search input, and action button focusable.
 - **Accessibility** — `nav[aria-label="Breadcrumb"]`, `role="search"`, current
@@ -92,6 +98,7 @@ migrates to `desktop/src/ui/`.
   Evidence / Debate / Decision). Not for switching resources — that's the rail.
 - **Anatomy** — `la-toolbar`: `la-tabs` (`role="tablist"`) · spacer ·
   `la-runpill` (amber dot + animated ping + label).
+- **Sizes** — single size; fixed `--la-toolbar-h`, no size variants.
 - **States** — tab hover/active (accent underbar), live pill animates (parked
   under `prefers-reduced-motion`).
 - **Keyboard** — tabs are buttons with `role="tab"` + `aria-selected`.
@@ -149,6 +156,10 @@ migrates to `desktop/src/ui/`.
   width-capped page → titled section.
 - **Anatomy** — `la-workspace` (canvas) → `la-page` (max-width `--width-content-max`,
   page padding, centered) → `la-prim-section` (title + desc).
+- **Sizes** — single size each; page width caps at `--width-content-max`, no
+  size variants.
+- **States** — none; a static structural nesting, no interactive states.
+- **Keyboard** — none; no interactive elements.
 - **Tokens** — `--width-content-max`, `--pad-page`, `--pad-card`,
   `--text-heading-4`, `--gap-stack`.
 
@@ -167,6 +178,10 @@ migrates to `desktop/src/ui/`.
 - **Purpose** — separate content groups.
 - **Variants** — horizontal `hr.la-divider`; vertical
   `la-divider--v` (`role="separator"` `aria-orientation="vertical"`).
+- **Sizes** — single size; fixed `--border-width-default` thickness (vertical
+  height fixed at `--icon-size-md`), no size variants.
+- **States** — none; a static visual rule, no hover/focus styling.
+- **Keyboard** — none; not focusable, no interactive element.
 - **Accessibility** — semantic `hr` / `role="separator"`.
 - **Tokens** — `--border-subtle`, `--border-width-default`, `--icon-size-md`.
 
@@ -189,6 +204,8 @@ migrates to `desktop/src/ui/`.
 - **Purpose** — an overflow region with a styled, unobtrusive scrollbar.
 - **Anatomy** — `la-scroll` (thin track, pill thumb via `scrollbar-*` +
   `::-webkit-scrollbar*`).
+- **Sizes** — single size; scrollbar thumb/track width fixed at `--space-8`,
+  no size variants.
 - **States** — thumb hover darkens to `--border-strong`.
 - **Accessibility** — keyboard-scrollable; thumb sized for pointer use.
 - **Tokens** — `--border-default/-strong`, `--radius-pill`, `--surface-sunken`,
