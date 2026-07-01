@@ -58,7 +58,12 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   resume. It also shows a **Cancel** button while a run is in flight: clicking
   it dispatches `run.cancel {session_id}` (session_id captured from the first
   streamed event); the run ends with `SessionCancelled` + `{status:"cancelled"}`.
-- `src/ui/` — the Ant Design–based component foundation. `theme.ts`
+- `src/ui/` — the Ant Design–based component foundation. It is the app's **stable public entry point** to the design system: `tokens.css`
+  re-exports the layered token source of truth (`design/tokens/*.css`) plus the
+  desktop-owned `fonts.css` (`@font-face` for the local IBM Plex faces in
+  `public/fonts/`), so `main.tsx` imports one file (`./ui/tokens.css`) instead of
+  reaching into `design/` or the styleguide. `tokens.ts` is the typed accessor
+  (`RUNTIME_TOKENS`, `tokenVar`, `readToken`, `readTokens`); `theme.ts` consumes it. `theme.ts`
   (`buildAntdTheme`) maps the `design/tokens/*.css` "Instrument" tokens onto
   AntD's `ConfigProvider` seed tokens — ported from the validated pilot at
   `design/styleguide/src/antd-pilot/theme.ts`. `ThemeShell` owns
