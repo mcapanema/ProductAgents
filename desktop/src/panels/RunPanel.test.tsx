@@ -113,3 +113,28 @@ describe("RunPanel stage timeline", () => {
     expect(screen.getByText("demand up")).toBeInTheDocument();
   });
 });
+
+describe("RunPanel running callback", () => {
+  it("reports running=true while a run is in flight and false once it settles", async () => {
+    const events: boolean[] = [];
+    let resolveRun!: (value: { status: "finished"; session_id: string }) => void;
+    const run = vi.fn(
+      () =>
+        new Promise<{ status: "finished"; session_id: string }>((resolve) => {
+          resolveRun = resolve;
+        }),
+    );
+    render(
+      <IpcProvider client={{ run } as unknown as IpcClient}>
+        <RunPanel onRunningChange={(running) => events.push(running)} />
+      </IpcProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(events).toContain(true));
+    await act(async () => {
+      resolveRun({ status: "finished", session_id: "s" });
+    });
+    await waitFor(() => expect(events[events.length - 1]).toBe(false));
+  });
+});
