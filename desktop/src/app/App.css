@@ -14,9 +14,3 @@ h1 { font-size: 18px; margin: 0 0 16px; }
 .muted { color: var(--text-secondary); }
 .event { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; padding: 4px 8px;
   border-left: 2px solid var(--border-default); margin: 2px 0; }
-input, textarea, button.primary { font: inherit; }
-input, textarea { background: var(--bg-primary); color: var(--text-primary);
-  border: 1px solid var(--border-default); border-radius: 6px; padding: 8px; }
-button.primary { background: var(--accent); color: #fff; border: none;
-  padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-button.primary:disabled { opacity: 0.5; cursor: default; }
