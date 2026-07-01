@@ -14,3 +14,11 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => false,
   }),
 });
+
+// antd Table's scrollbar-size measurement calls getComputedStyle(elt, "::-webkit-scrollbar");
+// jsdom implements the zero/one-arg form but throws "Not implemented" for the pseudo-element
+// form. Delegate to the real implementation for the normal case (e.g. theme.ts's readVars())
+// and return an empty CSSStyleDeclaration-like stub only for the pseudo-element case.
+const realGetComputedStyle = window.getComputedStyle.bind(window);
+window.getComputedStyle = ((elt: Element, pseudoElt?: string | null) =>
+  pseudoElt ? ({ getPropertyValue: () => "" } as CSSStyleDeclaration) : realGetComputedStyle(elt)) as typeof window.getComputedStyle;
