@@ -39,11 +39,11 @@ function fakeClient(): IpcClient {
 }
 
 describe("App shell", () => {
-  it("renders the seven nav items and defaults to the Run panel", () => {
+  it("renders the seven nav items and defaults to the Run panel", async () => {
     render(<App client={fakeClient()} />);
     const nav = screen.getByRole("navigation");
     for (const label of ["Run", "Workflows", "Sessions", "Decisions", "Connectors", "Prompts", "Settings"]) {
-      expect(within(nav).getByRole("menuitem", { name: label })).toBeInTheDocument();
+      expect(await within(nav).findByRole("menuitem", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByRole("heading", { name: /run a decision/i })).toBeInTheDocument();
   });
