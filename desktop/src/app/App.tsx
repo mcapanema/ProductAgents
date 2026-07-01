@@ -19,6 +19,7 @@ export function App({ client }: { client?: IpcClient }) {
   const [view, setView] = useState<View>("run");
   const [theme, setTheme] = useState<Theme>("light");
   const [density, setDensity] = useState<Density>("comfortable");
+  const [running, setRunning] = useState(false);
 
   return (
     <IpcProvider client={client}>
@@ -31,9 +32,10 @@ export function App({ client }: { client?: IpcClient }) {
             onThemeChange={setTheme}
             density={density}
             onDensityChange={setDensity}
+            running={running}
           />
           <main className="content">
-            {view === "run" && <RunPanel />}
+            {view === "run" && <RunPanel onRunningChange={setRunning} />}
             {view === "sessions" && <SessionsPanel />}
             {view === "decisions" && <DecisionsPanel />}
             {view === "memory" && <OrgMemoryPanel />}

@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, act, waitFor } from "@testing-library/react";
 import { App } from "./App";
 import type { IpcClient } from "../ipc/client";
+import type { RunParams, RunHandlers, RunResult } from "../ipc/types";
 
 // A fake client good enough for the shell test: empty lists, no runs.
 function fakeClient(): IpcClient {
@@ -99,5 +100,23 @@ describe("App shell", () => {
     render(<App client={fakeClient()} />);
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Reflection" }));
     expect(await screen.findByRole("heading", { name: /^reflection$/i })).toBeInTheDocument();
+  });
+
+  it("shows a live-run dot on the Run nav item while a run is in flight, and clears it when the run settles", async () => {
+    let resolveRun!: (value: RunResult) => void;
+    const client = fakeClient();
+    client.run = (_params: RunParams, _handlers: RunHandlers) =>
+      new Promise<RunResult>((resolve) => {
+        resolveRun = resolve;
+      });
+    render(<App client={client} />);
+    const main = screen.getByRole("main");
+    fireEvent.change(within(main).getByLabelText("initiative"), { target: { value: "Test initiative" } });
+    fireEvent.click(within(main).getByRole("button", { name: /^run$/i }));
+    expect(await screen.findByLabelText("run in progress")).toBeInTheDocument();
+    await act(async () => {
+      resolveRun({ status: "finished", session_id: "s" });
+    });
+    await waitFor(() => expect(screen.queryByLabelText("run in progress")).toBeNull());
   });
 });

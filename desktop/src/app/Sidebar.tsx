@@ -137,6 +137,7 @@ export function Sidebar({
   onThemeChange,
   density,
   onDensityChange,
+  running,
 }: {
   view: View;
   onNavigate: (view: View) => void;
@@ -144,6 +145,7 @@ export function Sidebar({
   onThemeChange: (theme: Theme) => void;
   density: Density;
   onDensityChange: (density: Density) => void;
+  running: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
 
@@ -191,6 +193,9 @@ export function Sidebar({
               >
                 <Icon name={item.icon} />
                 {!collapsed && <span className="sidebar-label">{item.label}</span>}
+                {item.view === "run" && running && (
+                  <span className="status-dot status-dot--live" role="img" aria-label="run in progress" />
+                )}
               </button>
             </li>
           );

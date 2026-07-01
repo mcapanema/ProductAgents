@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { Button, Checkbox, Input } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import { runReducer, initialRunState } from "./runReducer";
@@ -12,7 +12,7 @@ const VERDICTS: { verdict: string; label: string }[] = [
   { verdict: "request_analysis", label: "Request analysis" },
 ];
 
-export function RunPanel() {
+export function RunPanel({ onRunningChange }: { onRunningChange?: (running: boolean) => void }) {
   const ipc = useIpc();
   const [title, setTitle] = useState("");
   const [evidence, setEvidence] = useState("sample");
@@ -54,6 +54,9 @@ export function RunPanel() {
   }
 
   const running = state.status === "running";
+  useEffect(() => {
+    onRunningChange?.(running);
+  }, [running, onRunningChange]);
   return (
     <div>
       <h1>Run a decision</h1>

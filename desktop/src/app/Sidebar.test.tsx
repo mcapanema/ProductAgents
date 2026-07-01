@@ -14,7 +14,7 @@ const LABELS = [
   "Reflection",
 ];
 
-function renderSidebar(view = "run") {
+function renderSidebar({ view = "run", running = false }: { view?: string; running?: boolean } = {}) {
   const onNavigate = vi.fn();
   const utils = render(
     <Sidebar
@@ -24,6 +24,7 @@ function renderSidebar(view = "run") {
       onThemeChange={vi.fn()}
       density="comfortable"
       onDensityChange={vi.fn()}
+      running={running}
     />,
   );
   return { nav: screen.getByRole("navigation"), onNavigate, ...utils };
@@ -43,7 +44,7 @@ describe("Sidebar", () => {
   });
 
   it("marks the active view with aria-current and calls onNavigate on click", () => {
-    const { nav, onNavigate } = renderSidebar("decisions");
+    const { nav, onNavigate } = renderSidebar({ view: "decisions" });
     expect(within(nav).getByRole("button", { name: "Decisions" })).toHaveAttribute("aria-current", "page");
     fireEvent.click(within(nav).getByRole("button", { name: "Settings" }));
     expect(onNavigate).toHaveBeenCalledWith("settings");
@@ -65,5 +66,15 @@ describe("Sidebar", () => {
     first.unmount();
     const second = renderSidebar();
     expect(within(second.nav).getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+  });
+
+  it("shows an amber live-run dot on the Run item when running is true", () => {
+    const { nav } = renderSidebar({ running: true });
+    expect(within(nav).getByLabelText("run in progress")).toBeInTheDocument();
+  });
+
+  it("does not show the live-run dot when running is false", () => {
+    const { nav } = renderSidebar({ running: false });
+    expect(within(nav).queryByLabelText("run in progress")).toBeNull();
   });
 });

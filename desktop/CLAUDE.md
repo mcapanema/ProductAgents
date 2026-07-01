@@ -37,10 +37,18 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   - `transport.ts` — `isTauri()`, `createTauriClient()` (invoke/listen),
     `createWsClient()` (dev WebSocket, injectable socket), and `createClient()`
     which picks the right one for the environment.
-- `src/app/` — `App.tsx` (sidebar nav + selected panel), `IpcProvider.tsx`
-  (`useIpc()` context; builds the client once on mount, or takes an injected one
-  in tests; `useIpc()` returns `IpcClient | null` — **null until ready, panels
-  must handle it**), `App.css` (minimal IDE-like shell).
+- `src/app/` — `App.tsx` (shell composition: wraps `Sidebar` + the selected
+  panel, and lifts a `running` boolean out of `RunPanel` via
+  `onRunningChange` so the sidebar can show a live-run indicator),
+  `Sidebar.tsx` (the nine-item resource nav: icon + label per item, an
+  active-item accent marker, a `localStorage`-persisted collapsible
+  icon-only rail, and an amber pulsing dot on "Run" while a decision run is
+  in flight — ported from `design/styleguide/src/phase3/Phase3Navigation.tsx`'s
+  reference nav/rail), `Sidebar.css` (the ported nav-item/rail/live-dot styling, tokens
+  only), `IpcProvider.tsx` (`useIpc()` context; builds the client once on
+  mount, or takes an injected one in tests; `useIpc()` returns
+  `IpcClient | null` — **null until ready, panels must handle it**),
+  `App.css` (shell layout only — sidebar styling lives in `Sidebar.css`).
 - `src/panels/` — one panel per resource. **Pure logic is extracted and
   unit-tested**, components stay thin: `runReducer.ts` (Run event stream),
   `decisionView.ts` (`formatConfidence`/`predictionRows`), `connectorView.ts`
