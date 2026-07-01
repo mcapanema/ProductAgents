@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Segmented } from "antd";
 import type { Density, Theme } from "../ui/theme";
@@ -16,7 +17,8 @@ export type View =
 
 // Inline SVG, 24-grid, outline style — ported from
 // design/styleguide/src/phase3/Phase3Navigation.tsx (Icon/ICONS), extended
-// with `memory` and `reflection` for the two panels missing a nav icon there.
+// with `memory` and `reflection` (missing there) plus the two rail-toggle
+// arrows.
 const ICONS: Record<string, ReactNode> = {
   run: <path d="M3 12h3.5l2.5 7 4-15 2.5 8H21" />,
   workflows: (
@@ -79,6 +81,18 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M12 7.5V12l3 2" />
     </>
   ),
+  "arrow-left": (
+    <>
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </>
+  ),
+  "arrow-right": (
+    <>
+      <path d="M5 12h14" />
+      <path d="M12 5l7 7-7 7" />
+    </>
+  ),
 };
 
 function Icon({ name }: { name: string }) {
@@ -110,6 +124,12 @@ const NAV: { view: View; label: string; icon: string }[] = [
   { view: "reflection", label: "Reflection", icon: "reflection" },
 ];
 
+const COLLAPSE_STORAGE_KEY = "pa-sidebar-collapsed";
+
+function readStoredCollapsed(): boolean {
+  return localStorage.getItem(COLLAPSE_STORAGE_KEY) === "1";
+}
+
 export function Sidebar({
   view,
   onNavigate,
@@ -125,29 +145,37 @@ export function Sidebar({
   density: Density;
   onDensityChange: (density: Density) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+
+  useEffect(() => {
+    localStorage.setItem(COLLAPSE_STORAGE_KEY, collapsed ? "1" : "0");
+  }, [collapsed]);
+
   return (
-    <nav className="sidebar">
-      <div className="sidebar-brand">ProductAgents</div>
-      <div className="sidebar-controls">
-        <Segmented
-          aria-label="Theme"
-          value={theme}
-          onChange={(v) => onThemeChange(v as Theme)}
-          options={[
-            { label: "Light", value: "light" },
-            { label: "Dark", value: "dark" },
-          ]}
-        />
-        <Segmented
-          aria-label="Density"
-          value={density}
-          onChange={(v) => onDensityChange(v as Density)}
-          options={[
-            { label: "Comfortable", value: "comfortable" },
-            { label: "Compact", value: "compact" },
-          ]}
-        />
-      </div>
+    <nav className={`sidebar${collapsed ? " is-collapsed" : ""}`}>
+      {!collapsed && <div className="sidebar-brand">ProductAgents</div>}
+      {!collapsed && (
+        <div className="sidebar-controls">
+          <Segmented
+            aria-label="Theme"
+            value={theme}
+            onChange={(v) => onThemeChange(v as Theme)}
+            options={[
+              { label: "Light", value: "light" },
+              { label: "Dark", value: "dark" },
+            ]}
+          />
+          <Segmented
+            aria-label="Density"
+            value={density}
+            onChange={(v) => onDensityChange(v as Density)}
+            options={[
+              { label: "Comfortable", value: "comfortable" },
+              { label: "Compact", value: "compact" },
+            ]}
+          />
+        </div>
+      )}
       <ul className="sidebar-nav">
         {NAV.map((item) => {
           const active = view === item.view;
@@ -157,15 +185,25 @@ export function Sidebar({
                 type="button"
                 className="sidebar-item"
                 aria-current={active ? "page" : undefined}
+                aria-label={collapsed ? item.label : undefined}
+                title={collapsed ? item.label : undefined}
                 onClick={() => onNavigate(item.view)}
               >
                 <Icon name={item.icon} />
-                <span className="sidebar-label">{item.label}</span>
+                {!collapsed && <span className="sidebar-label">{item.label}</span>}
               </button>
             </li>
           );
         })}
       </ul>
+      <button
+        type="button"
+        className="sidebar-toggle"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        onClick={() => setCollapsed((c) => !c)}
+      >
+        <Icon name={collapsed ? "arrow-right" : "arrow-left"} />
+      </button>
     </nav>
   );
 }

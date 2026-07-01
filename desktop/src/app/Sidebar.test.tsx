@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { Sidebar } from "./Sidebar";
 
@@ -16,7 +16,7 @@ const LABELS = [
 
 function renderSidebar(view = "run") {
   const onNavigate = vi.fn();
-  render(
+  const utils = render(
     <Sidebar
       view={view as never}
       onNavigate={onNavigate}
@@ -26,8 +26,12 @@ function renderSidebar(view = "run") {
       onDensityChange={vi.fn()}
     />,
   );
-  return { nav: screen.getByRole("navigation"), onNavigate };
+  return { nav: screen.getByRole("navigation"), onNavigate, ...utils };
 }
+
+beforeEach(() => {
+  localStorage.clear();
+});
 
 describe("Sidebar", () => {
   it("renders all nine nav items with an icon each", () => {
@@ -43,5 +47,23 @@ describe("Sidebar", () => {
     expect(within(nav).getByRole("button", { name: "Decisions" })).toHaveAttribute("aria-current", "page");
     fireEvent.click(within(nav).getByRole("button", { name: "Settings" }));
     expect(onNavigate).toHaveBeenCalledWith("settings");
+  });
+
+  it("collapses to an icon-only rail on toggle, hiding labels and theme/density controls", () => {
+    const { nav } = renderSidebar();
+    expect(screen.getByLabelText("Theme")).toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole("button", { name: "Collapse sidebar" }));
+    expect(screen.queryByLabelText("Theme")).not.toBeInTheDocument();
+    const settingsItem = within(nav).getByRole("button", { name: "Settings" });
+    expect(settingsItem.querySelector(".sidebar-label")).toBeNull();
+    expect(within(nav).getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+  });
+
+  it("persists the collapsed state across remounts via localStorage", () => {
+    const first = renderSidebar();
+    fireEvent.click(within(first.nav).getByRole("button", { name: "Collapse sidebar" }));
+    first.unmount();
+    const second = renderSidebar();
+    expect(within(second.nav).getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
   });
 });

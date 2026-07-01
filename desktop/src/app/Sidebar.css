@@ -95,3 +95,43 @@
 .sidebar-label {
   flex: 1;
 }
+
+.sidebar.is-collapsed {
+  width: var(--width-sidebar-collapsed);
+  align-items: center;
+  padding-inline: var(--space-6);
+}
+
+.sidebar.is-collapsed .sidebar-nav {
+  justify-items: center;
+}
+
+.sidebar.is-collapsed .sidebar-item {
+  justify-content: center;
+  padding-inline: 0;
+  width: var(--control-md);
+  height: var(--control-md);
+}
+
+.sidebar-toggle {
+  margin-top: auto;
+  display: grid;
+  place-items: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  border: 0;
+  background: transparent;
+  border-radius: var(--nav-item-radius);
+  color: var(--text-tertiary);
+  cursor: var(--cursor-interactive);
+}
+
+.sidebar-toggle:hover {
+  background: var(--nav-item-bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
