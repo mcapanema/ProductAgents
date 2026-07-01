@@ -101,6 +101,11 @@
   accent-color: var(--accent);
   cursor: var(--cursor-interactive);
 }
+.p10b-table__check input[type="checkbox"]:focus-visible,
+.p10b-bulk-bar input[type="checkbox"]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
 
 [data-density="compact"] .p10b-table th,
 [data-density="compact"] .p10b-table td { padding: var(--space-4) var(--space-8); }
@@ -166,7 +171,7 @@
 
 .p10b-menu {
   display: grid; gap: var(--space-2);
-  width: 100%; max-width: var(--width-dialog-sm, 22rem);
+  width: 100%; max-width: var(--width-dialog-sm);
   margin: 0; padding: var(--space-4);
   list-style: none;
   background: var(--surface-raised);
@@ -237,7 +242,7 @@
   position: absolute; left: var(--space-16); bottom: var(--space-16);
   z-index: var(--z-toast);
   display: flex; align-items: center; gap: var(--space-8);
-  width: min(20rem, calc(100% - var(--space-32)));
+  width: min(var(--width-inspector), calc(100% - var(--space-32)));
   padding: var(--space-12) var(--space-12) var(--space-16);
   background: var(--surface-floating);
   border: var(--border-width-default) solid var(--border-default);
