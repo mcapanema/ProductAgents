@@ -6,6 +6,10 @@ zero markup change, is keyboard-operable, and never signals state by color
 alone. Gallery: `styleguide` → "3B · Navigation". Source:
 `src/phase3/Phase3Navigation.tsx` + `phase3b-navigation.css` (prefix `nv-`).
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
 ---
 
 ## Sidebar Nav
@@ -34,11 +38,14 @@ alone. Gallery: `styleguide` → "3B · Navigation". Source:
 ## Breadcrumbs
 - **Purpose:** location within the hierarchy.
 - **Anatomy:** `nav[aria-label=Breadcrumb]` → `ol`; ancestors are links, the trailing crumb is `span[aria-current=page]`.
+- **States:** link default · hover (`--surface-hover` ground) · focus-visible ring; current crumb is semibold, non-interactive.
 - **Keyboard/A11y:** links are tabbable; the current page is non-interactive and announced via `aria-current`.
 - **Tokens:** `--text-secondary`/`--text-primary`, `--surface-hover`.
 
 ## Tabs
 - **Purpose:** switch facets within one resource (Evidence / Debate / Risk / Recommendation).
+- **When to use:** facets of a single resource already on screen. **Not** for
+  top-level navigation between resources — that's Sidebar Nav.
 - **Variants:** **underline** (in-panel sections) · **segmented** (compact toggle).
 - **States:** default · hover · selected (underline accent or raised segment + semibold).
 - **Keyboard:** roving tabindex — ←/→ move + activate selection, Home/End jump to ends.
@@ -55,6 +62,8 @@ alone. Gallery: `styleguide` → "3B · Navigation". Source:
 
 ## Quick Switcher
 - **Purpose:** scoped, lighter palette — jump between recent runs/decisions/sessions.
+- **When to use:** jumping to a specific recent resource. **Not** for running an
+  action — that's the Command Palette; Quick Switcher only navigates.
 - **States:** filtered list with active row; live runs show the amber dot, settled ones a teal check (color + glyph).
 - **Keyboard/A11y:** ↑/↓ move; `combobox` + `aria-activedescendant` over `listbox`, same pattern as the palette.
 - **Tokens:** `--ai-running` / `--ai-running-text`, `--resolved` / `--text-resolved`, `--nv-switcher-w`.
@@ -69,6 +78,8 @@ alone. Gallery: `styleguide` → "3B · Navigation". Source:
 
 ## Pagination
 - **Purpose:** page through long lists (sessions, decisions).
+- **When to use:** bounded lists where jumping to a specific page matters. **Not**
+  for continuously-loading feeds — use infinite scroll / load-more there.
 - **Anatomy:** prev arrow · numbered pages with ellipsis windowing · next arrow.
 - **States:** current page = tinted + accent border + semibold + `aria-current`; arrows disable at the ends.
 - **Keyboard/A11y:** every page/arrow is a labelled `button`; numbers are tabular-figure mono.
@@ -76,6 +87,10 @@ alone. Gallery: `styleguide` → "3B · Navigation". Source:
 
 ## Stepper
 - **Purpose:** linear progress through a multi-stage flow (the pipeline, first-run setup).
+- **When to use:** a fixed, ordered sequence of stages. **Not** for an unordered
+  checklist — that's a plain list with status badges (Phase 3D).
+- **Anatomy:** ordered step markers (check glyph or number) connected by a rail,
+  each with a label · Back/Next controls below.
 - **States:** done (teal check marker + filled connector) · current (accent ring + semibold + `aria-current=step`) · upcoming (muted).
 - **Keyboard/A11y:** Back/Next controls are real buttons that disable at the bounds; `aria-current=step` marks position.
 - **Tokens:** `--resolved` (done), `--accent` (current), `--btn-*` (controls).

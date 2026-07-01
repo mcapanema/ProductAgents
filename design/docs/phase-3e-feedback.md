@@ -26,14 +26,30 @@ The four colour groups are set once by `.fbk-k-{success,warning,error,info}`
 (mapping the theme `--fb-*-{bg,surface,border,text,icon}` sets onto the local
 `--fbk-*` handles) and reused by alert, banner, inline, toast, and status state.
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
+**Which one to reach for:** Alert / Banner / Inline / Toast overlap by design —
+Phase 10C's Notification Strategy pattern (`design/docs/phase-10c-system-patterns.md`)
+is the canonical blocking-ness/lifetime/scope decision matrix across all four
+plus the blocking dialog; this doc covers each component's own anatomy and
+states, not the choice between them.
+
 ---
 
 ## Alert
 - **Purpose** — boxed, ground-tinted message with title + body, optional action and dismiss.
+- **When to use / not** — one grouped message inside a page's content area (not
+  full width). Not for a page/run-wide condition — that's Banner.
 - **Variants** — success / warning / error / info; with / without action; with / without dismiss.
 - **States** — static; dismissible (focusable close button removes it; "Restore alert" re-mounts in the demo); action + close have hover + focus-visible.
 - **Keyboard** — action and close are real `<button>`s, in tab order; close has `aria-label`.
 - **Accessibility** — error/warning → `role="alert"` (assertive); success/info → `role="status"`. Icon + title carry meaning beyond hue.
+- **Content** — title is a short noun phrase (2–5 words); body is one sentence
+  naming the real specific ("Saved to the DecisionStore as DR-2048"), never a
+  generic "Success!" — the same convention carries to Toast, Banner, and Status
+  states below.
 - **Motion** — none beyond token surface transitions (auto-collapse under reduced motion).
 - **Tokens** — `--alert-pad/-radius/-border-width/-icon-size`, `--fbk-*` group, `--text-title/-body-s`, `--gap-inline`, `--control-sm`.
 

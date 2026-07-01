@@ -10,6 +10,10 @@ Icons are inline Phosphor-style SVG (`viewBox 0 0 24 24`, `stroke currentColor`,
 `stroke-width 1.75`, round caps). `fill` weight is used only for the single
 active/selected nav item.
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
 ---
 
 ## App Shell
@@ -23,6 +27,8 @@ active/selected nav item.
   (3-column grid: rail / main / inspector). `la-main` is itself a 3-row grid
   (top bar / context toolbar / scrolling content).
 - **Variants** — with or without the inspector column; rail expanded or collapsed.
+- **Sizes** — single size; the composition root fills the window, not a
+  sizable widget.
 - **States** — inherits the states of its child regions.
 - **Keyboard** — every interactive child (nav items, tabs, window controls,
   resize handle, search) is focusable with a visible focus ring.
@@ -40,6 +46,7 @@ active/selected nav item.
 - **When to use / not** — top edge of the shell only.
 - **Anatomy** — `la-titlebar`: title + sub + spacer + `la-win-controls`
   (minimize / maximize / close icon buttons).
+- **Sizes** — single size; fixed `--la-titlebar-h`, no size variants.
 - **States** — control hover (close goes `--danger`); `:focus-visible` ring.
 - **Keyboard** — each window control is a real `button` with an `aria-label`.
 - **Accessibility** — `header` landmark; controls grouped with `aria-label`.
@@ -69,20 +76,29 @@ active/selected nav item.
 
 - **Purpose** — contextual breadcrumb + global search + the primary action for
   the current resource.
+- **When to use / not** — the single top edge of `la-main`; not a reusable
+  widget, there is exactly one per shell.
 - **Anatomy** — `la-topbar`: `la-crumbs` · spacer · `la-search` (field + `⌘K`
   kbd) · primary button.
+- **Sizes** — single size; fixed `--la-topbar-h`, no size variants.
 - **States** — search `:focus-within` ring; breadcrumb link hover/focus.
 - **Keyboard** — breadcrumb links, search input, and action button focusable.
 - **Accessibility** — `nav[aria-label="Breadcrumb"]`, `role="search"`, current
   crumb `aria-current="page"`.
+- **Content** — crumbs are resource/entity names, trailing crumb is the current
+  view (non-interactive); search placeholder names what's searched ("Search
+  runs…"), not a generic "Search".
 - **Tokens** — `--field-*`, `--bg-primary`, `--border-subtle`, `--font-mono`.
   New: `--la-topbar-h`.
 
 ## Context Toolbar
 
 - **Purpose** — view tabs scoped to the selected resource + a live status pill.
+- **When to use / not** — facets of the currently-open resource (Timeline /
+  Evidence / Debate / Decision). Not for switching resources — that's the rail.
 - **Anatomy** — `la-toolbar`: `la-tabs` (`role="tablist"`) · spacer ·
   `la-runpill` (amber dot + animated ping + label).
+- **Sizes** — single size; fixed `--la-toolbar-h`, no size variants.
 - **States** — tab hover/active (accent underbar), live pill animates (parked
   under `prefers-reduced-motion`).
 - **Keyboard** — tabs are buttons with `role="tab"` + `aria-selected`.
@@ -96,6 +112,8 @@ active/selected nav item.
 - **Purpose** — a scoped second navigation list (e.g. recent sessions) beside the
   primary rail.
 - **Anatomy** — `la-rail la-rail--secondary` with the same nav primitives.
+- **States / Keyboard / Accessibility** — identical to Navigation Sidebar above
+  (same `la-nav-item` markup, just tinted `--bg-tertiary`).
 - **Tokens** — `--bg-tertiary` + the nav tokens above.
 
 ## Inspector Panel
@@ -105,7 +123,10 @@ active/selected nav item.
   Collapsible when space is tight.
 - **Anatomy** — `la-inspector`: head + `la-kv` definition list of `la-kv-row`
   (`dt` label / `dd` mono value).
+- **Keyboard** — none; the panel is a static `dl`, no interactive elements.
 - **Accessibility** — `aside[aria-label="Inspector"]`; semantic `dl/dt/dd`.
+- **Content** — `dt` labels are short field names (Status, Workflow, Model…);
+  `dd` values are mono and unformatted (raw id/status/number), no truncation rule.
 - **Tokens** — `--width-inspector`, `--bg-secondary`, `--text-secondary`,
   `--font-mono` (tabular). New: `--la-inspector-w`.
 
@@ -122,6 +143,10 @@ active/selected nav item.
   `tabIndex={0}` and focusable; dock tabs are `role="tab"` buttons.
 - **Accessibility** — separator has an `aria-label`; panes keep a `--width-panel-min`
   floor.
+- **Implementation** — the resize handle reads `--width-panel-min` live via
+  `getComputedStyle` on every drag/keyboard move, so the clamp can never diverge
+  from the rendered CSS; dock tabs use a roving `tabIndex` (0 on the active tab,
+  -1 on the rest) rather than `aria-activedescendant`.
 - **Tokens** — `--width-panel-min`, `--cursor-col-resize`, `--border-strong`,
   `--accent`, `--surface-sunken/-default`. New: `--la-resize-w`.
 
@@ -129,14 +154,24 @@ active/selected nav item.
 
 - **Purpose** — the nesting hierarchy inside a resource view: workspace canvas →
   width-capped page → titled section.
+- **When to use / not** — the default content skeleton for a resource view's
+  body. Not the shell itself — that's App Shell; this only structures what
+  renders inside `la-main`.
 - **Anatomy** — `la-workspace` (canvas) → `la-page` (max-width `--width-content-max`,
   page padding, centered) → `la-prim-section` (title + desc).
+- **Sizes** — single size each; page width caps at `--width-content-max`, no
+  size variants.
+- **States** — none; a static structural nesting, no interactive states.
+- **Keyboard** — none; no interactive elements.
 - **Tokens** — `--width-content-max`, `--pad-page`, `--pad-card`,
   `--text-heading-4`, `--gap-stack`.
 
 ## Surface
 
 - **Purpose** — the interactive material tiers components sit on.
+- **When to use** — default for general containers; raised where a block should
+  visually lift (mirrors `la-card--raised`); sunken for wells/logs/inputs
+  (mirrors `la-scroll--demo`, `la-dock-main`).
 - **Variants** — default / raised (resting shadow) / sunken (wells, inputs, logs).
 - **Tokens** — `--surface-default/-raised/-sunken`, `--elevation-raised`,
   `--border-subtle`, `--radius-card`.
@@ -144,8 +179,15 @@ active/selected nav item.
 ## Divider
 
 - **Purpose** — separate content groups.
+- **When to use / not** — a bare rule between adjacent items or labels (nav
+  items, section labels). Not a container — wrap content in Card or Surface
+  instead of using a divider to imply grouping.
 - **Variants** — horizontal `hr.la-divider`; vertical
   `la-divider--v` (`role="separator"` `aria-orientation="vertical"`).
+- **Sizes** — single size; fixed `--border-width-default` thickness (vertical
+  height fixed at `--icon-size-md`), no size variants.
+- **States** — none; a static visual rule, no hover/focus styling.
+- **Keyboard** — none; not focusable, no interactive element.
 - **Accessibility** — semantic `hr` / `role="separator"`.
 - **Tokens** — `--border-subtle`, `--border-width-default`, `--icon-size-md`.
 
@@ -158,14 +200,22 @@ active/selected nav item.
   + `la-card-body`.
 - **Variants** — default (subtle border, no shadow) vs raised (`la-card--raised`,
   raised surface + resting shadow); with / without header.
+- **Content** — `la-card-head` title is a short entity/component name, `la-card-meta`
+  is one status word or version, right-aligned mono.
 - **Tokens** — `--card-bg`/`--card-bg-raised`, `--card-border`, `--card-radius`,
   `--card-pad`, `--card-shadow`.
 
 ## Scroll Area
 
 - **Purpose** — an overflow region with a styled, unobtrusive scrollbar.
+- **When to use / not** — apply on top of any native `overflow: auto` region
+  that needs the themed scrollbar (log streams, docked panels, long lists).
+  Not a custom scroll implementation — scrolling stays native; only the
+  scrollbar chrome is styled.
 - **Anatomy** — `la-scroll` (thin track, pill thumb via `scrollbar-*` +
   `::-webkit-scrollbar*`).
+- **Sizes** — single size; scrollbar thumb/track width fixed at `--space-8`,
+  no size variants.
 - **States** — thumb hover darkens to `--border-strong`.
 - **Accessibility** — keyboard-scrollable; thumb sized for pointer use.
 - **Tokens** — `--border-default/-strong`, `--radius-pill`, `--surface-sunken`,
