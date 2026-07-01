@@ -17,6 +17,7 @@ import { buildAntdTheme } from "./antd-pilot/theme";
 import { AntdPilotForms } from "./antd-pilot/AntdPilotForms";
 import { AntdPilotDataDisplay } from "./antd-pilot/AntdPilotDataDisplay";
 import { AntdPilotOverlays } from "./antd-pilot/AntdPilotOverlays";
+import { AntdPilotNavigation } from "./antd-pilot/AntdPilotNavigation";
 
 type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli" | "project" | "settings" | "monitoring" | "empty-states" | "design-patterns" | "antd-pilot";
 
@@ -140,6 +141,7 @@ export function App() {
             <AntdPilotForms />
             <AntdPilotDataDisplay />
             <AntdPilotOverlays />
+            <AntdPilotNavigation />
           </ConfigProvider>
         )}
       </main>
