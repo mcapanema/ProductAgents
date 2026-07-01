@@ -12,8 +12,11 @@ import { Phase9EmptyStates } from "./phase9/Phase9EmptyStates";
 import { Phase10AFlowPatterns } from "./phase10/Phase10AFlowPatterns";
 import { Phase10BEditingPatterns } from "./phase10/Phase10BEditingPatterns";
 import { Phase10CSystemPatterns } from "./phase10/Phase10CSystemPatterns";
+import { ConfigProvider } from "antd";
+import { buildAntdTheme } from "./antd-pilot/theme";
+import { AntdPilotForms } from "./antd-pilot/AntdPilotForms";
 
-type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli" | "project" | "settings" | "monitoring" | "empty-states" | "design-patterns";
+type Category = "foundation" | "tokens" | "components" | "ai-components" | "workflow-cli" | "project" | "settings" | "monitoring" | "empty-states" | "design-patterns" | "antd-pilot";
 
 /** Top-level categories. `soon` entries are placeholders for future work
  *  (Documentation = Phase 11) — shown disabled so the overall shape of the
@@ -29,6 +32,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "monitoring", label: "Monitoring" },
   { id: "empty-states", label: "Empty States" },
   { id: "design-patterns", label: "Design patterns" },
+  { id: "antd-pilot", label: "AntD Pilot" },
 ];
 const SOON: { label: string }[] = [
   { label: "Documentation" },
@@ -128,6 +132,11 @@ export function App() {
             <Phase10BEditingPatterns density={density} />
             <Phase10CSystemPatterns density={density} />
           </>
+        )}
+        {category === "antd-pilot" && (
+          <ConfigProvider theme={buildAntdTheme(theme, density)}>
+            <AntdPilotForms />
+          </ConfigProvider>
         )}
       </main>
     </div>
