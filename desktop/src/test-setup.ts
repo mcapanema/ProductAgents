@@ -21,4 +21,4 @@ Object.defineProperty(window, "matchMedia", {
 // and return an empty CSSStyleDeclaration-like stub only for the pseudo-element case.
 const realGetComputedStyle = window.getComputedStyle.bind(window);
 window.getComputedStyle = ((elt: Element, pseudoElt?: string | null) =>
-  pseudoElt ? ({ getPropertyValue: () => "" } as CSSStyleDeclaration) : realGetComputedStyle(elt)) as typeof window.getComputedStyle;
+  pseudoElt ? ({ getPropertyValue: () => "" } as unknown as CSSStyleDeclaration) : realGetComputedStyle(elt)) as typeof window.getComputedStyle;
