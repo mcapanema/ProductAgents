@@ -6,6 +6,10 @@ mono with `tabular-nums` so it holds its column; status pairs color with a
 glyph + label (WCAG 1.4.1). Gallery: "3D · Data display". Source:
 `src/phase3/Phase3DataDisplay.tsx` + `phase3d-datadisplay.css` (prefix `dd-`).
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
 ---
 
 ## Stat / Metric Card (heavy-use)
@@ -13,10 +17,14 @@ glyph + label (WCAG 1.4.1). Gallery: "3D · Data display". Source:
 - **Anatomy:** label + sparkline · big mono value · signed delta (arrow glyph **+** sign) + caption.
 - **States/tones:** positive (teal/green) · negative (red) · neutral — tone reinforced by the arrow direction and sign, not color alone.
 - **A11y:** value is `tabular-nums`; sparkline is decorative (`aria-hidden`), the number carries the meaning.
+- **Content:** delta caption is a fixed comparison window ("vs. prior 5 runs"),
+  not an open-ended claim; label is a short metric name, not a sentence.
 - **Tokens:** `--text-resolved`/`--success`/`--danger`/`--text-error`, `--accent` (spark), `--surface-default`, `--radius-card`.
 
 ## Table
 - **Purpose:** rows of decisions/records with sortable, numeric columns.
+- **When to use:** a moderate, curated row set where sort matters most. Use
+  Data Grid instead for large synced record sets that also need column resize.
 - **Anatomy:** `table` + `caption` (sr-only) · sticky `thead` with sort `button`s · `tbody` rows; row header is a `th[scope=row]`.
 - **States:** header hover · sorted (caret up/down + `aria-sort`) · row hover · selected (`aria-selected` → tinted + inset accent edge) · row focus.
 - **Keyboard:** sort headers are buttons (Enter/Space); rows are focusable and Enter/Space-selectable.
@@ -34,12 +42,18 @@ glyph + label (WCAG 1.4.1). Gallery: "3D · Data display". Source:
 - **Purpose:** single- or multi-line rows (sessions, pipeline steps).
 - **Anatomy:** leading icon · text (title + optional sub) · trailing meta (mono value + status badge).
 - **States:** hover · focus; rows are focusable.
+- **Implementation:** rows carry `tabIndex={0}` in this gallery but no
+  selection is wired — bind `onClick`/`onKeyDown` (Enter/Space) in product use,
+  following the Table row pattern.
 - **Tokens:** `--row-height`, `--pad-cell-x`, `--surface-hover`.
 
 ## Tree
 - **Purpose:** nested resources (workspace → decisions/connectors → files).
 - **Anatomy:** `ul[role=tree]` → `li[role=treeitem]` with `aria-expanded`/`aria-level`; per-level indent via `--dd-tree-level`.
 - **Keyboard:** rows focusable; Enter/Space toggle.
+- **Implementation:** genuinely nests via `role=group` per level (unlike Phase
+  3B's Tree View, which flattens to a single `aria-level`-tagged list) — use
+  this pattern when the hierarchy itself, not a roving tabindex, is the point.
 - **Tokens:** `--dd-tree-indent` (= `--space-20`), `--surface-hover`.
 
 ## Property / Description List & Key/Value Viewer
@@ -63,6 +77,9 @@ glyph + label (WCAG 1.4.1). Gallery: "3D · Data display". Source:
 ## Timeline & Activity Feed
 - **Timeline:** vertical run timeline — node marker (status fill + glyph, live = pulse) on a rail + body (node, badge, note) + right-aligned time/duration (mono).
 - **Activity Feed:** avatar/icon · actor + action + target · timestamp.
+- **Keyboard/A11y:** both are read-only history — plain `ol`/`ul`, no interactive
+  elements or extra ARIA; each entry's meaning comes from its Badge (color +
+  glyph + label) and real text, not the marker alone.
 - **Tokens:** `--timeline-rail`, `--dd-marker` (= `--icon-md`), `--dd-rail-w` (= `--border-width-strong`), `--ai-*`.
 
 ## Diff Viewer

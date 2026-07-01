@@ -10,6 +10,10 @@ Icons are inline Phosphor-style SVG (`viewBox 0 0 24 24`, `stroke currentColor`,
 `stroke-width 1.75`, round caps). `fill` weight is used only for the single
 active/selected nav item.
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
 ---
 
 ## App Shell
@@ -75,12 +79,17 @@ active/selected nav item.
 - **Keyboard** — breadcrumb links, search input, and action button focusable.
 - **Accessibility** — `nav[aria-label="Breadcrumb"]`, `role="search"`, current
   crumb `aria-current="page"`.
+- **Content** — crumbs are resource/entity names, trailing crumb is the current
+  view (non-interactive); search placeholder names what's searched ("Search
+  runs…"), not a generic "Search".
 - **Tokens** — `--field-*`, `--bg-primary`, `--border-subtle`, `--font-mono`.
   New: `--la-topbar-h`.
 
 ## Context Toolbar
 
 - **Purpose** — view tabs scoped to the selected resource + a live status pill.
+- **When to use / not** — facets of the currently-open resource (Timeline /
+  Evidence / Debate / Decision). Not for switching resources — that's the rail.
 - **Anatomy** — `la-toolbar`: `la-tabs` (`role="tablist"`) · spacer ·
   `la-runpill` (amber dot + animated ping + label).
 - **States** — tab hover/active (accent underbar), live pill animates (parked
@@ -96,6 +105,8 @@ active/selected nav item.
 - **Purpose** — a scoped second navigation list (e.g. recent sessions) beside the
   primary rail.
 - **Anatomy** — `la-rail la-rail--secondary` with the same nav primitives.
+- **States / Keyboard / Accessibility** — identical to Navigation Sidebar above
+  (same `la-nav-item` markup, just tinted `--bg-tertiary`).
 - **Tokens** — `--bg-tertiary` + the nav tokens above.
 
 ## Inspector Panel
@@ -105,7 +116,10 @@ active/selected nav item.
   Collapsible when space is tight.
 - **Anatomy** — `la-inspector`: head + `la-kv` definition list of `la-kv-row`
   (`dt` label / `dd` mono value).
+- **Keyboard** — none; the panel is a static `dl`, no interactive elements.
 - **Accessibility** — `aside[aria-label="Inspector"]`; semantic `dl/dt/dd`.
+- **Content** — `dt` labels are short field names (Status, Workflow, Model…);
+  `dd` values are mono and unformatted (raw id/status/number), no truncation rule.
 - **Tokens** — `--width-inspector`, `--bg-secondary`, `--text-secondary`,
   `--font-mono` (tabular). New: `--la-inspector-w`.
 
@@ -122,6 +136,10 @@ active/selected nav item.
   `tabIndex={0}` and focusable; dock tabs are `role="tab"` buttons.
 - **Accessibility** — separator has an `aria-label`; panes keep a `--width-panel-min`
   floor.
+- **Implementation** — the resize handle reads `--width-panel-min` live via
+  `getComputedStyle` on every drag/keyboard move, so the clamp can never diverge
+  from the rendered CSS; dock tabs use a roving `tabIndex` (0 on the active tab,
+  -1 on the rest) rather than `aria-activedescendant`.
 - **Tokens** — `--width-panel-min`, `--cursor-col-resize`, `--border-strong`,
   `--accent`, `--surface-sunken/-default`. New: `--la-resize-w`.
 
@@ -137,6 +155,9 @@ active/selected nav item.
 ## Surface
 
 - **Purpose** — the interactive material tiers components sit on.
+- **When to use** — default for general containers; raised where a block should
+  visually lift (mirrors `la-card--raised`); sunken for wells/logs/inputs
+  (mirrors `la-scroll--demo`, `la-dock-main`).
 - **Variants** — default / raised (resting shadow) / sunken (wells, inputs, logs).
 - **Tokens** — `--surface-default/-raised/-sunken`, `--elevation-raised`,
   `--border-subtle`, `--radius-card`.
@@ -158,6 +179,8 @@ active/selected nav item.
   + `la-card-body`.
 - **Variants** — default (subtle border, no shadow) vs raised (`la-card--raised`,
   raised surface + resting shadow); with / without header.
+- **Content** — `la-card-head` title is a short entity/component name, `la-card-meta`
+  is one status word or version, right-aligned mono.
 - **Tokens** — `--card-bg`/`--card-bg-raised`, `--card-border`, `--card-radius`,
   `--card-pad`, `--card-shadow`.
 

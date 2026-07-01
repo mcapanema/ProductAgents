@@ -12,10 +12,16 @@ the active element, moves focus into the panel, traps Tab inside it, closes on
 **Esc**, and **restores focus** to the trigger on close. Menus add roving
 arrow-key focus (`onMenuKey`).
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
 ---
 
 ## Modal / Dialog
 - **Purpose:** A focused, blocking task over a dimmed scrim.
+- **When not to use:** non-blocking supplementary content (filters, hints) —
+  use Popover; details that should keep the underlying list visible — use Drawer.
 - **Variants:** `sm` / `md` / `lg` (`--width-dialog-{sm,md,lg}`). Header (title +
   optional subtitle + close), scrollable body, right-aligned footer actions.
 - **States:** open / closed; enter via `ov-pop` keyframe; hover/focus on close + actions.
@@ -98,6 +104,14 @@ arrow-key focus (`onMenuKey`).
 - **Accessibility:** `role="alertdialog"` `aria-modal` `aria-label`. Destructive
   intent carried by **three** channels — danger color, warning/trash icons, and an
   explicit "Delete workspace" label + consequence text (1.4.1).
+- **Content:** the consequence block names exact scope (real counts/entity
+  names, e.g. "142 decisions, 9 connectors"), never a vague "This will delete
+  data"; the confirm button repeats the action + target ("Delete workspace"),
+  never a generic "Confirm".
+- **Do** put Cancel before the destructive confirm in DOM order, so the
+  focus-trap's initial focus (first focusable) lands on Cancel, not Delete —
+  a stray Enter can't destroy anything. **Don't** default focus to the
+  destructive action.
 - **Stacking:** scrim `--z-overlay`, panel `--z-modal`.
 - **Tokens:** `--dialog-*`, `--btn-danger-*`, `--fb-error-{bg,border,text,icon}`,
   `--fb-info-bg`, `--size-avatar`.

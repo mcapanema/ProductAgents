@@ -10,6 +10,10 @@ focusable elements with `:focus-visible` rings, label association, and
 
 Files: `styleguide/src/phase3/Phase3Forms.tsx` · `phase3c-forms.css` (prefix `fm-`).
 
+React API: not yet productized — each component here is a
+`design/styleguide/src/phase3/` demo; a stable public API is defined when it
+migrates to `desktop/src/ui/`.
+
 ---
 
 ## Button
@@ -20,6 +24,9 @@ Files: `styleguide/src/phase3/Phase3Forms.tsx` · `phase3c-forms.css` (prefix `f
 - **States:** default · hover (`-bg-hover`) · active (`-bg-pressed`) · focus · disabled (`--state-disabled-*`) · loading (`--state-loading-opacity` + `<span class="fm-spinner">`).
 - **Keyboard:** native `<button>` — Tab to focus, Enter/Space to activate. Toggle latches via `aria-pressed`.
 - **Accessibility:** icon buttons require `aria-label`; loading buttons set `aria-busy`; spinner honors `prefers-reduced-motion`.
+- **Content:** labels are verb-first and specific to the action ("Run analysis",
+  "Discard run"), never bare "OK"/"Submit"; icon-only buttons still need a
+  real `aria-label` sentence, not the visible icon name.
 - **Tokens:** `--btn-*` (height/radius/pad/gap/font/transition + per-variant bg/text/border), `--fm-spinner-*`, `--fm-underline-offset`, `--focus-ring-*`.
 
 ## Text Input
@@ -63,14 +70,17 @@ Files: `styleguide/src/phase3/Phase3Forms.tsx` · `phase3c-forms.css` (prefix `f
 ## Checkbox (+ indeterminate)
 - **Purpose:** binary / mixed. `appearance:none` box with an inline-SVG check or minus overlay (indeterminate set via DOM property/ref).
 - **States:** default · hover · focus · checked · indeterminate · disabled.
+- **Keyboard:** native `<input type="checkbox">` — Tab to focus, Space toggles.
 - **Tokens:** `--fm-check-*`, `--border-width-strong`, `--radius-xs`.
 
 ## Radio (group)
 - **Purpose:** one-of-N. `role="radiogroup"` + `aria-labelledby`; inner dot is a scaled fill.
+- **Keyboard:** native `<input type="radio">` group (shared `name`) — Tab enters/exits the group once, arrow keys move selection within it.
 - **Tokens:** `--fm-check-*`, `--radius-full`, `--dur-fast`/`--ease-standard`.
 
 ## Toggle Switch
 - **Purpose:** instant on/off setting (not form submit). `role="switch"` + `aria-checked`; thumb slides via a `left` transition (collapses under reduced motion through the duration tokens).
+- **Keyboard:** native `<input type="checkbox" role="switch">` — Tab to focus, Space toggles.
 - **Tokens:** `--fm-switch-*`, `--radius-pill`, `--accent`, `--elevation-raised`.
 
 ## Slider
@@ -90,6 +100,9 @@ Files: `styleguide/src/phase3/Phase3Forms.tsx` · `phase3c-forms.css` (prefix `f
 
 ## Form Field · Label · Help Text · Validation Message
 - **Purpose:** the wrapper binding label → control → help/error. `.fm-label` (medium-weight body-s, not a tracked eyebrow), `[data-required]` adds a red asterisk; `.fm-help` is caption/tertiary; `.fm-msg--{error,success,warning}` each pair `--fb-*-text` + `--fb-*-icon` with an inline icon and message.
+- **Content:** validation messages state the real cause and consequence ("Model
+  lacks tool-calling — structured output will fail."), never a generic
+  "Invalid input"; help text is one short clause, not a full sentence.
 - **Accessibility:** help/error linked via `aria-describedby`; invalid via `aria-invalid`; **color is never the only channel** — every validation state carries an icon and text.
 - **Tokens:** `--fm-label-font` (`--text-body-s`), `--text-caption`, `--fb-{error,success,warning}-{text,icon}`, `--text-error` (required asterisk).
 
