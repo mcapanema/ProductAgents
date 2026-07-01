@@ -55,7 +55,7 @@ describe("SettingsPanel", () => {
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
 
     fireEvent.mouseDown(screen.getByLabelText(/provider/i));
-    fireEvent.click(await screen.findByText("OpenAI"));
+    fireEvent.click(await screen.findByTitle("OpenAI"));
 
     expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
