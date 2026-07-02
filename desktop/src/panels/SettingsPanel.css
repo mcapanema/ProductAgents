@@ -7,16 +7,18 @@
 .settings-section__desc { font: var(--text-body-s); color: var(--text-tertiary); margin: 0; }
 .settings-section__body { display: flex; flex-direction: column; gap: var(--space-8); }
 
-/* Preference card — label + caption left, control right (Phase 7 port) */
+/* Preference card — label + caption left, control right (Phase 7 port).
+   flex-wrap lets fixed-width controls drop below the label at narrow widths
+   instead of overflowing the card. */
 .settings-pref {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-16);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-16);
   padding: var(--space-12); background: var(--card-bg); border: var(--border-width-default) solid var(--card-border);
   border-radius: var(--card-radius);
 }
 .settings-pref__meta { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .settings-pref__label { font: var(--text-body-m); color: var(--text-primary); font-weight: var(--fw-medium); }
 .settings-pref__desc { font: var(--text-caption); color: var(--text-tertiary); }
-.settings-pref__control { flex: none; }
+.settings-pref__control { flex: none; max-width: 100%; }
 
 .settings-path { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; color: var(--text-secondary); word-break: break-all; }
 .settings-footer { display: flex; align-items: center; gap: var(--space-12); }

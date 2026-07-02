@@ -48,6 +48,7 @@ export function SettingsPanel({
   const [form, setForm] = useState<SettingsForm | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
 
   function apply(s: ConfigStatus) {
     setStatus(s);
@@ -61,6 +62,7 @@ export function SettingsPanel({
   }, [ipc]);
 
   function patch(changes: Partial<SettingsForm>) {
+    setSaveState("idle"); // stale "Saved" must not outlive an edit
     setForm((f) => (f ? { ...f, ...changes } : f));
   }
 
@@ -72,10 +74,13 @@ export function SettingsPanel({
   async function save() {
     if (!ipc || !form) return;
     setSaving(true);
+    setSaveState("idle");
     try {
       apply(await ipc.configSet(paramsFromForm(form)));
+      setSaveState("saved");
     } catch {
       // leave the form as-is; the status block keeps the last known state
+      setSaveState("error");
     } finally {
       setSaving(false);
     }
@@ -241,6 +246,14 @@ export function SettingsPanel({
             />
           </Section>
 
+          <div className="settings-footer">
+            <Button type="primary" onClick={save} loading={saving} disabled={saving || !ipc}>
+              Save
+            </Button>
+            {saveState === "saved" && <span className="muted">Saved</span>}
+            {saveState === "error" && <span className="error">Save failed — settings unchanged.</span>}
+          </div>
+
           {workspace && (
             <Section title="Workspace" description="Where this workspace keeps its state. Set via PRODUCTAGENTS_HOME / PRODUCTAGENTS_WORKSPACE before launch.">
               <Pref label="Name" control={<code className="settings-path">{workspace.name}</code>} />
@@ -251,13 +264,6 @@ export function SettingsPanel({
               <Pref label="Prompt overrides" control={<code className="settings-path">{workspace.prompts_dir}</code>} />
             </Section>
           )}
-
-          <div className="settings-footer">
-            <Button type="primary" onClick={save} loading={saving} disabled={saving || !ipc}>
-              Save
-            </Button>
-            <span className="muted">{status.key_present ? "Key present" : "No key set"}</span>
-          </div>
 
           <Section title="Updates">
             <UpdateSection />

@@ -65,8 +65,8 @@ describe("SettingsPanel", () => {
   it("shows the current model and key status on load, never echoing the key", async () => {
     renderPanel(client());
     expect(await screen.findByDisplayValue("anthropic:claude-sonnet-4-6")).toBeInTheDocument();
-    // Exact match: the API-key field's own description also contains "Key present".
-    expect(screen.getByText("Key present")).toBeInTheDocument();
+    // Key presence is conveyed by the API-key field's caption, never its value.
+    expect(screen.getByText(/key present — leave blank to keep it/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/api key/i)).toHaveValue("");
   });
 
@@ -131,5 +131,27 @@ describe("SettingsPanel", () => {
     const bad: ConfigStatus = { ...status, key_present: false, problems: ["Missing API key: set OPENAI_API_KEY."] };
     renderPanel(client({ configGet: async () => bad } as Partial<IpcClient>));
     expect(await screen.findByText(/Missing API key/)).toBeInTheDocument();
+  });
+
+  it("shows Saved after a successful save and clears it on the next edit", async () => {
+    const configSet = vi.fn(async () => status);
+    renderPanel(client({ configSet } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/github repository/i), { target: { value: "acme/widgets" } });
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a failed save without clearing the form", async () => {
+    const configSet = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    renderPanel(client({ configSet } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.change(screen.getByLabelText(/github repository/i), { target: { value: "acme/widgets" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(await screen.findByText(/save failed/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/github repository/i)).toHaveValue("acme/widgets");
   });
 });
