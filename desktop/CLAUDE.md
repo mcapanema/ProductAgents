@@ -37,18 +37,31 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   - `transport.ts` — `isTauri()`, `createTauriClient()` (invoke/listen),
     `createWsClient()` (dev WebSocket, injectable socket), and `createClient()`
     which picks the right one for the environment.
-- `src/app/` — `App.tsx` (shell composition: wraps `Sidebar` + the selected
-  panel, and lifts a `running` boolean out of `RunPanel` via
-  `onRunningChange` so the sidebar can show a live-run indicator),
+- `src/app/` — `App.tsx` (shell composition: wraps `Sidebar` + `TopBar` + the
+  selected panel, and lifts a `running` boolean out of `RunPanel` via
+  `onRunningChange` so the sidebar and top bar can show a live-run indicator
+  / disable controls),
   `Sidebar.tsx` (the nine-item resource nav: icon + label per item, an
   active-item accent marker, a `localStorage`-persisted collapsible
   icon-only rail, and an amber pulsing dot on "Run" while a decision run is
   in flight — ported from `design/docs/phase-3b-navigation.md`'s
   reference nav/rail), `Sidebar.css` (the ported nav-item/rail/live-dot styling, tokens
-  only), `IpcProvider.tsx` (`useIpc()` context; builds the client once on
+  only), `TopBar.tsx` / `topBarView.ts` (the header bar: a workspace `Select`
+  + "New workspace…" modal — `switchTo`/`onCreate` call `workspacesUse`/
+  `workspacesCreate` then `restartBackend()` since the backend resolves its
+  active workspace at process start, so a switch/create only takes effect
+  after the sidecar restarts; an antd `Breadcrumb` showing workspace › current
+  panel; a ⌘K-focusable global search (`AutoComplete`) over decisions/
+  sessions/workflows — `topBarView.ts`'s `searchEntries`/`filterEntries` are
+  pure and unit-tested, `onSelect` navigates to the entry's owning panel, not
+  a deep link; and a "New decision" button. The workspace selector, search,
+  and "New decision" are all `disabled` while `running` is true — the IPC
+  protocol is single-in-flight, so no request can be issued mid-run),
+  `IpcProvider.tsx` (`useIpc()` context; builds the client once on
   mount, or takes an injected one in tests; `useIpc()` returns
   `IpcClient | null` — **null until ready, panels must handle it**),
-  `App.css` (shell layout only — sidebar styling lives in `Sidebar.css`).
+  `App.css` (shell layout only — sidebar styling lives in `Sidebar.css`,
+  top-bar styling in `TopBar.css`).
 - `src/panels/` — one panel per resource. **Pure logic is extracted and
   unit-tested**, components stay thin: `runReducer.ts` (Run event stream),
   `decisionView.ts` (`formatConfidence`/`predictionRows`), `connectorView.ts`
@@ -117,7 +130,13 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   needed by `Table`'s internal responsive/scrollbar-measurement hooks) and
   `window.ResizeObserver` (needed by `Input.TextArea`'s internal resize
   handling) — jsdom implements none of these.
-- `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`).
+- `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`). Besides `ipc_send`,
+  it exposes the **`ipc_restart`** command: spawns a replacement sidecar first
+  (so a spawn failure leaves the old one running instead of killing the pipe),
+  then kills + waits on the old child and swaps both the stdin and child handle
+  under their locks. `TopBar.tsx` calls it (via `restartBackend()` in
+  `src/ipc/transport.ts`) after `workspaces.use`/`workspaces.create`, since a
+  workspace switch only takes effect on the sidecar's next start.
 - `e2e/` — Playwright browser tests (see `e2e/CLAUDE.md`).
 
 ## Commands

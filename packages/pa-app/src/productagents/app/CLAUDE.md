@@ -9,8 +9,8 @@ or `connectors`.
 
 | Module | Role |
 | --- | --- |
-| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
 ## CLI contract
@@ -132,6 +132,14 @@ kwarg.
 `workspaces.list`/`workspaces.show` entries now also carry `prompts_dir` (the
 workspace's per-workspace prompt-override directory, `Workspace.prompts_dir`)
 alongside `root`/`db_url`/`connectors_file`/`env_file`/`log_file`.
+
+`workspaces.create {name}` → the created workspace's dict (same shape as
+`workspaces.show`); `error` "workspace already exists: <name>" / "invalid
+workspace name: …" on a bad name. `workspaces.use {name}` → `{name,
+restart_required: true}` — persists the active-workspace marker; the switch
+takes effect on the next backend start, so the GUI invokes the Tauri
+`ipc_restart` command and reloads. Both guarded by the existing
+`workspaces=None` kwarg.
 
 `reflection.record {decision_id, note}` → the `OutcomeRecord` dump
 (`{decision_id, actual_outcomes, prediction_accuracy, lessons_learned, reflected_at, failed}`);

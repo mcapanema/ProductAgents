@@ -126,6 +126,8 @@ uv run productagents sync   # headless one-shot connector sync (for cron/launchd
 uv run productagents run evaluate_initiative "My initiative" --evidence sample  # headless decision run, streams events
 uv run productagents workspace list          # list workspaces (active marked with *)
 uv run productagents workspace show [name]   # show a workspace's on-disk paths (defaults to active)
+uv run productagents workspace create <name>  # create a new workspace
+uv run productagents workspace use <name>     # persist <name> as the active workspace
 uv run productagents sessions list           # list persisted runtime sessions
 uv run productagents sessions show <id>      # replay a session's event timeline
 uv run productagents reflect [<decision-id> "<note>"]   # list past decisions / record an outcome
@@ -147,7 +149,7 @@ cd desktop && npm run tauri dev   # launch the V3 desktop GUI (dev; spawns the i
 Bootstrap-only settings, read from `.env`/the shell before the workspace even resolves. These are never in the workspace DB and have no `--set` key.
 
 - `PRODUCTAGENTS_HOME` — directory holding all workspaces (default `~/.productagents`; workspaces live under `<home>/workspaces/<name>/`).
-- `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). On launch the platform resolves this workspace, creates its directory if absent, and **activates** it: the workspace's `productagents.db`, `connectors.yaml`, `.env`, and `productagents.log` become the defaults by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the workspace `.env`.
+- `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). On launch the platform resolves this workspace, creates its directory if absent, and **activates** it: the workspace's `productagents.db`, `connectors.yaml`, `.env`, and `productagents.log` become the defaults by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the workspace `.env`. If unset, the persisted active workspace (`<home>/workspaces/.active`, written by `workspace use` / the GUI switcher) is used, then `default`.
 - `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` — overrides for the workspace DB path / connectors YAML path (normally set by workspace activation).
 - `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only** (the CLI streams events to stdout; the GUI consumes IPC).
 - `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback. Runtime-only — not in `settings()`/the GUI.
