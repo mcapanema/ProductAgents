@@ -135,18 +135,20 @@ export function TopBar({
         disabled={running || switching || !ipc}
         loading={switching}
       />
-      <nav aria-label="Breadcrumb" className="topbar-crumbs">
-        <Breadcrumb
-          items={[
-            { title: active },
-            {
-              title: (
-                <span aria-current="page">{VIEW_LABELS[view]}</span>
-              ),
-            },
-          ]}
-        />
-      </nav>
+      {/* antd Breadcrumb renders its own <nav>; label it directly instead of
+          wrapping in a second nav (nested landmarks confuse screen readers). */}
+      <Breadcrumb
+        aria-label="Breadcrumb"
+        className="topbar-crumbs"
+        items={[
+          { title: active },
+          {
+            title: (
+              <span aria-current="page">{VIEW_LABELS[view]}</span>
+            ),
+          },
+        ]}
+      />
       <div className="topbar-spacer" />
       <div role="search" className="topbar-search">
         <AutoComplete
