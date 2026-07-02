@@ -26,6 +26,15 @@ function fakeClient(): IpcClient {
       key_var: "",
       key_present: false,
       problems: [],
+      settings: {
+        debate_rounds: 2,
+        judge_threshold: 0.7,
+        judge_max_retries: 1,
+        max_retries: 6,
+        log_level: "INFO",
+        github_repo: "",
+        github_token_present: false,
+      },
       providers: [],
     }),
     configSet: async () => ({
@@ -34,8 +43,18 @@ function fakeClient(): IpcClient {
       key_var: "",
       key_present: false,
       problems: [],
+      settings: {
+        debate_rounds: 2,
+        judge_threshold: 0.7,
+        judge_max_retries: 1,
+        max_retries: 6,
+        log_level: "INFO",
+        github_repo: "",
+        github_token_present: false,
+      },
       providers: [],
     }),
+    workspacesShow: async () => Promise.reject(new Error("not used in this test")),
     approve: async () => ({ ok: true }),
   } as unknown as IpcClient;
 }

@@ -56,8 +56,12 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   (`versionLabel`/`defaultDiffPair`); `RunPanel.tsx`, `SessionsPanel.tsx`,
   `DecisionsPanel.tsx`, `ConnectorsPanel.tsx`, `PromptsPanel.tsx` (read-only
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
-  (registered workflow list), `SettingsPanel.tsx` (model/provider/key —
-  the one GUI **write**, via `config.get`/`config.set`), `OrgMemoryPanel.tsx`
+  (registered workflow list), `SettingsPanel.tsx` (model/provider/key
+  plus pipeline tunables — debate rounds, judge threshold/retries, provider
+  retries — log level, GitHub connector repo/token, and a read-only
+  Workspace-paths section; the one GUI **write**, via `config.get`/
+  `config.set`/`workspaces.show`; pure form logic lives in `settingsView.ts`),
+  `OrgMemoryPanel.tsx`
   (Organizational Memory: cross-decision lesson corpus from `memory.lessons`,
   newest-first, validated lessons distinguished from predicted ones).
   `RunPanel.tsx` also drives human-in-the-loop approval: a "Require approval"
@@ -80,7 +84,8 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   declared in a specific order (attribute write, then token re-read) to avoid
   a real race the pilot found (stale colors for one commit on the first
   theme toggle) — don't reorder them. Panels use AntD's `Button`, `Input`,
-  `Select`, `Checkbox`, `Table`, and the shell nav uses `Menu`. AntD's `List`
+  `Select`, `Checkbox`, `Table`, `InputNumber` (Settings' pipeline tunables),
+  and the shell nav uses `Menu`. AntD's `List`
   is NOT used anywhere — the installed antd 6.5.0 marks it deprecated
   (console.warn on every render), so list-shaped sections (Workflows,
   OrgMemory, Sessions, Decisions, Prompts' sidebar list, Reflection's
