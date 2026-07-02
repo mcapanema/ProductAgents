@@ -74,6 +74,9 @@ class WorkspaceConfigRow(Base):
 
     __tablename__ = "workspace_config"
 
+    # ponytail: PK default keeps create_all aligned with the migration's
+    # server_default; R3 scopes all callers explicitly — a missing workspace=
+    # writes to 'default', not an error.
     workspace: Mapped[str] = mapped_column(
         String, primary_key=True, default="default", server_default="default"
     )
@@ -87,6 +90,9 @@ class ConnectorConfigRow(Base):
 
     __tablename__ = "connector_config"
 
+    # ponytail: PK default keeps create_all aligned with the migration's
+    # server_default; R3 scopes all callers explicitly — a missing workspace=
+    # writes to 'default', not an error.
     workspace: Mapped[str] = mapped_column(
         String, primary_key=True, default="default", server_default="default"
     )

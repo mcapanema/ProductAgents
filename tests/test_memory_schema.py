@@ -60,6 +60,23 @@ async def test_same_connector_allowed_in_two_workspaces():
         await session.commit()
 
 
+async def test_same_connector_rejected_within_one_workspace():
+    async with await _session() as session:
+        session.add(
+            ConnectorConfigRow(
+                workspace="a", connector="github", config={}, updated_at="t"
+            )
+        )
+        await session.commit()
+        session.add(
+            ConnectorConfigRow(
+                workspace="a", connector="github", config={}, updated_at="t"
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await session.commit()
+
+
 async def test_workspace_registry_row_roundtrip():
     async with await _session() as session:
         session.add(WorkspaceRow(name="acme", created_at="t"))
