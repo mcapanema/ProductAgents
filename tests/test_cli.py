@@ -491,3 +491,42 @@ def test_main_applies_overrides_and_loads(monkeypatch, tmp_path):
     cli.main(["--set", "debate_rounds=3"])  # no subcommand -> help, but wiring ran
     assert calls == ["overrides:{'debate_rounds': '3'}", "load"]
     assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "3"
+
+
+def test_workspace_create_prints_and_returns_zero(tmp_path, capsys):
+    from productagents.platform.workspace import WorkspaceService
+
+    code = cli_module.workspace_create("acme", service=WorkspaceService(home=tmp_path))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "acme" in out
+    assert (tmp_path / "acme").is_dir()
+
+
+def test_workspace_create_duplicate_fails_friendly(tmp_path, capsys):
+    from productagents.platform.workspace import WorkspaceService
+
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    code = cli_module.workspace_create("acme", service=svc)
+    assert code == 1
+    assert "already exists" in capsys.readouterr().out
+
+
+def test_workspace_use_persists_active(tmp_path, capsys):
+    from productagents.platform.workspace import WorkspaceService
+
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    code = cli_module.workspace_use("acme", service=svc)
+    assert code == 0
+    assert svc.active_name() == "acme"
+
+
+def test_workspace_use_unknown_suggests_create(tmp_path, capsys):
+    from productagents.platform.workspace import WorkspaceService
+
+    code = cli_module.workspace_use("nope", service=WorkspaceService(home=tmp_path))
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "workspace create nope" in out

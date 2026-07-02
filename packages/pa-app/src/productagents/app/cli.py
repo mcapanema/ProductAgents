@@ -26,7 +26,7 @@ from productagents.platform.prompt_service import PromptService
 from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import WorkflowService
-from productagents.platform.workspace import WorkspaceService
+from productagents.platform.workspace import WorkspaceError, WorkspaceService
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +167,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
     ws_sub.add_parser("list", help="list workspaces")
+    p_ws_create = ws_sub.add_parser("create", help="create a new workspace")
+    p_ws_create.add_argument("name")
+    p_ws_use = ws_sub.add_parser("use", help="set the active workspace")
+    p_ws_use.add_argument("name")
     p_ws_show = ws_sub.add_parser("show", help="show a workspace's paths")
     p_ws_show.add_argument("name", nargs="?", default=None, help="defaults to active")
 
@@ -226,6 +230,28 @@ def workspace_show(name: str | None, *, service: WorkspaceService) -> int:
     print(f"connectors:  {ws.connectors_file}")
     print(f"env:         {ws.env_file}")
     print(f"log:         {ws.log_file}")
+    return 0
+
+
+def workspace_create(name: str, *, service: WorkspaceService) -> int:
+    """Create a new workspace directory; print its path."""
+    try:
+        ws = service.create(name)
+    except WorkspaceError as exc:
+        print(str(exc))
+        return 1
+    print(f"created workspace {ws.name} at {ws.root}")
+    return 0
+
+
+def workspace_use(name: str, *, service: WorkspaceService) -> int:
+    """Persist NAME as the active workspace for future invocations."""
+    try:
+        service.set_active(name)
+    except WorkspaceError as exc:
+        print(f"{exc} — create it with `productagents workspace create {name}`")
+        return 1
+    print(f"active workspace: {name}")
     return 0
 
 
@@ -379,6 +405,10 @@ def main(argv: list[str] | None = None) -> None:
         devbridge.serve_ws(workspace.name, port=args.port, config=config)
         return
     if args.command == "workspace":
+        if args.ws_command == "create":
+            raise SystemExit(workspace_create(args.name, service=workspaces))
+        if args.ws_command == "use":
+            raise SystemExit(workspace_use(args.name, service=workspaces))
         if args.ws_command == "show":
             raise SystemExit(
                 workspace_show(args.name or workspace.name, service=workspaces)
