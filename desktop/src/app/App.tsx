@@ -5,6 +5,7 @@ import { ThemeShell } from "../ui/ThemeShell";
 import type { Density } from "../ui/theme";
 import { useThemePreference } from "../ui/useThemePreference";
 import { Sidebar, type View } from "./Sidebar";
+import { TopBar } from "./TopBar";
 import { RunPanel } from "../panels/RunPanel";
 import { SessionsPanel } from "../panels/SessionsPanel";
 import { DecisionsPanel } from "../panels/DecisionsPanel";
@@ -40,17 +41,20 @@ function AppShell() {
           onNavigate={setView}
           running={running}
         />
-        <main className="content">
-          {view === "run" && <RunPanel onRunningChange={setRunning} />}
-          {view === "sessions" && <SessionsPanel />}
-          {view === "decisions" && <DecisionsPanel />}
-          {view === "memory" && <OrgMemoryPanel />}
-          {view === "connectors" && <ConnectorsPanel />}
-          {view === "prompts" && <PromptsPanel />}
-          {view === "workflows" && <WorkflowsPanel />}
-          {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} />}
-          {view === "reflection" && <ReflectionPanel />}
-        </main>
+        <div className="main">
+          <TopBar view={view} onNavigate={setView} running={running} />
+          <main className="content">
+            {view === "run" && <RunPanel onRunningChange={setRunning} />}
+            {view === "sessions" && <SessionsPanel />}
+            {view === "decisions" && <DecisionsPanel />}
+            {view === "memory" && <OrgMemoryPanel />}
+            {view === "connectors" && <ConnectorsPanel />}
+            {view === "prompts" && <PromptsPanel />}
+            {view === "workflows" && <WorkflowsPanel />}
+            {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} />}
+            {view === "reflection" && <ReflectionPanel />}
+          </main>
+        </div>
       </div>
     </ThemeShell>
   );

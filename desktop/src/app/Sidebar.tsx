@@ -144,7 +144,7 @@ export function Sidebar({
   }, [collapsed]);
 
   return (
-    <nav className={`sidebar${collapsed ? " is-collapsed" : ""}`}>
+    <nav aria-label="Sidebar" className={`sidebar${collapsed ? " is-collapsed" : ""}`}>
       {!collapsed && <div className="sidebar-brand">ProductAgents</div>}
       <ul className="sidebar-nav">
         {NAV.map((item) => {
