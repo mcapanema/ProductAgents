@@ -56,11 +56,22 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   (`versionLabel`/`defaultDiffPair`); `RunPanel.tsx`, `SessionsPanel.tsx`,
   `DecisionsPanel.tsx`, `ConnectorsPanel.tsx`, `PromptsPanel.tsx` (read-only
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
-  (registered workflow list), `SettingsPanel.tsx` (model/provider/key
-  plus pipeline tunables — debate rounds, judge threshold/retries, provider
-  retries — log level, GitHub connector repo/token, and a read-only
-  Workspace-paths section; the one GUI **write**, via `config.get`/
-  `config.set`/`workspaces.show`; pure form logic lives in `settingsView.ts`),
+  (registered workflow list), `SettingsPanel.tsx` (sub-navigated: Workspace ›
+  Configuration/Connectors/Preferences, Application › Runtime/Updates.
+  Configuration holds model/provider/key plus the pipeline tunables — debate
+  rounds, judge threshold/retries, provider retries — each field showing an
+  `origins` hint ("Overridden by environment" / "Set by --set override") when
+  a tier above the workspace DB is in play; Connectors is the connector-config
+  editor, `SettingsConnectors.tsx` + `connectorConfigView.ts` (schema-driven
+  form per connector, secrets as `*_env` names); Preferences holds the theme
+  toggle, synced workspace DB ↔ localStorage via `preferences.get`/
+  `preferences.set` IPC (`ui/useThemePreference.ts`); Runtime is the read-only
+  workspace-paths section; Updates is unchanged. Log level and the GitHub
+  connector's repo/token fields are gone from the GUI — log level is
+  runtime-only (env var), and the GitHub repo/token now live in connector
+  config, edited from Connectors. The GUI writes via `config.get`/
+  `config.set`/`workspaces.show`/`connector.*`/`preferences.*`; pure form
+  logic lives in `settingsView.ts` and `connectorConfigView.ts`),
   `OrgMemoryPanel.tsx`
   (Organizational Memory: cross-decision lesson corpus from `memory.lessons`,
   newest-first, validated lessons distinguished from predicted ones).
@@ -85,7 +96,8 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   a real race the pilot found (stale colors for one commit on the first
   theme toggle) — don't reorder them. Panels use AntD's `Button`, `Input`,
   `Select`, `Checkbox`, `Table`, `InputNumber` (Settings' pipeline tunables),
-  and the shell nav uses `Menu`. AntD's `List`
+  `Switch` (connector `enabled` toggles in `SettingsConnectors.tsx`), and the
+  shell nav uses `Menu`. AntD's `List`
   is NOT used anywhere — the installed antd 6.5.0 marks it deprecated
   (console.warn on every render), so list-shaped sections (Workflows,
   OrgMemory, Sessions, Decisions, Prompts' sidebar list, Reflection's
