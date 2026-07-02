@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
@@ -26,6 +27,8 @@ from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
+
+logger = logging.getLogger(__name__)
 
 
 def render_event(event: ev.Event) -> str | None:
@@ -351,7 +354,13 @@ def main(argv: list[str] | None = None) -> None:
         config.apply_overrides(parse_set_overrides(args.overrides))
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    asyncio.run(config.load())  # workspace DB -> env (precedence: see the service)
+    try:
+        asyncio.run(config.load())  # workspace DB -> env (precedence: see the service)
+    except Exception:
+        # degrade, never crash: env/defaults still work, origins just won't show db
+        logger.error(
+            "workspace config load failed; continuing without it", exc_info=True
+        )
     configure_logging()
 
     if args.command is None:  # bare `productagents` → show help

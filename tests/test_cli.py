@@ -442,6 +442,32 @@ def test_parse_set_overrides_rejects_malformed():
         parse_set_overrides(["debate_rounds"])  # no '='
 
 
+def test_main_config_load_failure_degrades_and_dispatches(monkeypatch, tmp_path):
+    """A corrupt workspace DB must not crash startup — commands still dispatch."""
+    import productagents.app.cli as cli
+
+    monkeypatch.setenv("PRODUCTAGENTS_HOME", str(tmp_path))
+    calls: list[str] = []
+
+    class _FakeConfig:
+        def __init__(self, **_kw):
+            pass
+
+        def apply_overrides(self, _overrides):
+            calls.append("overrides")
+
+        async def load(self):
+            calls.append("load")
+            raise RuntimeError("corrupt workspace db")
+
+    monkeypatch.setattr(cli, "ConfigurationService", _FakeConfig)
+    # workspace list dispatches fine even though load() raised.
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["workspace", "list"])
+    assert exc_info.value.code == 0
+    assert calls == ["overrides", "load"]
+
+
 def test_main_applies_overrides_and_loads(monkeypatch, tmp_path):
     """`--set` lands in the env via the service, and load() runs before dispatch."""
     import productagents.app.cli as cli

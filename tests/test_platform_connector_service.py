@@ -118,3 +118,84 @@ async def test_config_save_validates_writes_and_persists_secret(tmp_path, monkey
 
     # Disabled blocks save without validation (drafting).
     await svc.config_save("github", {"enabled": False, "owner": "x"}, registry=registry)
+
+    # A raw value under a secret-shaped field name is rejected outright — it
+    # must never reach the DB, even disabled/draft blocks.
+    with pytest.raises(ValueError, match="looks like a secret"):
+        await svc.config_save(
+            "github",
+            {"owner": "acme", "repo": "widgets", "token": "raw-token-value"},
+            registry=registry,
+        )
+
+    # A crafted `*_env` key whose stem isn't a real schema field (e.g. trying
+    # to smuggle PATH into the workspace .env) is rejected — not just
+    # "excluded", it must not write anything.
+    with pytest.raises(ValueError, match="not referenced"):
+        await svc.config_save(
+            "github",
+            {"owner": "acme", "repo": "widgets", "path_env": "PATH"},
+            secrets={"PATH": "evil"},
+            registry=registry,
+        )
+    assert "evil" not in (tmp_path / ".env").read_text()
+
+
+async def test_config_save_rejects_raw_secret_on_jira(tmp_path):
+    """The one real schema whose secret field (`token`) is required."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.connectors.jira.connector import JiraConnector
+    from productagents.memory.store import create_all as memory_create_all
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+
+    svc = ConnectorService(engine=engine, env_path=str(tmp_path / ".env"))
+    registry = {"jira": JiraConnector}
+
+    with pytest.raises(ValueError, match="looks like a secret"):
+        await svc.config_save(
+            "jira",
+            {
+                "base_url": "https://acme.atlassian.net",
+                "email": "a@acme.com",
+                "token": "raw-secret",
+                "enabled": True,
+            },
+            registry=registry,
+        )
+
+
+async def test_config_save_jira_happy_path_secret_never_in_db(tmp_path, monkeypatch):
+    """Full happy path: token_env + secrets -> secret lands in .env, not the DB."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.connectors.jira.connector import JiraConnector
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.memory.workspace_state import ConnectorConfigStore
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    monkeypatch.delenv("JIRA_TOKEN", raising=False)
+    svc = ConnectorService(engine=engine, env_path=str(tmp_path / ".env"))
+    registry = {"jira": JiraConnector}
+
+    block = {
+        "base_url": "https://acme.atlassian.net",
+        "email": "a@acme.com",
+        "token_env": "JIRA_TOKEN",
+        "enabled": True,
+    }
+    entry = await svc.config_save(
+        "jira", block, secrets={"JIRA_TOKEN": "s3cret"}, registry=registry
+    )
+    assert entry["config"]["base_url"] == "https://acme.atlassian.net"
+    assert not entry["problems"]
+    assert "s3cret" in (tmp_path / ".env").read_text()
+    async with maker() as session:
+        assert "s3cret" not in str(await ConnectorConfigStore(session).all())

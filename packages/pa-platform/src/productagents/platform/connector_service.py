@@ -17,6 +17,16 @@ from productagents.platform.connectors import (
 )
 from productagents.platform.workspace import WorkspaceService
 
+# Field names that look like a secret value by convention — never allowed as a
+# raw value in a saved config block. Mirrors the GUI's secret-shape detection
+# (desktop/src/panels/connectorConfigView.ts::isSecretShaped).
+_SECRET_NAMES = {"token", "password", "secret"}
+_SECRET_SUFFIXES = ("_token", "_key", "_secret")
+
+
+def _is_secret_shaped(name: str) -> bool:
+    return name in _SECRET_NAMES or name.endswith(_SECRET_SUFFIXES)
+
 
 class ConnectorService:
     def __init__(self, *, engine=None, env_path: str | None = None) -> None:
@@ -76,12 +86,31 @@ class ConnectorService:
         Enabled blocks that fail ``plan_connectors`` are rejected whole (nothing
         half-written). A supplied secret must be referenced by a ``*_env`` field
         of the block being saved — the GUI can never write arbitrary env vars.
-        Blank secret values are skipped (never blank a stored secret).
+        Blank secret values are skipped (never blank a stored secret). A
+        secret-shaped field (``token``, ``password``, ``secret``, or a name
+        ending in ``_token``/``_key``/``_secret``) may never carry a raw value —
+        callers must use ``<field>_env`` + ``secrets`` instead, so a secret value
+        can never reach the database regardless of client.
         """
         registry = registry if registry is not None else discover()
+        for key, value in config.items():
+            if _is_secret_shaped(key) and isinstance(value, str) and value.strip():
+                raise ValueError(
+                    f"connector '{connector}': field {key!r} looks like a secret "
+                    f"value — use '{key}_env' plus a secret instead of submitting "
+                    "it directly"
+                )
         secrets = {k: v for k, v in (secrets or {}).items() if str(v).strip()}
+        cls = registry.get(connector)
+        schema_props = (
+            cls.config_cls.model_json_schema().get("properties") if cls else None
+        )
         referenced = {
-            v for k, v in config.items() if k.endswith("_env") and isinstance(v, str)
+            v
+            for k, v in config.items()
+            if k.endswith("_env")
+            and isinstance(v, str)
+            and (schema_props is None or k[: -len("_env")] in schema_props)
         }
         for var in secrets:
             if var not in referenced:
