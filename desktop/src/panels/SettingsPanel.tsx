@@ -3,8 +3,16 @@ import { Button, Input, Select } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { ConfigStatus } from "../ipc/types";
 import { UpdateSection } from "./UpdateSection";
+import { ThemeControl } from "../ui/ThemeControl";
+import type { ThemePref } from "../ui/theme";
 
-export function SettingsPanel() {
+export function SettingsPanel({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemePref;
+  onThemeChange: (pref: ThemePref) => void;
+}) {
   const ipc = useIpc();
   const [status, setStatus] = useState<ConfigStatus | null>(null);
   const [model, setModel] = useState("");
@@ -46,6 +54,13 @@ export function SettingsPanel() {
   return (
     <div>
       <h1>Settings</h1>
+      <section style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>Appearance</h2>
+        <label className="field">
+          <span>Theme</span>
+          <ThemeControl value={theme} onChange={onThemeChange} />
+        </label>
+      </section>
       {status === null && <p className="muted">Loading configuration…</p>}
       {status && (
         <div style={{ maxWidth: 480 }}>

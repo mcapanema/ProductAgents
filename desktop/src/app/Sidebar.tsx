@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Segmented } from "antd";
-import type { Theme } from "../ui/theme";
 import "./Sidebar.css";
 
 export type View =
@@ -133,14 +131,10 @@ function readStoredCollapsed(): boolean {
 export function Sidebar({
   view,
   onNavigate,
-  theme,
-  onThemeChange,
   running,
 }: {
   view: View;
   onNavigate: (view: View) => void;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
   running: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(readStoredCollapsed);
@@ -152,19 +146,6 @@ export function Sidebar({
   return (
     <nav className={`sidebar${collapsed ? " is-collapsed" : ""}`}>
       {!collapsed && <div className="sidebar-brand">ProductAgents</div>}
-      {!collapsed && (
-        <div className="sidebar-controls">
-          <Segmented
-            aria-label="Theme"
-            value={theme}
-            onChange={(v) => onThemeChange(v as Theme)}
-            options={[
-              { label: "Light", value: "light" },
-              { label: "Dark", value: "dark" },
-            ]}
-          />
-        </div>
-      )}
       <ul className="sidebar-nav">
         {NAV.map((item) => {
           const active = view === item.view;

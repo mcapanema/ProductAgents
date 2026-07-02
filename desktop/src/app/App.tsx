@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { IpcClient } from "../ipc/client";
 import { IpcProvider } from "./IpcProvider";
 import { ThemeShell } from "../ui/ThemeShell";
-import type { Density, Theme } from "../ui/theme";
+import type { Density } from "../ui/theme";
+import { useThemePreference } from "../ui/useThemePreference";
 import { Sidebar, type View } from "./Sidebar";
 import { RunPanel } from "../panels/RunPanel";
 import { SessionsPanel } from "../panels/SessionsPanel";
@@ -19,18 +20,16 @@ const DENSITY: Density = "comfortable";
 
 export function App({ client }: { client?: IpcClient }) {
   const [view, setView] = useState<View>("run");
-  const [theme, setTheme] = useState<Theme>("light");
+  const { pref, setPref, resolved } = useThemePreference();
   const [running, setRunning] = useState(false);
 
   return (
     <IpcProvider client={client}>
-      <ThemeShell theme={theme} density={DENSITY}>
+      <ThemeShell theme={resolved} density={DENSITY}>
         <div className="shell">
           <Sidebar
             view={view}
             onNavigate={setView}
-            theme={theme}
-            onThemeChange={setTheme}
             running={running}
           />
           <main className="content">
@@ -41,7 +40,7 @@ export function App({ client }: { client?: IpcClient }) {
             {view === "connectors" && <ConnectorsPanel />}
             {view === "prompts" && <PromptsPanel />}
             {view === "workflows" && <WorkflowsPanel />}
-            {view === "settings" && <SettingsPanel />}
+            {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} />}
             {view === "reflection" && <ReflectionPanel />}
           </main>
         </div>

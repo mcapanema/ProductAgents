@@ -20,12 +20,6 @@
   letter-spacing: 0.5px;
 }
 
-.sidebar-controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
 .sidebar-nav {
   list-style: none;
   margin: 0;

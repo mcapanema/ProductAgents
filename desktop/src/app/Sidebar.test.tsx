@@ -17,13 +17,7 @@ const LABELS = [
 function renderSidebar({ view = "run", running = false }: { view?: string; running?: boolean } = {}) {
   const onNavigate = vi.fn();
   const utils = render(
-    <Sidebar
-      view={view as never}
-      onNavigate={onNavigate}
-      theme="light"
-      onThemeChange={vi.fn()}
-      running={running}
-    />,
+    <Sidebar view={view as never} onNavigate={onNavigate} running={running} />,
   );
   return { nav: screen.getByRole("navigation"), onNavigate, ...utils };
 }
@@ -53,11 +47,11 @@ describe("Sidebar", () => {
     expect(screen.queryByLabelText("Density")).not.toBeInTheDocument();
   });
 
-  it("collapses to an icon-only rail on toggle, hiding labels and the theme control", () => {
+  it("collapses to an icon-only rail on toggle, hiding labels", () => {
     const { nav } = renderSidebar();
-    expect(screen.getByLabelText("Theme")).toBeInTheDocument();
+    const settingsBefore = within(nav).getByRole("button", { name: "Settings" });
+    expect(settingsBefore.querySelector(".sidebar-label")).not.toBeNull();
     fireEvent.click(within(nav).getByRole("button", { name: "Collapse sidebar" }));
-    expect(screen.queryByLabelText("Theme")).not.toBeInTheDocument();
     const settingsItem = within(nav).getByRole("button", { name: "Settings" });
     expect(settingsItem.querySelector(".sidebar-label")).toBeNull();
     expect(within(nav).getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();

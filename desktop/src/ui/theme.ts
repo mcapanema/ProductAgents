@@ -45,3 +45,32 @@ export function buildAntdTheme(mode: Theme, density: Density): ThemeConfig {
     },
   };
 }
+
+/** A user's theme *preference*: the two concrete themes plus "follow the OS". */
+export type ThemePref = Theme | "system";
+
+/** localStorage key for the persisted preference (cf. "pa-sidebar-collapsed"). */
+export const THEME_STORAGE_KEY = "pa-theme";
+
+const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+/** The concrete theme the OS is currently asking for. */
+export function readSystemTheme(): Theme {
+  return window.matchMedia(COLOR_SCHEME_QUERY).matches ? "dark" : "light";
+}
+
+/** Collapse a preference into the concrete theme to actually apply. */
+export function resolveTheme(pref: ThemePref): Theme {
+  return pref === "system" ? readSystemTheme() : pref;
+}
+
+/** Read the persisted preference, defaulting to "light" when absent/invalid. */
+export function readStoredPref(): ThemePref {
+  const v = localStorage.getItem(THEME_STORAGE_KEY);
+  return v === "light" || v === "dark" || v === "system" ? v : "light";
+}
+
+/** Persist the preference. */
+export function writeStoredPref(pref: ThemePref): void {
+  localStorage.setItem(THEME_STORAGE_KEY, pref);
+}
