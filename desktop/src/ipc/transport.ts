@@ -79,3 +79,17 @@ export async function createWsClient(
 export function createClient(): Promise<IpcClient> {
   return isTauri() ? createTauriClient() : createWsClient();
 }
+
+/**
+ * Restart the backend after a workspace switch. In the Tauri shell this
+ * respawns the sidecar (`ipc_restart`) so it re-resolves the active
+ * workspace, then reloads the webview so every panel refetches. In the
+ * browser/dev-bridge case only the page reloads — the `serve-ws` process
+ * keeps its old workspace until restarted manually (dev-only limitation).
+ */
+export async function restartBackend(): Promise<void> {
+  if (isTauri()) {
+    await invoke<void>("ipc_restart");
+  }
+  window.location.reload();
+}

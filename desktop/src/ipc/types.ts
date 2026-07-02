@@ -212,6 +212,11 @@ export interface WorkspaceInfo {
   prompts_dir: string;
 }
 
+export interface WorkspaceUseResult {
+  name: string;
+  restart_required: boolean;
+}
+
 export interface Lesson {
   decision_id: string;
   title: string;
