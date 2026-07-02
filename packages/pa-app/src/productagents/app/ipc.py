@@ -80,7 +80,9 @@ def _build_reflection():
         return None
 
 
-def build_services(active_name: str) -> dict:
+def build_services(
+    active_name: str, *, config: ConfigurationService | None = None
+) -> dict:
     """Construct the production Application Services the IPC adapters dispatch to.
 
     Shared by ``serve_stdio`` (stdio transport) and the dev WebSocket bridge
@@ -88,6 +90,12 @@ def build_services(active_name: str) -> dict:
     model-backed WorkflowService (so ``run`` works), plus the workspace + session
     + decision read services. The returned dict is exactly the keyword set
     ``serve`` / ``handle`` consume.
+
+    ``config`` lets a caller (``cli.main``) hand in the single, already-``load()``ed
+    ``ConfigurationService`` for this process, so its ``_seeded``/``_overrides``
+    state (and thus ``settings_origins()``) reflects the real startup precedence
+    chain instead of a fresh instance's empty state. Falls back to a fresh
+    instance for tests/back-compat.
 
     ponytail: the model is built up front, so even read methods need a key. Make
     the WorkflowService lazy-on-first-run only if a client must browse without one.
@@ -100,19 +108,23 @@ def build_services(active_name: str) -> dict:
         "decisions": DecisionReadService.create(),
         "connectors": ConnectorService(),
         "prompts": PromptService.create(),
-        "config": ConfigurationService(active_name=active_name),
+        "config": config
+        if config is not None
+        else ConfigurationService(active_name=active_name),
         "reflection": _build_reflection(),
         "memory": MemoryService.create(),
     }
 
 
-def serve_stdio(active_name: str) -> None:
+def serve_stdio(
+    active_name: str, *, config: ConfigurationService | None = None
+) -> None:
     """Build production services and serve the stdio loop until EOF.
 
     Backs ``productagents ipc``. The Tauri shell (Phase 8) spawns this as its
     sidecar.
     """
-    asyncio.run(serve(**build_services(active_name)))
+    asyncio.run(serve(**build_services(active_name, config=config)))
 
 
 async def _run(

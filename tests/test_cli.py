@@ -1,6 +1,7 @@
 """Tests for the productagents CLI front door."""
 
 import contextlib
+import os
 from datetime import UTC, datetime
 
 import pytest
@@ -118,7 +119,21 @@ def _patch_bootstrap(monkeypatch, calls):
         def activate(self, workspace):
             calls.append(("activate", workspace.name))
 
+    class _InertConfig:
+        """No-op stand-in: keeps main()'s config wiring off the real
+        ~/.productagents home dir for tests that don't care about it."""
+
+        def __init__(self, **_kw):
+            pass
+
+        def apply_overrides(self, _overrides):
+            pass
+
+        async def load(self):
+            pass
+
     monkeypatch.setattr(cli_module, "WorkspaceService", _Workspaces)
+    monkeypatch.setattr(cli_module, "ConfigurationService", _InertConfig)
     monkeypatch.setattr(cli_module, "load_env", lambda: calls.append(("load_env",)))
     monkeypatch.setattr(
         cli_module, "configure_logging", lambda: calls.append(("configure_logging",))
@@ -383,7 +398,7 @@ def test_main_ipc_dispatches_to_serve_stdio(monkeypatch):
     _patch_bootstrap(monkeypatch, calls)
     monkeypatch.setattr(
         "productagents.app.ipc.serve_stdio",
-        lambda name: calls.append(("serve_stdio", name)),
+        lambda name, **_kw: calls.append(("serve_stdio", name)),
     )
 
     cli_module.main(["ipc"])
@@ -409,3 +424,44 @@ def test_main_run_unknown_workflow_exits_friendly(monkeypatch):
     # friendly: non-zero/str message, not a KeyError traceback
     assert exc.value.code is not None
     assert "bogus_workflow" in str(exc.value.code)
+
+
+def test_parse_set_overrides_valid():
+    from productagents.app.cli import parse_set_overrides
+
+    assert parse_set_overrides(["debate_rounds=3", "model=anthropic:m"]) == {
+        "debate_rounds": "3",
+        "model": "anthropic:m",
+    }
+
+
+def test_parse_set_overrides_rejects_malformed():
+    from productagents.app.cli import parse_set_overrides
+
+    with pytest.raises(SystemExit):
+        parse_set_overrides(["debate_rounds"])  # no '='
+
+
+def test_main_applies_overrides_and_loads(monkeypatch, tmp_path):
+    """`--set` lands in the env via the service, and load() runs before dispatch."""
+    import productagents.app.cli as cli
+
+    monkeypatch.setenv("PRODUCTAGENTS_HOME", str(tmp_path))
+    monkeypatch.delenv("PRODUCTAGENTS_DEBATE_ROUNDS", raising=False)
+    calls: list[str] = []
+
+    class _FakeConfig:
+        def __init__(self, **_kw):
+            pass
+
+        def apply_overrides(self, overrides):
+            calls.append(f"overrides:{overrides}")
+            os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] = overrides["debate_rounds"]
+
+        async def load(self):
+            calls.append("load")
+
+    monkeypatch.setattr(cli, "ConfigurationService", _FakeConfig)
+    cli.main(["--set", "debate_rounds=3"])  # no subcommand -> help, but wiring ran
+    assert calls == ["overrides:{'debate_rounds': '3'}", "load"]
+    assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "3"
