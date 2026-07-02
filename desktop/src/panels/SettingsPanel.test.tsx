@@ -11,6 +11,15 @@ const status: ConfigStatus = {
   key_var: "ANTHROPIC_API_KEY",
   key_present: true,
   problems: [],
+  settings: {
+    debate_rounds: 2,
+    judge_threshold: 0.7,
+    judge_max_retries: 1,
+    max_retries: 6,
+    log_level: "INFO",
+    github_repo: "",
+    github_token_present: false,
+  },
   providers: [
     { id: "anthropic", label: "Anthropic", key_var: "ANTHROPIC_API_KEY", default_model: "anthropic:claude-sonnet-4-6" },
     { id: "openai", label: "OpenAI", key_var: "OPENAI_API_KEY", default_model: "openai:gpt-4o" },

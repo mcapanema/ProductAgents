@@ -147,19 +147,52 @@ export interface ProviderInfo {
   default_model: string;
 }
 
+export interface ConfigSettings {
+  debate_rounds: number;
+  judge_threshold: number;
+  judge_max_retries: number;
+  max_retries: number;
+  log_level: string;
+  github_repo: string;
+  github_token_present: boolean;
+}
+
 export interface ConfigStatus {
   model: string;
   provider: string;
   key_var: string;
   key_present: boolean;
   problems: string[];
+  settings: ConfigSettings;
   providers: ProviderInfo[];
+}
+
+export interface ConfigSetSettings {
+  debate_rounds?: number;
+  judge_threshold?: number;
+  judge_max_retries?: number;
+  max_retries?: number;
+  log_level?: string;
+  github_repo?: string;
+  github_token?: string;
 }
 
 export interface ConfigSetParams {
   model: string;
   provider?: string;
   api_key?: string;
+  settings?: ConfigSetSettings;
+}
+
+export interface WorkspaceInfo {
+  name: string;
+  active: boolean;
+  root: string;
+  db_url: string;
+  connectors_file: string;
+  env_file: string;
+  log_file: string;
+  prompts_dir: string;
 }
 
 export interface Lesson {

@@ -152,4 +152,25 @@ describe("IpcClient", () => {
     });
     expect(await p).toMatchObject({ decision_id: "dec-1" });
   });
+
+  it("workspacesShow calls workspaces.show and resolves the workspace", async () => {
+    const { client, sent, emit } = harness();
+    const promise = client.workspacesShow();
+    const request = JSON.parse(sent[0]);
+    expect(request.method).toBe("workspaces.show");
+    emit({
+      id: request.id,
+      result: {
+        name: "default",
+        active: true,
+        root: "/w",
+        db_url: "sqlite:///w/productagents.db",
+        connectors_file: "/w/connectors.yaml",
+        env_file: "/w/.env",
+        log_file: "/w/productagents.log",
+        prompts_dir: "/w/prompts",
+      },
+    });
+    await expect(promise).resolves.toMatchObject({ name: "default", prompts_dir: "/w/prompts" });
+  });
 });

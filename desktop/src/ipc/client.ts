@@ -18,6 +18,7 @@ import type {
   SessionDetail,
   SessionSummary,
   WorkflowSummary,
+  WorkspaceInfo,
 } from "./types";
 
 type Pending = {
@@ -144,6 +145,10 @@ export class IpcClient {
 
   configSet(params: ConfigSetParams): Promise<ConfigStatus> {
     return this.call<ConfigStatus>("config.set", { ...params });
+  }
+
+  workspacesShow(name?: string): Promise<WorkspaceInfo> {
+    return this.call<WorkspaceInfo>("workspaces.show", name ? { name } : {});
   }
 
   reflectionRecord(decisionId: string, note: string): Promise<OutcomeRecord> {
