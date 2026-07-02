@@ -418,6 +418,25 @@ async def handle(
             ws_dict = _workspace_dict(ws, active_name=active_name)
             await emit({"id": rid, "result": ws_dict})
 
+        async def _workspaces_create(p: dict) -> None:
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
+            ws = workspaces.create(p["name"])
+            await emit(
+                {"id": rid, "result": _workspace_dict(ws, active_name=active_name)}
+            )
+
+        async def _workspaces_use(p: dict) -> None:
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
+            ws = workspaces.set_active(p["name"])
+            # The switch takes effect on the next backend start: activation is
+            # env-var based and services are built once, so the client must
+            # restart the sidecar (Tauri `ipc_restart`) and reload.
+            await emit(
+                {"id": rid, "result": {"name": ws.name, "restart_required": True}}
+            )
+
         async def _sessions_list(_p: dict) -> None:
             rows = await sessions.list()
             await emit({"id": rid, "result": [_session_dict(s) for s in rows]})
@@ -586,6 +605,8 @@ async def handle(
             "workflows.list": _workflows_list,
             "workspaces.list": _workspaces_list,
             "workspaces.show": _workspaces_show,
+            "workspaces.create": _workspaces_create,
+            "workspaces.use": _workspaces_use,
             "sessions.list": _sessions_list,
             "sessions.show": _sessions_show,
             "decisions.list": _decisions_list,

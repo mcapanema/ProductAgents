@@ -222,6 +222,68 @@ async def test_workspaces_show_resolves_workspace(tmp_path):
     assert sink[0]["result"]["prompts_dir"].endswith("prompts")
 
 
+async def test_workspaces_create_returns_new_workspace(tmp_path):
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 7, "method": "workspaces.create", "params": {"name": "acme"}},
+        workflows=_workflows(),
+        workspaces=WorkspaceService(home=tmp_path),
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink[0]["id"] == 7
+    assert sink[0]["result"]["name"] == "acme"
+    assert sink[0]["result"]["active"] is False
+    assert (tmp_path / "acme").is_dir()
+
+
+async def test_workspaces_create_duplicate_emits_error(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 8, "method": "workspaces.create", "params": {"name": "acme"}},
+        workflows=_workflows(),
+        workspaces=svc,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "already exists" in sink[0]["error"]
+
+
+async def test_workspaces_use_persists_and_flags_restart(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 9, "method": "workspaces.use", "params": {"name": "acme"}},
+        workflows=_workflows(),
+        workspaces=svc,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert sink == [{"id": 9, "result": {"name": "acme", "restart_required": True}}]
+    assert svc.active_name() == "acme"
+
+
+async def test_workspaces_use_unknown_emits_error(tmp_path):
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 10, "method": "workspaces.use", "params": {"name": "nope"}},
+        workflows=_workflows(),
+        workspaces=WorkspaceService(home=tmp_path),
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "no such workspace" in sink[0]["error"]
+
+
 from productagents.agents import runner as rn  # noqa: E402
 from productagents.core.models import (  # noqa: E402
     DecisionRecord,
