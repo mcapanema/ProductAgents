@@ -6,8 +6,11 @@ variable is present. It never makes a network call. `write_env()` persists the
 values the setup wizard collects to a `.env` file (and the live process env) so
 the next run is configured.
 
-`ConfigurationService` wraps these helpers as an Application-Layer service that
-targets the active workspace's `.env` on writes.
+`ConfigurationService` wraps these helpers as an Application-Layer service.
+Workspace configuration lives in the workspace database and is materialized
+into the process environment once at startup (`load()`), giving the
+precedence CLI args > exported env > workspace DB > built-in defaults from a
+single mechanism. Secrets stay in the workspace `.env`.
 """
 
 from __future__ import annotations
@@ -15,13 +18,13 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from dotenv import find_dotenv, set_key
+from dotenv import dotenv_values, find_dotenv, set_key, unset_key
 
 from productagents.agents.debate import get_debate_rounds
 from productagents.agents.judge import get_judge_max_retries, get_judge_threshold
 from productagents.core.config import env_int
-from productagents.core.logging_config import DEFAULT_LEVEL
 from productagents.platform.llm import DEFAULT_MAX_RETRIES, DEFAULT_MODEL
 from productagents.platform.workspace import WorkspaceService
 
@@ -152,11 +155,12 @@ def check_config(env: Mapping[str, str] | None = None) -> ConfigStatus:
 
 
 def current_settings() -> dict[str, object]:
-    """Current tunable values (env-or-default), for the Settings UI.
+    """Current tunable values (resolved env-or-default), for the Settings UI.
 
     Values come from the same getters the agents use, so the defaults shown in
-    the GUI can never drift from the ones the pipeline applies. Secrets are
-    reported as presence booleans only.
+    the GUI can never drift from the ones the pipeline applies. ``load()`` has
+    already materialized workspace-DB values into the environment, so this
+    reflects the full precedence chain.
     """
     return {
         "debate_rounds": get_debate_rounds(),
@@ -165,26 +169,26 @@ def current_settings() -> dict[str, object]:
         "max_retries": env_int(
             "PRODUCTAGENTS_MAX_RETRIES", DEFAULT_MAX_RETRIES, minimum=0
         ),
-        "log_level": os.environ.get("PRODUCTAGENTS_LOG_LEVEL", DEFAULT_LEVEL).upper(),
-        "github_repo": os.environ.get("PRODUCTAGENTS_GITHUB_REPO", ""),
-        "github_token_present": bool(
-            os.environ.get("PRODUCTAGENTS_GITHUB_TOKEN", "").strip()
-        ),
     }
 
 
-# Whitelist of GUI-writable settings → env var. Anything not listed here is
-# silently dropped so the IPC surface can never write arbitrary env vars.
-_SETTING_ENV: dict[str, str] = {
+# Workspace configuration: friendly key -> env var. This is the ONLY set of
+# keys the DB path handles; anything else from the wire is silently dropped so
+# IPC can never write arbitrary env vars. Secrets are deliberately absent —
+# they live in the workspace .env, never the database.
+_WORKSPACE_ENV: dict[str, str] = {
+    "model": "PRODUCTAGENTS_MODEL",
+    "model_provider": "PRODUCTAGENTS_MODEL_PROVIDER",
     "debate_rounds": "PRODUCTAGENTS_DEBATE_ROUNDS",
     "judge_threshold": "PRODUCTAGENTS_JUDGE_THRESHOLD",
     "judge_max_retries": "PRODUCTAGENTS_JUDGE_MAX_RETRIES",
     "max_retries": "PRODUCTAGENTS_MAX_RETRIES",
-    "log_level": "PRODUCTAGENTS_LOG_LEVEL",
-    "github_repo": "PRODUCTAGENTS_GITHUB_REPO",
-    "github_token": "PRODUCTAGENTS_GITHUB_TOKEN",
 }
-_SECRET_SETTINGS = frozenset({"github_token"})
+# The subset settable through set(settings=...); model/model_provider are
+# explicit arguments there.
+_TUNABLE_KEYS = frozenset(
+    {"debate_rounds", "judge_threshold", "judge_max_retries", "max_retries"}
+)
 
 
 def write_env(
@@ -219,10 +223,14 @@ def write_env(
 class ConfigurationService:
     """Application-Layer owner of read/write config for the active workspace.
 
+    The single entry point for configuration. Precedence for workspace config
+    is CLI args > exported env > workspace DB > built-in defaults, implemented
+    here and nowhere else: ``apply_overrides`` writes the env (top tier),
+    ``load()`` seeds the env from the DB via ``setdefault`` (never overrides),
+    and the built-in defaults stay in the agents' getters (bottom tier).
     Reading is the static, no-network ``check_config`` over ``os.environ``.
-    Writing targets the active workspace's ``.env`` (first GUI write creates it),
-    derives the provider from the model prefix when not given, and never writes a
-    blank API key over an existing one.
+    Secrets (API keys) still write to the workspace ``.env`` and never enter
+    the database.
     """
 
     def __init__(
@@ -230,9 +238,97 @@ class ConfigurationService:
         *,
         workspaces: WorkspaceService | None = None,
         active_name: str | None = None,
+        engine=None,
     ) -> None:
         self._workspaces = workspaces if workspaces is not None else WorkspaceService()
         self._active_name = active_name
+        self._engine = engine  # test seam; None -> process-wide engine
+        self._seeded: set[str] = set()  # keys whose env value came from the DB
+        self._overrides: set[str] = set()  # keys set via CLI --set
+
+    # -- plumbing ---------------------------------------------------------
+
+    def _sessionmaker(self):
+        from productagents.knowledge.repositories.sqlmodel.engine import (
+            make_sessionmaker,
+        )
+        from productagents.platform.context import get_engine
+
+        return make_sessionmaker(self._engine or get_engine())
+
+    async def _ensure_schema(self) -> None:
+        from productagents.memory.store import create_all
+        from productagents.platform.context import get_engine
+
+        await create_all(self._engine or get_engine())
+
+    def _env_path(self) -> str:
+        return str(self._workspaces.resolve(self._active_name).env_file)
+
+    # -- precedence -------------------------------------------------------
+
+    def apply_overrides(self, overrides: Mapping[str, str]) -> None:
+        """CLI-argument tier: write each override into the environment.
+
+        Runs before ``load()``; because ``load()`` only ``setdefault``s, an
+        override outranks both shell exports and the workspace DB.
+        """
+        for key, value in overrides.items():
+            var = _WORKSPACE_ENV.get(key)
+            if var is None:
+                valid = ", ".join(sorted(_WORKSPACE_ENV))
+                raise ValueError(f"unknown setting: {key!r} (valid: {valid})")
+            os.environ[var] = str(value)
+            self._overrides.add(key)
+
+    async def load(self) -> None:
+        """Materialize workspace-DB config into the environment (startup, once).
+
+        Bootstraps the schema (idempotent; Alembic owns the real migration
+        history), migrates legacy workspace keys out of the workspace ``.env``
+        into the DB, then seeds ``os.environ`` from the DB with ``setdefault``
+        so anything already present (export or override) keeps winning.
+        """
+        await self._ensure_schema()
+        from productagents.memory.workspace_state import WorkspaceConfigStore
+
+        async with self._sessionmaker()() as session:
+            store = WorkspaceConfigStore(session)
+            await self._migrate_env_file(store)
+            for key, value in (await store.all()).items():
+                var = _WORKSPACE_ENV.get(key)
+                if var is None:
+                    continue  # a key from another version; ignore, don't crash
+                if var not in os.environ:
+                    os.environ[var] = value
+                    self._seeded.add(key)
+
+    async def _migrate_env_file(self, store) -> None:
+        """One-time move of workspace keys out of the workspace ``.env``.
+
+        Without removal, stale ``.env`` lines would out-rank the DB forever and
+        GUI saves would silently not apply. Secrets and runtime keys are never
+        touched. Idempotent: migrated keys are gone from the file, and an
+        existing DB row blocks re-import (the stale line is still removed).
+        """
+        env_path = Path(self._env_path())
+        if not env_path.exists():
+            return
+        stored = await store.all()
+        file_values = dotenv_values(env_path)
+        for key, var in _WORKSPACE_ENV.items():
+            raw = file_values.get(var)
+            if raw is None:
+                continue
+            if key not in stored:
+                await store.set(key, raw)
+            unset_key(str(env_path), var)
+            if os.environ.get(var) == raw:
+                # The process value came from the file we just migrated (it was
+                # loaded by activate()); drop it so the DB tier takes over.
+                del os.environ[var]
+
+    # -- reads --------------------------------------------------------------
 
     def status(self) -> ConfigStatus:
         return check_config()
@@ -243,7 +339,28 @@ class ConfigurationService:
     def settings(self) -> dict[str, object]:
         return current_settings()
 
-    def set(
+    def settings_origins(self) -> dict[str, str]:
+        """Which precedence tier supplies each workspace key right now.
+
+        ``override`` (CLI --set) > ``env`` (shell export) > ``db`` > ``default``.
+        Lets the GUI label a field "overridden by environment" instead of a
+        save that mysteriously doesn't apply.
+        """
+        origins: dict[str, str] = {}
+        for key, var in _WORKSPACE_ENV.items():
+            if key in self._overrides:
+                origins[key] = "override"
+            elif key in self._seeded:
+                origins[key] = "db"
+            elif var in os.environ:
+                origins[key] = "env"
+            else:
+                origins[key] = "default"
+        return origins
+
+    # -- writes -------------------------------------------------------------
+
+    async def set(
         self,
         model: str,
         *,
@@ -251,23 +368,28 @@ class ConfigurationService:
         api_key: str | None = None,
         settings: Mapping[str, object] | None = None,
     ) -> ConfigStatus:
-        values: dict[str, str] = {"PRODUCTAGENTS_MODEL": model}
+        db_values: dict[str, str] = {"model": model}
         if provider:
-            values["PRODUCTAGENTS_MODEL_PROVIDER"] = provider
+            db_values["model_provider"] = provider
+        for key, value in (settings or {}).items():
+            if key in _TUNABLE_KEYS and value is not None:
+                db_values[key] = str(value).strip()
+
+        await self._ensure_schema()
+        from productagents.memory.workspace_state import WorkspaceConfigStore
+
+        async with self._sessionmaker()() as session:
+            store = WorkspaceConfigStore(session)
+            for key, value in db_values.items():
+                await store.set(key, value)
+                var = _WORKSPACE_ENV[key]
+                refreshable = key in self._seeded or var not in os.environ
+                if key not in self._overrides and refreshable:
+                    os.environ[var] = value  # next run picks it up, no restart
+                    self._seeded.add(key)
+
         if api_key:  # never write a blank key over an existing one
             key_var = api_key_var_for(provider or provider_for(model))
             if key_var:
-                values[key_var] = api_key
-        for key, value in (settings or {}).items():
-            var = _SETTING_ENV.get(key)
-            if var is None or value is None:
-                continue  # unknown key, or a null a raw IPC client sent
-            text = str(value).strip()
-            if key in _SECRET_SETTINGS and not text:
-                continue  # never blank a stored secret
-            values[var] = text
-        write_env(values, dotenv_path=self._env_path())
+                write_env({key_var: api_key}, dotenv_path=self._env_path())
         return self.status()
-
-    def _env_path(self) -> str:
-        return str(self._workspaces.resolve(self._active_name).env_file)
