@@ -64,7 +64,7 @@ class _FakeConnectors:
         self._sync = sync
         self._last_synced = last_synced or {}
 
-    def plan(self):
+    async def plan(self):
         return self._plan
 
     async def health(self):

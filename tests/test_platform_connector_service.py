@@ -31,10 +31,14 @@ async def test_connector_service_sync_delegates(monkeypatch):
     assert await service.sync() is expected
 
 
-def test_connector_service_plan_delegates(monkeypatch):
+async def test_connector_service_plan_delegates(monkeypatch):
     sentinel = object()
+
+    async def fake_plan(*args, **kwargs):
+        return sentinel
+
     monkeypatch.setattr(
-        "productagents.platform.connectors.static_connector_plan",
-        lambda: sentinel,
+        "productagents.platform.connectors.connector_plan",
+        fake_plan,
     )
-    assert ConnectorService().plan() is sentinel
+    assert await ConnectorService().plan() is sentinel

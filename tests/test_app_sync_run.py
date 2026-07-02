@@ -16,6 +16,8 @@ from productagents.knowledge.repositories.sqlmodel.engine import (
     make_sessionmaker,
 )
 from productagents.knowledge.sync_state import SyncStateStore
+from productagents.memory.store import create_all as memory_create_all
+from productagents.memory.workspace_state import ConnectorConfigStore
 
 
 class _RecordingConnector(Connector):
@@ -51,18 +53,18 @@ async def test_build_connectors_instantiates_from_registry():
     assert built[0].sink is sink
 
 
-async def test_run_connector_sync_writes_store_and_persists_cursor(tmp_path):
+async def test_run_connector_sync_writes_store_and_persists_cursor():
     from productagents.platform.connectors import run_connector_sync
 
     _RecordingConnector.seen_cursor = "UNSET"
     engine = make_engine("sqlite+aiosqlite://")
     await create_all(engine)
-
-    path = tmp_path / "connectors.yaml"
-    path.write_text("connectors:\n  rec:\n    enabled: true\n")
+    await memory_create_all(engine)
+    sessionmaker = make_sessionmaker(engine)
+    async with sessionmaker() as session:
+        await ConnectorConfigStore(session).set("rec", {"enabled": True})
 
     report = await run_connector_sync(
-        config_path=str(path),
         registry={"rec": _RecordingConnector},
         engine=engine,
         env={},
@@ -72,27 +74,24 @@ async def test_run_connector_sync_writes_store_and_persists_cursor(tmp_path):
     assert [r.connector for r in report.results] == ["rec"]
     assert report.results[0].written == 1
 
-    sessionmaker = make_sessionmaker(engine)
     async with sessionmaker() as session:
         assert await SyncStateStore(session).cursors() == {"rec": "cursor-2"}
     await engine.dispose()
 
 
-async def test_run_connector_sync_threads_stored_cursor_into_connector(tmp_path):
+async def test_run_connector_sync_threads_stored_cursor_into_connector():
     from productagents.platform.connectors import run_connector_sync
 
     engine = make_engine("sqlite+aiosqlite://")
     await create_all(engine)
+    await memory_create_all(engine)
     sessionmaker = make_sessionmaker(engine)
     async with sessionmaker() as session:
         await SyncStateStore(session).save("rec", "cursor-1")
-
-    path = tmp_path / "connectors.yaml"
-    path.write_text("connectors:\n  rec:\n    enabled: true\n")
+        await ConnectorConfigStore(session).set("rec", {"enabled": True})
 
     _RecordingConnector.seen_cursor = "UNSET"
     await run_connector_sync(
-        config_path=str(path),
         registry={"rec": _RecordingConnector},
         engine=engine,
         env={},

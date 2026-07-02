@@ -5,9 +5,9 @@ from productagents.platform.connectors import ConnectorPlan, HealthReport, SyncR
 
 
 class ConnectorService:
-    def plan(self) -> ConnectorPlan:
-        """The static, no-I/O view: which connectors are configured + problems."""
-        return connectors.static_connector_plan()
+    async def plan(self) -> ConnectorPlan:
+        """The static view: which connectors are configured + problems (no sync)."""
+        return await connectors.connector_plan()
 
     async def sync(self) -> SyncReport:
         return await connectors.run_connector_sync()

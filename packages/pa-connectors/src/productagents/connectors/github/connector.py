@@ -6,7 +6,6 @@ cursor is the maximum ``updated_at`` seen, so the next run's ``since`` only pull
 newer issues; with no issues, the incoming cursor is preserved.
 """
 
-import os
 from typing import ClassVar
 
 from productagents.connectors.base import (
@@ -34,20 +33,6 @@ class GitHubConfig(ConnectorConfig):
     owner: str
     repo: str
     token: str | None = None
-
-    @classmethod
-    def from_env(cls) -> GitHubConfig | None:
-        """Build from ``PRODUCTAGENTS_GITHUB_REPO`` (``owner/repo``) + token.
-
-        Returns ``None`` when the repo is unset — i.e. the connector is disabled.
-        """
-        repo_spec = os.environ.get("PRODUCTAGENTS_GITHUB_REPO")
-        if not repo_spec or "/" not in repo_spec:
-            return None
-        owner, repo = repo_spec.split("/", 1)
-        return cls(
-            owner=owner, repo=repo, token=os.environ.get("PRODUCTAGENTS_GITHUB_TOKEN")
-        )
 
 
 class GitHubConnector(Connector):

@@ -10,6 +10,7 @@ from productagents.connectors.base import (
     SyncResult,
 )
 from productagents.core.models import CustomerFeedback
+from productagents.knowledge.repositories.sqlmodel.engine import make_engine
 
 
 class _HealthyConnector(Connector):
@@ -48,6 +49,7 @@ async def test_check_connector_health_probes_each_connector(tmp_path):
         config_path=str(path),
         registry={"ok": _HealthyConnector, "sick": _SickConnector},
         env={},
+        engine=make_engine("sqlite+aiosqlite://"),
     )
 
     assert report.statuses["ok"].ok is True
@@ -68,6 +70,7 @@ async def test_describe_health_summarizes_report(tmp_path):
         config_path=str(path),
         registry={"sick": _SickConnector},
         env={},
+        engine=make_engine("sqlite+aiosqlite://"),
     )
     line = describe_health(report)
     assert "sick: ✗ down" in line
@@ -80,7 +83,10 @@ async def test_check_connector_health_no_connectors_is_empty():
     )
 
     report = await check_connector_health(
-        config_path="/nonexistent.yaml", registry={}, env={}
+        config_path="/nonexistent.yaml",
+        registry={},
+        env={},
+        engine=make_engine("sqlite+aiosqlite://"),
     )
     assert report.statuses == {}
     assert describe_health(report) == "No connectors configured"
