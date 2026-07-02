@@ -187,6 +187,29 @@ async def test_load_db_config_imports_yaml_once(tmp_path):
         assert "github" in await ConnectorConfigStore(session).all()
 
 
+async def test_load_db_config_malformed_yaml_degrades(tmp_path):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.platform.connectors import load_db_config
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    yaml_path = tmp_path / "connectors.yaml"
+    yaml_path.write_text("connectors: [unclosed\n")  # deliberate YAML syntax error
+
+    blocks = await load_db_config(maker, config_path=str(yaml_path))
+    assert blocks == {}
+    assert not yaml_path.exists()
+    assert (tmp_path / "connectors.yaml.invalid").exists()
+
+    # Second call: bad file moved aside, so it succeeds cleanly.
+    assert await load_db_config(maker, config_path=str(yaml_path)) == {}
+
+
 async def test_connector_plan_reads_db(tmp_path, monkeypatch):
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from sqlalchemy.pool import StaticPool

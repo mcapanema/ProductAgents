@@ -10,6 +10,7 @@ never inlined.
 """
 
 import asyncio
+import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -38,6 +39,8 @@ from productagents.memory.workspace_state import ConnectorConfigStore
 
 DEFAULT_CONNECTORS_FILE = "connectors.yaml"
 
+logger = logging.getLogger(__name__)
+
 
 def connectors_file() -> str:
     """Path to the connector config YAML (override with the env var)."""
@@ -60,9 +63,11 @@ async def load_db_config(
 
     First read on a fresh DB: if ``connector_config`` is empty and the YAML
     exists, import its blocks verbatim and rename the file to
-    ``<path>.imported`` (inert backup). A non-empty table ignores the YAML
-    entirely. Secret *references* (``*_env`` keys) are imported as-is; secret
-    values never enter the database.
+    ``<path>.imported`` (inert backup). A malformed/unreadable YAML degrades:
+    it is logged, renamed to ``<path>.invalid`` (so the import is never
+    re-attempted), and the (empty) DB view is returned. A non-empty table
+    ignores the YAML entirely. Secret *references* (``*_env`` keys) are
+    imported as-is; secret values never enter the database.
     """
     async with sessionmaker() as session:
         store = ConnectorConfigStore(session)
@@ -70,7 +75,15 @@ async def load_db_config(
         if blocks:
             return blocks
         path = config_path or connectors_file()
-        raw = load_raw_config(path)
+        try:
+            raw = load_raw_config(path)
+        except (yaml.YAMLError, OSError) as exc:
+            logger.error("connectors config import failed for %s: %s", path, exc)
+            try:
+                os.replace(path, path + ".invalid")
+            except OSError as rename_exc:
+                logger.error("could not move aside bad config %s: %s", path, rename_exc)
+            return {}
         if not raw:
             return {}
         for key, block in raw.items():
