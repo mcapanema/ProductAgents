@@ -19,6 +19,9 @@ class DecisionRow(Base):
     __tablename__ = "memory_decision"
 
     decision_id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(
+        String, index=True, default="default", server_default="default"
+    )
     initiative_title: Mapped[str] = mapped_column(String)
     payload: Mapped[dict] = mapped_column(
         JSON
@@ -31,6 +34,9 @@ class OutcomeRow(Base):
     __tablename__ = "memory_outcome"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    workspace: Mapped[str] = mapped_column(
+        String, index=True, default="default", server_default="default"
+    )
     decision_id: Mapped[str] = mapped_column(String, index=True)
     payload: Mapped[dict] = mapped_column(JSON)  # OutcomeRecord.model_dump(mode="json")
     reflected_at: Mapped[str] = mapped_column(String)
@@ -42,6 +48,9 @@ class RuntimeSessionRow(Base):
     __tablename__ = "runtime_session"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    workspace: Mapped[str] = mapped_column(
+        String, index=True, default="default", server_default="default"
+    )
     workflow: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
     created_at: Mapped[str] = mapped_column(String)
@@ -65,6 +74,9 @@ class WorkspaceConfigRow(Base):
 
     __tablename__ = "workspace_config"
 
+    workspace: Mapped[str] = mapped_column(
+        String, primary_key=True, default="default", server_default="default"
+    )
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[str] = mapped_column(String)
     updated_at: Mapped[str] = mapped_column(String)
@@ -75,9 +87,21 @@ class ConnectorConfigRow(Base):
 
     __tablename__ = "connector_config"
 
+    workspace: Mapped[str] = mapped_column(
+        String, primary_key=True, default="default", server_default="default"
+    )
     connector: Mapped[str] = mapped_column(String, primary_key=True)
     config: Mapped[dict] = mapped_column(JSON)
     updated_at: Mapped[str] = mapped_column(String)
+
+
+class WorkspaceRow(Base):
+    """The workspace registry: one row per project/team scope."""
+
+    __tablename__ = "workspace"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[str] = mapped_column(String)
 
 
 class PreferenceRow(Base):

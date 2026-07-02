@@ -36,7 +36,9 @@ class WorkspaceConfigStore:
 
     async def set(self, key: str, value: str) -> None:
         await self._session.merge(
-            WorkspaceConfigRow(key=key, value=value, updated_at=_now())
+            WorkspaceConfigRow(
+                workspace="default", key=key, value=value, updated_at=_now()
+            )
         )
         await self._session.commit()
 
@@ -59,7 +61,12 @@ class ConnectorConfigStore:
 
     async def set(self, connector: str, config: dict) -> None:
         await self._session.merge(
-            ConnectorConfigRow(connector=connector, config=config, updated_at=_now())
+            ConnectorConfigRow(
+                workspace="default",
+                connector=connector,
+                config=config,
+                updated_at=_now(),
+            )
         )
         await self._session.commit()
 
