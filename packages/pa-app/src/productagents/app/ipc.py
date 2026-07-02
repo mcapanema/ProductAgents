@@ -30,6 +30,7 @@ from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.memory_service import MemoryService
+from productagents.platform.preference_service import PreferenceService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
@@ -111,6 +112,7 @@ def build_services(
         "config": config
         if config is not None
         else ConfigurationService(active_name=active_name),
+        "preferences": PreferenceService(),
         "reflection": _build_reflection(),
         "memory": MemoryService.create(),
     }
@@ -347,6 +349,7 @@ def _config_dict(config) -> dict:
         "key_present": status.key_present,
         "problems": status.problems,
         "settings": config.settings(),
+        "origins": config.settings_origins(),
         "providers": [
             {
                 "id": pid,
@@ -370,6 +373,7 @@ async def handle(
     connectors: Any = None,
     prompts: Any = None,
     config: Any = None,
+    preferences: Any = None,
     reflection: Any = None,
     memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
@@ -535,13 +539,38 @@ async def handle(
         async def _config_set(p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
-            config.set(
+            await config.set(
                 p["model"],
                 provider=p.get("provider"),
                 api_key=p.get("api_key"),
                 settings=p.get("settings"),
             )
             await emit({"id": rid, "result": _config_dict(config)})
+
+        async def _preferences_get(_p: dict) -> None:
+            if preferences is None:
+                raise RuntimeError("preferences service not available")
+            prefs = await preferences.all()
+            await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
+
+        async def _preferences_set(p: dict) -> None:
+            if preferences is None:
+                raise RuntimeError("preferences service not available")
+            prefs = await preferences.set("theme", p["theme"])
+            await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
+
+        async def _connectors_config_list(_p: dict) -> None:
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            await emit({"id": rid, "result": await connectors.config_list()})
+
+        async def _connectors_config_save(p: dict) -> None:
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            entry = await connectors.config_save(
+                p["connector"], p.get("config") or {}, secrets=p.get("secrets")
+            )
+            await emit({"id": rid, "result": entry})
 
         async def _memory_lessons(_p: dict) -> None:
             if memory is None:
@@ -571,6 +600,10 @@ async def handle(
             "prompts.rollback": _prompts_rollback,
             "config.get": _config_get,
             "config.set": _config_set,
+            "preferences.get": _preferences_get,
+            "preferences.set": _preferences_set,
+            "connectors.config.list": _connectors_config_list,
+            "connectors.config.save": _connectors_config_save,
             "reflection.record": _reflection_record,
             "memory.lessons": _memory_lessons,
             "run.cancel": _run_cancel,
@@ -596,6 +629,7 @@ async def serve(
     connectors: Any = None,
     prompts: Any = None,
     config: Any = None,
+    preferences: Any = None,
     reflection: Any = None,
     memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
@@ -654,6 +688,7 @@ async def serve(
             connectors=connectors,
             prompts=prompts,
             config=config,
+            preferences=preferences,
             reflection=reflection,
             memory=memory,
             read_line=read_line,

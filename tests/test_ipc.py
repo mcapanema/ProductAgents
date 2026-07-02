@@ -940,12 +940,22 @@ class _FakeConfigService:
             "judge_threshold": 0.7,
             "judge_max_retries": 1,
             "max_retries": 6,
-            "log_level": "INFO",
-            "github_repo": "",
-            "github_token_present": False,
         }
 
-    def set(self, model, *, provider=None, api_key=None, settings=None):
+    def settings_origins(self):
+        return dict.fromkeys(
+            [
+                "model",
+                "model_provider",
+                "debate_rounds",
+                "judge_threshold",
+                "judge_max_retries",
+                "max_retries",
+            ],
+            "db",
+        )
+
+    async def set(self, model, *, provider=None, api_key=None, settings=None):
         self.sets.append((model, provider, api_key, settings))
         return self._status
 
@@ -1007,10 +1017,13 @@ async def test_config_get_includes_settings():
         config=config,
         emit=emit,
     )
-    settings = sink[0]["result"]["settings"]
+    result = sink[0]["result"]
+    settings = result["settings"]
     assert settings["debate_rounds"] == 2
-    assert settings["log_level"] == "INFO"
-    assert settings["github_token_present"] is False
+    assert settings["judge_threshold"] == 0.7
+    assert settings["judge_max_retries"] == 1
+    assert settings["max_retries"] == 6
+    assert result["origins"]["model"] == "db"
 
 
 async def test_config_set_forwards_settings():
@@ -1255,3 +1268,121 @@ async def test_run_cancel_standalone_when_no_active_run():
         emit=emit,
     )
     assert sink == [{"id": 6, "result": {"ok": False}}]
+
+
+class _FakePreferences:
+    def __init__(self):
+        self.values = {}
+
+    async def all(self):
+        return dict(self.values)
+
+    async def set(self, key, value):
+        if key != "theme":
+            raise ValueError(f"unknown preference: {key!r}")
+        self.values[key] = value
+        return dict(self.values)
+
+
+async def test_preferences_get_and_set():
+    prefs = _FakePreferences()
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 60, "method": "preferences.set", "params": {"theme": "dark"}},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        preferences=prefs,
+        emit=emit,
+    )
+    assert sink[0]["result"] == {"theme": "dark"}
+    await ipc.handle(
+        {"id": 61, "method": "preferences.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        preferences=prefs,
+        emit=emit,
+    )
+    assert sink[1]["result"] == {"theme": "dark"}
+
+
+async def test_preferences_without_service_errors():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 62, "method": "preferences.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        emit=emit,
+    )
+    assert "preferences service not available" in sink[0]["error"]
+
+
+async def test_connectors_config_list_and_save():
+    class _FakeConnectorCfg:
+        async def config_list(self):
+            return [
+                {
+                    "connector": "github",
+                    "installed": True,
+                    "config": {},
+                    "schema": {"properties": {}},
+                    "problems": [],
+                }
+            ]
+
+        async def config_save(self, connector, config, secrets=None):
+            if config.get("bad"):
+                raise ValueError("connector 'github': invalid")
+            return {
+                "connector": connector,
+                "installed": True,
+                "config": config,
+                "schema": {},
+                "problems": [],
+            }
+
+    svc = _FakeConnectorCfg()
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 63, "method": "connectors.config.list"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=svc,
+        emit=emit,
+    )
+    assert sink[0]["result"][0]["connector"] == "github"
+    await ipc.handle(
+        {
+            "id": 64,
+            "method": "connectors.config.save",
+            "params": {"connector": "github", "config": {"owner": "a"}},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=svc,
+        emit=emit,
+    )
+    assert sink[1]["result"]["config"] == {"owner": "a"}
+    await ipc.handle(
+        {
+            "id": 65,
+            "method": "connectors.config.save",
+            "params": {"connector": "github", "config": {"bad": True}},
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        connectors=svc,
+        emit=emit,
+    )
+    assert "invalid" in sink[2]["error"]
