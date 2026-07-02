@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { SettingsPanel } from "./SettingsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { ConfigStatus, WorkspaceInfo } from "../ipc/types";
+import type { ConfigSetParams, ConfigStatus, WorkspaceInfo } from "../ipc/types";
 
 const status: ConfigStatus = {
   model: "anthropic:claude-sonnet-4-6",
@@ -60,9 +60,23 @@ function renderPanel(c: IpcClient, onThemeChange = vi.fn()) {
 }
 
 describe("SettingsPanel", () => {
-  it("renders the theme control and reports changes", () => {
+  it("shows the Workspace/Application sub-navigation and defaults to Configuration", async () => {
+    renderPanel(client());
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    const nav = screen.getByRole("navigation", { name: /settings sections/i });
+    expect(within(nav).getByRole("button", { name: /configuration/i })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("button", { name: /connectors/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /preferences/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /runtime/i })).toBeInTheDocument();
+    // Logging is runtime config now — never a GUI field.
+    expect(screen.queryByLabelText(/log level/i)).not.toBeInTheDocument();
+  });
+
+  it("navigating to Preferences shows the theme control; Configuration hides it", async () => {
     const { onThemeChange } = renderPanel(client());
-    expect(screen.getByRole("radio", { name: /light/i })).toBeChecked();
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    expect(screen.queryByRole("radio", { name: /dark/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /preferences/i }));
     fireEvent.click(screen.getByRole("radio", { name: /dark/i }));
     expect(onThemeChange).toHaveBeenCalledWith("dark");
   });
@@ -75,17 +89,6 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText(/api key/i)).toHaveValue("");
   });
 
-  it("renders every pipeline tunable from config settings", async () => {
-    renderPanel(client());
-    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
-    expect(screen.getByRole("spinbutton", { name: /debate rounds/i })).toHaveValue("2");
-    // InputNumber's step=0.05 infers 2-decimal precision ("0.70"); compare numerically per
-    // the brief's documented jsdom/antd fallback (getAttribute over toHaveValue's string match).
-    expect(Number(screen.getByRole("spinbutton", { name: /judge threshold/i }).getAttribute("value"))).toBe(0.7);
-    expect(screen.getByRole("spinbutton", { name: /judge max retries/i })).toHaveValue("1");
-    expect(screen.getByRole("spinbutton", { name: /provider max retries/i })).toHaveValue("6");
-  });
-
   it("changing provider dropdown sets model to that provider's default", async () => {
     renderPanel(client());
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
@@ -95,22 +98,37 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
 
-  it("shows workspace paths read-only", async () => {
-    renderPanel(client());
-    expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
-    expect(screen.getByText(workspace.prompts_dir)).toBeInTheDocument();
-  });
-
-  it("hides the workspace section when workspaces.show fails", async () => {
-    renderPanel(client({ workspacesShow: async () => Promise.reject(new Error("nope")) } as Partial<IpcClient>));
-    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
-    expect(screen.queryByText(/^workspace$/i)).not.toBeInTheDocument();
-  });
-
   it("surfaces config problems", async () => {
     const bad: ConfigStatus = { ...status, key_present: false, problems: ["Missing API key: set OPENAI_API_KEY."] };
     renderPanel(client({ configGet: async () => bad } as Partial<IpcClient>));
     expect(await screen.findByText(/Missing API key/)).toBeInTheDocument();
+  });
+
+  it("saves the four tunables and model via config.set", async () => {
+    const configSet = vi.fn(async (_params: ConfigSetParams) => status);
+    renderPanel(client({ configSet } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.change(screen.getByRole("spinbutton", { name: /debate rounds/i }), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(configSet).toHaveBeenCalled());
+    const params = configSet.mock.calls[0][0];
+    expect(params.settings).toEqual({
+      debate_rounds: 3, judge_threshold: 0.7, judge_max_retries: 1, max_retries: 6,
+    });
+  });
+
+  it("labels env-overridden fields", async () => {
+    const overridden = { ...status, origins: { ...status.origins, debate_rounds: "env" as const } };
+    renderPanel(client({ configGet: async () => overridden } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    expect(screen.getByText(/overridden by environment/i)).toBeInTheDocument();
+  });
+
+  it("Runtime section shows workspace paths read-only", async () => {
+    renderPanel(client());
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.click(screen.getByRole("button", { name: /runtime/i }));
+    expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
   });
 
   it("shows Saved after a successful save and clears it on the next edit", async () => {

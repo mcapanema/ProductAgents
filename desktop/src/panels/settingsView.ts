@@ -1,6 +1,4 @@
-import type { ConfigSetParams, ConfigStatus } from "../ipc/types";
-
-export const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"] as const;
+import type { ConfigSetParams, ConfigStatus, SettingOrigin } from "../ipc/types";
 
 export interface SettingsForm {
   model: string;
@@ -10,9 +8,6 @@ export interface SettingsForm {
   judgeThreshold: number;
   judgeMaxRetries: number;
   maxRetries: number;
-  logLevel: string;
-  githubRepo: string;
-  githubToken: string;
 }
 
 /** Seed the form from a config.get status. Secrets are never echoed. */
@@ -25,9 +20,6 @@ export function formFromStatus(s: ConfigStatus): SettingsForm {
     judgeThreshold: s.settings.judge_threshold,
     judgeMaxRetries: s.settings.judge_max_retries,
     maxRetries: s.settings.max_retries,
-    logLevel: s.settings.log_level,
-    githubRepo: s.settings.github_repo,
-    githubToken: "",
   };
 }
 
@@ -42,11 +34,19 @@ export function paramsFromForm(f: SettingsForm): ConfigSetParams {
       judge_threshold: f.judgeThreshold,
       judge_max_retries: f.judgeMaxRetries,
       max_retries: f.maxRetries,
-      log_level: f.logLevel,
-      github_repo: f.githubRepo,
     },
   };
   if (f.apiKey) params.api_key = f.apiKey;
-  if (f.githubToken) params.settings!.github_token = f.githubToken;
   return params;
+}
+
+/** Origin hint shown under a field's description; only env/override tiers are called out. */
+export function originHint(
+  origins: Record<string, SettingOrigin> | undefined,
+  key: string,
+): string | null {
+  const origin = origins?.[key];
+  if (origin === "env") return "Overridden by environment";
+  if (origin === "override") return "Set by --set override";
+  return null;
 }
