@@ -17,6 +17,7 @@ needs to know workspaces exist.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +26,12 @@ from productagents.core.config import load_env
 _L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 DEFAULT_WORKSPACE = "default"
+
+_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+class WorkspaceError(ValueError):
+    """Invalid workspace operation: bad name, duplicate create, unknown name."""
 
 
 def _default_home() -> Path:
@@ -85,9 +92,10 @@ class WorkspaceService:
     def resolve(self, name: str | None = None) -> Workspace:
         """Return the active workspace, creating its directory if absent.
 
-        ``name`` defaults to ``PRODUCTAGENTS_WORKSPACE`` then ``DEFAULT_WORKSPACE``.
+        Precedence: explicit ``name`` > ``PRODUCTAGENTS_WORKSPACE`` > the
+        persisted ``.active`` marker > ``DEFAULT_WORKSPACE``.
         """
-        name = name or os.environ.get("PRODUCTAGENTS_WORKSPACE") or DEFAULT_WORKSPACE
+        name = name or os.environ.get("PRODUCTAGENTS_WORKSPACE") or self.active_name()
         root = self._home / name
         root.mkdir(parents=True, exist_ok=True)
         return Workspace(name=name, root=root)
@@ -107,3 +115,39 @@ class WorkspaceService:
         os.environ.setdefault("PRODUCTAGENTS_PROMPTS_DIR", str(workspace.prompts_dir))
         if workspace.env_file.exists():
             load_env(dotenv_path=workspace.env_file)
+
+    def create(self, name: str) -> Workspace:
+        """Create a new workspace directory. Raises WorkspaceError on a bad
+        or duplicate name."""
+        if not _NAME_RE.fullmatch(name):
+            raise WorkspaceError(
+                f"invalid workspace name: {name!r} "
+                "(letters/digits, then letters/digits/._-, max 64 chars)"
+            )
+        root = self._home / name
+        if root.exists():
+            raise WorkspaceError(f"workspace already exists: {name}")
+        root.mkdir(parents=True)
+        return Workspace(name=name, root=root)
+
+    def _active_file(self) -> Path:
+        # ponytail: a one-line marker file, not a registry DB — list() ignores
+        # it because it only globs directories.
+        return self._home / ".active"
+
+    def active_name(self) -> str:
+        """The persisted active workspace name (DEFAULT_WORKSPACE if unset)."""
+        try:
+            name = self._active_file().read_text(encoding="utf-8").strip()
+        except OSError:
+            return DEFAULT_WORKSPACE
+        return name or DEFAULT_WORKSPACE
+
+    def set_active(self, name: str) -> Workspace:
+        """Persist ``name`` as the active workspace. It must already exist."""
+        ws = self.get(name)
+        if ws is None:
+            raise WorkspaceError(f"no such workspace: {name}")
+        self._home.mkdir(parents=True, exist_ok=True)
+        self._active_file().write_text(ws.name + "\n", encoding="utf-8")
+        return ws

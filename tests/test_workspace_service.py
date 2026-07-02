@@ -2,9 +2,12 @@
 
 import os
 
+import pytest
+
 from productagents.platform.workspace import (
     DEFAULT_WORKSPACE,
     Workspace,
+    WorkspaceError,
     WorkspaceService,
 )
 
@@ -103,3 +106,61 @@ def test_activate_points_prompts_dir_env_at_workspace(monkeypatch, tmp_path):
     ws = Workspace(name="w", root=tmp_path)
     WorkspaceService(tmp_path.parent).activate(ws)
     assert os.environ["PRODUCTAGENTS_PROMPTS_DIR"] == str(tmp_path / "prompts")
+
+
+def test_create_makes_directory_and_returns_workspace(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    ws = svc.create("acme")
+    assert ws.name == "acme"
+    assert ws.root == tmp_path / "acme"
+    assert ws.root.is_dir()
+
+
+def test_create_rejects_invalid_names(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    for bad in ("", ".hidden", "a/b", "a b", "-lead", "x" * 65):
+        with pytest.raises(WorkspaceError):
+            svc.create(bad)
+
+
+def test_create_rejects_duplicate(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    with pytest.raises(WorkspaceError):
+        svc.create("acme")
+
+
+def test_active_name_defaults_when_no_marker(tmp_path):
+    assert WorkspaceService(home=tmp_path).active_name() == DEFAULT_WORKSPACE
+
+
+def test_set_active_persists_and_resolve_reads_it(tmp_path, monkeypatch):
+    monkeypatch.delenv("PRODUCTAGENTS_WORKSPACE", raising=False)
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    svc.set_active("acme")
+    assert svc.active_name() == "acme"
+    assert svc.resolve().name == "acme"
+    # a fresh service instance reads the same marker
+    assert WorkspaceService(home=tmp_path).resolve().name == "acme"
+
+
+def test_set_active_unknown_workspace_raises(tmp_path):
+    with pytest.raises(WorkspaceError):
+        WorkspaceService(home=tmp_path).set_active("nope")
+
+
+def test_resolve_env_var_outranks_active_marker(tmp_path, monkeypatch):
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    svc.set_active("acme")
+    monkeypatch.setenv("PRODUCTAGENTS_WORKSPACE", "team-x")
+    assert svc.resolve().name == "team-x"
+    assert svc.resolve("explicit").name == "explicit"
+
+
+def test_active_marker_is_not_listed_as_a_workspace(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    svc.set_active("acme")
+    assert [w.name for w in svc.list()] == ["acme"]
