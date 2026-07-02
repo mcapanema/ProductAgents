@@ -4,6 +4,7 @@ import { Button, Input, InputNumber, Select } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { ConfigStatus, WorkspaceInfo } from "../ipc/types";
 import { formFromStatus, originHint, paramsFromForm, type SettingsForm } from "./settingsView";
+import { SettingsConnectors } from "./SettingsConnectors";
 import { UpdateSection } from "./UpdateSection";
 import { ThemeControl } from "../ui/ThemeControl";
 import type { ThemePref } from "../ui/theme";
@@ -253,7 +254,7 @@ export function SettingsPanel({
           ) : (
             <p className="muted">Loading configuration…</p>
           ))}
-          {section === "connectors" && <div data-section="connectors" />}
+          {section === "connectors" && <SettingsConnectors />}
           {section === "preferences" && (
             <Section title="Preferences" description="Personal to this workspace; never affects workflow execution.">
               <Pref label="Theme" control={<ThemeControl value={theme} onChange={onThemeChange} />} />
