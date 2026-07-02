@@ -190,3 +190,12 @@ def test_service_set_blank_token_keeps_existing(tmp_path, monkeypatch):
     assert "PRODUCTAGENTS_GITHUB_TOKEN" not in env_text
     assert "PRODUCTAGENTS_GITHUB_REPO=''" in env_text
     assert os.environ["PRODUCTAGENTS_GITHUB_TOKEN"] == "ghp_old"
+
+
+def test_service_set_skips_none_values(tmp_path):
+    svc = ConfigurationService(workspaces=WorkspaceService(tmp_path), active_name="ws")
+    svc.set("anthropic:m", settings={"debate_rounds": None, "log_level": "DEBUG"})
+    env_text = (tmp_path / "ws" / ".env").read_text()
+    # A null from a raw IPC client must never persist a literal 'None'.
+    assert "PRODUCTAGENTS_DEBATE_ROUNDS" not in env_text
+    assert "PRODUCTAGENTS_LOG_LEVEL='DEBUG'" in env_text

@@ -260,8 +260,8 @@ class ConfigurationService:
                 values[key_var] = api_key
         for key, value in (settings or {}).items():
             var = _SETTING_ENV.get(key)
-            if var is None:
-                continue
+            if var is None or value is None:
+                continue  # unknown key, or a null a raw IPC client sent
             text = str(value).strip()
             if key in _SECRET_SETTINGS and not text:
                 continue  # never blank a stored secret

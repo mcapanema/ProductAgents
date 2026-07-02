@@ -115,7 +115,7 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
 
-  it("shows workspace paths read-only and hides the section when unavailable", async () => {
+  it("shows workspace paths read-only", async () => {
     renderPanel(client());
     expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
     expect(screen.getByText(workspace.prompts_dir)).toBeInTheDocument();
