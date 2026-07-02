@@ -98,3 +98,56 @@ def test_service_set_skips_blank_api_key(tmp_path, monkeypatch):
 def test_service_providers_returns_catalog():
     svc = ConfigurationService(workspaces=WorkspaceService(), active_name="default")
     assert svc.providers() is PROVIDERS
+
+
+def test_current_settings_defaults(monkeypatch):
+    from productagents.platform.configuration import current_settings
+
+    for var in (
+        "PRODUCTAGENTS_DEBATE_ROUNDS",
+        "PRODUCTAGENTS_JUDGE_THRESHOLD",
+        "PRODUCTAGENTS_JUDGE_MAX_RETRIES",
+        "PRODUCTAGENTS_MAX_RETRIES",
+        "PRODUCTAGENTS_LOG_LEVEL",
+        "PRODUCTAGENTS_GITHUB_REPO",
+        "PRODUCTAGENTS_GITHUB_TOKEN",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    settings = current_settings()
+    assert settings == {
+        "debate_rounds": 2,
+        "judge_threshold": 0.7,
+        "judge_max_retries": 1,
+        "max_retries": 6,
+        "log_level": "INFO",
+        "github_repo": "",
+        "github_token_present": False,
+    }
+
+
+def test_current_settings_reads_env(monkeypatch):
+    from productagents.platform.configuration import current_settings
+
+    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "3")
+    monkeypatch.setenv("PRODUCTAGENTS_JUDGE_THRESHOLD", "0.9")
+    monkeypatch.setenv("PRODUCTAGENTS_JUDGE_MAX_RETRIES", "0")
+    monkeypatch.setenv("PRODUCTAGENTS_MAX_RETRIES", "2")
+    monkeypatch.setenv("PRODUCTAGENTS_LOG_LEVEL", "debug")
+    monkeypatch.setenv("PRODUCTAGENTS_GITHUB_REPO", "acme/widgets")
+    monkeypatch.setenv("PRODUCTAGENTS_GITHUB_TOKEN", "ghp_secret")
+    settings = current_settings()
+    assert settings["debate_rounds"] == 3
+    assert settings["judge_threshold"] == 0.9
+    assert settings["judge_max_retries"] == 0
+    assert settings["max_retries"] == 2
+    assert settings["log_level"] == "DEBUG"
+    assert settings["github_repo"] == "acme/widgets"
+    # The token value itself must never appear — only presence.
+    assert settings["github_token_present"] is True
+    assert "ghp_secret" not in str(settings)
+
+
+def test_service_settings_delegates(monkeypatch):
+    monkeypatch.delenv("PRODUCTAGENTS_DEBATE_ROUNDS", raising=False)
+    svc = ConfigurationService()
+    assert svc.settings()["debate_rounds"] == 2

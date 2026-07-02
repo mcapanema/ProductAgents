@@ -18,7 +18,11 @@ from dataclasses import dataclass, field
 
 from dotenv import find_dotenv, set_key
 
-from productagents.platform.llm import DEFAULT_MODEL
+from productagents.agents.debate import get_debate_rounds
+from productagents.agents.judge import get_judge_max_retries, get_judge_threshold
+from productagents.core.config import env_int
+from productagents.core.logging_config import DEFAULT_LEVEL
+from productagents.platform.llm import DEFAULT_MAX_RETRIES, DEFAULT_MODEL
 from productagents.platform.workspace import WorkspaceService
 
 
@@ -147,6 +151,28 @@ def check_config(env: Mapping[str, str] | None = None) -> ConfigStatus:
     )
 
 
+def current_settings() -> dict[str, object]:
+    """Current tunable values (env-or-default), for the Settings UI.
+
+    Values come from the same getters the agents use, so the defaults shown in
+    the GUI can never drift from the ones the pipeline applies. Secrets are
+    reported as presence booleans only.
+    """
+    return {
+        "debate_rounds": get_debate_rounds(),
+        "judge_threshold": get_judge_threshold(),
+        "judge_max_retries": get_judge_max_retries(),
+        "max_retries": env_int(
+            "PRODUCTAGENTS_MAX_RETRIES", DEFAULT_MAX_RETRIES, minimum=0
+        ),
+        "log_level": os.environ.get("PRODUCTAGENTS_LOG_LEVEL", DEFAULT_LEVEL).upper(),
+        "github_repo": os.environ.get("PRODUCTAGENTS_GITHUB_REPO", ""),
+        "github_token_present": bool(
+            os.environ.get("PRODUCTAGENTS_GITHUB_TOKEN", "").strip()
+        ),
+    }
+
+
 def write_env(
     values: Mapping[str, str],
     *,
@@ -199,6 +225,9 @@ class ConfigurationService:
 
     def providers(self) -> dict[str, ProviderInfo]:
         return PROVIDERS
+
+    def settings(self) -> dict[str, object]:
+        return current_settings()
 
     def set(
         self,
