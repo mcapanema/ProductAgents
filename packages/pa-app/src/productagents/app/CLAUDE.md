@@ -99,7 +99,8 @@ plus the current tunables (`.settings()`) and the provider catalog
 settings?}` delegates to `ConfigurationService.set()`, which writes the **active
 workspace's** `.env` (never a blank api_key over an existing one) and forwards
 `settings` verbatim — the service whitelists known tunable keys and drops
-anything else — before returning the refreshed status. Both are guarded by a
+anything else; a blank `github_token` inside `settings` never overwrites a
+stored one, same as `api_key` — before returning the refreshed status. Both are guarded by a
 `config=None` kwarg. This is the GUI's settings **write** surface;
 connector/prompt editing stays deferred.
 
