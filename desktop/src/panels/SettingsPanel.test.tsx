@@ -98,6 +98,29 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
 
+  it("renders every pipeline tunable bound to its own setting", async () => {
+    // Distinct values so a JSX swap between two Pref blocks is caught.
+    const distinct: ConfigStatus = {
+      ...status,
+      settings: { debate_rounds: 3, judge_threshold: 0.85, judge_max_retries: 2, max_retries: 5 },
+    };
+    renderPanel(client({ configGet: async () => distinct } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    expect(screen.getByRole("spinbutton", { name: /debate rounds/i })).toHaveValue("3");
+    // InputNumber's step=0.05 infers 2-decimal precision ("0.85"); compare numerically per
+    // the documented jsdom/antd fallback (getAttribute over toHaveValue's string match).
+    expect(Number(screen.getByRole("spinbutton", { name: /judge threshold/i }).getAttribute("value"))).toBe(0.85);
+    expect(screen.getByRole("spinbutton", { name: /judge max retries/i })).toHaveValue("2");
+    expect(screen.getByRole("spinbutton", { name: /provider max retries/i })).toHaveValue("5");
+  });
+
+  it("Runtime section shows a fallback when workspaces.show fails", async () => {
+    renderPanel(client({ workspacesShow: async () => Promise.reject(new Error("nope")) } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.click(screen.getByRole("button", { name: /runtime/i }));
+    expect(await screen.findByText(/workspace details unavailable/i)).toBeInTheDocument();
+  });
+
   it("surfaces config problems", async () => {
     const bad: ConfigStatus = { ...status, key_present: false, problems: ["Missing API key: set OPENAI_API_KEY."] };
     renderPanel(client({ configGet: async () => bad } as Partial<IpcClient>));
