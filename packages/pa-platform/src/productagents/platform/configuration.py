@@ -173,6 +173,20 @@ def current_settings() -> dict[str, object]:
     }
 
 
+# Whitelist of GUI-writable settings → env var. Anything not listed here is
+# silently dropped so the IPC surface can never write arbitrary env vars.
+_SETTING_ENV: dict[str, str] = {
+    "debate_rounds": "PRODUCTAGENTS_DEBATE_ROUNDS",
+    "judge_threshold": "PRODUCTAGENTS_JUDGE_THRESHOLD",
+    "judge_max_retries": "PRODUCTAGENTS_JUDGE_MAX_RETRIES",
+    "max_retries": "PRODUCTAGENTS_MAX_RETRIES",
+    "log_level": "PRODUCTAGENTS_LOG_LEVEL",
+    "github_repo": "PRODUCTAGENTS_GITHUB_REPO",
+    "github_token": "PRODUCTAGENTS_GITHUB_TOKEN",
+}
+_SECRET_SETTINGS = frozenset({"github_token"})
+
+
 def write_env(
     values: Mapping[str, str],
     *,
@@ -235,6 +249,7 @@ class ConfigurationService:
         *,
         provider: str | None = None,
         api_key: str | None = None,
+        settings: Mapping[str, object] | None = None,
     ) -> ConfigStatus:
         values: dict[str, str] = {"PRODUCTAGENTS_MODEL": model}
         if provider:
@@ -243,6 +258,14 @@ class ConfigurationService:
             key_var = api_key_var_for(provider or provider_for(model))
             if key_var:
                 values[key_var] = api_key
+        for key, value in (settings or {}).items():
+            var = _SETTING_ENV.get(key)
+            if var is None:
+                continue
+            text = str(value).strip()
+            if key in _SECRET_SETTINGS and not text:
+                continue  # never blank a stored secret
+            values[var] = text
         write_env(values, dotenv_path=self._env_path())
         return self.status()
 

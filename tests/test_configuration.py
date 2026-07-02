@@ -151,3 +151,42 @@ def test_service_settings_delegates(monkeypatch):
     monkeypatch.delenv("PRODUCTAGENTS_DEBATE_ROUNDS", raising=False)
     svc = ConfigurationService()
     assert svc.settings()["debate_rounds"] == 2
+
+
+def test_service_set_writes_whitelisted_settings(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    svc = ConfigurationService(workspaces=WorkspaceService(tmp_path), active_name="ws")
+    svc.set(
+        "anthropic:claude-sonnet-4-6",
+        settings={
+            "debate_rounds": 3,
+            "judge_threshold": 0.8,
+            "judge_max_retries": 2,
+            "max_retries": 4,
+            "log_level": "DEBUG",
+            "github_repo": "acme/widgets",
+            "github_token": "ghp_new",
+            "evil_key": "ignored",  # not whitelisted → never written
+        },
+    )
+    env_text = (tmp_path / "ws" / ".env").read_text()
+    assert "PRODUCTAGENTS_DEBATE_ROUNDS='3'" in env_text
+    assert "PRODUCTAGENTS_JUDGE_THRESHOLD='0.8'" in env_text
+    assert "PRODUCTAGENTS_JUDGE_MAX_RETRIES='2'" in env_text
+    assert "PRODUCTAGENTS_MAX_RETRIES='4'" in env_text
+    assert "PRODUCTAGENTS_LOG_LEVEL='DEBUG'" in env_text
+    assert "PRODUCTAGENTS_GITHUB_REPO='acme/widgets'" in env_text
+    assert "PRODUCTAGENTS_GITHUB_TOKEN='ghp_new'" in env_text
+    assert "evil_key" not in env_text
+    assert "EVIL_KEY" not in env_text
+
+
+def test_service_set_blank_token_keeps_existing(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRODUCTAGENTS_GITHUB_TOKEN", "ghp_old")
+    svc = ConfigurationService(workspaces=WorkspaceService(tmp_path), active_name="ws")
+    svc.set("anthropic:m", settings={"github_token": "", "github_repo": ""})
+    env_text = (tmp_path / "ws" / ".env").read_text()
+    # Blank secret is skipped; blank repo is written (disables the connector).
+    assert "PRODUCTAGENTS_GITHUB_TOKEN" not in env_text
+    assert "PRODUCTAGENTS_GITHUB_REPO=''" in env_text
+    assert os.environ["PRODUCTAGENTS_GITHUB_TOKEN"] == "ghp_old"
