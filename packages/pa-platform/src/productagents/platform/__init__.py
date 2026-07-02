@@ -10,6 +10,7 @@ from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.decision_service import DecisionService
 from productagents.platform.memory_service import MemoryService
+from productagents.platform.preference_service import PreferenceService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
@@ -22,6 +23,7 @@ __all__ = [
     "DecisionReadService",
     "DecisionService",
     "MemoryService",
+    "PreferenceService",
     "PromptService",
     "ReflectionService",
     "SessionService",

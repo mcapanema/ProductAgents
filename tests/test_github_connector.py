@@ -1,4 +1,4 @@
-"""The GitHub connector: config-from-env, health check, sync (happy + degrade)."""
+"""The GitHub connector: health check, sync (happy + degrade)."""
 
 import httpx
 import respx
@@ -11,21 +11,6 @@ from tests.connector_fakes import FakeSink
 
 def _config() -> GitHubConfig:
     return GitHubConfig(owner="acme", repo="app", token="t")
-
-
-def test_config_from_env_parses_repo(monkeypatch):
-    monkeypatch.setenv("PRODUCTAGENTS_GITHUB_REPO", "acme/app")
-    monkeypatch.setenv("PRODUCTAGENTS_GITHUB_TOKEN", "secret")
-    config = GitHubConfig.from_env()
-    assert config is not None
-    assert config.owner == "acme"
-    assert config.repo == "app"
-    assert config.token == "secret"
-
-
-def test_config_from_env_none_when_unset(monkeypatch):
-    monkeypatch.delenv("PRODUCTAGENTS_GITHUB_REPO", raising=False)
-    assert GitHubConfig.from_env() is None
 
 
 @respx.mock

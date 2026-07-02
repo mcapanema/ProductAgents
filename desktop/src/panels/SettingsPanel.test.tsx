@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { SettingsPanel } from "./SettingsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -16,9 +16,14 @@ const status: ConfigStatus = {
     judge_threshold: 0.7,
     judge_max_retries: 1,
     max_retries: 6,
-    log_level: "INFO",
-    github_repo: "",
-    github_token_present: false,
+  },
+  origins: {
+    model: "db",
+    model_provider: "db",
+    debate_rounds: "db",
+    judge_threshold: "db",
+    judge_max_retries: "db",
+    max_retries: "db",
   },
   providers: [
     { id: "anthropic", label: "Anthropic", key_var: "ANTHROPIC_API_KEY", default_model: "anthropic:claude-sonnet-4-6" },
@@ -55,9 +60,23 @@ function renderPanel(c: IpcClient, onThemeChange = vi.fn()) {
 }
 
 describe("SettingsPanel", () => {
-  it("renders the theme control and reports changes", () => {
+  it("shows the Workspace/Application sub-navigation and defaults to Configuration", async () => {
+    renderPanel(client());
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    const nav = screen.getByRole("navigation", { name: /settings sections/i });
+    expect(within(nav).getByRole("button", { name: /configuration/i })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("button", { name: /connectors/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /preferences/i })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /runtime/i })).toBeInTheDocument();
+    // Logging is runtime config now — never a GUI field.
+    expect(screen.queryByLabelText(/log level/i)).not.toBeInTheDocument();
+  });
+
+  it("navigating to Preferences shows the theme control; Configuration hides it", async () => {
     const { onThemeChange } = renderPanel(client());
-    expect(screen.getByRole("radio", { name: /light/i })).toBeChecked();
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    expect(screen.queryByRole("radio", { name: /dark/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /preferences/i }));
     fireEvent.click(screen.getByRole("radio", { name: /dark/i }));
     expect(onThemeChange).toHaveBeenCalledWith("dark");
   });
@@ -70,42 +89,6 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText(/api key/i)).toHaveValue("");
   });
 
-  it("renders every pipeline tunable from config settings", async () => {
-    renderPanel(client());
-    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
-    expect(screen.getByRole("spinbutton", { name: /debate rounds/i })).toHaveValue("2");
-    // InputNumber's step=0.05 infers 2-decimal precision ("0.70"); compare numerically per
-    // the brief's documented jsdom/antd fallback (getAttribute over toHaveValue's string match).
-    expect(Number(screen.getByRole("spinbutton", { name: /judge threshold/i }).getAttribute("value"))).toBe(0.7);
-    expect(screen.getByRole("spinbutton", { name: /judge max retries/i })).toHaveValue("1");
-    expect(screen.getByRole("spinbutton", { name: /provider max retries/i })).toHaveValue("6");
-  });
-
-  it("saves the full form including tunables via config.set", async () => {
-    const configSet = vi.fn(async (_params: ConfigSetParams) => status);
-    renderPanel(client({ configSet } as Partial<IpcClient>));
-    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
-
-    fireEvent.change(screen.getByRole("spinbutton", { name: /debate rounds/i }), { target: { value: "3" } });
-    fireEvent.change(screen.getByLabelText(/github repository/i), { target: { value: "acme/widgets" } });
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
-
-    await waitFor(() => expect(configSet).toHaveBeenCalled());
-    const params = configSet.mock.calls[0][0];
-    expect(params.model).toBe("anthropic:claude-sonnet-4-6");
-    expect(params.provider).toBe("anthropic");
-    expect(params.api_key).toBeUndefined(); // blank secret omitted
-    expect(params.settings).toMatchObject({
-      debate_rounds: 3,
-      judge_threshold: 0.7,
-      judge_max_retries: 1,
-      max_retries: 6,
-      log_level: "INFO",
-      github_repo: "acme/widgets",
-    });
-    expect(params.settings!.github_token).toBeUndefined();
-  });
-
   it("changing provider dropdown sets model to that provider's default", async () => {
     renderPanel(client());
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
@@ -115,16 +98,27 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText(/model/i)).toHaveValue("openai:gpt-4o");
   });
 
-  it("shows workspace paths read-only", async () => {
-    renderPanel(client());
-    expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
-    expect(screen.getByText(workspace.prompts_dir)).toBeInTheDocument();
+  it("renders every pipeline tunable bound to its own setting", async () => {
+    // Distinct values so a JSX swap between two Pref blocks is caught.
+    const distinct: ConfigStatus = {
+      ...status,
+      settings: { debate_rounds: 3, judge_threshold: 0.85, judge_max_retries: 2, max_retries: 5 },
+    };
+    renderPanel(client({ configGet: async () => distinct } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    expect(screen.getByRole("spinbutton", { name: /debate rounds/i })).toHaveValue("3");
+    // InputNumber's step=0.05 infers 2-decimal precision ("0.85"); compare numerically per
+    // the documented jsdom/antd fallback (getAttribute over toHaveValue's string match).
+    expect(Number(screen.getByRole("spinbutton", { name: /judge threshold/i }).getAttribute("value"))).toBe(0.85);
+    expect(screen.getByRole("spinbutton", { name: /judge max retries/i })).toHaveValue("2");
+    expect(screen.getByRole("spinbutton", { name: /provider max retries/i })).toHaveValue("5");
   });
 
-  it("hides the workspace section when workspaces.show fails", async () => {
+  it("Runtime section shows a fallback when workspaces.show fails", async () => {
     renderPanel(client({ workspacesShow: async () => Promise.reject(new Error("nope")) } as Partial<IpcClient>));
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
-    expect(screen.queryByText(/^workspace$/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /runtime/i }));
+    expect(await screen.findByText(/workspace details unavailable/i)).toBeInTheDocument();
   });
 
   it("surfaces config problems", async () => {
@@ -133,13 +127,40 @@ describe("SettingsPanel", () => {
     expect(await screen.findByText(/Missing API key/)).toBeInTheDocument();
   });
 
+  it("saves the four tunables and model via config.set", async () => {
+    const configSet = vi.fn(async (_params: ConfigSetParams) => status);
+    renderPanel(client({ configSet } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.change(screen.getByRole("spinbutton", { name: /debate rounds/i }), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(configSet).toHaveBeenCalled());
+    const params = configSet.mock.calls[0][0];
+    expect(params.settings).toEqual({
+      debate_rounds: 3, judge_threshold: 0.7, judge_max_retries: 1, max_retries: 6,
+    });
+  });
+
+  it("labels env-overridden fields", async () => {
+    const overridden = { ...status, origins: { ...status.origins, debate_rounds: "env" as const } };
+    renderPanel(client({ configGet: async () => overridden } as Partial<IpcClient>));
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    expect(screen.getByText(/overridden by environment/i)).toBeInTheDocument();
+  });
+
+  it("Runtime section shows workspace paths read-only", async () => {
+    renderPanel(client());
+    await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
+    fireEvent.click(screen.getByRole("button", { name: /runtime/i }));
+    expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
+  });
+
   it("shows Saved after a successful save and clears it on the next edit", async () => {
     const configSet = vi.fn(async () => status);
     renderPanel(client({ configSet } as Partial<IpcClient>));
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(await screen.findByText("Saved")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/github repository/i), { target: { value: "acme/widgets" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: /debate rounds/i }), { target: { value: "3" } });
     expect(screen.queryByText("Saved")).not.toBeInTheDocument();
   });
 
@@ -149,9 +170,9 @@ describe("SettingsPanel", () => {
     });
     renderPanel(client({ configSet } as Partial<IpcClient>));
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
-    fireEvent.change(screen.getByLabelText(/github repository/i), { target: { value: "acme/widgets" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: /debate rounds/i }), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(await screen.findByText(/save failed/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/github repository/i)).toHaveValue("acme/widgets");
+    expect(screen.getByRole("spinbutton", { name: /debate rounds/i })).toHaveValue("3");
   });
 });

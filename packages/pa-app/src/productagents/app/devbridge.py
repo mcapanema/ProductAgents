@@ -63,13 +63,13 @@ async def _handle_connection(websocket, *, services: dict) -> None:
         return  # client went away mid-request; nothing to clean up
 
 
-async def _serve(active_name: str, *, port: int) -> None:
+async def _serve(active_name: str, *, port: int, config=None) -> None:
     # ponytail: a TCP port-readiness probe (e.g. Playwright's webServer check)
     # opens a non-WebSocket connection that websockets logs as a failed
     # handshake. Quiet that probe noise; a real client that can't connect still
     # surfaces as a dropped connection the browser handles.
     logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
-    services = ipc.build_services(active_name)
+    services = ipc.build_services(active_name, config=config)
     async with websockets.serve(
         lambda ws: _handle_connection(ws, services=services),
         "127.0.0.1",
@@ -78,10 +78,10 @@ async def _serve(active_name: str, *, port: int) -> None:
         await asyncio.Future()  # run until cancelled / interrupted
 
 
-def serve_ws(active_name: str, *, port: int = DEFAULT_PORT) -> None:
+def serve_ws(active_name: str, *, port: int = DEFAULT_PORT, config=None) -> None:
     """Run the dev WebSocket bridge on ``127.0.0.1:<port>`` until interrupted.
 
     Backs ``productagents serve-ws``. Ctrl+C exits cleanly.
     """
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(_serve(active_name, port=port))
+        asyncio.run(_serve(active_name, port=port, config=config))

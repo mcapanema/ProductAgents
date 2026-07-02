@@ -30,6 +30,7 @@ from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.memory_service import MemoryService
+from productagents.platform.preference_service import PreferenceService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
@@ -80,7 +81,9 @@ def _build_reflection():
         return None
 
 
-def build_services(active_name: str) -> dict:
+def build_services(
+    active_name: str, *, config: ConfigurationService | None = None
+) -> dict:
     """Construct the production Application Services the IPC adapters dispatch to.
 
     Shared by ``serve_stdio`` (stdio transport) and the dev WebSocket bridge
@@ -88,6 +91,12 @@ def build_services(active_name: str) -> dict:
     model-backed WorkflowService (so ``run`` works), plus the workspace + session
     + decision read services. The returned dict is exactly the keyword set
     ``serve`` / ``handle`` consume.
+
+    ``config`` lets a caller (``cli.main``) hand in the single, already-``load()``ed
+    ``ConfigurationService`` for this process, so its ``_seeded``/``_overrides``
+    state (and thus ``settings_origins()``) reflects the real startup precedence
+    chain instead of a fresh instance's empty state. Falls back to a fresh
+    instance for tests/back-compat.
 
     ponytail: the model is built up front, so even read methods need a key. Make
     the WorkflowService lazy-on-first-run only if a client must browse without one.
@@ -100,19 +109,24 @@ def build_services(active_name: str) -> dict:
         "decisions": DecisionReadService.create(),
         "connectors": ConnectorService(),
         "prompts": PromptService.create(),
-        "config": ConfigurationService(active_name=active_name),
+        "config": config
+        if config is not None
+        else ConfigurationService(active_name=active_name),
+        "preferences": PreferenceService(),
         "reflection": _build_reflection(),
         "memory": MemoryService.create(),
     }
 
 
-def serve_stdio(active_name: str) -> None:
+def serve_stdio(
+    active_name: str, *, config: ConfigurationService | None = None
+) -> None:
     """Build production services and serve the stdio loop until EOF.
 
     Backs ``productagents ipc``. The Tauri shell (Phase 8) spawns this as its
     sidecar.
     """
-    asyncio.run(serve(**build_services(active_name)))
+    asyncio.run(serve(**build_services(active_name, config=config)))
 
 
 async def _run(
@@ -335,6 +349,7 @@ def _config_dict(config) -> dict:
         "key_present": status.key_present,
         "problems": status.problems,
         "settings": config.settings(),
+        "origins": config.settings_origins(),
         "providers": [
             {
                 "id": pid,
@@ -358,6 +373,7 @@ async def handle(
     connectors: Any = None,
     prompts: Any = None,
     config: Any = None,
+    preferences: Any = None,
     reflection: Any = None,
     memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
@@ -443,7 +459,7 @@ async def handle(
         async def _connectors_list(_p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
-            result = _connector_plan_dict(connectors.plan())
+            result = _connector_plan_dict(await connectors.plan())
             result["last_synced"] = await connectors.last_synced()
             await emit({"id": rid, "result": result})
 
@@ -523,13 +539,38 @@ async def handle(
         async def _config_set(p: dict) -> None:
             if config is None:
                 raise RuntimeError("config service not available")
-            config.set(
+            await config.set(
                 p["model"],
                 provider=p.get("provider"),
                 api_key=p.get("api_key"),
                 settings=p.get("settings"),
             )
             await emit({"id": rid, "result": _config_dict(config)})
+
+        async def _preferences_get(_p: dict) -> None:
+            if preferences is None:
+                raise RuntimeError("preferences service not available")
+            prefs = await preferences.all()
+            await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
+
+        async def _preferences_set(p: dict) -> None:
+            if preferences is None:
+                raise RuntimeError("preferences service not available")
+            prefs = await preferences.set("theme", p["theme"])
+            await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
+
+        async def _connectors_config_list(_p: dict) -> None:
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            await emit({"id": rid, "result": await connectors.config_list()})
+
+        async def _connectors_config_save(p: dict) -> None:
+            if connectors is None:
+                raise RuntimeError("connectors service not available")
+            entry = await connectors.config_save(
+                p["connector"], p.get("config") or {}, secrets=p.get("secrets")
+            )
+            await emit({"id": rid, "result": entry})
 
         async def _memory_lessons(_p: dict) -> None:
             if memory is None:
@@ -559,6 +600,10 @@ async def handle(
             "prompts.rollback": _prompts_rollback,
             "config.get": _config_get,
             "config.set": _config_set,
+            "preferences.get": _preferences_get,
+            "preferences.set": _preferences_set,
+            "connectors.config.list": _connectors_config_list,
+            "connectors.config.save": _connectors_config_save,
             "reflection.record": _reflection_record,
             "memory.lessons": _memory_lessons,
             "run.cancel": _run_cancel,
@@ -584,6 +629,7 @@ async def serve(
     connectors: Any = None,
     prompts: Any = None,
     config: Any = None,
+    preferences: Any = None,
     reflection: Any = None,
     memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
@@ -642,6 +688,7 @@ async def serve(
             connectors=connectors,
             prompts=prompts,
             config=config,
+            preferences=preferences,
             reflection=reflection,
             memory=memory,
             read_line=read_line,

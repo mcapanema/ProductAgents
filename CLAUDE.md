@@ -130,6 +130,7 @@ uv run productagents sessions list           # list persisted runtime sessions
 uv run productagents sessions show <id>      # replay a session's event timeline
 uv run productagents reflect [<decision-id> "<note>"]   # list past decisions / record an outcome
 uv run productagents --workspace <name> ...  # run any of the above against a named workspace
+uv run productagents --set debate_rounds=3 --set judge_threshold=0.8 <command>  # override workspace config (repeatable; friendly keys; see Workspace configuration)
 uv run pytest           # full suite — runs offline with a fake model, no API key
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test
@@ -143,16 +144,27 @@ cd desktop && npm run tauri dev   # launch the V3 desktop GUI (dev; spawns the i
 
 ### Runtime configuration (env vars)
 
-- `PRODUCTAGENTS_MODEL` — provider-prefixed model id, default `anthropic:claude-sonnet-4-6`. For non-LangChain-native providers also set `PRODUCTAGENTS_MODEL_PROVIDER`. Provide the matching key (e.g. `ANTHROPIC_API_KEY`).
-- `PRODUCTAGENTS_DEBATE_ROUNDS` — debate rounds, default 2 (each round = one advocate argument + one skeptic rebuttal).
-- `PRODUCTAGENTS_JUDGE_THRESHOLD` — judge pass threshold for both rubric dimensions (evidence grounding, rationale coherence), default 0.7.
-- `PRODUCTAGENTS_JUDGE_MAX_RETRIES` — max strategist revisions the judge can trigger, default 1. `0` makes the judge score-only (it never loops back to the strategist).
-- `PRODUCTAGENTS_MAX_RETRIES` — automatic retry budget (with backoff) for transient provider errors (e.g. free-tier OpenRouter 429/5xx), default 6.
-- `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only** (the CLI streams events to stdout; the GUI consumes IPC).
-- `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback.
+Bootstrap-only settings, read from `.env`/the shell before the workspace even resolves. These are never in the workspace DB and have no `--set` key.
+
 - `PRODUCTAGENTS_HOME` — directory holding all workspaces (default `~/.productagents`; workspaces live under `<home>/workspaces/<name>/`).
 - `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). On launch the platform resolves this workspace, creates its directory if absent, and **activates** it: the workspace's `productagents.db`, `connectors.yaml`, `.env`, and `productagents.log` become the defaults by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the workspace `.env`.
+- `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` — overrides for the workspace DB path / connectors YAML path (normally set by workspace activation).
+- `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only** (the CLI streams events to stdout; the GUI consumes IPC).
+- `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback. Runtime-only — not in `settings()`/the GUI.
 - `PRODUCTAGENTS_PROMPTS_DIR` — directory of per-workspace prompt overrides (default `<workspace.root>/prompts`, set by `WorkspaceService.activate`). Each prompt is `<dir>/<name>/NNNN.txt`; the highest number is active; version 0 is the bundled default. An explicit export wins (`setdefault`).
+
+### Workspace configuration (pipeline tunables, DB-backed)
+
+Six friendly keys, each backed by a `PRODUCTAGENTS_*` var, live in the workspace DB (`workspace_config` table) and are materialized into the process environment once at startup by `ConfigurationService.load()` (`setdefault`, so nothing already-present is clobbered). Precedence, highest wins: **`--set KEY=VALUE` (CLI) > exported env var > workspace DB > built-in default**. Edited via desktop Settings › Workspace › Configuration (`config.get`/`config.set` IPC) or `productagents --set KEY=VALUE <command>` (repeatable; unknown key raises a friendly error). `ConfigurationService.settings_origins()` reports which tier supplies each key right now, surfaced in the GUI as an "Overridden by environment" / "Set by --set override" hint.
+
+- `model` → `PRODUCTAGENTS_MODEL` — provider-prefixed model id, default `anthropic:claude-sonnet-4-6`. For non-LangChain-native providers also set `model_provider`. Provide the matching key (e.g. `ANTHROPIC_API_KEY`) — API keys are secrets and stay in the workspace `.env`, never the DB.
+- `model_provider` → `PRODUCTAGENTS_MODEL_PROVIDER`.
+- `debate_rounds` → `PRODUCTAGENTS_DEBATE_ROUNDS` — debate rounds, default 2 (each round = one advocate argument + one skeptic rebuttal).
+- `judge_threshold` → `PRODUCTAGENTS_JUDGE_THRESHOLD` — judge pass threshold for both rubric dimensions (evidence grounding, rationale coherence), default 0.7.
+- `judge_max_retries` → `PRODUCTAGENTS_JUDGE_MAX_RETRIES` — max strategist revisions the judge can trigger, default 1. `0` makes the judge score-only (it never loops back to the strategist).
+- `max_retries` → `PRODUCTAGENTS_MAX_RETRIES` — automatic retry budget (with backoff) for transient provider errors (e.g. free-tier OpenRouter 429/5xx), default 6.
+
+**One-time migrations**, both idempotent and run at startup: `ConfigurationService.load()` moves any of the six keys still sitting in the workspace `.env` into the `workspace_config` table (the stale `.env` line is removed so it can never out-rank the DB); connector config similarly one-time-imports `connectors.yaml` into the `connector_config` table and renames the file to `connectors.yaml.imported` (malformed YAML degrades: logged, renamed to `.invalid`, the DB stays empty and the run proceeds). Connector config is edited via Settings › Workspace › Connectors, secrets referenced as `*_env` names (never raw values) and written to the workspace `.env`.
 
 > **Structured output requires tool/function calling.** Every node calls
 > `model.with_structured_output(...)`. A model that does not support tool calling
@@ -166,7 +178,7 @@ cd desktop && npm run tauri dev   # launch the V3 desktop GUI (dev; spawns the i
 > banner (a `RunAbortedEvent`); transient upstream 5xx errors degrade per-node as
 > before.
 
-Readiness and setup live in the desktop **Settings** panel (`config.get` / `config.set` IPC methods); for the CLI, edit the active workspace `.env` directly. The check is static — it never makes a network call.
+Readiness and setup live in the desktop **Settings** panel (`config.get` / `config.set` IPC methods); for the CLI, use `--set KEY=VALUE` for the six workspace-config keys above, or edit the active workspace `.env` directly for the provider API key. The check is static — it never makes a network call.
 
 ## Architecture
 

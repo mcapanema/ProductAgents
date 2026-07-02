@@ -58,3 +58,33 @@ class RuntimeEventRow(Base):
     event_type: Mapped[str] = mapped_column(String)
     ts: Mapped[str] = mapped_column(String)
     payload: Mapped[dict] = mapped_column(JSON)  # serialized platform Event fields
+
+
+class WorkspaceConfigRow(Base):
+    """One workspace-configuration value (env-shaped string) per friendly key."""
+
+    __tablename__ = "workspace_config"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[str] = mapped_column(String)
+
+
+class ConnectorConfigRow(Base):
+    """One raw connector config block (same shape connectors.yaml held)."""
+
+    __tablename__ = "connector_config"
+
+    connector: Mapped[str] = mapped_column(String, primary_key=True)
+    config: Mapped[dict] = mapped_column(JSON)
+    updated_at: Mapped[str] = mapped_column(String)
+
+
+class PreferenceRow(Base):
+    """One user-experience preference (never affects workflow execution)."""
+
+    __tablename__ = "preference"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[str] = mapped_column(String)
