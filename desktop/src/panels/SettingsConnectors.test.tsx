@@ -8,11 +8,14 @@ import type { ConnectorConfigEntry } from "../ipc/types";
 const entry: ConnectorConfigEntry = {
   connector: "github",
   installed: true,
+  // config reflects what's actually persisted (the *_env convention); schema
+  // is the real GitHubConfig shape (raw `token`, optional -> anyOf string|null).
   config: { owner: "acme", repo: "widgets", token_env: "PRODUCTAGENTS_GITHUB_TOKEN", enabled: true },
   schema: {
     properties: {
       enabled: { type: "boolean" }, owner: { type: "string" },
-      repo: { type: "string" }, token_env: { type: "string" },
+      repo: { type: "string" },
+      token: { anyOf: [{ type: "string" }, { type: "null" }], title: "Token" },
     },
     required: ["owner", "repo"],
   },

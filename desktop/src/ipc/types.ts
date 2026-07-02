@@ -161,7 +161,10 @@ export interface Preferences {
 }
 
 export interface ConnectorSchema {
-  properties?: Record<string, { type?: string; title?: string }>;
+  properties?: Record<
+    string,
+    { type?: string; title?: string; anyOf?: { type?: string }[] }
+  >;
   required?: string[];
 }
 

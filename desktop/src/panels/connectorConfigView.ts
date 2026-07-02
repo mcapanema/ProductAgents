@@ -14,18 +14,55 @@ const KINDS: Record<string, ConnectorField["kind"]> = {
   boolean: "boolean",
 };
 
-/** Flat, typed schema properties -> form fields. `enabled` gets its own toggle. */
+// Field-name shapes that mean "this is a secret value" by convention. Mirrors
+// the server-side check (ConnectorService.config_save / _is_secret_shaped).
+const SECRET_NAMES = new Set(["token", "password", "secret"]);
+const SECRET_SUFFIXES = ["_token", "_key", "_secret"];
+
+function isSecretShaped(name: string): boolean {
+  return SECRET_NAMES.has(name) || SECRET_SUFFIXES.some((suffix) => name.endsWith(suffix));
+}
+
+type SchemaProp = NonNullable<ConnectorSchema["properties"]>[string];
+
+function isStringShaped(prop: SchemaProp): boolean {
+  return prop.type === "string" || Boolean(prop.anyOf?.some((p) => p.type === "string"));
+}
+
+/** Flat, typed schema properties -> form fields. `enabled` gets its own toggle.
+ *
+ * Secret-shaped string properties (name `token`/`password`/`secret`, or ending
+ * in `_token`/`_key`/`_secret` — including optional `anyOf [string, null]`
+ * shapes, which is how a `str | None` field serializes) are never rendered
+ * raw: they're synthesized into a `<name>_env` secretRef field instead, so the
+ * value never round-trips through the form. Non-secret anyOf-string-or-null
+ * properties keep the previous behavior (skipped, same as any other untyped
+ * property). */
 export function fieldsFromSchema(schema: ConnectorSchema | null): ConnectorField[] {
   if (!schema?.properties) return [];
   const required = new Set(schema.required ?? []);
-  return Object.entries(schema.properties)
-    .filter(([name, prop]) => name !== "enabled" && prop.type !== undefined && KINDS[prop.type!])
-    .map(([name, prop]) => ({
-      name,
-      kind: KINDS[prop.type!],
-      secretRef: name.endsWith("_env"),
-      required: required.has(name),
-    }));
+  const fields: ConnectorField[] = [];
+  for (const [name, prop] of Object.entries(schema.properties)) {
+    if (name === "enabled") continue;
+    if (isSecretShaped(name) && isStringShaped(prop)) {
+      fields.push({
+        name: `${name}_env`,
+        kind: "string",
+        secretRef: true,
+        required: required.has(name),
+      });
+      continue;
+    }
+    if (prop.type !== undefined && KINDS[prop.type]) {
+      fields.push({
+        name,
+        kind: KINDS[prop.type],
+        secretRef: false,
+        required: required.has(name),
+      });
+    }
+  }
+  return fields;
 }
 
 /** The raw block to save: config + edits + enabled, blanks dropped. */

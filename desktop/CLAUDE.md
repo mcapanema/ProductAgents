@@ -63,7 +63,13 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   `origins` hint ("Overridden by environment" / "Set by --set override") when
   a tier above the workspace DB is in play; Connectors is the connector-config
   editor, `SettingsConnectors.tsx` + `connectorConfigView.ts` (schema-driven
-  form per connector, secrets as `*_env` names); Preferences holds the theme
+  form per connector; `fieldsFromSchema` detects secret-shaped raw fields —
+  `token`/`password`/`secret`, or a name ending in `_token`/`_key`/`_secret`,
+  including optional `anyOf [string, null]` ones — and synthesizes a
+  `<field>_env` secretRef field so a secret value never round-trips through
+  the form; `ConnectorService.config_save` rejects a raw value under a
+  secret-shaped key server-side too, so a secret can never reach the DB
+  regardless of client); Preferences holds the theme
   toggle, synced workspace DB ↔ localStorage via `preferences.get`/
   `preferences.set` IPC (`ui/useThemePreference.ts`); Runtime is the read-only
   workspace-paths section; Updates is unchanged. Log level and the GitHub
