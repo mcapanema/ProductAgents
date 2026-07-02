@@ -30,8 +30,15 @@ def _session_dict(row: RuntimeSessionRow) -> dict:
 
 
 class EventStore:
-    def __init__(self, session: AsyncSession) -> None:
+    """Append-only execution log, scoped to one workspace.
+
+    Sessions are scoped to workspace (every read filters on it, every write stamps it).
+    Events are globally keyed by session_id (no workspace filtering on event reads).
+    """
+
+    def __init__(self, session: AsyncSession, workspace: str = "default") -> None:
         self._session = session
+        self._workspace = workspace
 
     async def start_session(
         self, session_id: str, workflow: str, status: str, created_at: str
@@ -39,6 +46,7 @@ class EventStore:
         await self._session.merge(
             RuntimeSessionRow(
                 id=session_id,
+                workspace=self._workspace,
                 workflow=workflow,
                 status=status,
                 created_at=created_at,
@@ -75,9 +83,9 @@ class EventStore:
         rows = (
             (
                 await self._session.execute(
-                    select(RuntimeSessionRow).order_by(
-                        RuntimeSessionRow.created_at.desc()
-                    )
+                    select(RuntimeSessionRow)
+                    .where(RuntimeSessionRow.workspace == self._workspace)
+                    .order_by(RuntimeSessionRow.created_at.desc())
                 )
             )
             .scalars()

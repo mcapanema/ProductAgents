@@ -79,3 +79,28 @@ async def test_events_are_scoped_to_one_session(store):
     await store.append("b", 0, "NodeProgress", "t", {"x": 2})
     assert len(await store.events("a")) == 1
     assert (await store.events("a"))[0]["payload"] == {"x": 1}
+
+
+async def test_sessions_are_isolated_per_workspace():
+    """Sessions are scoped to workspace, but events are globally keyed by session_id."""
+    engine = _engine()
+    await store_mod.create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        a = EventStore(session, "a")
+        b = EventStore(session, "b")
+        await a.start_session("s-a", "wf", "running", "2026-01-01T00:00:00+00:00")
+        await b.start_session("s-b", "wf", "running", "2026-01-02T00:00:00+00:00")
+        assert [r["id"] for r in await a.sessions()] == ["s-a"]
+        # events are keyed by globally-unique session_id — no workspace column
+        await b.append("s-b", 0, "SessionStarted", "t", {})
+        assert await a.events("s-b") == [
+            {
+                "session_id": "s-b",
+                "seq": 0,
+                "event_type": "SessionStarted",
+                "ts": "t",
+                "payload": {},
+            }
+        ]
+    await engine.dispose()

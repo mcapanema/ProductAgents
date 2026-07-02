@@ -91,3 +91,32 @@ async def test_outcomes_round_trip(session):
     got = await s.outcomes()
     assert len(got) == 1
     assert got[0].lessons_learned == ["SSO takes longer"]
+
+
+async def test_decisions_are_isolated_per_workspace(session):
+    a = DecisionStore(session, "a")
+    b = DecisionStore(session, "b")
+    await a.record(_decision("da"), [0.1])
+    await b.record(_decision("db"), [0.2])
+
+    assert [d.decision_id for d in await a.decisions()] == ["da"]
+    assert list((await a.embeddings()).keys()) == ["da"]
+    await a.record_outcome(
+        OutcomeRecord(
+            decision_id="da",
+            actual_outcomes=["shipped"],
+            prediction_accuracy=0.8,
+            lessons_learned=["SSO was worth it"],
+            reflected_at="2026-06-20T00:00:00+00:00",
+        )
+    )
+    await b.record_outcome(
+        OutcomeRecord(
+            decision_id="db",
+            actual_outcomes=["delayed"],
+            prediction_accuracy=0.5,
+            lessons_learned=["delayed"],
+            reflected_at="2026-06-20T00:00:00+00:00",
+        )
+    )
+    assert [o.decision_id for o in await a.outcomes()] == ["da"]
