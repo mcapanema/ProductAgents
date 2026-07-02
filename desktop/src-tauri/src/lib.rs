@@ -96,15 +96,17 @@ fn spawn_sidecar(handle: &tauri::AppHandle) -> Result<(Child, ChildStdin), Strin
 /// fresh process). The old reader thread exits on EOF after the kill.
 #[tauri::command]
 fn ipc_restart(app: tauri::AppHandle, sidecar: State<'_, Sidecar>) -> Result<(), String> {
-    if let Ok(mut guard) = sidecar.child.lock() {
-        if let Some(mut old) = guard.take() {
-            let _ = old.kill();
-            let _ = old.wait();
-        }
-    }
+    // Spawn the replacement first — if this fails, the old sidecar keeps
+    // running and the app degrades to an error instead of a dead pipe.
     let (child, stdin) = spawn_sidecar(&app)?;
-    *sidecar.stdin.lock().map_err(|e| e.to_string())? = stdin;
-    *sidecar.child.lock().map_err(|e| e.to_string())? = Some(child);
+    let mut child_guard = sidecar.child.lock().map_err(|e| e.to_string())?;
+    let mut stdin_guard = sidecar.stdin.lock().map_err(|e| e.to_string())?;
+    if let Some(mut old) = child_guard.take() {
+        let _ = old.kill();
+        let _ = old.wait();
+    }
+    *stdin_guard = stdin;
+    *child_guard = Some(child);
     Ok(())
 }
 
