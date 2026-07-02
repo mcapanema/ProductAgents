@@ -164,3 +164,11 @@ def test_active_marker_is_not_listed_as_a_workspace(tmp_path):
     svc.create("acme")
     svc.set_active("acme")
     assert [w.name for w in svc.list()] == ["acme"]
+
+
+def test_set_active_rejects_traversal_names(tmp_path):
+    svc = WorkspaceService(home=tmp_path)
+    svc.create("acme")
+    for bad in ("..", ".", "acme/.."):
+        with pytest.raises(WorkspaceError):
+            svc.set_active(bad)

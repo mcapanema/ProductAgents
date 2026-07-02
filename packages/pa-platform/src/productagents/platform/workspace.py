@@ -145,6 +145,8 @@ class WorkspaceService:
 
     def set_active(self, name: str) -> Workspace:
         """Persist ``name`` as the active workspace. It must already exist."""
+        if not _NAME_RE.fullmatch(name):
+            raise WorkspaceError(f"invalid workspace name: {name!r}")
         ws = self.get(name)
         if ws is None:
             raise WorkspaceError(f"no such workspace: {name}")
