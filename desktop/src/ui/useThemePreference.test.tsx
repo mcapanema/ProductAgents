@@ -1,7 +1,8 @@
-import { beforeEach, describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, renderHook, act, waitFor } from "@testing-library/react";
 import { useThemePreference } from "./useThemePreference";
 import { THEME_STORAGE_KEY } from "./theme";
+import type { IpcClient } from "../ipc/client";
 
 function Harness() {
   const { pref, setPref, resolved } = useThemePreference();
@@ -43,5 +44,39 @@ describe("useThemePreference", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
     render(<Harness />);
     expect(screen.getByTestId("pref").textContent).toBe("dark");
+  });
+
+  it("applies the DB preference once IPC is ready, without writing back", async () => {
+    window.localStorage.setItem("pa-theme", "light");
+    const preferencesGet = vi.fn(async () => ({ theme: "dark" }));
+    const preferencesSet = vi.fn(async () => ({ theme: "dark" }));
+    const ipc = { preferencesGet, preferencesSet } as unknown as IpcClient;
+
+    const { result } = renderHook(() => useThemePreference(ipc));
+    await waitFor(() => expect(result.current.pref).toBe("dark"));
+    expect(window.localStorage.getItem("pa-theme")).toBe("dark");
+    expect(preferencesSet).not.toHaveBeenCalled();
+  });
+
+  it("setPref persists to localStorage and the workspace DB", async () => {
+    const preferencesGet = vi.fn(async () => ({ theme: null }));
+    const preferencesSet = vi.fn(async () => ({ theme: "system" }));
+    const ipc = { preferencesGet, preferencesSet } as unknown as IpcClient;
+
+    const { result } = renderHook(() => useThemePreference(ipc));
+    act(() => result.current.setPref("system"));
+    expect(window.localStorage.getItem("pa-theme")).toBe("system");
+    await waitFor(() => expect(preferencesSet).toHaveBeenCalledWith("system"));
+  });
+
+  it("ignores an invalid DB value", async () => {
+    window.localStorage.setItem("pa-theme", "light");
+    const ipc = {
+      preferencesGet: vi.fn(async () => ({ theme: "purple" })),
+      preferencesSet: vi.fn(),
+    } as unknown as IpcClient;
+    const { result } = renderHook(() => useThemePreference(ipc));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current.pref).toBe("light");
   });
 });

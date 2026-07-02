@@ -66,6 +66,8 @@ function fakeClient(): IpcClient {
     }),
     workspacesShow: async () => Promise.reject(new Error("not used in this test")),
     approve: async () => ({ ok: true }),
+    preferencesGet: async () => ({ theme: null }),
+    preferencesSet: async (theme: string) => ({ theme }),
   } as unknown as IpcClient;
 }
 
