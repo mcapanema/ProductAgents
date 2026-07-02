@@ -1,6 +1,7 @@
 import type {
   ConfigSetParams,
   ConfigStatus,
+  ConnectorConfigEntry,
   ConnectorHealth,
   ConnectorList,
   ConnectorSync,
@@ -9,6 +10,7 @@ import type {
   IpcMessage,
   Lesson,
   OutcomeRecord,
+  Preferences,
   PromptDiff,
   PromptSummary,
   PromptVersion,
@@ -168,5 +170,29 @@ export class IpcClient {
 
   runCancel(sessionId: string): Promise<{ ok: boolean }> {
     return this.call<{ ok: boolean }>("run.cancel", { session_id: sessionId });
+  }
+
+  preferencesGet(): Promise<Preferences> {
+    return this.call<Preferences>("preferences.get");
+  }
+
+  preferencesSet(theme: string): Promise<Preferences> {
+    return this.call<Preferences>("preferences.set", { theme });
+  }
+
+  connectorsConfigList(): Promise<ConnectorConfigEntry[]> {
+    return this.call<ConnectorConfigEntry[]>("connectors.config.list");
+  }
+
+  connectorsConfigSave(
+    connector: string,
+    config: Record<string, unknown>,
+    secrets?: Record<string, string>,
+  ): Promise<ConnectorConfigEntry> {
+    return this.call<ConnectorConfigEntry>("connectors.config.save", {
+      connector,
+      config,
+      ...(secrets ? { secrets } : {}),
+    });
   }
 }

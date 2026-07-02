@@ -147,14 +147,30 @@ export interface ProviderInfo {
   default_model: string;
 }
 
+export type SettingOrigin = "override" | "env" | "db" | "default";
+
 export interface ConfigSettings {
   debate_rounds: number;
   judge_threshold: number;
   judge_max_retries: number;
   max_retries: number;
-  log_level: string;
-  github_repo: string;
-  github_token_present: boolean;
+}
+
+export interface Preferences {
+  theme: string | null;
+}
+
+export interface ConnectorSchema {
+  properties?: Record<string, { type?: string; title?: string }>;
+  required?: string[];
+}
+
+export interface ConnectorConfigEntry {
+  connector: string;
+  installed: boolean;
+  config: Record<string, unknown>;
+  schema: ConnectorSchema | null;
+  problems: string[];
 }
 
 export interface ConfigStatus {
@@ -164,6 +180,7 @@ export interface ConfigStatus {
   key_present: boolean;
   problems: string[];
   settings: ConfigSettings;
+  origins: Record<string, SettingOrigin>;
   providers: ProviderInfo[];
 }
 
@@ -172,9 +189,6 @@ export interface ConfigSetSettings {
   judge_threshold?: number;
   judge_max_retries?: number;
   max_retries?: number;
-  log_level?: string;
-  github_repo?: string;
-  github_token?: string;
 }
 
 export interface ConfigSetParams {
