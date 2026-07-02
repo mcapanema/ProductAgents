@@ -66,39 +66,62 @@ fn sidecar_command() -> Command {
     }
 }
 
+/// Spawn the sidecar and wire its stdout to `ipc://message` events.
+/// Returns the child handle and its stdin for `ipc_send`.
+fn spawn_sidecar(handle: &tauri::AppHandle) -> Result<(Child, ChildStdin), String> {
+    let mut child = sidecar_command()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("failed to spawn the IPC sidecar: {e}"))?;
+    let stdout = child.stdout.take().ok_or("sidecar stdout missing")?;
+    let stdin = child.stdin.take().ok_or("sidecar stdin missing")?;
+    let handle = handle.clone();
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(text) => {
+                    let _ = handle.emit("ipc://message", text);
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    Ok((child, stdin))
+}
+
+/// Restart the sidecar in place (used after a workspace switch: the Python
+/// backend resolves the active workspace at startup, so switching requires a
+/// fresh process). The old reader thread exits on EOF after the kill.
+#[tauri::command]
+fn ipc_restart(app: tauri::AppHandle, sidecar: State<'_, Sidecar>) -> Result<(), String> {
+    if let Ok(mut guard) = sidecar.child.lock() {
+        if let Some(mut old) = guard.take() {
+            let _ = old.kill();
+            let _ = old.wait();
+        }
+    }
+    let (child, stdin) = spawn_sidecar(&app)?;
+    *sidecar.stdin.lock().map_err(|e| e.to_string())? = stdin;
+    *sidecar.child.lock().map_err(|e| e.to_string())? = Some(child);
+    Ok(())
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            let mut child = sidecar_command()
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .spawn()
-                .expect("failed to spawn the IPC sidecar");
-
-            let stdout = child.stdout.take().expect("sidecar stdout missing");
-            let stdin = child.stdin.take().expect("sidecar stdin missing");
+            let (child, stdin) =
+                spawn_sidecar(&app.handle().clone()).expect("failed to spawn the IPC sidecar");
             app.manage(Sidecar {
                 stdin: Mutex::new(stdin),
                 child: Mutex::new(Some(child)),
             });
-
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines() {
-                    match line {
-                        Ok(text) => {
-                            let _ = handle.emit("ipc://message", text);
-                        }
-                        Err(_) => break,
-                    }
-                }
-            });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![ipc_send])
+        .invoke_handler(tauri::generate_handler![ipc_send, ipc_restart])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
