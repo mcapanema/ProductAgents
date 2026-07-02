@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { IpcClient } from "../ipc/client";
 import type { Theme, ThemePref } from "./theme";
 import { readStoredPref, readSystemTheme, writeStoredPref } from "./theme";
@@ -18,6 +18,8 @@ export function useThemePreference(ipc?: IpcClient | null): {
 } {
   const [pref, setPrefState] = useState<ThemePref>(readStoredPref);
   const [systemTheme, setSystemTheme] = useState<Theme>(readSystemTheme);
+  // The user's explicit choice beats a still-in-flight preferencesGet result.
+  const userOverrode = useRef(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -32,7 +34,7 @@ export function useThemePreference(ipc?: IpcClient | null): {
     ipc
       .preferencesGet()
       .then(({ theme }) => {
-        if (!active || !theme) return;
+        if (!active || userOverrode.current || !theme) return;
         if ((PREFS as readonly string[]).includes(theme)) {
           setPrefState(theme as ThemePref);
           writeStoredPref(theme as ThemePref); // refresh the boot cache
@@ -48,6 +50,7 @@ export function useThemePreference(ipc?: IpcClient | null): {
 
   const setPref = useCallback(
     (next: ThemePref) => {
+      userOverrode.current = true;
       setPrefState(next);
       writeStoredPref(next);
       ipc?.preferencesSet(next).catch(() => {});
