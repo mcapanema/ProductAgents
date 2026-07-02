@@ -1,19 +1,16 @@
 import { useState } from "react";
+import { Button } from "antd";
 import { isTauri } from "../ipc/transport";
 import { updateStatusLabel, type UpdateState } from "./updateView";
 
 // Lazy-imported inside the handler so the browser/Vitest bundles never pull the
 // Tauri plugin (it has no web implementation). Degrades to a note off-desktop.
+// The section heading comes from the enclosing Settings section — no label here.
 export function UpdateSection() {
   const [state, setState] = useState<UpdateState>({ kind: "idle" });
 
   if (!isTauri()) {
-    return (
-      <div className="field">
-        <span>Updates</span>
-        <p className="muted">Auto-update is available in the desktop app.</p>
-      </div>
-    );
+    return <p className="muted">Auto-update is available in the desktop app.</p>;
   }
 
   async function checkAndInstall() {
@@ -40,10 +37,9 @@ export function UpdateSection() {
 
   return (
     <div className="field">
-      <span>Updates</span>
-      <button onClick={checkAndInstall} disabled={busy}>
+      <Button onClick={checkAndInstall} loading={busy}>
         {busy ? "Working…" : "Check for updates"}
-      </button>
+      </Button>
       {label && <p className={state.kind === "error" ? "error" : "muted"}>{label}</p>}
     </div>
   );

@@ -2,7 +2,13 @@
 
 import os
 
+import pytest
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.pool import StaticPool
+
+from productagents.memory.workspace_state import WorkspaceConfigStore
 from productagents.platform.configuration import (
+    _WORKSPACE_ENV,
     PROVIDERS,
     ConfigStatus,
     ConfigurationService,
@@ -74,27 +80,145 @@ def test_provider_for_explicit_override_wins():
     assert result == "openai"
 
 
-def test_service_set_writes_active_workspace_env(tmp_path, monkeypatch):
+async def test_service_set_skips_blank_api_key(tmp_path, monkeypatch, engine):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    svc = ConfigurationService(workspaces=WorkspaceService(tmp_path), active_name="ws")
-    status = svc.set("openai:gpt-4o", api_key="sk-test")
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    status = await svc.set("openai:gpt-4o", api_key="")
     env_file = tmp_path / "ws" / ".env"
-    assert env_file.exists()
-    contents = env_file.read_text()
-    assert "PRODUCTAGENTS_MODEL" in contents
-    assert "sk-test" in contents
-    assert "PRODUCTAGENTS_MODEL_PROVIDER" not in contents  # derivable from prefix
-    assert os.environ["OPENAI_API_KEY"] == "sk-test"
+    assert not env_file.exists() or "OPENAI_API_KEY" not in env_file.read_text()
     assert isinstance(status, ConfigStatus)
-
-
-def test_service_set_skips_blank_api_key(tmp_path, monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    svc = ConfigurationService(workspaces=WorkspaceService(tmp_path), active_name="ws")
-    svc.set("openai:gpt-4o", api_key="")
-    assert "OPENAI_API_KEY" not in (tmp_path / "ws" / ".env").read_text()
 
 
 def test_service_providers_returns_catalog():
     svc = ConfigurationService(workspaces=WorkspaceService(), active_name="default")
     assert svc.providers() is PROVIDERS
+
+
+@pytest.fixture
+def engine():
+    return create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+
+
+@pytest.fixture
+def clean_env(monkeypatch):
+    for var in _WORKSPACE_ENV.values():
+        monkeypatch.delenv(var, raising=False)
+    return monkeypatch
+
+
+def _service(tmp_path, engine):
+    return ConfigurationService(
+        workspaces=WorkspaceService(tmp_path), active_name="ws", engine=engine
+    )
+
+
+async def test_load_materializes_db_into_env(tmp_path, engine, clean_env):
+    svc = _service(tmp_path, engine)
+    await svc.load()  # bootstraps schema on the injected engine
+    async with svc._sessionmaker()() as session:
+        await WorkspaceConfigStore(session).set("debate_rounds", "5")
+    await svc.load()
+    assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "5"
+    assert svc.settings()["debate_rounds"] == 5
+    assert svc.settings_origins()["debate_rounds"] == "db"
+
+
+async def test_exported_env_wins_over_db(tmp_path, engine, clean_env):
+    clean_env.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "9")
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    async with svc._sessionmaker()() as session:
+        await WorkspaceConfigStore(session).set("debate_rounds", "5")
+    await svc.load()
+    assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "9"
+    assert svc.settings_origins()["debate_rounds"] == "env"
+
+
+async def test_cli_override_wins_over_everything(tmp_path, engine, clean_env):
+    clean_env.setenv("PRODUCTAGENTS_MODEL", "openai:exported")
+    svc = _service(tmp_path, engine)
+    svc.apply_overrides({"model": "anthropic:cli"})
+    await svc.load()
+    assert os.environ["PRODUCTAGENTS_MODEL"] == "anthropic:cli"
+    assert svc.settings_origins()["model"] == "override"
+
+
+def test_apply_overrides_rejects_unknown_key(tmp_path, engine):
+    with pytest.raises(ValueError, match="unknown setting"):
+        _service(tmp_path, engine).apply_overrides({"log_level": "DEBUG"})
+
+
+async def test_set_writes_db_and_refreshes_seeded_env(tmp_path, engine, clean_env):
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    await svc.set("anthropic:m", settings={"debate_rounds": 3, "evil": "x"})
+    async with svc._sessionmaker()() as session:
+        stored = await WorkspaceConfigStore(session).all()
+    assert stored == {"model": "anthropic:m", "debate_rounds": "3"}
+    # Absent from env before -> seeded by the save, next run sees it.
+    assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "3"
+    # Nothing lands in the .env file anymore (secrets only).
+    env_file = tmp_path / "ws" / ".env"
+    assert not env_file.exists() or "PRODUCTAGENTS_MODEL" not in env_file.read_text()
+
+
+async def test_set_does_not_clobber_exported_env(tmp_path, engine, clean_env):
+    clean_env.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "9")
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    await svc.set("anthropic:m", settings={"debate_rounds": 3})
+    assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "9"  # export still wins
+    async with svc._sessionmaker()() as session:
+        assert (await WorkspaceConfigStore(session).all())["debate_rounds"] == "3"
+
+
+async def test_set_api_key_still_goes_to_env_file(
+    tmp_path, engine, clean_env, monkeypatch
+):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    await svc.set("anthropic:m", api_key="sk-test")
+    env_text = (tmp_path / "ws" / ".env").read_text()
+    assert "ANTHROPIC_API_KEY" in env_text
+    assert "sk-test" in env_text
+    # And the key never enters the DB.
+    async with svc._sessionmaker()() as session:
+        assert "sk-test" not in str(await WorkspaceConfigStore(session).all())
+
+
+async def test_load_migrates_env_file_keys_once(tmp_path, engine, clean_env):
+    ws_env = tmp_path / "ws" / ".env"
+    ws_env.parent.mkdir(parents=True)
+    ws_env.write_text(
+        "PRODUCTAGENTS_MODEL='openrouter:x'\n"
+        "PRODUCTAGENTS_DEBATE_ROUNDS='3'\n"
+        "ANTHROPIC_API_KEY='sk-keepme'\n"
+        "PRODUCTAGENTS_LOG_LEVEL='DEBUG'\n"
+    )
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    async with svc._sessionmaker()() as session:
+        stored = await WorkspaceConfigStore(session).all()
+    assert stored == {"model": "openrouter:x", "debate_rounds": "3"}
+    text = ws_env.read_text()
+    # Workspace keys moved out; secrets and runtime keys stay.
+    assert "PRODUCTAGENTS_MODEL" not in text
+    assert "PRODUCTAGENTS_DEBATE_ROUNDS" not in text
+    assert "sk-keepme" in text
+    assert "PRODUCTAGENTS_LOG_LEVEL" in text
+    # Idempotent: a second load changes nothing.
+    await svc.load()
+    assert (ws_env.read_text()) == text
+
+
+async def test_settings_dropped_runtime_and_connector_keys(tmp_path, engine, clean_env):
+    svc = _service(tmp_path, engine)
+    await svc.load()
+    assert set(svc.settings()) == {
+        "debate_rounds",
+        "judge_threshold",
+        "judge_max_retries",
+        "max_retries",
+    }

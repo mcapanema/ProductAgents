@@ -1,6 +1,7 @@
 import type {
   ConfigSetParams,
   ConfigStatus,
+  ConnectorConfigEntry,
   ConnectorHealth,
   ConnectorList,
   ConnectorSync,
@@ -9,6 +10,7 @@ import type {
   IpcMessage,
   Lesson,
   OutcomeRecord,
+  Preferences,
   PromptDiff,
   PromptSummary,
   PromptVersion,
@@ -18,6 +20,7 @@ import type {
   SessionDetail,
   SessionSummary,
   WorkflowSummary,
+  WorkspaceInfo,
 } from "./types";
 
 type Pending = {
@@ -146,6 +149,10 @@ export class IpcClient {
     return this.call<ConfigStatus>("config.set", { ...params });
   }
 
+  workspacesShow(name?: string): Promise<WorkspaceInfo> {
+    return this.call<WorkspaceInfo>("workspaces.show", name ? { name } : {});
+  }
+
   reflectionRecord(decisionId: string, note: string): Promise<OutcomeRecord> {
     return this.call<OutcomeRecord>("reflection.record", {
       decision_id: decisionId,
@@ -163,5 +170,29 @@ export class IpcClient {
 
   runCancel(sessionId: string): Promise<{ ok: boolean }> {
     return this.call<{ ok: boolean }>("run.cancel", { session_id: sessionId });
+  }
+
+  preferencesGet(): Promise<Preferences> {
+    return this.call<Preferences>("preferences.get");
+  }
+
+  preferencesSet(theme: string): Promise<Preferences> {
+    return this.call<Preferences>("preferences.set", { theme });
+  }
+
+  connectorsConfigList(): Promise<ConnectorConfigEntry[]> {
+    return this.call<ConnectorConfigEntry[]>("connectors.config.list");
+  }
+
+  connectorsConfigSave(
+    connector: string,
+    config: Record<string, unknown>,
+    secrets?: Record<string, string>,
+  ): Promise<ConnectorConfigEntry> {
+    return this.call<ConnectorConfigEntry>("connectors.config.save", {
+      connector,
+      config,
+      ...(secrets ? { secrets } : {}),
+    });
   }
 }

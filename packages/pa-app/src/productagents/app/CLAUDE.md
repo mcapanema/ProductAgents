@@ -90,14 +90,48 @@ two versions. All read methods are guarded by a `prompts=None` kwarg (mirrors
 `prompts.save {name, text}` → updated `{name, versions, active}` — appends a new version.
 `prompts.rollback {name, version}` → updated `{name, versions, active}` — re-saves an old version as the new active.
 
-`config.get` → `{model, provider, key_var, key_present, problems, providers:
-[{id, label, key_var, default_model}]}` — the static readiness check
-(`ConfigurationService.status()`) plus the provider catalog (`.providers()`) for
-the Settings dropdown. `config.set {model, provider?, api_key?}` delegates to
-`ConfigurationService.set()`, which writes the **active workspace's** `.env`
-(never a blank api_key over an existing one) and returns the refreshed status.
-Both are guarded by a `config=None` kwarg. This is the GUI's settings **write**
-surface; connector/prompt editing stays deferred.
+`config.get` → `{model, provider, key_var, key_present, problems, settings:
+{debate_rounds, judge_threshold, judge_max_retries, max_retries}, origins:
+{model, model_provider, debate_rounds, judge_threshold, judge_max_retries,
+max_retries: "override"|"env"|"db"|"default"}, providers: [{id, label, key_var,
+default_model}]}` — the static readiness check (`ConfigurationService.status()`)
+plus the current tunables (`.settings()`), which precedence tier supplies each
+workspace key right now (`.settings_origins()`, so the GUI can label a field
+"overridden by environment" instead of a save that mysteriously doesn't apply),
+and the provider catalog (`.providers()`) for the Settings panel. `config.set
+{model, provider?, api_key?, settings?}` awaits `ConfigurationService.set()`,
+which writes the four tunables to the workspace DB and the model/provider/API
+key to the **active workspace's** `.env` (never a blank api_key over an
+existing one) — before returning the refreshed status. Logging is runtime
+config (not part of this whitelist); connector config (including GitHub) owns
+its own `connectors.config.*` surface below. Both are guarded by a
+`config=None` kwarg. This is the GUI's settings **write** surface for the
+model/provider/tunables; prompt editing stays deferred.
+
+`preferences.get` → `{"theme": string | null}` reads workspace-DB preferences
+(`PreferenceService.all()`). `preferences.set {theme}` → same shape, writes via
+`PreferenceService.set("theme", ...)`. `theme` is the only whitelisted
+preference key today — preferences affect the user experience, never workflow
+execution, which is why they get their own store/whitelist instead of routing
+through `ConfigurationService`. Guarded by a `preferences=None` kwarg; a
+`ValueError` from the service (unknown key) becomes `{id, error}` like any
+other handler failure.
+
+`connectors.config.list` → `[{connector, installed, config, schema, problems}]`
+— every known connector's DB-backed config block plus a JSON Schema
+(`schema`) the GUI form renders from, from `ConnectorService.config_list()`.
+`connectors.config.save {connector, config, secrets?}` → the updated single
+entry, from `ConnectorService.config_save()`, which validates the block
+against its schema before writing (a `ValueError` with a human-facing message
+becomes `{id, error}`); `secrets` is a map of secret values written to the
+active workspace's `.env` — only for the `*_env`-referenced variable names the
+connector's schema declares, and a blank secret value is skipped rather than
+overwriting a stored one. Both guarded by the existing `connectors=None`
+kwarg.
+
+`workspaces.list`/`workspaces.show` entries now also carry `prompts_dir` (the
+workspace's per-workspace prompt-override directory, `Workspace.prompts_dir`)
+alongside `root`/`db_url`/`connectors_file`/`env_file`/`log_file`.
 
 `reflection.record {decision_id, note}` → the `OutcomeRecord` dump
 (`{decision_id, actual_outcomes, prediction_accuracy, lessons_learned, reflected_at, failed}`);

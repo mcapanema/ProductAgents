@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import Initiative
 from productagents.platform import events as ev
+from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
 from productagents.platform.decision_read_service import DecisionReadService
@@ -25,6 +27,8 @@ from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
+
+logger = logging.getLogger(__name__)
 
 
 def render_event(event: ev.Event) -> str | None:
@@ -131,6 +135,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--workspace",
         default=None,
         help="workspace name (default: PRODUCTAGENTS_WORKSPACE or 'default')",
+    )
+    parser.add_argument(
+        "--set",
+        dest="overrides",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "override a workspace setting for this invocation only "
+            "(repeatable; e.g. --set debate_rounds=3). Outranks env and DB."
+        ),
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -315,6 +330,17 @@ def sync_command(*, syncer=run_connector_sync) -> int:
     return 1 if failed else 0
 
 
+def parse_set_overrides(pairs: list[str]) -> dict[str, str]:
+    """Parse repeated ``--set KEY=VALUE`` pairs; exit with a friendly message."""
+    overrides: dict[str, str] = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"--set expects KEY=VALUE, got {pair!r}")
+        overrides[key.strip()] = value
+    return overrides
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
 
@@ -322,6 +348,19 @@ def main(argv: list[str] | None = None) -> None:
     workspace = workspaces.resolve(args.workspace)
     workspaces.activate(workspace)
     load_env()
+
+    config = ConfigurationService(active_name=workspace.name)
+    try:
+        config.apply_overrides(parse_set_overrides(args.overrides))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    try:
+        asyncio.run(config.load())  # workspace DB -> env (precedence: see the service)
+    except Exception:
+        # degrade, never crash: env/defaults still work, origins just won't show db
+        logger.error(
+            "workspace config load failed; continuing without it", exc_info=True
+        )
     configure_logging()
 
     if args.command is None:  # bare `productagents` → show help
@@ -332,12 +371,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "ipc":
         from productagents.app import ipc
 
-        ipc.serve_stdio(workspace.name)
+        ipc.serve_stdio(workspace.name, config=config)
         return
     if args.command == "serve-ws":
         from productagents.app import devbridge
 
-        devbridge.serve_ws(workspace.name, port=args.port)
+        devbridge.serve_ws(workspace.name, port=args.port, config=config)
         return
     if args.command == "workspace":
         if args.ws_command == "show":

@@ -147,19 +147,69 @@ export interface ProviderInfo {
   default_model: string;
 }
 
+export type SettingOrigin = "override" | "env" | "db" | "default";
+
+export interface ConfigSettings {
+  debate_rounds: number;
+  judge_threshold: number;
+  judge_max_retries: number;
+  max_retries: number;
+}
+
+export interface Preferences {
+  theme: string | null;
+}
+
+export interface ConnectorSchema {
+  properties?: Record<
+    string,
+    { type?: string; title?: string; anyOf?: { type?: string }[] }
+  >;
+  required?: string[];
+}
+
+export interface ConnectorConfigEntry {
+  connector: string;
+  installed: boolean;
+  config: Record<string, unknown>;
+  schema: ConnectorSchema | null;
+  problems: string[];
+}
+
 export interface ConfigStatus {
   model: string;
   provider: string;
   key_var: string;
   key_present: boolean;
   problems: string[];
+  settings: ConfigSettings;
+  origins: Record<string, SettingOrigin>;
   providers: ProviderInfo[];
+}
+
+export interface ConfigSetSettings {
+  debate_rounds?: number;
+  judge_threshold?: number;
+  judge_max_retries?: number;
+  max_retries?: number;
 }
 
 export interface ConfigSetParams {
   model: string;
   provider?: string;
   api_key?: string;
+  settings?: ConfigSetSettings;
+}
+
+export interface WorkspaceInfo {
+  name: string;
+  active: boolean;
+  root: string;
+  db_url: string;
+  connectors_file: string;
+  env_file: string;
+  log_file: string;
+  prompts_dir: string;
 }
 
 export interface Lesson {

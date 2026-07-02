@@ -152,4 +152,52 @@ describe("IpcClient", () => {
     });
     expect(await p).toMatchObject({ decision_id: "dec-1" });
   });
+
+  it("workspacesShow calls workspaces.show and resolves the workspace", async () => {
+    const { client, sent, emit } = harness();
+    const promise = client.workspacesShow();
+    const request = JSON.parse(sent[0]);
+    expect(request.method).toBe("workspaces.show");
+    emit({
+      id: request.id,
+      result: {
+        name: "default",
+        active: true,
+        root: "/w",
+        db_url: "sqlite:///w/productagents.db",
+        connectors_file: "/w/connectors.yaml",
+        env_file: "/w/.env",
+        log_file: "/w/productagents.log",
+        prompts_dir: "/w/prompts",
+      },
+    });
+    await expect(promise).resolves.toMatchObject({ name: "default", prompts_dir: "/w/prompts" });
+  });
+
+  it("preferencesGet/preferencesSet round-trip preferences.*", async () => {
+    const h = harness();
+    const p1 = h.client.preferencesGet();
+    let req = JSON.parse(h.sent[0]);
+    expect(req.method).toBe("preferences.get");
+    h.emit({ id: req.id, result: { theme: "dark" } });
+    await expect(p1).resolves.toEqual({ theme: "dark" });
+
+    const p2 = h.client.preferencesSet("light");
+    req = JSON.parse(h.sent[1]);
+    expect(req).toMatchObject({ method: "preferences.set", params: { theme: "light" } });
+    h.emit({ id: req.id, result: { theme: "light" } });
+    await expect(p2).resolves.toEqual({ theme: "light" });
+  });
+
+  it("connectorsConfigSave sends connector, config and optional secrets", async () => {
+    const h = harness();
+    const p = h.client.connectorsConfigSave("github", { owner: "a" }, { GH_TOKEN: "t" });
+    const req = JSON.parse(h.sent[0]);
+    expect(req).toMatchObject({
+      method: "connectors.config.save",
+      params: { connector: "github", config: { owner: "a" }, secrets: { GH_TOKEN: "t" } },
+    });
+    h.emit({ id: req.id, result: { connector: "github", installed: true, config: { owner: "a" }, schema: null, problems: [] } });
+    await expect(p).resolves.toMatchObject({ connector: "github" });
+  });
 });

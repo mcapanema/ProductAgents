@@ -102,29 +102,6 @@ def test_plan_reports_invalid_config():
     assert any("github" in p for p in plan.problems)
 
 
-def test_static_connector_plan_uses_injected_registry(tmp_path, monkeypatch):
-    from productagents.platform.connectors import static_connector_plan
-
-    path = tmp_path / "c.yaml"
-    yaml_content = (
-        "connectors:\n  github:\n    enabled: true\n    owner: a\n    repo: b\n"
-    )
-    path.write_text(yaml_content)
-    plan = static_connector_plan(config_path=str(path), registry=_REGISTRY, env={})
-    assert set(plan.configs) == {"github"}
-    assert plan.problems == []
-
-
-def test_static_connector_plan_malformed_yaml_degrades(tmp_path):
-    from productagents.platform.connectors import static_connector_plan
-
-    path = tmp_path / "bad.yaml"
-    path.write_text("connectors: [unclosed\n")  # deliberate YAML syntax error
-    plan = static_connector_plan(config_path=str(path), registry=_REGISTRY, env={})
-    assert plan.problems
-    assert plan.configs == {}
-
-
 def test_plan_connectors_non_mapping_block_degrades():
     from productagents.platform.connectors import plan_connectors
 
@@ -176,3 +153,84 @@ def test_plan_reports_jira_missing_secret_env():
 
     assert plan.configs == {}
     assert any("JIRA_API_TOKEN" in p for p in plan.problems)
+
+
+async def test_load_db_config_imports_yaml_once(tmp_path):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.memory.workspace_state import ConnectorConfigStore
+    from productagents.platform.connectors import load_db_config
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    yaml_path = tmp_path / "connectors.yaml"
+    yaml_path.write_text(
+        "connectors:\n  github:\n"
+        "    owner: acme\n    repo: widgets\n    token_env: GH_TOKEN\n"
+    )
+    blocks = await load_db_config(maker, config_path=str(yaml_path))
+    assert blocks["github"]["owner"] == "acme"
+    assert not yaml_path.exists()
+    assert (tmp_path / "connectors.yaml.imported").exists()
+
+    # Second read comes from the DB; a re-created YAML is ignored.
+    yaml_path.write_text("connectors:\n  github:\n    owner: OTHER\n    repo: r\n")
+    blocks = await load_db_config(maker, config_path=str(yaml_path))
+    assert blocks["github"]["owner"] == "acme"
+    assert yaml_path.exists()  # not re-imported, not renamed
+
+    async with maker() as session:
+        assert "github" in await ConnectorConfigStore(session).all()
+
+
+async def test_load_db_config_malformed_yaml_degrades(tmp_path):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.platform.connectors import load_db_config
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    yaml_path = tmp_path / "connectors.yaml"
+    yaml_path.write_text("connectors: [unclosed\n")  # deliberate YAML syntax error
+
+    blocks = await load_db_config(maker, config_path=str(yaml_path))
+    assert blocks == {}
+    assert not yaml_path.exists()
+    assert (tmp_path / "connectors.yaml.invalid").exists()
+
+    # Second call: bad file moved aside, so it succeeds cleanly.
+    assert await load_db_config(maker, config_path=str(yaml_path)) == {}
+
+
+async def test_connector_plan_reads_db(tmp_path, monkeypatch):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.connectors.github.connector import GitHubConnector
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.memory.workspace_state import ConnectorConfigStore
+    from productagents.platform.connectors import connector_plan
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        await ConnectorConfigStore(session).set(
+            "github", {"owner": "acme", "repo": "widgets", "token_env": "GH_TOKEN"}
+        )
+    monkeypatch.setenv("PRODUCTAGENTS_CONNECTORS_FILE", str(tmp_path / "none.yaml"))
+    plan = await connector_plan(
+        registry={"github": GitHubConnector},
+        env={"GH_TOKEN": "t"},
+        engine=engine,
+    )
+    assert "github" in plan.configs
+    assert plan.problems == []

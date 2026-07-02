@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { IpcClient } from "../ipc/client";
-import { IpcProvider } from "./IpcProvider";
+import { IpcProvider, useIpc } from "./IpcProvider";
 import { ThemeShell } from "../ui/ThemeShell";
 import type { Density } from "../ui/theme";
 import { useThemePreference } from "../ui/useThemePreference";
@@ -19,32 +19,39 @@ import "./App.css";
 const DENSITY: Density = "comfortable";
 
 export function App({ client }: { client?: IpcClient }) {
+  return (
+    <IpcProvider client={client}>
+      <AppShell />
+    </IpcProvider>
+  );
+}
+
+function AppShell() {
+  const ipc = useIpc();
   const [view, setView] = useState<View>("run");
-  const { pref, setPref, resolved } = useThemePreference();
+  const { pref, setPref, resolved } = useThemePreference(ipc);
   const [running, setRunning] = useState(false);
 
   return (
-    <IpcProvider client={client}>
-      <ThemeShell theme={resolved} density={DENSITY}>
-        <div className="shell">
-          <Sidebar
-            view={view}
-            onNavigate={setView}
-            running={running}
-          />
-          <main className="content">
-            {view === "run" && <RunPanel onRunningChange={setRunning} />}
-            {view === "sessions" && <SessionsPanel />}
-            {view === "decisions" && <DecisionsPanel />}
-            {view === "memory" && <OrgMemoryPanel />}
-            {view === "connectors" && <ConnectorsPanel />}
-            {view === "prompts" && <PromptsPanel />}
-            {view === "workflows" && <WorkflowsPanel />}
-            {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} />}
-            {view === "reflection" && <ReflectionPanel />}
-          </main>
-        </div>
-      </ThemeShell>
-    </IpcProvider>
+    <ThemeShell theme={resolved} density={DENSITY}>
+      <div className="shell">
+        <Sidebar
+          view={view}
+          onNavigate={setView}
+          running={running}
+        />
+        <main className="content">
+          {view === "run" && <RunPanel onRunningChange={setRunning} />}
+          {view === "sessions" && <SessionsPanel />}
+          {view === "decisions" && <DecisionsPanel />}
+          {view === "memory" && <OrgMemoryPanel />}
+          {view === "connectors" && <ConnectorsPanel />}
+          {view === "prompts" && <PromptsPanel />}
+          {view === "workflows" && <WorkflowsPanel />}
+          {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} />}
+          {view === "reflection" && <ReflectionPanel />}
+        </main>
+      </div>
+    </ThemeShell>
   );
 }

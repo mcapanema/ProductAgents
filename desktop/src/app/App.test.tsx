@@ -26,6 +26,20 @@ function fakeClient(): IpcClient {
       key_var: "",
       key_present: false,
       problems: [],
+      settings: {
+        debate_rounds: 2,
+        judge_threshold: 0.7,
+        judge_max_retries: 1,
+        max_retries: 6,
+      },
+      origins: {
+        model: "db",
+        model_provider: "db",
+        debate_rounds: "db",
+        judge_threshold: "db",
+        judge_max_retries: "db",
+        max_retries: "db",
+      },
       providers: [],
     }),
     configSet: async () => ({
@@ -34,9 +48,26 @@ function fakeClient(): IpcClient {
       key_var: "",
       key_present: false,
       problems: [],
+      settings: {
+        debate_rounds: 2,
+        judge_threshold: 0.7,
+        judge_max_retries: 1,
+        max_retries: 6,
+      },
+      origins: {
+        model: "db",
+        model_provider: "db",
+        debate_rounds: "db",
+        judge_threshold: "db",
+        judge_max_retries: "db",
+        max_retries: "db",
+      },
       providers: [],
     }),
+    workspacesShow: async () => Promise.reject(new Error("not used in this test")),
     approve: async () => ({ ok: true }),
+    preferencesGet: async () => ({ theme: null }),
+    preferencesSet: async (theme: string) => ({ theme }),
   } as unknown as IpcClient;
 }
 
