@@ -90,14 +90,22 @@ two versions. All read methods are guarded by a `prompts=None` kwarg (mirrors
 `prompts.save {name, text}` → updated `{name, versions, active}` — appends a new version.
 `prompts.rollback {name, version}` → updated `{name, versions, active}` — re-saves an old version as the new active.
 
-`config.get` → `{model, provider, key_var, key_present, problems, providers:
-[{id, label, key_var, default_model}]}` — the static readiness check
-(`ConfigurationService.status()`) plus the provider catalog (`.providers()`) for
-the Settings dropdown. `config.set {model, provider?, api_key?}` delegates to
-`ConfigurationService.set()`, which writes the **active workspace's** `.env`
-(never a blank api_key over an existing one) and returns the refreshed status.
-Both are guarded by a `config=None` kwarg. This is the GUI's settings **write**
-surface; connector/prompt editing stays deferred.
+`config.get` → `{model, provider, key_var, key_present, problems, settings:
+{debate_rounds, judge_threshold, judge_max_retries, max_retries, log_level,
+github_repo, github_token_present}, providers: [{id, label, key_var,
+default_model}]}` — the static readiness check (`ConfigurationService.status()`)
+plus the current tunables (`.settings()`) and the provider catalog
+(`.providers()`) for the Settings panel. `config.set {model, provider?, api_key?,
+settings?}` delegates to `ConfigurationService.set()`, which writes the **active
+workspace's** `.env` (never a blank api_key over an existing one) and forwards
+`settings` verbatim — the service whitelists known tunable keys and drops
+anything else — before returning the refreshed status. Both are guarded by a
+`config=None` kwarg. This is the GUI's settings **write** surface;
+connector/prompt editing stays deferred.
+
+`workspaces.list`/`workspaces.show` entries now also carry `prompts_dir` (the
+workspace's per-workspace prompt-override directory, `Workspace.prompts_dir`)
+alongside `root`/`db_url`/`connectors_file`/`env_file`/`log_file`.
 
 `reflection.record {decision_id, note}` → the `OutcomeRecord` dump
 (`{decision_id, actual_outcomes, prediction_accuracy, lessons_learned, reflected_at, failed}`);

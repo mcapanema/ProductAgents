@@ -219,6 +219,7 @@ async def test_workspaces_show_resolves_workspace(tmp_path):
     )
     assert sink[0]["result"]["name"] == "default"
     assert sink[0]["result"]["active"] is True
+    assert sink[0]["result"]["prompts_dir"].endswith("prompts")
 
 
 from productagents.agents import runner as rn  # noqa: E402
@@ -933,8 +934,19 @@ class _FakeConfigService:
     def providers(self):
         return self._providers
 
-    def set(self, model, *, provider=None, api_key=None):
-        self.sets.append((model, provider, api_key))
+    def settings(self):
+        return {
+            "debate_rounds": 2,
+            "judge_threshold": 0.7,
+            "judge_max_retries": 1,
+            "max_retries": 6,
+            "log_level": "INFO",
+            "github_repo": "",
+            "github_token_present": False,
+        }
+
+    def set(self, model, *, provider=None, api_key=None, settings=None):
+        self.sets.append((model, provider, api_key, settings))
         return self._status
 
 
@@ -979,7 +991,50 @@ async def test_config_set_delegates_to_service():
         config=config,
         emit=emit,
     )
-    assert config.sets == [("openai:gpt-4o", None, "sk-test")]
+    assert config.sets == [("openai:gpt-4o", None, "sk-test", None)]
+    assert sink[0]["result"]["model"] == "anthropic:claude-sonnet-4-6"
+
+
+async def test_config_get_includes_settings():
+    config = _fake_config()
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 44, "method": "config.get"},
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    settings = sink[0]["result"]["settings"]
+    assert settings["debate_rounds"] == 2
+    assert settings["log_level"] == "INFO"
+    assert settings["github_token_present"] is False
+
+
+async def test_config_set_forwards_settings():
+    config = _fake_config()
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 45,
+            "method": "config.set",
+            "params": {
+                "model": "anthropic:m",
+                "settings": {"debate_rounds": 3, "log_level": "DEBUG"},
+            },
+        },
+        workflows=_workflows(),
+        workspaces=None,
+        active_name="default",
+        sessions=_FakeSessions(),
+        config=config,
+        emit=emit,
+    )
+    assert config.sets == [
+        ("anthropic:m", None, None, {"debate_rounds": 3, "log_level": "DEBUG"})
+    ]
     assert sink[0]["result"]["model"] == "anthropic:claude-sonnet-4-6"
 
 

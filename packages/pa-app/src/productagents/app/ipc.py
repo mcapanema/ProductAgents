@@ -247,6 +247,7 @@ def _workspace_dict(ws: Workspace, *, active_name: str) -> dict:
         "connectors_file": str(ws.connectors_file),
         "env_file": str(ws.env_file),
         "log_file": str(ws.log_file),
+        "prompts_dir": str(ws.prompts_dir),
     }
 
 
@@ -333,6 +334,7 @@ def _config_dict(config) -> dict:
         "key_var": status.key_var,
         "key_present": status.key_present,
         "problems": status.problems,
+        "settings": config.settings(),
         "providers": [
             {
                 "id": pid,
@@ -525,6 +527,7 @@ async def handle(
                 p["model"],
                 provider=p.get("provider"),
                 api_key=p.get("api_key"),
+                settings=p.get("settings"),
             )
             await emit({"id": rid, "result": _config_dict(config)})
 
