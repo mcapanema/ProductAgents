@@ -1,7 +1,12 @@
 # productagents-ipc.spec — PyInstaller onefile build of the IPC sidecar.
 # Run from the repo root via desktop/packaging/build-sidecar.sh.
 import os
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_all,
+    collect_data_files,
+    collect_submodules,
+    copy_metadata,
+)
 
 # SPECPATH is the directory containing this spec file (desktop/packaging/).
 # Repo root is two levels up.
@@ -32,6 +37,13 @@ for pkg in (
 # Bundled prompt defaults (agents/prompts/defaults/*.txt) + scenario evidence
 # (agents/data/scenarios/**) are read via importlib.resources — ship them as data.
 datas += collect_data_files("productagents.agents")
+
+# Workflows and connectors are discovered at runtime via importlib.metadata
+# entry points (groups "productagents.workflows" / "productagents.connectors").
+# PyInstaller doesn't bundle .dist-info metadata unless asked, so without this
+# the frozen sidecar finds zero workflows and zero connectors.
+datas += copy_metadata("productagents-platform")
+datas += copy_metadata("productagents-connectors")
 
 # SQLAlchemy loads the async SQLite driver by string dialect name.
 hiddenimports += ["aiosqlite"]
