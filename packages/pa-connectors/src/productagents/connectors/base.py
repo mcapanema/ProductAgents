@@ -69,6 +69,10 @@ class Connector(ABC):
     # validates a connector's config block against this, so adding a connector
     # needs no loader change. Defaults to the base so a no-config connector works.
     config_cls: ClassVar[type[ConnectorConfig]] = ConnectorConfig
+    # Registry-surface metadata: how the connector presents in a catalog/GUI.
+    # ``title`` falls back to ``key`` at the service edge when left empty.
+    title: ClassVar[str] = ""
+    description: ClassVar[str] = ""
 
     def __init__(self, config: ConnectorConfig, sink: CanonicalSink) -> None:
         self.config = config

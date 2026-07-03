@@ -1,13 +1,35 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { ConnectorHealth, ConnectorList, ConnectorSync } from "../ipc/types";
+import type { ConnectorConfigEntry, ConnectorHealth, ConnectorList, ConnectorSync } from "../ipc/types";
+
+const github: ConnectorConfigEntry = {
+  connector: "github",
+  installed: true,
+  title: "GitHub",
+  description: "Syncs repository issues into customer feedback.",
+  config: { owner: "acme", repo: "widgets", enabled: true },
+  schema: {
+    properties: { enabled: { type: "boolean" }, owner: { type: "string" }, repo: { type: "string" } },
+    required: ["owner", "repo"],
+  },
+  problems: [],
+};
+const jira: ConnectorConfigEntry = {
+  connector: "jira",
+  installed: true,
+  title: "Jira",
+  description: "Syncs Jira issues into customer feedback.",
+  config: {},
+  schema: { properties: { enabled: { type: "boolean" }, url: { type: "string" } } },
+  problems: [],
+};
 
 const list: ConnectorList = {
   connectors: [{ name: "github" }],
-  problems: ["connector 'slack': unknown (not installed)"],
+  problems: [],
   last_synced: { github: "2026-06-29T10:00:00+00:00" },
 };
 const health: ConnectorHealth = {
@@ -19,83 +41,57 @@ const sync: ConnectorSync = {
   problems: [],
 };
 
-function fake(): IpcClient {
-  return {
+function renderPanel() {
+  const client = {
+    connectorsConfigList: async () => [github, jira],
     connectorsList: async () => list,
     connectorsHealth: async () => health,
     connectorsSync: async () => sync,
+    connectorsConfigSave: async () => github,
   } as unknown as IpcClient;
+  render(
+    <IpcProvider client={client}>
+      <ConnectorsPanel />
+    </IpcProvider>,
+  );
 }
 
 describe("ConnectorsPanel", () => {
-  it("lists connectors and config problems on load", async () => {
-    render(
-      <IpcProvider client={fake()}>
-        <ConnectorsPanel />
-      </IpcProvider>,
-    );
-    expect(await screen.findByText("github")).toBeInTheDocument();
-    expect(
-      screen.getByText(/connector 'slack': unknown/),
-    ).toBeInTheDocument();
+  it("groups connectors into Enabled and Available and selects the first enabled one", async () => {
+    renderPanel();
+    const nav = await screen.findByRole("navigation", { name: "Connectors" });
+    expect(within(nav).getByText("Enabled")).toBeInTheDocument();
+    expect(within(nav).getByText("Available")).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /github/i })).toHaveAttribute("aria-current", "page");
+    // detail screen for the selected connector: registry title + description
+    expect(await screen.findByRole("heading", { name: "GitHub" })).toBeInTheDocument();
+    expect(screen.getByText(/repository issues into customer feedback/i)).toBeInTheDocument();
+    expect(screen.getByText("Not checked")).toBeInTheDocument();
+    expect(screen.getByText(/last synced/i)).toBeInTheDocument();
   });
 
-  it("shows health detail after Check health", async () => {
-    render(
-      <IpcProvider client={fake()}>
-        <ConnectorsPanel />
-      </IpcProvider>,
-    );
-    await screen.findByText("github");
+  it("opens a connector's configuration screen on click", async () => {
+    renderPanel();
+    const nav = await screen.findByRole("navigation", { name: "Connectors" });
+    fireEvent.click(within(nav).getByRole("button", { name: /jira/i }));
+    expect(await screen.findByRole("heading", { name: "Jira" })).toBeInTheDocument();
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    // the schema-driven form is on the screen
+    expect(screen.getByLabelText(/jira url/i)).toBeInTheDocument();
+  });
+
+  it("shows Connected with the health detail after Check health", async () => {
+    renderPanel();
+    await screen.findByRole("heading", { name: "GitHub" });
     fireEvent.click(screen.getByRole("button", { name: /check health/i }));
-    await waitFor(() =>
-      expect(screen.getByText(/reachable/)).toBeInTheDocument(),
-    );
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText(/reachable/)).toBeInTheDocument();
   });
 
-  it("shows written counts after Sync now", async () => {
-    render(
-      <IpcProvider client={fake()}>
-        <ConnectorsPanel />
-      </IpcProvider>,
-    );
-    await screen.findByText("github");
+  it("shows the written count after Sync now", async () => {
+    renderPanel();
+    await screen.findByRole("heading", { name: "GitHub" });
     fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
-    await waitFor(() =>
-      expect(screen.getByText(/7 written/)).toBeInTheDocument(),
-    );
-  });
-
-  it("shows the last-sync timestamp on load", async () => {
-    render(
-      <IpcProvider client={fake()}>
-        <ConnectorsPanel />
-      </IpcProvider>,
-    );
-    await screen.findByText("github");
-    await waitFor(() =>
-      expect(screen.getByText(/last sync 2026-06-29/)).toBeInTheDocument(),
-    );
-  });
-
-  it("shows error text when sync result is failed", async () => {
-    const failedSync: ConnectorSync = {
-      results: [{ connector: "github", written: 0, ok: false, error: "401 unauthorized" }],
-      problems: [],
-    };
-    const failClient: IpcClient = {
-      ...fake(),
-      connectorsSync: async () => failedSync,
-    } as unknown as IpcClient;
-    render(
-      <IpcProvider client={failClient}>
-        <ConnectorsPanel />
-      </IpcProvider>,
-    );
-    await screen.findByText("github");
-    fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
-    await waitFor(() =>
-      expect(screen.getByText(/401 unauthorized/)).toBeInTheDocument(),
-    );
+    expect(await screen.findByText(/7 records written/)).toBeInTheDocument();
   });
 });

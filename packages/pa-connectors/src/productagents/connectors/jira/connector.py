@@ -43,6 +43,8 @@ class JiraConnector(Connector):
     key: ClassVar[str] = "jira"
     produces: ClassVar[frozenset[type]] = frozenset({CustomerFeedback})
     config_cls: ClassVar[type[ConnectorConfig]] = JiraConfig
+    title: ClassVar[str] = "Jira"
+    description: ClassVar[str] = "Syncs Jira issues into customer feedback."
 
     def __init__(self, config: JiraConfig, sink: CanonicalSink) -> None:
         super().__init__(config, sink)

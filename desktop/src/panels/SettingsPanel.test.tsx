@@ -75,7 +75,7 @@ describe("SettingsPanel", () => {
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
     const nav = screen.getByRole("navigation", { name: /settings sections/i });
     expect(within(nav).getByRole("button", { name: /configuration/i })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("button", { name: /connectors/i })).toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: /connectors/i })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: /preferences/i })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: /runtime/i })).toBeInTheDocument();
     // Logging is runtime config now — never a GUI field.

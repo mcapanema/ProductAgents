@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { SettingsConnectors } from "./SettingsConnectors";
+import { ConnectorConfigForm } from "./ConnectorConfigForm";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
 import type { ConnectorConfigEntry } from "../ipc/types";
@@ -22,30 +22,30 @@ const entry: ConnectorConfigEntry = {
   problems: [],
 };
 
-function renderWith(overrides: Partial<IpcClient> = {}) {
+function renderWith(overrides: Partial<IpcClient> = {}, onSaved = () => {}) {
   const c = { ...overrides } as unknown as IpcClient;
   render(
     <IpcProvider client={c}>
-      <SettingsConnectors />
+      <ConnectorConfigForm key={entry.connector} entry={entry} onSaved={onSaved} />
     </IpcProvider>,
   );
   return c;
 }
 
-describe("SettingsConnectors", () => {
-  it("renders each connector's fields from its schema", async () => {
-    renderWith({ connectorsConfigList: async () => [entry] });
-    expect(await screen.findByDisplayValue("acme")).toBeInTheDocument();
+describe("ConnectorConfigForm", () => {
+  it("renders the connector's fields from its schema", () => {
+    renderWith();
+    expect(screen.getByDisplayValue("acme")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: /github enabled/i })).toBeChecked();
     // secret reference field + companion secret-value input
     expect(screen.getByLabelText(/github token_env/i)).toHaveValue("PRODUCTAGENTS_GITHUB_TOKEN");
     expect(screen.getByLabelText(/github secret PRODUCTAGENTS_GITHUB_TOKEN/i)).toHaveValue("");
   });
 
-  it("saves the edited block and typed secrets", async () => {
+  it("saves the edited block and typed secrets, then reports the update", async () => {
     const connectorsConfigSave = vi.fn(async () => entry);
-    renderWith({ connectorsConfigList: async () => [entry], connectorsConfigSave });
-    await screen.findByDisplayValue("acme");
+    const onSaved = vi.fn();
+    renderWith({ connectorsConfigSave }, onSaved);
     fireEvent.change(screen.getByLabelText(/github repo/i), { target: { value: "gadgets" } });
     fireEvent.change(screen.getByLabelText(/github secret PRODUCTAGENTS_GITHUB_TOKEN/i), { target: { value: "ghp_x" } });
     fireEvent.click(screen.getByRole("button", { name: /save github/i }));
@@ -56,20 +56,15 @@ describe("SettingsConnectors", () => {
         { PRODUCTAGENTS_GITHUB_TOKEN: "ghp_x" },
       ),
     );
+    expect(onSaved).toHaveBeenCalledWith(entry);
   });
 
   it("surfaces a rejected save as an inline error", async () => {
     const connectorsConfigSave = vi.fn(async () => {
       throw new Error("connector 'github': env var X is not set");
     });
-    renderWith({ connectorsConfigList: async () => [entry], connectorsConfigSave });
-    await screen.findByDisplayValue("acme");
+    renderWith({ connectorsConfigSave });
     fireEvent.click(screen.getByRole("button", { name: /save github/i }));
     expect(await screen.findByText(/env var X is not set/)).toBeInTheDocument();
-  });
-
-  it("shows an empty state when nothing is installed", async () => {
-    renderWith({ connectorsConfigList: async () => [] });
-    expect(await screen.findByText(/no connectors installed/i)).toBeInTheDocument();
   });
 });

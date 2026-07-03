@@ -66,34 +66,42 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
 - `src/panels/` — one panel per resource. **Pure logic is extracted and
   unit-tested**, components stay thin: `runReducer.ts` (Run event stream),
   `decisionView.ts` (`formatConfidence`/`predictionRows`), `connectorView.ts`
-  (`connectorRows` merge of list+health+sync), `promptView.ts`
+  (pure selectors: `splitEntries` (Enabled/Available split), `connectorStatus`,
+  `syncSummary`, `lastSynced`), `promptView.ts`
   (`versionLabel`/`defaultDiffPair`); `RunPanel.tsx`, `SessionsPanel.tsx`,
-  `DecisionsPanel.tsx`, `ConnectorsPanel.tsx`, `PromptsPanel.tsx` (read-only
+  `DecisionsPanel.tsx`, `ConnectorsPanel.tsx` (master–detail connectors home —
+  a Settings-style secondary nav grouping connectors into Enabled/Available
+  via `connectorView.ts::splitEntries`, brand icons (`connectorIcons.tsx`),
+  Phase 4A status badges driven by `connectors.health`, per-connector Check
+  health / Sync now, registry `title`/`description` metadata from
+  `connectors.config.list` (declared as `Connector.title`/`description`
+  ClassVars in pa-connectors, surfaced by `ConnectorService._entry`), and the
+  schema-driven `ConnectorConfigForm.tsx` (the former `SettingsConnectors`,
+  one connector per mount, `key={connector}`); `connectorConfigView.ts`'s
+  secret-field handling is unchanged: `fieldsFromSchema` detects
+  secret-shaped raw fields — `token`/`password`/`secret`, or a name ending in
+  `_token`/`_key`/`_secret`, including optional `anyOf [string, null]` ones —
+  and synthesizes a `<field>_env` secretRef field so a secret value never
+  round-trips through the form; `ConnectorService.config_save` rejects a raw
+  value under a secret-shaped key server-side too, so a secret can never
+  reach the DB regardless of client), `PromptsPanel.tsx` (read-only
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
   (registered workflow list), `SettingsPanel.tsx` (sub-navigated: Workspace ›
-  Configuration/Connectors/Preferences, Application › Runtime/Updates.
+  Configuration/Preferences, Application › Runtime/Updates.
   Configuration opens with a Workspace section whose rename field calls
   `workspaces.rename` then reloads (same live-switch convention as TopBar),
   disabled mid-run, then holds model/provider/key plus the pipeline tunables — debate
   rounds, judge threshold/retries, provider retries — each field showing an
   `origins` hint ("Overridden by environment" / "Set by --set override") when
-  a tier above the workspace DB is in play; Connectors is the connector-config
-  editor, `SettingsConnectors.tsx` + `connectorConfigView.ts` (schema-driven
-  form per connector; `fieldsFromSchema` detects secret-shaped raw fields —
-  `token`/`password`/`secret`, or a name ending in `_token`/`_key`/`_secret`,
-  including optional `anyOf [string, null]` ones — and synthesizes a
-  `<field>_env` secretRef field so a secret value never round-trips through
-  the form; `ConnectorService.config_save` rejects a raw value under a
-  secret-shaped key server-side too, so a secret can never reach the DB
-  regardless of client); Preferences holds the theme
+  a tier above the workspace DB is in play; Preferences holds the theme
   toggle, synced workspace DB ↔ localStorage via `preferences.get`/
   `preferences.set` IPC (`ui/useThemePreference.ts`); Runtime is the read-only
   workspace-paths section; Updates is unchanged. Log level and the GitHub
   connector's repo/token fields are gone from the GUI — log level is
   runtime-only (env var), and the GitHub repo/token now live in connector
-  config, edited from Connectors. The GUI writes via `config.get`/
-  `config.set`/`workspaces.show`/`connector.*`/`preferences.*`; pure form
-  logic lives in `settingsView.ts` and `connectorConfigView.ts`),
+  config, edited from the Connectors panel. The GUI writes via `config.get`/
+  `config.set`/`workspaces.show`/`preferences.*`; pure form
+  logic lives in `settingsView.ts`),
   `OrgMemoryPanel.tsx`
   (Organizational Memory: cross-decision lesson corpus from `memory.lessons`,
   newest-first, validated lessons distinguished from predicted ones).
@@ -118,7 +126,7 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   a real race the pilot found (stale colors for one commit on the first
   theme toggle) — don't reorder them. Panels use AntD's `Button`, `Input`,
   `Select`, `Checkbox`, `Table`, `InputNumber` (Settings' pipeline tunables),
-  `Switch` (connector `enabled` toggles in `SettingsConnectors.tsx`), and the
+  `Switch` (connector `enabled` toggles in `ConnectorConfigForm.tsx`), and the
   shell nav uses `Menu`. AntD's `List`
   is NOT used anywhere — the installed antd 6.5.0 marks it deprecated
   (console.warn on every render), so list-shaped sections (Workflows,

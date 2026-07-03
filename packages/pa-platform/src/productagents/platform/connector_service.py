@@ -54,6 +54,8 @@ class ConnectorService:
         return {
             "connector": key,
             "installed": cls is not None,
+            "title": (cls.title if cls else "") or key,
+            "description": cls.description if cls else "",
             "config": blocks.get(key, {}),
             "schema": cls.config_cls.model_json_schema() if cls else None,
             "problems": [p for p in problems if p.startswith(f"connector '{key}'")],
