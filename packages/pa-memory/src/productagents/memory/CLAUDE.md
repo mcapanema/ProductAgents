@@ -17,17 +17,30 @@ Phase 6; JSONL demoted to export/audit.
   Placeholder semantics; swap a real model in Phase 7 behind the protocol.
 - `tables.py` — pa-memory's OWN `Base`/metadata (separate from pa-knowledge's
   `SQLModel.metadata`): `memory_decision` + `memory_outcome` + `runtime_session` +
-  `runtime_event`, full JSON payloads.
-- `store.py` — `DecisionStore(session)`: persist/read records. The session is
-  **injected** by the app boundary; this package never builds an engine and
-  never imports pa-knowledge.
+  `runtime_event` + `workspace` + `workspace_config` + `connector_config` +
+  `preference`, full JSON payloads.
+- `store.py` — `DecisionStore(session, workspace="default")`: persist/read
+  records, scoped to `workspace`. The session is **injected** by the app
+  boundary; this package never builds an engine and never imports pa-knowledge.
 - `service.py` — `LearningService(store, embedder)`: the agent-facing face
   (`relevant_lessons`/`record_decision`/`record_outcome`/`decisions`).
-- `event_store.py` — `EventStore(session)`: append-only execution log
-  (`runtime_session` + `runtime_event`). Persists **primitive** rows
-  (session_id/seq/type/ts/JSON payload) — it does NOT import the platform's
-  Event vocabulary (pa-memory stays below pa-platform). Serialization lives in
-  `productagents.platform.serialization`.
+- `event_store.py` — `EventStore(session, workspace="default")`: append-only
+  execution log (`runtime_session` + `runtime_event`). Persists **primitive**
+  rows (session_id/seq/type/ts/JSON payload) — it does NOT import the
+  platform's Event vocabulary (pa-memory stays below pa-platform). Serialization
+  lives in `productagents.platform.serialization`. **Sessions are scoped to
+  workspace** (every read filters on it, every write stamps it); **events are
+  not** — they're read by `session_id`, which is already globally unique, so a
+  workspace filter would be redundant.
+- `workspace_state.py` — the workspace-state stores, all session-injected like
+  the above: `WorkspaceRegistry(session)` — the `workspace` table itself (one
+  row per project/team scope; `list`/`get`/`create`/`ensure`).
+  `WorkspaceConfigStore(session, workspace)` / `ConnectorConfigStore(session,
+  workspace)` — the six pipeline tunables / connector config blocks, scoped by
+  composite primary key `(workspace, key)` / `(workspace, connector)`.
+  `PreferenceStore(session)` — **deliberately unscoped**: preferences (e.g.
+  theme) are a user-level UX setting, not workflow-execution state, so they
+  follow the person across workspaces rather than resetting on every switch.
 
 ## Rules that matter
 - **Sibling-layer boundary:** pa-memory imports only `pa-core` (+ sqlalchemy).
@@ -40,4 +53,10 @@ Phase 6; JSONL demoted to export/audit.
 - **Schema changes go through pa-memory's own Alembic** (`uv run alembic upgrade
   head` from `packages/pa-memory`; `version_table="alembic_version_memory"` so
   it shares the DB file with pa-knowledge without clobbering its history).
-  Alembic head is now `0002_event_store` (adds `runtime_session` + `runtime_event`).
+  Alembic head is now `0004_workspace_scope` (`0001_memory_tables` →
+  `0002_event_store` adds `runtime_session`/`runtime_event` →
+  `0003_workspace_state` adds `workspace_config`/`connector_config`/
+  `preference` → `0004_workspace_scope` creates the `workspace` registry
+  table, adds a `workspace` column to `memory_decision`/`memory_outcome`/
+  `runtime_session`, and widens `workspace_config`/`connector_config`'s
+  primary key to `(workspace, key)`/`(workspace, connector)`).
