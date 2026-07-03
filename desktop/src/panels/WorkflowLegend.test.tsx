@@ -8,5 +8,6 @@ describe("WorkflowLegend", () => {
     expect(screen.getByText(/analyst/i)).toBeInTheDocument();
     expect(screen.getByText(/conditional/i)).toBeInTheDocument();
     expect(screen.getByText(/click to edit prompts/i)).toBeInTheDocument();
+    expect(screen.getByText(/status/i)).toBeInTheDocument();
   });
 });

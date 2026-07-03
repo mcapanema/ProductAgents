@@ -1,4 +1,6 @@
 import { tokenVar } from "../ui/tokens";
+import { statusStyle } from "./nodeStatus";
+import type { NodeStatus } from "../ipc/types";
 import "./WorkflowLegend.css";
 
 const ANALYST_TOKENS = [
@@ -8,6 +10,8 @@ const ANALYST_TOKENS = [
   "--ai-analyst-business",
   "--ai-analyst-technical",
 ] as const;
+
+const STATUS_SAMPLE: NodeStatus[] = ["running", "done", "degraded", "failed", "awaiting-human"];
 
 export function WorkflowLegend() {
   return (
@@ -25,6 +29,14 @@ export function WorkflowLegend() {
       </span>
       <span className="wf-legend__item">
         <span className="wf-legend__ring" aria-hidden /> Click to edit prompts
+      </span>
+      <span className="wf-legend__item">
+        <span style={{ display: "inline-flex", gap: 2 }} aria-hidden>
+          {STATUS_SAMPLE.map((s) => (
+            <span key={s} className="wf-legend__swatch" style={{ background: statusStyle(s).border }} />
+          ))}
+        </span>
+        Node status (live runs)
       </span>
     </div>
   );
