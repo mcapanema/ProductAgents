@@ -14,6 +14,7 @@ import {
 } from "./connectorView";
 import { ConnectorIcon } from "./connectorIcons";
 import { ConnectorConfigForm } from "./ConnectorConfigForm";
+import { EmptyState } from "../ui/EmptyState";
 import "./ConnectorsPanel.css";
 
 /* Status badge — Phase 4A styleguide port (design/styleguide/src/phase4):
@@ -137,6 +138,7 @@ export function ConnectorsPanel() {
   return (
     <div className="connectors">
       <h1>Connectors</h1>
+      <p className="page-desc">Evidence sources that sync external data into the workspace. Select one to configure or check its health.</p>
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="Connectors">
           <NavGroup
@@ -179,7 +181,10 @@ export function ConnectorsPanel() {
               <ConnectorConfigForm key={entry.connector} entry={entry} onSaved={onSaved} />
             </>
           ) : (
-            <p className="muted">No connectors installed.</p>
+            <EmptyState
+              title="No connectors installed"
+              description="Connectors bring in evidence from tools like GitHub and Jira. None are available in this workspace yet."
+            />
           )}
           {list?.problems.map((p, i) => (
             <p className="muted" key={`list-${i}`}>
