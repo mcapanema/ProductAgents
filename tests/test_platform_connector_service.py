@@ -222,3 +222,33 @@ async def test_config_save_jira_happy_path_secret_never_in_db(tmp_path, monkeypa
     assert "s3cret" in (tmp_path / ".env").read_text()
     async with maker() as session:
         assert "s3cret" not in str(await ConnectorConfigStore(session).all())
+
+
+async def test_connector_service_health_forwards_connector(monkeypatch):
+    seen: dict = {}
+
+    async def fake_health(*args, **kwargs):
+        seen.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(
+        "productagents.platform.connectors.check_connector_health", fake_health
+    )
+    await ConnectorService(workspace="acme").health(connector="github")
+    assert seen["only"] == "github"
+    assert seen["workspace"] == "acme"
+
+
+async def test_connector_service_sync_forwards_connector(monkeypatch):
+    seen: dict = {}
+
+    async def fake_sync(*args, **kwargs):
+        seen.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(
+        "productagents.platform.connectors.run_connector_sync", fake_sync
+    )
+    await ConnectorService(workspace="acme").sync(connector="github")
+    assert seen["only"] == "github"
+    assert seen["workspace"] == "acme"
