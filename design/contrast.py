@@ -198,8 +198,15 @@ DARK.update(
         "fb_info_text": "#90c7fd",
         "fb_info_icon": "#68aeee",
         "fb_info_border": "#3c94df",
+        "ai_running": "#e0a33e",
+        "ai_running_text": "#f5c68c",
+        "ai_done": "#3fb5a6",
         "ai_done_text": "#93d0c5",
+        "ai_degraded": "#9f6a17",
+        "ai_degraded_text": "#f5c68c",
+        "ai_failed": "#e15f55",
         "ai_failed_text": "#ffa59a",
+        "ai_edge": "#686f79",  # slate-600 (bumped from slate-700, see themes/dark.css)
         "ai_awaiting_human": "#959ff8",
         "ai_log_info": "#90c7fd",
         "ai_log_warn": "#f5c68c",
@@ -251,8 +258,15 @@ LIGHT.update(
         "fb_info_text": "#2d6292",
         "fb_info_icon": "#357bb8",
         "fb_info_border": "#357bb8",
+        "ai_running": "#e0a33e",
+        "ai_running_text": "#7e5519",
+        "ai_done": "#3fb5a6",
         "ai_done_text": "#2e6b61",
+        "ai_degraded": "#9f6a17",
+        "ai_degraded_text": "#7e5519",
+        "ai_failed": "#e15f55",
         "ai_failed_text": "#94423b",
+        "ai_edge": "#898680",  # sand-500 (bumped from sand-300, see themes/light.css)
         "ai_awaiting_human": "#565cae",
         "ai_log_info": "#2d6292",
         "ai_log_warn": "#7e5519",
@@ -390,6 +404,29 @@ for tok in (
 ):
     PAIRS.append((tok, "bg", 3.0, f"{tok} marker on canvas"))
     PAIRS.append((tok, "panel", 3.0, f"{tok} marker on panel"))
+    PAIRS.append(
+        (tok, "surface_raised", 3.0, f"{tok} rail/icon on node surface (AgentNode)")
+    )
+
+# AgentNode status label — nodeStatus.ts swaps the node's label color to the
+# status -text token while the node body stays on --surface-raised (the -fill
+# tokens are only ever used as the border/ring color, never as a text
+# background — there's no dedicated tinted "-bg" step for AI status the way
+# fb_* has fb_*_bg). Body-text floor (4.5): this is the node's title text.
+for status in ("running", "done", "degraded", "failed"):
+    PAIRS.append(
+        (
+            f"ai_{status}_text",
+            "surface_raised",
+            4.5,
+            f"{status} status label text on node surface (AgentNode)",
+        )
+    )
+
+# Workflow graph edge line on the canvas it renders over (WorkflowsPanel's
+# react-flow pane background is --bg-secondary, i.e. "panel" here). A
+# structural line, not text (3:1).
+PAIRS.append(("ai_edge", "panel", 3.0, "workflow graph edge on canvas"))
 
 
 def show(theme, tokens, pairs, label="contrast"):
