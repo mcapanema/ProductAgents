@@ -1,0 +1,84 @@
+/* desktop/src/panels/AgentNode.css
+ * Tokens only. The node is a compact chip: accent rail (kind hue) + icon +
+ * label/role, with a status ring driven by inline CSS vars from AgentNode.tsx. */
+.agent-node {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--gap-inline);
+  min-width: 168px;
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-raised);
+  border: var(--border-width-default) solid var(--node-border, var(--ai-node-border));
+  border-radius: var(--radius-card);
+  box-shadow: var(--elevation-raised);
+  color: var(--text-primary);
+  cursor: default;
+  transition: var(--transition-surface), box-shadow var(--dur-fast) var(--ease-standard);
+}
+.agent-node[data-editable="true"] { cursor: var(--cursor-interactive); }
+.agent-node[data-editable="true"]:hover {
+  border-color: var(--ai-node-active-border);
+  box-shadow: var(--elevation-floating);
+}
+.agent-node[data-selected="true"] {
+  border-color: var(--ai-node-active-border);
+  box-shadow: 0 0 0 var(--border-width-focus) var(--accent-ring);
+}
+.agent-node:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+/* Kind accent rail (left edge), colored by the kind hue passed as --node-accent. */
+.agent-node__rail {
+  width: 3px;
+  align-self: stretch;
+  border-radius: var(--radius-pill);
+  background: var(--node-accent, var(--accent));
+}
+.agent-node__icon {
+  display: grid;
+  place-items: center;
+  color: var(--node-accent, var(--accent));
+  font-size: var(--icon-sm);
+}
+.agent-node__body { min-width: 0; }
+.agent-node__role {
+  font: var(--text-label);
+  letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.agent-node__label {
+  font: var(--text-title);
+  color: var(--node-status-text, var(--text-primary));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Status ring: a thin outer ring in the status color, pulsing while running. */
+.agent-node[data-status]:not([data-status="idle"]) {
+  border-color: var(--node-status-border);
+}
+.agent-node[data-status="running"] { animation: agent-pulse var(--transition-pulse) infinite; }
+@keyframes agent-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--node-status-border) 60%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--node-status-border) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-node[data-status="running"] { animation: none; }
+}
+/* Terminal nodes read as quiet pills, not agent chips. */
+.agent-node--terminal {
+  min-width: 96px;
+  justify-content: center;
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+/* React Flow handles: present for edge routing, visually muted (graph is read-only). */
+.agent-node .react-flow__handle {
+  width: 5px; height: 5px;
+  background: var(--ai-edge);
+  border: none;
+  opacity: 0.001; /* keep for layout/routing; invisible — no fake edit affordance */
+}
