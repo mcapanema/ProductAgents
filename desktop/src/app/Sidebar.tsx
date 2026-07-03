@@ -118,8 +118,8 @@ const NAV: { view: View; label: string; icon: string }[] = [
   { view: "memory", label: "Memory", icon: "memory" },
   { view: "connectors", label: "Connectors", icon: "connectors" },
   { view: "prompts", label: "Prompts", icon: "prompts" },
-  { view: "settings", label: "Settings", icon: "settings" },
   { view: "reflection", label: "Reflection", icon: "reflection" },
+  { view: "settings", label: "Settings", icon: "settings" },
 ];
 
 const COLLAPSE_STORAGE_KEY = "pa-sidebar-collapsed";
