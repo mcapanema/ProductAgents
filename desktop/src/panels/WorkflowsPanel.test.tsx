@@ -60,4 +60,33 @@ describe("WorkflowsPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Strategist/ }));
     expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
   });
+
+  it("blocks switching nodes on unsaved prompt edits until the user confirms", async () => {
+    const detailWithJudge: WorkflowDetail = {
+      ...detail,
+      topology: {
+        nodes: [...detail.topology!.nodes, { id: "judge", prompts: ["judge"] }],
+        edges: [...detail.topology!.edges, { source: "strategist", target: "judge", conditional: false }],
+      },
+    };
+    renderPanel(fake({
+      workflowsShow: async () => detailWithJudge,
+      promptsList: async () => [
+        { name: "strategist", versions: [0], active: 0 },
+        { name: "judge", versions: [0], active: 0 },
+      ],
+      promptsShow: async (name: string) => ({ name, version: 0, text: name === "judge" ? "Score it." : "Decide." }),
+    }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Strategist/ }));
+    const area = await screen.findByDisplayValue("Decide.");
+    fireEvent.change(area, { target: { value: "Decide boldly." } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Judge/ }));
+    expect((await screen.findAllByText("Discard unsaved prompt edits?")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /keep editing/i }));
+    expect(await screen.findByDisplayValue("Decide boldly.")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Score it.")).not.toBeInTheDocument();
+  });
 });

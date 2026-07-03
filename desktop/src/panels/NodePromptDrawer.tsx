@@ -143,7 +143,7 @@ export function NodePromptDrawer({ node, onClose, onDirtyChange }: Props) {
               <Button type="primary" onClick={() => save(name)} disabled={!ipc || !nodeDirty}>
                 Save as new version
               </Button>
-              <Button type="text" disabled={!nodeDirty} onClick={() => setShowDiff((s) => ({ ...s, [name]: !s[name] }))}>
+              <Button type="text" disabled={!showDiff[name] && !nodeDirty} onClick={() => setShowDiff((s) => ({ ...s, [name]: !s[name] }))}>
                 {showDiff[name] ? "Edit" : "View diff"}
               </Button>
               {saveState[name] === "saved" && (
