@@ -1,4 +1,8 @@
-import type { WorkflowNode, WorkflowTopology } from "../ipc/types";
+import type { Node, Edge } from "@xyflow/react";
+import type { WorkflowNode, WorkflowTopology, NodeStatus } from "../ipc/types";
+import { nodeKind } from "./workflowNodeKinds";
+import type { AgentNodeData } from "./AgentNode";
+import { tokenVar } from "../ui/tokens";
 
 export interface PositionedNode extends WorkflowNode {
   x: number;
@@ -61,4 +65,36 @@ export function layoutTopology(topology: WorkflowTopology): PositionedNode[] {
     const offset = ((widest - (widths.get(r) ?? 1)) * X_STEP) / 2;
     return { ...n, x: offset + col * X_STEP, y: r * Y_STEP };
   });
+}
+
+export function buildFlowNodes(
+  topology: WorkflowTopology,
+  opts: { selectedId?: string | null; statuses?: Record<string, NodeStatus> },
+): Node<AgentNodeData>[] {
+  const statuses = opts.statuses ?? {};
+  return layoutTopology(topology).map((n) => ({
+    id: n.id,
+    type: "agent",
+    position: { x: n.x, y: n.y },
+    data: {
+      id: n.id,
+      kind: nodeKind(n.id),
+      status: statuses[n.id] ?? "idle",
+      editable: n.prompts.length > 0,
+      selected: opts.selectedId === n.id,
+    },
+  }));
+}
+
+export function buildFlowEdges(topology: WorkflowTopology): Edge[] {
+  return topology.edges.map((e) => ({
+    id: `${e.source}->${e.target}`,
+    source: e.source,
+    target: e.target,
+    style: {
+      stroke: tokenVar("--ai-edge"),
+      strokeWidth: 1.5,
+      ...(e.conditional ? { strokeDasharray: "6 4" } : {}),
+    },
+  }));
 }
