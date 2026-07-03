@@ -65,11 +65,17 @@ class ConnectorService:
         """The static view: which connectors are configured + problems (no sync)."""
         return await connectors.connector_plan(workspace=self._workspace)
 
-    async def sync(self) -> SyncReport:
-        return await connectors.run_connector_sync(workspace=self._workspace)
+    async def sync(self, connector: str | None = None) -> SyncReport:
+        """One sync pass — all enabled connectors, or just ``connector``."""
+        return await connectors.run_connector_sync(
+            workspace=self._workspace, only=connector
+        )
 
-    async def health(self) -> HealthReport:
-        return await connectors.check_connector_health(workspace=self._workspace)
+    async def health(self, connector: str | None = None) -> HealthReport:
+        """Readiness probe — all enabled connectors, or just ``connector``."""
+        return await connectors.check_connector_health(
+            workspace=self._workspace, only=connector
+        )
 
     async def last_synced(self) -> dict[str, str]:
         """Each connector's last successful-sync timestamp (ISO-8601), by key."""

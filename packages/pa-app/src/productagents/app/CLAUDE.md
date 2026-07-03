@@ -80,9 +80,12 @@ memory), distinct from `sessions.*` which replays the execution event log.
 `connectors.list` → `{connectors: [{name}], problems: [str], last_synced: {name: iso}}` — the
 static, no-I/O config view from `ConnectorService.plan()` plus a cheap `last_synced` map
 (connector key → ISO-8601 timestamp of last successful cursor write, from `SyncStateStore`;
-empty if the connector has never synced). Resolved secrets never leave the platform. `connectors.health` → `{statuses: {name: {ok, detail}}, problems}` probes
-each enabled connector's readiness. `connectors.sync` → `{results: [{connector, written,
-ok, error}], problems}` runs one sync pass. All three are guarded by a `connectors=None`
+empty if the connector has never synced). Resolved secrets never leave the platform. `connectors.health {connector?}` → `{statuses: {name: {ok, detail}}, problems}` probes
+each enabled connector's readiness — or just the named one when `connector` is given.
+`connectors.sync {connector?}` → `{results: [{connector, written,
+ok, error}], problems}` runs one sync pass, scoped the same way. An unknown/unconfigured
+`connector` degrades to an empty report with a `"connector '<name>': not configured"`
+problem (a `result`, not an `error`). All three are guarded by a `connectors=None`
 kwarg (mirrors `decisions`) and emit a human-facing `error` if the service is absent.
 
 `prompts.list` → `[{name, versions: [int], active: int}]` — every prompt name with its

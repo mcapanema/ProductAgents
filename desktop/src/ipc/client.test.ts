@@ -72,6 +72,22 @@ describe("IpcClient", () => {
     expect(await p).toEqual({ connectors: [{ name: "github" }], problems: [] });
   });
 
+  it("passes the optional connector to connectors.health and connectors.sync", async () => {
+    const { client, sent } = harness();
+    void client.connectorsHealth("github");
+    expect(JSON.parse(sent[0])).toMatchObject({
+      method: "connectors.health",
+      params: { connector: "github" },
+    });
+    void client.connectorsSync("github");
+    expect(JSON.parse(sent[1])).toMatchObject({
+      method: "connectors.sync",
+      params: { connector: "github" },
+    });
+    void client.connectorsHealth();
+    expect(JSON.parse(sent[2])).not.toHaveProperty("params");
+  });
+
   it("requests prompts.list and correlates the result", async () => {
     const { client, sent, emit } = harness();
     const p = client.promptsList();

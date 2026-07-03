@@ -41,13 +41,14 @@ const sync: ConnectorSync = {
   problems: [],
 };
 
-function renderPanel() {
+function renderPanel(overrides: Record<string, unknown> = {}) {
   const client = {
     connectorsConfigList: async () => [github, jira],
     connectorsList: async () => list,
     connectorsHealth: async () => health,
     connectorsSync: async () => sync,
     connectorsConfigSave: async () => github,
+    ...overrides,
   } as unknown as IpcClient;
   render(
     <IpcProvider client={client}>
@@ -93,5 +94,25 @@ describe("ConnectorsPanel", () => {
     await screen.findByRole("heading", { name: "GitHub" });
     fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
     expect(await screen.findByText(/7 records written/)).toBeInTheDocument();
+  });
+
+  it("scopes Check health and Sync now to the selected connector", async () => {
+    const calls: (string | undefined)[] = [];
+    renderPanel({
+      connectorsHealth: async (c?: string) => {
+        calls.push(c);
+        return health;
+      },
+      connectorsSync: async (c?: string) => {
+        calls.push(c);
+        return sync;
+      },
+    });
+    await screen.findByRole("heading", { name: "GitHub" });
+    fireEvent.click(screen.getByRole("button", { name: /check health/i }));
+    expect(await screen.findByText("Connected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
+    expect(await screen.findByText(/7 records written/)).toBeInTheDocument();
+    expect(calls).toEqual(["github", "github"]);
   });
 });

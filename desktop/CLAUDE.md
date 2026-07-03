@@ -67,13 +67,17 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   unit-tested**, components stay thin: `runReducer.ts` (Run event stream),
   `decisionView.ts` (`formatConfidence`/`predictionRows`), `connectorView.ts`
   (pure selectors: `splitEntries` (Enabled/Available split), `connectorStatus`,
-  `syncSummary`, `lastSynced`), `promptView.ts`
+  `syncSummary`, `lastSynced`, `mergeHealth`, `mergeSync`), `promptView.ts`
   (`versionLabel`/`defaultDiffPair`); `RunPanel.tsx`, `SessionsPanel.tsx`,
   `DecisionsPanel.tsx`, `ConnectorsPanel.tsx` (master–detail connectors home —
   a Settings-style secondary nav grouping connectors into Enabled/Available
   via `connectorView.ts::splitEntries`, brand icons (`connectorIcons.tsx`),
   Phase 4A status badges driven by `connectors.health`, per-connector Check
-  health / Sync now, registry `title`/`description` metadata from
+  health / Sync now (scoped to the selected connector via the optional
+  `connector` param on `connectors.health`/`connectors.sync`; responses are
+  overlaid onto panel state with `connectorView.ts::mergeHealth`/`mergeSync`
+  so one connector's check never clears another's badge, and a failed call
+  keeps the previous state), registry `title`/`description` metadata from
   `connectors.config.list` (declared as `Connector.title`/`description`
   ClassVars in pa-connectors, surfaced by `ConnectorService._entry`), and the
   schema-driven `ConnectorConfigForm.tsx` (the former `SettingsConnectors`,

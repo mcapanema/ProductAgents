@@ -3,6 +3,8 @@ import {
   connectorStatus,
   isEnabled,
   lastSynced,
+  mergeHealth,
+  mergeSync,
   splitEntries,
   syncSummary,
 } from "./connectorView";
@@ -81,5 +83,64 @@ describe("syncSummary and lastSynced", () => {
     expect(lastSynced("github", list)).toBe("2026-06-29T10:00:00+00:00");
     expect(lastSynced("jira", list)).toBeNull();
     expect(lastSynced("github", null)).toBeNull();
+  });
+});
+
+describe("mergeHealth", () => {
+  it("overlays new statuses without dropping previous ones", () => {
+    const prev: ConnectorHealth = {
+      statuses: { github: { ok: true, detail: "reachable" } },
+      problems: ["old problem"],
+    };
+    const next: ConnectorHealth = {
+      statuses: { jira: { ok: false, detail: "401" } },
+      problems: [],
+    };
+    expect(mergeHealth(prev, next)).toEqual({
+      statuses: {
+        github: { ok: true, detail: "reachable" },
+        jira: { ok: false, detail: "401" },
+      },
+      problems: [],
+    });
+  });
+
+  it("works from a null previous report", () => {
+    const next: ConnectorHealth = {
+      statuses: { github: { ok: true, detail: "" } },
+      problems: [],
+    };
+    expect(mergeHealth(null, next)).toEqual(next);
+  });
+});
+
+describe("mergeSync", () => {
+  it("replaces results for the synced connector and keeps the rest", () => {
+    const prev: ConnectorSync = {
+      results: [
+        { connector: "github", written: 1, ok: true, error: null },
+        { connector: "jira", written: 3, ok: true, error: null },
+      ],
+      problems: [],
+    };
+    const next: ConnectorSync = {
+      results: [{ connector: "github", written: 7, ok: true, error: null }],
+      problems: [],
+    };
+    expect(mergeSync(prev, next)).toEqual({
+      results: [
+        { connector: "jira", written: 3, ok: true, error: null },
+        { connector: "github", written: 7, ok: true, error: null },
+      ],
+      problems: [],
+    });
+  });
+
+  it("works from a null previous report", () => {
+    const next: ConnectorSync = {
+      results: [{ connector: "github", written: 7, ok: true, error: null }],
+      problems: [],
+    };
+    expect(mergeSync(null, next)).toEqual(next);
   });
 });
