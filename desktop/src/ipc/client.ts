@@ -114,12 +114,18 @@ export class IpcClient {
     return this.call<ConnectorList>("connectors.list");
   }
 
-  connectorsHealth(): Promise<ConnectorHealth> {
-    return this.call<ConnectorHealth>("connectors.health");
+  connectorsHealth(connector?: string): Promise<ConnectorHealth> {
+    return this.call<ConnectorHealth>(
+      "connectors.health",
+      connector === undefined ? undefined : { connector },
+    );
   }
 
-  connectorsSync(): Promise<ConnectorSync> {
-    return this.call<ConnectorSync>("connectors.sync");
+  connectorsSync(connector?: string): Promise<ConnectorSync> {
+    return this.call<ConnectorSync>(
+      "connectors.sync",
+      connector === undefined ? undefined : { connector },
+    );
   }
 
   promptsList(): Promise<PromptSummary[]> {
