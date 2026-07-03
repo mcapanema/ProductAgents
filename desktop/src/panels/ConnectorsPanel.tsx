@@ -163,7 +163,7 @@ export function ConnectorsPanel() {
                   <Button onClick={checkHealth} disabled={!ipc || busy} loading={busy}>
                     Check health
                   </Button>
-                  <Button onClick={runSync} disabled={!ipc || busy || !isEnabled(entry)}>
+                  <Button onClick={runSync} disabled={!ipc || busy || !isEnabled(entry)} loading={busy}>
                     Sync now
                   </Button>
                 </span>
