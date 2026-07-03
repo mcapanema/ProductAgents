@@ -60,9 +60,10 @@ export function NodePromptDrawer({ node, onClose }: Props) {
           <h3 style={{ marginTop: 0 }}>{name}</h3>
           <Input.TextArea
             value={drafts[name] ?? ""}
-            onChange={(e) =>
-              setDrafts((d) => ({ ...d, [name]: e.target.value }))
-            }
+            onChange={(e) => {
+              setDrafts((d) => ({ ...d, [name]: e.target.value }));
+              setSaved(null);
+            }}
             style={{ width: "100%", minHeight: 180, whiteSpace: "pre-wrap" }}
           />
           <div className="row" style={{ gap: 8, marginTop: 8 }}>

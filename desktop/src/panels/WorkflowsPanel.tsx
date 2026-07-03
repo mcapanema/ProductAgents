@@ -15,6 +15,7 @@ export function WorkflowsPanel() {
   const [promptNode, setPromptNode] = useState<WorkflowNode | null>(null);
 
   async function open(name: string) {
+    setPromptNode(null);
     if (!ipc) return;
     try {
       setDetail(await ipc.workflowsShow(name));
