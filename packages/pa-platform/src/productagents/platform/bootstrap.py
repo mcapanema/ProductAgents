@@ -57,11 +57,15 @@ def _copy_rows(home: SharedHome) -> None:
             ).fetchone()
             if exists is None:
                 continue
+            # ponytail: assumes the only legacy→current delta is the workspace
+            # column (true for the one legacy generation that exists); a legacy
+            # DB missing other NOT-NULL columns degrades via the outer except —
+            # logged, never imported.
             cols = [
                 r[1]
                 for r in con.execute(f"PRAGMA legacy.table_info({table})").fetchall()
             ]
-            col_list = ", ".join(cols)
+            col_list = ", ".join('"' + c.replace('"', '""') + '"' for c in cols)
             if scoped:
                 con.execute(
                     f"INSERT OR IGNORE INTO main.{table} ({col_list}, workspace) "

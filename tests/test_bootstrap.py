@@ -56,6 +56,18 @@ async def test_bootstrap_fresh_home_creates_schema_and_default(tmp_path):
     assert [w["name"] for w in workspaces] == ["default"]
 
 
+async def test_corrupt_legacy_db_degrades_and_startup_proceeds(tmp_path):
+    home = SharedHome(root=tmp_path)
+    legacy = home.legacy_workspaces_dir / "default" / "productagents.db"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_bytes(b"this is not a sqlite database")
+    engine = make_engine(home.db_url)
+    await bootstrap_home(home, engine=engine)  # must not raise
+    # startup still completed: schema exists and the default row was ensured
+    workspaces = await WorkspaceService(home=home, engine=engine).list()
+    assert [w["name"] for w in workspaces] == ["default"]
+
+
 async def test_bootstrap_is_idempotent(tmp_path):
     home = SharedHome(root=tmp_path)
     legacy = home.legacy_workspaces_dir / "default" / "productagents.db"
