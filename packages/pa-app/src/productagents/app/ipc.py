@@ -451,7 +451,9 @@ async def handle(
             if workspaces is None:
                 raise RuntimeError("workspaces service not available")
             name = p["name"]
-            await workspaces.set_active(name)
+            if await workspaces.get(name) is None:
+                await emit({"id": rid, "error": f"no such workspace: {name}"})
+                return
             if config is not None:
                 await config.switch(name)
             rebuild = services.get("rebuild")
@@ -460,6 +462,10 @@ async def handle(
                 fresh.pop("workspaces", None)  # keep the (possibly faked) instance
                 services.update(fresh)
             services["active_name"] = name
+            # Marker persists only after the in-process switch succeeded — a
+            # mid-switch failure must never leave the marker pointing at a
+            # workspace this process never actually switched to.
+            await workspaces.set_active(name)
             await emit({"id": rid, "result": {"name": name, "active": True}})
 
         async def _sessions_list(_p: dict) -> None:

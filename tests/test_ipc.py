@@ -358,7 +358,7 @@ async def test_workspaces_use_unknown_emits_error(tmp_path):
 
 
 async def test_workspaces_use_switches_live():
-    """use -> marker+config.switch+services rebuilt; next request sees new scope."""
+    """use -> config.switch + rebuild swap the dict; the NEXT request sees it."""
     switched = []
 
     class _FakeConfig:
@@ -366,12 +366,32 @@ async def test_workspaces_use_switches_live():
             switched.append(name)
 
     ws = _FakeWorkspaces(names=("default", "acme"))
+    config = _FakeConfig()
+    rebuild_calls = []
+    post_switch_session = Session(
+        id="post-switch-row",
+        workflow="evaluate_initiative",
+        status="finished",
+        created_at=datetime(2026, 6, 28, tzinfo=UTC),
+    )
+
+    def fake_rebuild(name, *, config=None):
+        rebuild_calls.append((name, config))
+        return {
+            "workflows": _workflows(),
+            "workspaces": object(),  # must be popped, never installed
+            "active_name": name,
+            "sessions": _FakeSessions([post_switch_session]),
+            "rebuild": fake_rebuild,
+        }
+
     services = {
         "workflows": _workflows(),
         "workspaces": ws,
         "active_name": "default",
         "sessions": _FakeSessions(),
-        "config": _FakeConfig(),
+        "config": config,
+        "rebuild": fake_rebuild,
     }
     emit, sink = _collect()
     await ipc.handle(
@@ -381,8 +401,42 @@ async def test_workspaces_use_switches_live():
     )
     assert sink == [{"id": 1, "result": {"name": "acme", "active": True}}]
     assert switched == ["acme"]
+    assert rebuild_calls == [("acme", config)]
     assert services["active_name"] == "acme"
     assert ws.active == "acme"
+    assert services["workspaces"] is ws  # instance identity preserved
+
+    # The very next request against the SAME dict sees the rebuilt scope.
+    await ipc.handle({"id": 2, "method": "sessions.list"}, services, emit=emit)
+    assert sink[1]["id"] == 2
+    assert [row["id"] for row in sink[1]["result"]] == ["post-switch-row"]
+
+
+async def test_workspaces_use_switch_failure_leaves_marker_untouched():
+    """config.switch blowing up -> {id, error}, marker and active_name unchanged."""
+
+    class _BoomConfig:
+        async def switch(self, name):
+            raise RuntimeError("db down")
+
+    ws = _FakeWorkspaces(names=("default", "acme"))
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": _BoomConfig(),
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 3, "method": "workspaces.use", "params": {"name": "acme"}},
+        services,
+        emit=emit,
+    )
+    assert sink[0]["id"] == 3
+    assert "db down" in sink[0]["error"]
+    assert ws.active == "default"  # marker never flipped
+    assert services["active_name"] == "default"
 
 
 from productagents.agents import runner as rn  # noqa: E402
