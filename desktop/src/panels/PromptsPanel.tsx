@@ -3,6 +3,7 @@ import { Button, Input } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { PromptDiff, PromptSummary, PromptVersion } from "../ipc/types";
 import { defaultDiffPair, versionLabel } from "./promptView";
+import { EmptyState } from "../ui/EmptyState";
 
 export function PromptsPanel() {
   const ipc = useIpc();
@@ -84,18 +85,28 @@ export function PromptsPanel() {
   return (
     <div>
       <h1>Prompts</h1>
-      {list.length === 0 && <p className="muted">No prompts found.</p>}
-      <div className="row" style={{ alignItems: "flex-start", gap: 24 }}>
-        <div style={{ flex: "0 0 280px" }}>
+      <p className="page-desc">Versioned prompt templates for each pipeline node. Edit to create a new version; roll back anytime.</p>
+      {list.length === 0 && (
+        <EmptyState
+          title="No prompts found"
+          description="Prompt templates ship with the app and appear here once the registry loads."
+        />
+      )}
+      <div className="master-detail">
+        <div className="master-detail__list" style={{ flexBasis: 280 }}>
           {list.map((p) => (
-            <div className="list-item" key={p.name} onClick={() => open(p)}>
+            <div
+              className={`list-item${selected?.name === p.name ? " is-selected" : ""}`}
+              key={p.name}
+              onClick={() => open(p)}
+            >
               <div>{p.name}</div>
               <div className="muted">{versionLabel(p.active, p.active)}</div>
             </div>
           ))}
         </div>
         {selected && (
-          <div style={{ flex: 1 }}>
+          <div className="master-detail__detail">
             <h2 style={{ marginTop: 0 }}>{selected.name}</h2>
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
               {selected.versions.map((v) => (
