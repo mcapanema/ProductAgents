@@ -25,9 +25,8 @@
 
 [data-density="compact"] .settings-pref { padding: var(--space-8); }
 
-/* Connectors — one card per connector; header row breaks from the default
+/* Connector detail header (ConnectorConfigForm) — breaks from the default
    title+description column layout to put the enabled toggle on the right. */
-.settings-connectors { display: flex; flex-direction: column; gap: var(--space-24); }
 .settings-connector__head { flex-direction: row; align-items: center; justify-content: space-between; padding-bottom: 0; border-bottom: none; }
 
 /* Sub-navigation — Workspace / Application groups (Phase 7 nav port) */

@@ -5,7 +5,6 @@ import { useIpc } from "../app/IpcProvider";
 import { validWorkspaceName } from "../app/topBarView";
 import type { ConfigStatus, WorkspaceInfo } from "../ipc/types";
 import { formFromStatus, originHint, paramsFromForm, type SettingsForm } from "./settingsView";
-import { SettingsConnectors } from "./SettingsConnectors";
 import { UpdateSection } from "./UpdateSection";
 import { ThemeControl } from "../ui/ThemeControl";
 import type { ThemePref } from "../ui/theme";
@@ -38,14 +37,13 @@ function Pref({ label, description, control }: { label: string; description?: st
   );
 }
 
-type SectionId = "configuration" | "connectors" | "preferences" | "runtime" | "updates";
+type SectionId = "configuration" | "preferences" | "runtime" | "updates";
 
 const NAV: { group: string; items: { id: SectionId; label: string }[] }[] = [
   {
     group: "Workspace",
     items: [
       { id: "configuration", label: "Configuration" },
-      { id: "connectors", label: "Connectors" },
       { id: "preferences", label: "Preferences" },
     ],
   },
@@ -311,7 +309,6 @@ export function SettingsPanel({
           ) : (
             <p className="muted">Loading configuration…</p>
           ))}
-          {section === "connectors" && <SettingsConnectors />}
           {section === "preferences" && (
             <Section title="Preferences" description="Personal to this workspace; never affects workflow execution.">
               <Pref label="Theme" control={<ThemeControl value={theme} onChange={onThemeChange} />} />
