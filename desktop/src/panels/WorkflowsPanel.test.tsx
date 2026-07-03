@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -64,5 +64,25 @@ describe("WorkflowsPanel", () => {
       fake({ workflowsShow: async () => ({ ...summary, topology: null }) }),
     );
     expect(await screen.findByText(/no graph available/i)).toBeInTheDocument();
+  });
+
+  it("opens the prompt editor when an agent node is clicked", async () => {
+    const saves: [string, string][] = [];
+    renderPanel(
+      fake({
+        promptsSave: async (name: string, text: string) => {
+          saves.push([name, text]);
+          return { name, versions: [0, 1], active: 1 };
+        },
+      }),
+    );
+    fireEvent.click(await screen.findByText("Strategist"));
+    const area = await screen.findByDisplayValue("Decide.");
+    fireEvent.change(area, { target: { value: "Decide boldly." } });
+    fireEvent.click(
+      screen.getByRole("button", { name: /save as new version/i }),
+    );
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    expect(saves).toEqual([["strategist", "Decide boldly."]]);
   });
 });
