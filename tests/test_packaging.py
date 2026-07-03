@@ -28,7 +28,7 @@ def test_build_workflows_survives_missing_model(monkeypatch):
         raise RuntimeError("no api key configured")
 
     monkeypatch.setattr("productagents.app.cli.get_model", boom)
-    service = ipc._build_workflows(human_in_the_loop=True)
+    service = ipc._build_workflows("default", human_in_the_loop=True)
     # list() reads the registered workflow names; it needs no model.
     assert any(w.name == "evaluate_initiative" for w in service.list())
 

@@ -17,6 +17,7 @@ from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
 from productagents.core.models import Initiative
 from productagents.platform import events as ev
+from productagents.platform.bootstrap import bootstrap_home
 from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
@@ -113,7 +114,9 @@ async def sessions_show(session_id: str, *, service) -> int:
     return 0
 
 
-def _build_run_service(*, human_in_the_loop: bool = False) -> WorkflowService:
+def _build_run_service(
+    *, human_in_the_loop: bool = False, workspace: str = "default"
+) -> WorkflowService:
     """Production WorkflowService for runs: real model + DB recorder.
 
     ``human_in_the_loop`` is False for the headless CLI ``run`` (governance stays
@@ -122,7 +125,10 @@ def _build_run_service(*, human_in_the_loop: bool = False) -> WorkflowService:
     """
     model = get_model()
     return WorkflowService.for_model(
-        model, recorder=make_recorder(), human_in_the_loop=human_in_the_loop
+        model,
+        recorder=make_recorder(workspace=workspace),
+        human_in_the_loop=human_in_the_loop,
+        workspace=workspace,
     )
 
 
@@ -213,41 +219,51 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def workspace_list(*, service: WorkspaceService, active_name: str) -> int:
+async def workspace_list(*, service: WorkspaceService, active_name: str) -> int:
     """Print one workspace name per line; mark the active one with ``*``."""
-    for ws in service.list():
-        marker = "*" if ws.name == active_name else " "
-        print(f"{marker} {ws.name}")
+    for row in await service.list():
+        marker = "*" if row["name"] == active_name else " "
+        print(f"{marker} {row['name']}")
     return 0
 
 
-def workspace_show(name: str | None, *, service: WorkspaceService) -> int:
-    """Print the resolved workspace's name and on-disk paths."""
-    ws = service.resolve(name)
-    print(f"name:        {ws.name}")
-    print(f"root:        {ws.root}")
-    print(f"db_url:      {ws.db_url}")
-    print(f"connectors:  {ws.connectors_file}")
-    print(f"env:         {ws.env_file}")
-    print(f"log:         {ws.log_file}")
+async def workspace_show(
+    name: str | None, *, service: WorkspaceService, active_name: str
+) -> int:
+    """Print the resolved workspace's name and the shared home's paths."""
+    name = name or active_name
+    row = await service.get(name)
+    if row is None:
+        print(f"no such workspace: {name}")
+        return 1
+    home = service.home()
+    print(f"name:        {row['name']}")
+    print(f"active:      {'yes' if name == active_name else 'no'}")
+    print(f"created_at:  {row['created_at']}")
+    print(f"home:        {home.root}")
+    print(f"db_url:      {home.db_url}")
+    print(f"connectors:  {home.connectors_file}")
+    print(f"env:         {home.env_file}")
+    print(f"log:         {home.log_file}")
+    print(f"prompts:     {service.prompts_dir(name)}")
     return 0
 
 
-def workspace_create(name: str, *, service: WorkspaceService) -> int:
-    """Create a new workspace directory; print its path."""
+async def workspace_create(name: str, *, service: WorkspaceService) -> int:
+    """Create a new workspace; print its name."""
     try:
-        ws = service.create(name)
+        row = await service.create(name)
     except WorkspaceError as exc:
         print(str(exc))
         return 1
-    print(f"created workspace {ws.name} at {ws.root}")
+    print(f"created workspace {row['name']}")
     return 0
 
 
-def workspace_use(name: str, *, service: WorkspaceService) -> int:
+async def workspace_use(name: str, *, service: WorkspaceService) -> int:
     """Persist NAME as the active workspace for future invocations."""
     try:
-        service.set_active(name)
+        await service.set_active(name)
     except WorkspaceError as exc:
         print(f"{exc} — create it with `productagents workspace create {name}`")
         return 1
@@ -371,22 +387,34 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
 
     workspaces = WorkspaceService()
-    workspace = workspaces.resolve(args.workspace)
-    workspaces.activate(workspace)
+    workspaces.activate()
     load_env()
+    try:
+        active = workspaces.resolve(args.workspace)
+    except WorkspaceError as exc:
+        raise SystemExit(str(exc)) from exc
 
-    config = ConfigurationService(active_name=workspace.name)
+    config = ConfigurationService(active_name=active)
     try:
         config.apply_overrides(parse_set_overrides(args.overrides))
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    try:
-        asyncio.run(config.load())  # workspace DB -> env (precedence: see the service)
-    except Exception:
-        # degrade, never crash: env/defaults still work, origins just won't show db
-        logger.error(
-            "workspace config load failed; continuing without it", exc_info=True
-        )
+
+    async def _startup() -> None:
+        # One event loop for both: the process-wide engine is loop-bound once
+        # created (its asyncpg/aiosqlite objects can't cross asyncio.run() calls),
+        # so bootstrap_home and config.load() must share a run rather than each
+        # getting their own.
+        await bootstrap_home(workspaces.home())
+        try:
+            await config.load()  # workspace DB -> env (precedence: see the service)
+        except Exception:
+            # degrade, never crash: env/defaults still work, origins just won't show db
+            logger.error(
+                "workspace config load failed; continuing without it", exc_info=True
+            )
+
+    asyncio.run(_startup())
     configure_logging()
 
     if args.command is None:  # bare `productagents` → show help
@@ -397,28 +425,32 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "ipc":
         from productagents.app import ipc
 
-        ipc.serve_stdio(workspace.name, config=config)
+        ipc.serve_stdio(active, config=config)
         return
     if args.command == "serve-ws":
         from productagents.app import devbridge
 
-        devbridge.serve_ws(workspace.name, port=args.port, config=config)
+        devbridge.serve_ws(active, port=args.port, config=config)
         return
     if args.command == "workspace":
         if args.ws_command == "create":
-            raise SystemExit(workspace_create(args.name, service=workspaces))
+            raise SystemExit(
+                asyncio.run(workspace_create(args.name, service=workspaces))
+            )
         if args.ws_command == "use":
-            raise SystemExit(workspace_use(args.name, service=workspaces))
+            raise SystemExit(asyncio.run(workspace_use(args.name, service=workspaces)))
         if args.ws_command == "show":
             raise SystemExit(
-                workspace_show(args.name or workspace.name, service=workspaces)
+                asyncio.run(
+                    workspace_show(args.name, service=workspaces, active_name=active)
+                )
             )
         raise SystemExit(  # bare `workspace` or `workspace list`
-            workspace_list(service=workspaces, active_name=workspace.name)
+            asyncio.run(workspace_list(service=workspaces, active_name=active))
         )
     if args.command == "run":
         try:
-            service = _build_run_service()
+            service = _build_run_service(workspace=active)
         except Exception as exc:
             raise SystemExit(f"cannot start run: {exc}") from exc
         if service.get(args.workflow) is None:
@@ -428,14 +460,14 @@ def main(argv: list[str] | None = None) -> None:
         )
         raise SystemExit(code)
     if args.command == "sessions":
-        service = SessionService.create()
+        service = SessionService.create(active)
         if args.se_command == "show":
             code = asyncio.run(sessions_show(args.session_id, service=service))
             raise SystemExit(code)
         code = asyncio.run(sessions_list(service=service))
         raise SystemExit(code)
     if args.command == "prompts":
-        service = PromptService.create()
+        service = PromptService.create(active)
         if args.pr_command == "show":
             raise SystemExit(prompts_show(args.name, args.version, service=service))
         if args.pr_command == "diff":
@@ -450,20 +482,26 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "decisions":
         if args.de_command == "export":
             code = asyncio.run(
-                decisions_export(args.directory, service=DecisionReadService.create())
+                decisions_export(
+                    args.directory, service=DecisionReadService.create(active)
+                )
             )
             raise SystemExit(code)
         raise SystemExit("usage: productagents decisions export DIR")
     if args.command == "reflect":
         if args.decision_id is None:  # list mode needs no model
-            code = asyncio.run(reflect_list(service=ReflectionService.for_model(None)))
+            code = asyncio.run(
+                reflect_list(
+                    service=ReflectionService.for_model(None, workspace=active)
+                )
+            )
             raise SystemExit(code)
         if args.note is None:
             raise SystemExit(
                 'reflect needs a note: productagents reflect <decision_id> "<note>"'
             )
         try:
-            service = ReflectionService.for_model(get_model())
+            service = ReflectionService.for_model(get_model(), workspace=active)
         except Exception as exc:  # friendly message, no traceback
             raise SystemExit(f"cannot reflect: {exc}") from exc
         code = asyncio.run(reflect_record(args.decision_id, args.note, service=service))

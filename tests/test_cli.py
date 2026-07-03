@@ -3,16 +3,27 @@
 import contextlib
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
 from productagents.app import cli as cli_module
 from productagents.connectors.base import SyncResult
 from productagents.core.models import Initiative, OutcomeRecord, Recommendation
+from productagents.knowledge.repositories.sqlmodel.engine import make_engine
+from productagents.memory.store import create_all
 from productagents.platform import events as ev
 from productagents.platform.connectors import SyncReport
 from productagents.platform.session import Session
-from productagents.platform.workspace import WorkspaceService
+from productagents.platform.workspace import SharedHome, WorkspaceService
+
+
+@pytest.fixture
+async def workspace_service(tmp_path):
+    """A real WorkspaceService over an in-memory engine — no shared/global state."""
+    engine = make_engine("sqlite+aiosqlite:///:memory:")
+    await create_all(engine)
+    return WorkspaceService(home=SharedHome(root=tmp_path), engine=engine)
 
 
 async def _ok_syncer():
@@ -108,16 +119,16 @@ def test_sync_command_one_when_a_connector_fails(capsys):
 
 
 def _patch_bootstrap(monkeypatch, calls):
-    class _Workspace:
-        name = "acme"
-
     class _Workspaces:
         def resolve(self, name=None):
             calls.append(("resolve", name))
-            return _Workspace()
+            return "acme"
 
-        def activate(self, workspace):
-            calls.append(("activate", workspace.name))
+        def activate(self):
+            calls.append(("activate",))
+
+        def home(self):
+            return SharedHome(root=Path("/tmp/pa-cli-test-home"))
 
     class _InertConfig:
         """No-op stand-in: keeps main()'s config wiring off the real
@@ -132,8 +143,12 @@ def _patch_bootstrap(monkeypatch, calls):
         async def load(self):
             pass
 
+    async def _fake_bootstrap_home(home, **_kw):
+        calls.append(("bootstrap_home",))
+
     monkeypatch.setattr(cli_module, "WorkspaceService", _Workspaces)
     monkeypatch.setattr(cli_module, "ConfigurationService", _InertConfig)
+    monkeypatch.setattr(cli_module, "bootstrap_home", _fake_bootstrap_home)
     monkeypatch.setattr(cli_module, "load_env", lambda: calls.append(("load_env",)))
     monkeypatch.setattr(
         cli_module, "configure_logging", lambda: calls.append(("configure_logging",))
@@ -147,9 +162,10 @@ def test_main_no_subcommand_prints_help_after_bootstrap(monkeypatch, capsys):
     cli_module.main([])
 
     assert calls == [
-        ("resolve", None),
-        ("activate", "acme"),
+        ("activate",),
         ("load_env",),
+        ("resolve", None),
+        ("bootstrap_home",),
         ("configure_logging",),
     ]
     out = capsys.readouterr().out
@@ -282,12 +298,13 @@ def test_run_workflow_uses_title_as_initiative(monkeypatch, capsys):
     assert captured["spec"] == "scenario-x"
 
 
-def test_workspace_list_marks_active(tmp_path, capsys):
-    (tmp_path / "default").mkdir()
-    (tmp_path / "acme").mkdir()
-    service = WorkspaceService(home=tmp_path)
+async def test_workspace_list_marks_active(workspace_service, capsys):
+    await workspace_service.create("default")
+    await workspace_service.create("acme")
 
-    code = cli_module.workspace_list(service=service, active_name="acme")
+    code = await cli_module.workspace_list(
+        service=workspace_service, active_name="acme"
+    )
 
     out = capsys.readouterr().out
     assert code == 0
@@ -298,9 +315,12 @@ def test_workspace_list_marks_active(tmp_path, capsys):
     assert "*" in active_line
 
 
-def test_workspace_list_empty_home_prints_nothing_and_returns_zero(tmp_path, capsys):
-    service = WorkspaceService(home=tmp_path / "missing")
-    code = cli_module.workspace_list(service=service, active_name="default")
+async def test_workspace_list_empty_home_prints_nothing_and_returns_zero(
+    workspace_service, capsys
+):
+    code = await cli_module.workspace_list(
+        service=workspace_service, active_name="default"
+    )
     assert code == 0
     assert capsys.readouterr().out.strip() == ""
 
@@ -309,26 +329,53 @@ def test_main_workspace_show_without_name_uses_active(monkeypatch):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
     captured = {}
-    monkeypatch.setattr(
-        cli_module,
-        "workspace_show",
-        lambda name, *, service: captured.setdefault("name", name) or 0,
-    )
+
+    async def _fake_workspace_show(name, *, service, active_name):
+        captured["name"] = name
+        captured["active_name"] = active_name
+        return 0
+
+    monkeypatch.setattr(cli_module, "workspace_show", _fake_workspace_show)
     with contextlib.suppress(SystemExit):
         cli_module.main(["--workspace", "acme", "workspace", "show"])
-    assert captured["name"] == "acme"
+    # main() forwards args.name (None here) + active_name; resolving None ->
+    # active is workspace_show's own job (see its unit tests below).
+    assert captured["name"] is None
+    assert captured["active_name"] == "acme"
 
 
-def test_workspace_show_prints_paths(tmp_path, capsys):
-    service = WorkspaceService(home=tmp_path)
+async def test_workspace_show_prints_paths(workspace_service, capsys):
+    await workspace_service.create("acme")
 
-    code = cli_module.workspace_show("acme", service=service)
+    code = await cli_module.workspace_show(
+        "acme", service=workspace_service, active_name="acme"
+    )
 
     out = capsys.readouterr().out
     assert code == 0
     assert "acme" in out
     assert "productagents.db" in out  # db_url path surfaced
     assert "connectors.yaml" in out
+
+
+async def test_workspace_show_unknown_returns_one(workspace_service, capsys):
+    code = await cli_module.workspace_show(
+        "nope", service=workspace_service, active_name="default"
+    )
+    assert code == 1
+    assert "no such workspace" in capsys.readouterr().out
+
+
+async def test_workspace_show_defaults_to_active(workspace_service, capsys):
+    await workspace_service.create("acme")
+
+    code = await cli_module.workspace_show(
+        None, service=workspace_service, active_name="acme"
+    )
+
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "active:      yes" in out
 
 
 class _StubSessionService:
@@ -417,7 +464,7 @@ def test_main_run_unknown_workflow_exits_friendly(monkeypatch):
         def run(self, *a, **k):  # must NOT be reached
             raise AssertionError("run() should not be called for unknown workflow")
 
-    monkeypatch.setattr(cli_module, "_build_run_service", lambda: _Svc())
+    monkeypatch.setattr(cli_module, "_build_run_service", lambda **_kw: _Svc())
 
     with pytest.raises(SystemExit) as exc:
         cli_module.main(["run", "bogus_workflow", "Some title"])
@@ -493,40 +540,30 @@ def test_main_applies_overrides_and_loads(monkeypatch, tmp_path):
     assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "3"
 
 
-def test_workspace_create_prints_and_returns_zero(tmp_path, capsys):
-    from productagents.platform.workspace import WorkspaceService
-
-    code = cli_module.workspace_create("acme", service=WorkspaceService(home=tmp_path))
+async def test_workspace_create_prints_and_returns_zero(workspace_service, capsys):
+    code = await cli_module.workspace_create("acme", service=workspace_service)
     out = capsys.readouterr().out
     assert code == 0
     assert "acme" in out
-    assert (tmp_path / "acme").is_dir()
+    assert (await workspace_service.get("acme")) is not None
 
 
-def test_workspace_create_duplicate_fails_friendly(tmp_path, capsys):
-    from productagents.platform.workspace import WorkspaceService
-
-    svc = WorkspaceService(home=tmp_path)
-    svc.create("acme")
-    code = cli_module.workspace_create("acme", service=svc)
+async def test_workspace_create_duplicate_fails_friendly(workspace_service, capsys):
+    await workspace_service.create("acme")
+    code = await cli_module.workspace_create("acme", service=workspace_service)
     assert code == 1
     assert "already exists" in capsys.readouterr().out
 
 
-def test_workspace_use_persists_active(tmp_path, capsys):
-    from productagents.platform.workspace import WorkspaceService
-
-    svc = WorkspaceService(home=tmp_path)
-    svc.create("acme")
-    code = cli_module.workspace_use("acme", service=svc)
+async def test_workspace_use_persists_active(workspace_service, capsys):
+    await workspace_service.create("acme")
+    code = await cli_module.workspace_use("acme", service=workspace_service)
     assert code == 0
-    assert svc.active_name() == "acme"
+    assert workspace_service.active_name() == "acme"
 
 
-def test_workspace_use_unknown_suggests_create(tmp_path, capsys):
-    from productagents.platform.workspace import WorkspaceService
-
-    code = cli_module.workspace_use("nope", service=WorkspaceService(home=tmp_path))
+async def test_workspace_use_unknown_suggests_create(workspace_service, capsys):
+    code = await cli_module.workspace_use("nope", service=workspace_service)
     out = capsys.readouterr().out
     assert code == 1
     assert "workspace create nope" in out
