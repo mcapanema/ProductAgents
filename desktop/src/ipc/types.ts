@@ -33,6 +33,26 @@ export interface WorkflowSummary {
   description: string;
 }
 
+export interface WorkflowNode {
+  id: string;
+  prompts: string[];
+}
+
+export interface WorkflowEdge {
+  source: string;
+  target: string;
+  conditional: boolean;
+}
+
+export interface WorkflowTopology {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+export interface WorkflowDetail extends WorkflowSummary {
+  topology: WorkflowTopology | null;
+}
+
 export interface SessionSummary {
   id: string;
   workflow: string;
