@@ -189,24 +189,24 @@ export function ConnectorsPanel() {
                 <ConnectorConfigForm key={entry.connector} entry={entry} onSaved={onSaved} />
               </>
             )}
-            {list?.problems.map((p, i) => (
-              <p className="muted" key={`list-${i}`}>
-                ⚠ {p}
-              </p>
-            ))}
-            {health?.problems.map((p, i) => (
-              <p className="muted" key={`health-${i}`}>
-                ⚠ {p}
-              </p>
-            ))}
-            {sync?.problems.map((p, i) => (
-              <p className="muted" key={`sync-${i}`}>
-                ⚠ {p}
-              </p>
-            ))}
           </div>
         </div>
       )}
+      {list?.problems.map((p, i) => (
+        <p className="muted" key={`list-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
+      {health?.problems.map((p, i) => (
+        <p className="muted" key={`health-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
+      {sync?.problems.map((p, i) => (
+        <p className="muted" key={`sync-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
     </div>
   );
 }
