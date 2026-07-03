@@ -6,7 +6,7 @@
   gap: var(--space-8);
   padding: var(--space-48) var(--space-24);
   margin: var(--space-32) auto;
-  max-width: 400px;
+  max-width: var(--width-empty-state);
 }
 .empty-state__icon {
   display: grid;

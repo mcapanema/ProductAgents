@@ -134,6 +134,7 @@
   --width-dialog-sm: 420px;
   --width-dialog-md: 560px;
   --width-dialog-lg: 760px;
+  --width-empty-state: 400px;           /* empty-state message container cap */
   --measure-prose: 72ch;                /* long-form line-length cap (65–75ch) */
 
   /* Focus ring — the keyboard-first affordance. Offset is load-bearing: the
