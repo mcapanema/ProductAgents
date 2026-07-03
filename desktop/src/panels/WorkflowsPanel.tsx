@@ -155,14 +155,7 @@ export function WorkflowsPanel() {
         )
       )}
 
-      {/*
-        The brief wires `onDirtyChange={setDirty}` here so the unsaved-changes
-        guard above (`dirty`/`requestNode`) is live. NodePromptDrawer doesn't
-        accept that prop yet — Task 8 adds real dirty-tracking to the drawer
-        and should pass it through here; until then the guard is inert
-        (`dirty` never flips true) but the plumbing is in place.
-      */}
-      <NodePromptDrawer node={promptNode} onClose={() => requestNode(null)} />
+      <NodePromptDrawer node={promptNode} onClose={() => requestNode(null)} onDirtyChange={setDirty} />
     </div>
   );
 }
