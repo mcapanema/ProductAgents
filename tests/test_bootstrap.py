@@ -127,3 +127,17 @@ async def test_bootstrap_is_idempotent(tmp_path):
     con = sqlite3.connect(home.db_path)
     assert con.execute("SELECT COUNT(*) FROM memory_decision").fetchone() == (1,)
     con.close()
+
+
+async def test_default_not_reseeded_when_registry_populated(tmp_path):
+    """A renamed default must not ghost back on the next launch."""
+    home = SharedHome(root=tmp_path)
+    engine = make_engine(home.db_url)
+    await bootstrap_home(home, engine=engine)  # seeds default (empty registry)
+    svc = WorkspaceService(home=home, engine=engine)
+    await svc.create("acme")
+    await svc.rename("default", "main")
+
+    await bootstrap_home(home, engine=engine)  # second launch
+
+    assert [w["name"] for w in await svc.list()] == ["acme", "main"]

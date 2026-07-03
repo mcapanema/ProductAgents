@@ -140,4 +140,8 @@ async def bootstrap_home(home: SharedHome, *, engine=None) -> None:
 
     maker = make_sessionmaker(engine)
     async with maker() as session:
-        await WorkspaceRegistry(session).ensure(DEFAULT_WORKSPACE)
+        registry = WorkspaceRegistry(session)
+        # Seed the fallback workspace only on an empty registry — a renamed
+        # `default` must not ghost back as a fresh empty workspace next launch.
+        if not await registry.list():
+            await registry.ensure(DEFAULT_WORKSPACE)

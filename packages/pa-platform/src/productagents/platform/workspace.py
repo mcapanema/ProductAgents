@@ -10,12 +10,15 @@ synchronously before any engine exists.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from productagents.core.config import load_env
+
+logger = logging.getLogger(__name__)
 
 _L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
@@ -168,3 +171,40 @@ class WorkspaceService:
 
         async with self._sessionmaker()() as session:
             await WorkspaceRegistry(session).ensure(DEFAULT_WORKSPACE)
+
+    async def rename(self, old: str, new: str) -> dict:
+        """Rename a workspace: registry row, every scoped row, prompts dir, marker.
+
+        The DB side runs as ONE transaction (both storage packages' helpers,
+        one commit) so data can never split across two names. The filesystem
+        tail (prompts dir, marker) runs after commit and degrades on failure —
+        worst case the prompt overrides sit under the old directory name.
+        """
+        _validate(old)
+        _validate(new)
+        if await self.get(old) is None:
+            raise WorkspaceError(f"no such workspace: {old}")
+        if await self.get(new) is not None:
+            raise WorkspaceError(f"workspace already exists: {new}")
+        from productagents.knowledge import rename_workspace as rename_canonical
+        from productagents.memory.workspace_state import (
+            rename_workspace as rename_memory,
+        )
+
+        async with self._sessionmaker()() as session:
+            await rename_memory(session, old, new)
+            await rename_canonical(session, old, new)
+            await session.commit()
+
+        old_prompts = self.prompts_dir(old)
+        if old_prompts.is_dir():
+            try:
+                os.replace(old_prompts, self.prompts_dir(new))
+            except OSError:
+                logger.error(
+                    "prompts dir move failed renaming %s -> %s", old, new, exc_info=True
+                )
+        if self.active_name() == old:
+            self._write_marker(new)
+        row = await self.get(new)
+        return row if row is not None else {"name": new, "created_at": ""}

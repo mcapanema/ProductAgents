@@ -103,3 +103,61 @@ def test_activate_points_env_at_shared_paths(tmp_path, monkeypatch):
 def test_prompts_dir_is_per_workspace_subdir(tmp_path):
     svc = WorkspaceService(home=SharedHome(root=tmp_path))
     assert svc.prompts_dir("acme") == tmp_path / "prompts" / "acme"
+
+
+@pytest.fixture
+async def full_svc(tmp_path):
+    from productagents.knowledge.repositories.sqlmodel.engine import (
+        create_all as knowledge_create_all,
+    )
+
+    engine = make_engine("sqlite+aiosqlite:///:memory:")
+    await create_all(engine)  # pa-memory tables (existing import)
+    await knowledge_create_all(engine)
+    return WorkspaceService(home=SharedHome(root=tmp_path), engine=engine)
+
+
+async def test_rename_moves_registry_row_and_preserves_created_at(full_svc):
+    created = await full_svc.create("old")
+    await full_svc.create("bystander")
+    row = await full_svc.rename("old", "new")
+    assert row["name"] == "new"
+    assert row["created_at"] == created["created_at"]
+    assert await full_svc.get("old") is None
+    assert [w["name"] for w in await full_svc.list()] == ["bystander", "new"]
+
+
+async def test_rename_validation_errors(full_svc):
+    await full_svc.create("a")
+    await full_svc.create("b")
+    with pytest.raises(WorkspaceError):
+        await full_svc.rename("missing", "x")
+    with pytest.raises(WorkspaceError):
+        await full_svc.rename("a", "b")  # target exists
+    with pytest.raises(WorkspaceError):
+        await full_svc.rename("a", "../evil")
+
+
+async def test_rename_moves_prompts_dir_and_marker_when_active(full_svc, monkeypatch):
+    monkeypatch.delenv("PRODUCTAGENTS_WORKSPACE", raising=False)
+    svc = full_svc
+    await svc.create("old")
+    prompts = svc.prompts_dir("old")
+    prompts.mkdir(parents=True)
+    (prompts / "note.txt").write_text("override")
+    await svc.set_active("old")
+
+    await svc.rename("old", "new")
+
+    assert not svc.prompts_dir("old").exists()
+    assert (svc.prompts_dir("new") / "note.txt").read_text() == "override"
+    assert svc.active_name() == "new"
+
+
+async def test_rename_leaves_marker_when_not_active(full_svc, monkeypatch):
+    monkeypatch.delenv("PRODUCTAGENTS_WORKSPACE", raising=False)
+    await full_svc.create("keep")
+    await full_svc.create("other")
+    await full_svc.set_active("keep")
+    await full_svc.rename("other", "renamed")
+    assert full_svc.active_name() == "keep"
