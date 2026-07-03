@@ -230,24 +230,38 @@ async def test_settings_dropped_runtime_and_connector_keys(tmp_path, engine, cle
     }
 
 
-async def test_config_values_isolated_per_workspace(config_engine, monkeypatch):
+async def test_config_values_isolated_per_workspace(
+    config_engine, tmp_path, monkeypatch
+):
     for var in ("PRODUCTAGENTS_MODEL", "PRODUCTAGENTS_DEBATE_ROUNDS"):
         monkeypatch.delenv(var, raising=False)
-    a = ConfigurationService(active_name="a", engine=config_engine)
-    b = ConfigurationService(active_name="b", engine=config_engine)
+    workspaces = WorkspaceService(home=SharedHome(root=tmp_path))
+    a = ConfigurationService(
+        workspaces=workspaces, active_name="a", engine=config_engine
+    )
+    b = ConfigurationService(
+        workspaces=workspaces, active_name="b", engine=config_engine
+    )
     await a.set("anthropic:model-a")
     await b.set("openai:model-b")
-    fresh_a = ConfigurationService(active_name="a", engine=config_engine)
+    fresh_a = ConfigurationService(
+        workspaces=workspaces, active_name="a", engine=config_engine
+    )
     monkeypatch.delenv("PRODUCTAGENTS_MODEL", raising=False)
     await fresh_a.load()
     assert os.environ["PRODUCTAGENTS_MODEL"] == "anthropic:model-a"
 
 
-async def test_switch_rematerializes_db_tier_only(config_engine, monkeypatch):
+async def test_switch_rematerializes_db_tier_only(config_engine, tmp_path, monkeypatch):
     monkeypatch.delenv("PRODUCTAGENTS_MODEL", raising=False)
     monkeypatch.setenv("PRODUCTAGENTS_JUDGE_THRESHOLD", "0.9")  # shell export
-    svc = ConfigurationService(active_name="a", engine=config_engine)
-    other = ConfigurationService(active_name="b", engine=config_engine)
+    workspaces = WorkspaceService(home=SharedHome(root=tmp_path))
+    svc = ConfigurationService(
+        workspaces=workspaces, active_name="a", engine=config_engine
+    )
+    other = ConfigurationService(
+        workspaces=workspaces, active_name="b", engine=config_engine
+    )
     await svc.set("anthropic:model-a", settings={"judge_threshold": "0.5"})
     await other.set("openai:model-b")
     await svc.load()
@@ -259,9 +273,15 @@ async def test_switch_rematerializes_db_tier_only(config_engine, monkeypatch):
     assert svc.settings_origins()["judge_threshold"] == "env"
 
 
-async def test_switch_drops_seeded_key_absent_in_target(config_engine, monkeypatch):
+async def test_switch_drops_seeded_key_absent_in_target(
+    config_engine, tmp_path, monkeypatch
+):
     monkeypatch.delenv("PRODUCTAGENTS_DEBATE_ROUNDS", raising=False)
-    svc = ConfigurationService(active_name="a", engine=config_engine)
+    svc = ConfigurationService(
+        workspaces=WorkspaceService(home=SharedHome(root=tmp_path)),
+        active_name="a",
+        engine=config_engine,
+    )
     await svc.set("anthropic:m", settings={"debate_rounds": "5"})
     await svc.load()
     assert os.environ["PRODUCTAGENTS_DEBATE_ROUNDS"] == "5"

@@ -319,6 +319,9 @@ class ConfigurationService:
         for key, var in _WORKSPACE_ENV.items():
             if key in self._overrides:
                 continue
+            # ponytail: _seeded is bookkeeping-truth — a later manual os.environ
+            # mutation of a seeded key is treated as service-owned and overwritten
+            # on switch; re-detect live values if that ever bites.
             owned = key in self._seeded or var not in os.environ
             if not owned:
                 continue  # shell export tier — never touch
