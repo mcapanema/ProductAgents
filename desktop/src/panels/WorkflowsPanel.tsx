@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowSummary } from "../ipc/types";
+import { EmptyState } from "../ui/EmptyState";
 
 export function WorkflowsPanel() {
   const ipc = useIpc();
@@ -13,7 +14,13 @@ export function WorkflowsPanel() {
   return (
     <div>
       <h1>Workflows</h1>
-      {list.length === 0 && <p className="muted">No workflows registered.</p>}
+      <p className="page-desc">Registered decision pipelines available to run.</p>
+      {list.length === 0 && (
+        <EmptyState
+          title="No workflows registered"
+          description="Workflows are defined in the platform registry. None are available in this workspace yet."
+        />
+      )}
       {list.map((w) => (
         <div className="list-item" key={w.name}>
           <div>
