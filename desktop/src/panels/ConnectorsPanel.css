@@ -1,0 +1,44 @@
+/* Connectors — master–detail. The layout and nav reuse the Settings sub-nav
+   classes (.settings-layout / .settings-nav / .settings-content, defined in
+   SettingsPanel.css, always bundled); this file adds only the connector-
+   specific pieces. */
+.connectors { max-width: 860px; display: flex; flex-direction: column; gap: var(--space-24); }
+
+/* Nav item: brand icon + name + (enabled group only) live status dot. */
+.connectors-nav__item { display: flex; align-items: center; gap: var(--space-8); }
+.connectors-nav__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.connector-icon { flex: none; }
+
+/* Detail header: icon, name, badge left — actions pushed right. */
+.connector-detail__head { display: flex; align-items: center; gap: var(--space-12); flex-wrap: wrap; }
+.connector-detail__title { font: var(--text-heading-3); color: var(--text-primary); margin: 0; }
+.connector-detail__actions { margin-left: auto; display: inline-flex; gap: var(--space-8); }
+
+/* Status badge — Phase 4A status-badge port: pill, 15% tint of the status
+   fill, dot in the full fill color. Kind classes set the two custom props. */
+.connector-badge.ant-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--space-20);
+  padding: 0 var(--space-8);
+  margin: 0;
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklch, var(--connector-status-fill) 15%, transparent);
+  color: var(--connector-status-text);
+}
+.connector-badge__dot,
+.connector-dot {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--connector-status-fill);
+  flex: none;
+}
+.connector-badge--connected, .connector-dot--connected { --connector-status-fill: var(--ai-done); --connector-status-text: var(--ai-done-text); }
+.connector-badge--error,     .connector-dot--error     { --connector-status-fill: var(--ai-failed); --connector-status-text: var(--ai-failed-text); }
+.connector-badge--unchecked, .connector-dot--unchecked { --connector-status-fill: var(--ai-waiting); --connector-status-text: var(--text-secondary); }
+.connector-badge--off,       .connector-dot--off       { --connector-status-fill: var(--ai-cancelled); --connector-status-text: var(--text-tertiary); }

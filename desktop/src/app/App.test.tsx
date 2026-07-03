@@ -13,6 +13,7 @@ function fakeClient(): IpcClient {
     decisionsList: async () => [],
     decisionsShow: async () => ({ record: {} as never, outcomes: [] }),
     connectorsList: async () => ({ connectors: [], problems: [] }),
+    connectorsConfigList: async () => [],
     connectorsHealth: async () => ({ statuses: {}, problems: [] }),
     connectorsSync: async () => ({ results: [], problems: [] }),
     promptsList: async () => [],
