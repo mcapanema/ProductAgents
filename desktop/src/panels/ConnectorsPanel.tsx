@@ -53,7 +53,7 @@ function NavGroup({
             <li key={e.connector}>
               <button
                 type="button"
-                className="settings-nav__item connectors-nav__item"
+                className="settings-nav__item"
                 aria-current={selected === e.connector ? "page" : undefined}
                 onClick={() => onSelect(e.connector)}
               >

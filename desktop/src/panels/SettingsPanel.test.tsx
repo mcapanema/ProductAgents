@@ -221,4 +221,13 @@ describe("SettingsPanel", () => {
     fireEvent.change(input, { target: { value: "main" } });
     expect(screen.getByRole("button", { name: "Rename" })).toBeDisabled();
   });
+
+  it("renders an icon beside each settings nav item", async () => {
+    renderPanel(client()); // uses the file's existing render helper + fake client
+    // Each section button in the secondary nav carries a leading svg icon.
+    const configBtn = await screen.findByRole("button", { name: /configuration/i });
+    expect(configBtn.querySelector("svg.settings-nav__icon")).not.toBeNull();
+    const prefsBtn = screen.getByRole("button", { name: /preferences/i });
+    expect(prefsBtn.querySelector("svg.settings-nav__icon")).not.toBeNull();
+  });
 });

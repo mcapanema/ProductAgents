@@ -39,6 +39,59 @@ function Pref({ label, description, control }: { label: string; description?: st
 
 type SectionId = "configuration" | "preferences" | "runtime" | "updates";
 
+// Inline SVG, 24-grid outline — matches the Sidebar Icon convention. One glyph
+// per settings section id.
+const NAV_ICONS: Record<SectionId, ReactNode> = {
+  configuration: (
+    <>
+      <path d="M4 7h10" />
+      <path d="M18 7h2" />
+      <circle cx="16" cy="7" r="2" />
+      <path d="M4 17h6" />
+      <path d="M14 17h6" />
+      <circle cx="12" cy="17" r="2" />
+    </>
+  ),
+  preferences: (
+    <>
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+    </>
+  ),
+  runtime: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M7 9l2.5 2L7 13" />
+      <path d="M12.5 14h4" />
+    </>
+  ),
+  updates: (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9" />
+      <path d="M20 4.5V9h-4.5" />
+      <path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15" />
+      <path d="M4 19.5V15h4.5" />
+    </>
+  ),
+};
+
+function NavIcon({ id }: { id: SectionId }) {
+  return (
+    <svg
+      className="settings-nav__icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {NAV_ICONS[id]}
+    </svg>
+  );
+}
+
 const NAV: { group: string; items: { id: SectionId; label: string }[] }[] = [
   {
     group: "Workspace",
@@ -71,7 +124,8 @@ function SettingsNav({ active, onSelect }: { active: SectionId; onSelect: (id: S
                   aria-current={active === item.id ? "page" : undefined}
                   onClick={() => onSelect(item.id)}
                 >
-                  {item.label}
+                  <NavIcon id={item.id} />
+                  <span className="settings-nav__label">{item.label}</span>
                 </button>
               </li>
             ))}
