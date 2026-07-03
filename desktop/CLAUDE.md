@@ -72,7 +72,9 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
   (registered workflow list), `SettingsPanel.tsx` (sub-navigated: Workspace ›
   Configuration/Connectors/Preferences, Application › Runtime/Updates.
-  Configuration holds model/provider/key plus the pipeline tunables — debate
+  Configuration opens with a Workspace section whose rename field calls
+  `workspaces.rename` then reloads (same live-switch convention as TopBar),
+  disabled mid-run, then holds model/provider/key plus the pipeline tunables — debate
   rounds, judge threshold/retries, provider retries — each field showing an
   `origins` hint ("Overridden by environment" / "Set by --set override") when
   a tier above the workspace DB is in play; Connectors is the connector-config

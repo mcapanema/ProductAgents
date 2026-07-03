@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Button, Input, InputNumber, Select } from "antd";
 import { useIpc } from "../app/IpcProvider";
+import { validWorkspaceName } from "../app/topBarView";
 import type { ConfigStatus, WorkspaceInfo } from "../ipc/types";
 import { formFromStatus, originHint, paramsFromForm, type SettingsForm } from "./settingsView";
 import { SettingsConnectors } from "./SettingsConnectors";
@@ -86,9 +87,11 @@ function SettingsNav({ active, onSelect }: { active: SectionId; onSelect: (id: S
 export function SettingsPanel({
   theme,
   onThemeChange,
+  running = false,
 }: {
   theme: ThemePref;
   onThemeChange: (pref: ThemePref) => void;
+  running?: boolean;
 }) {
   const ipc = useIpc();
   const [status, setStatus] = useState<ConfigStatus | null>(null);
@@ -97,6 +100,9 @@ export function SettingsPanel({
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
   const [section, setSection] = useState<SectionId>("configuration");
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
 
   function apply(s: ConfigStatus) {
     setStatus(s);
@@ -106,8 +112,33 @@ export function SettingsPanel({
   useEffect(() => {
     if (!ipc) return;
     ipc.configGet().then(apply).catch(() => setStatus(null));
-    ipc.workspacesShow().then(setWorkspace).catch(() => setWorkspace(null));
+    ipc.workspacesShow().then((w) => {
+      setWorkspace(w);
+      setRenameValue(w.name);
+    }).catch(() => setWorkspace(null));
   }, [ipc]);
+
+  const trimmedRename = renameValue.trim();
+  const renameDisabled =
+    renaming ||
+    running ||
+    !ipc ||
+    !workspace ||
+    trimmedRename === workspace.name ||
+    !validWorkspaceName(trimmedRename);
+
+  async function onRename() {
+    if (!ipc || !workspace) return;
+    setRenaming(true);
+    try {
+      await ipc.workspacesRename(workspace.name, trimmedRename);
+      // Backend already re-scoped live; reload remounts panels under the new name.
+      window.location.reload();
+    } catch (err) {
+      setRenameError(err instanceof Error ? err.message : String(err));
+      setRenaming(false);
+    }
+  }
 
   function patch(changes: Partial<SettingsForm>) {
     setSaveState("idle"); // stale "Saved" must not outlive an edit
@@ -142,6 +173,32 @@ export function SettingsPanel({
         <div className="settings-content">
           {section === "configuration" && (status && form ? (
             <>
+              <Section
+                title="Workspace"
+                description="Rename the active workspace. All of its data moves with it; the app reloads afterwards."
+              >
+                <Pref
+                  label="Workspace name"
+                  control={
+                    <span className="settings-rename">
+                      <Input
+                        aria-label="workspace name"
+                        value={renameValue}
+                        onChange={(e) => {
+                          setRenameValue(e.target.value);
+                          setRenameError(null);
+                        }}
+                        style={{ width: 220 }}
+                      />
+                      <Button onClick={onRename} disabled={renameDisabled} loading={renaming}>
+                        Rename
+                      </Button>
+                    </span>
+                  }
+                />
+                {renameError && <p className="settings-rename__error">{renameError}</p>}
+              </Section>
+
               <Section title="Model & Provider" description="Which LLM runs the pipeline. The model id's provider prefix wins over the dropdown.">
                 <Pref
                   label="Provider"

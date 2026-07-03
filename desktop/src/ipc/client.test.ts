@@ -248,4 +248,14 @@ describe("workspace methods", () => {
       active: true,
     });
   });
+
+  it("workspacesRename sends both names", async () => {
+    const { client, sent, push } = harness();
+    const promise = client.workspacesRename("default", "main");
+    const req = JSON.parse(sent[0]);
+    expect(req.method).toBe("workspaces.rename");
+    expect(req.params).toEqual({ name: "default", new_name: "main" });
+    push({ id: req.id, result: { name: "main", active: true, created_at: "t" } });
+    await expect(promise).resolves.toEqual({ name: "main", active: true, created_at: "t" });
+  });
 });

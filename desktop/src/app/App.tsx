@@ -51,7 +51,7 @@ function AppShell() {
             {view === "connectors" && <ConnectorsPanel />}
             {view === "prompts" && <PromptsPanel />}
             {view === "workflows" && <WorkflowsPanel />}
-            {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} />}
+            {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} running={running} />}
             {view === "reflection" && <ReflectionPanel />}
           </main>
         </div>

@@ -166,6 +166,13 @@ export class IpcClient {
     return this.call<WorkspaceUseResult>("workspaces.use", { name });
   }
 
+  workspacesRename(name: string, newName: string): Promise<WorkspaceInfo> {
+    return this.call<WorkspaceInfo>("workspaces.rename", {
+      name,
+      new_name: newName,
+    });
+  }
+
   reflectionRecord(decisionId: string, note: string): Promise<OutcomeRecord> {
     return this.call<OutcomeRecord>("reflection.record", {
       decision_id: decisionId,
