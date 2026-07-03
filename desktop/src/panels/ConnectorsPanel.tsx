@@ -6,6 +6,8 @@ import {
   connectorStatus,
   isEnabled,
   lastSynced,
+  mergeHealth,
+  mergeSync,
   splitEntries,
   syncSummary,
   type ConnectorStatus,
@@ -97,26 +99,28 @@ export function ConnectorsPanel() {
   const { enabled, available } = splitEntries(entries);
   const entry = entries.find((e) => e.connector === selected) ?? null;
 
-  async function checkHealth() {
+  async function checkHealth(name: string) {
     if (!ipc) return;
     setBusy(true);
     try {
-      setHealth(await ipc.connectorsHealth());
+      const report = await ipc.connectorsHealth(name);
+      setHealth((prev) => mergeHealth(prev, report));
     } catch {
-      setHealth(null);
+      // keep whatever we knew before — the badge stays as-is
     } finally {
       setBusy(false);
     }
   }
 
-  async function runSync() {
+  async function runSync(name: string) {
     if (!ipc) return;
     setBusy(true);
     try {
-      setSync(await ipc.connectorsSync());
+      const report = await ipc.connectorsSync(name);
+      setSync((prev) => mergeSync(prev, report));
       setList(await ipc.connectorsList()); // refresh last-synced stamps
     } catch {
-      setSync(null);
+      // keep the previous results
     } finally {
       setBusy(false);
     }
@@ -160,10 +164,10 @@ export function ConnectorsPanel() {
                 <h2 className="connector-detail__title">{entry.title ?? entry.connector}</h2>
                 <StatusBadge status={status} />
                 <span className="connector-detail__actions">
-                  <Button onClick={checkHealth} disabled={!ipc || busy} loading={busy}>
+                  <Button onClick={() => checkHealth(entry.connector)} disabled={!ipc || busy} loading={busy}>
                     Check health
                   </Button>
-                  <Button onClick={runSync} disabled={!ipc || busy || !isEnabled(entry)} loading={busy}>
+                  <Button onClick={() => runSync(entry.connector)} disabled={!ipc || busy || !isEnabled(entry)} loading={busy}>
                     Sync now
                   </Button>
                 </span>
