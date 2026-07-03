@@ -47,3 +47,25 @@ export function syncSummary(name: string, sync: ConnectorSync | null): string | 
 export function lastSynced(name: string, list: ConnectorList | null): string | null {
   return list?.last_synced?.[name] ?? null;
 }
+
+/** Overlay a (possibly single-connector) health report onto the previous one,
+ * so checking one connector never wipes another's badge. */
+export function mergeHealth(
+  prev: ConnectorHealth | null,
+  next: ConnectorHealth,
+): ConnectorHealth {
+  return { statuses: { ...prev?.statuses, ...next.statuses }, problems: next.problems };
+}
+
+/** Same overlay for sync reports: replace results for the connectors in `next`,
+ * keep the rest. */
+export function mergeSync(prev: ConnectorSync | null, next: ConnectorSync): ConnectorSync {
+  const updated = new Set(next.results.map((r) => r.connector));
+  return {
+    results: [
+      ...(prev?.results ?? []).filter((r) => !updated.has(r.connector)),
+      ...next.results,
+    ],
+    problems: next.problems,
+  };
+}
