@@ -454,18 +454,27 @@ async def handle(
             if await workspaces.get(name) is None:
                 await emit({"id": rid, "error": f"no such workspace: {name}"})
                 return
+            old = services["active_name"]
             if config is not None:
                 await config.switch(name)
-            rebuild = services.get("rebuild")
-            if rebuild is not None:
-                fresh = rebuild(name, config=config)
-                fresh.pop("workspaces", None)  # keep the (possibly faked) instance
-                services.update(fresh)
-            services["active_name"] = name
-            # Marker persists only after the in-process switch succeeded — a
-            # mid-switch failure must never leave the marker pointing at a
-            # workspace this process never actually switched to.
-            await workspaces.set_active(name)
+            try:
+                rebuild = services.get("rebuild")
+                if rebuild is not None:
+                    fresh = rebuild(name, config=config)
+                    fresh.pop("workspaces", None)  # keep the (possibly faked) instance
+                    services.update(fresh)
+                services["active_name"] = name
+                # Marker persists only after the in-process switch succeeded — a
+                # mid-switch failure must never leave the marker pointing at a
+                # workspace this process never actually switched to.
+                await workspaces.set_active(name)
+            except Exception:
+                if config is not None:
+                    # ponytail: switch-back keeps config/env symmetric with
+                    # services on a mid-switch failure; the marker only ever
+                    # moves last, so a crash self-heals on restart.
+                    await config.switch(old)
+                raise
             await emit({"id": rid, "result": {"name": name, "active": True}})
 
         async def _sessions_list(_p: dict) -> None:

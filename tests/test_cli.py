@@ -165,8 +165,8 @@ def test_main_no_subcommand_prints_help_after_bootstrap(monkeypatch, capsys):
         ("activate",),
         ("load_env",),
         ("resolve", None),
-        ("bootstrap_home",),
         ("configure_logging",),
+        ("bootstrap_home",),
     ]
     out = capsys.readouterr().out
     assert "usage: productagents" in out

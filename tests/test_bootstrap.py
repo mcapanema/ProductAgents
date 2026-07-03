@@ -3,6 +3,7 @@
 import sqlite3
 
 from productagents.knowledge.repositories.sqlmodel.engine import make_engine
+from productagents.platform import bootstrap as bootstrap_module
 from productagents.platform.bootstrap import bootstrap_home
 from productagents.platform.workspace import SharedHome, WorkspaceService
 
@@ -66,6 +67,54 @@ async def test_corrupt_legacy_db_degrades_and_startup_proceeds(tmp_path):
     # startup still completed: schema exists and the default row was ensured
     workspaces = await WorkspaceService(home=home, engine=engine).list()
     assert [w["name"] for w in workspaces] == ["default"]
+
+
+async def test_legacy_rename_oserror_degrades_and_startup_proceeds(
+    tmp_path, monkeypatch
+):
+    """A rename failure (e.g. cross-device) during adoption must degrade like a
+    corrupt legacy DB, not crash startup — os.replace can raise OSError, not
+    just sqlite3.Error."""
+    home = SharedHome(root=tmp_path)
+    legacy = home.legacy_workspaces_dir / "default" / "productagents.db"
+    _make_legacy_db(legacy)
+
+    def _boom(*_a, **_kw):
+        raise OSError("cross-device link")
+
+    monkeypatch.setattr(bootstrap_module.os, "replace", _boom)
+    engine = make_engine(home.db_url)
+    await bootstrap_home(home, engine=engine)  # must not raise
+    workspaces = await WorkspaceService(home=home, engine=engine).list()
+    assert [w["name"] for w in workspaces] == ["default"]
+
+
+async def test_legacy_env_rename_oserror_degrades_and_startup_proceeds(
+    tmp_path, monkeypatch
+):
+    """_adopt_env's own os.replace must degrade on OSError too — env adoption
+    failing (e.g. cross-device) must not block startup."""
+    home = SharedHome(root=tmp_path)
+    legacy_env = home.legacy_workspaces_dir / "default" / ".env"
+    legacy_env.parent.mkdir(parents=True)
+    legacy_env.write_text("ANTHROPIC_API_KEY=k\n")
+
+    def _boom(*_a, **_kw):
+        raise OSError("cross-device link")
+
+    monkeypatch.setattr(bootstrap_module.os, "replace", _boom)
+    engine = make_engine(home.db_url)
+    await bootstrap_home(home, engine=engine)  # must not raise
+    assert not home.env_file.exists()  # adoption failed, but startup proceeded
+
+
+async def test_other_legacy_workspace_dirs_are_warned_not_adopted(tmp_path, caplog):
+    home = SharedHome(root=tmp_path)
+    (home.legacy_workspaces_dir / "team-a").mkdir(parents=True)
+    engine = make_engine(home.db_url)
+    with caplog.at_level("WARNING"):
+        await bootstrap_home(home, engine=engine)
+    assert any("team-a" in r.getMessage() for r in caplog.records)
 
 
 async def test_bootstrap_is_idempotent(tmp_path):

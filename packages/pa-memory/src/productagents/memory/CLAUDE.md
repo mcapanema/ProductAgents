@@ -29,9 +29,11 @@ Phase 6; JSONL demoted to export/audit.
   rows (session_id/seq/type/ts/JSON payload) — it does NOT import the
   platform's Event vocabulary (pa-memory stays below pa-platform). Serialization
   lives in `productagents.platform.serialization`. **Sessions are scoped to
-  workspace** (every read filters on it, every write stamps it); **events are
-  not** — they're read by `session_id`, which is already globally unique, so a
-  workspace filter would be redundant.
+  workspace**: every write stamps it, and the list read (`sessions()`) filters
+  on it; a single get/update by `session_id` (`get_session`, `update_status`)
+  does not — the id is already globally unique, so a workspace filter would be
+  redundant. **Events are** likewise read by `session_id` (no workspace
+  filtering on event reads) for the same reason.
 - `workspace_state.py` — the workspace-state stores, all session-injected like
   the above: `WorkspaceRegistry(session)` — the `workspace` table itself (one
   row per project/team scope; `list`/`get`/`create`/`ensure`).

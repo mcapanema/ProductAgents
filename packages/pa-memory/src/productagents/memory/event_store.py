@@ -32,7 +32,10 @@ def _session_dict(row: RuntimeSessionRow) -> dict:
 class EventStore:
     """Append-only execution log, scoped to one workspace.
 
-    Sessions are scoped to workspace (every read filters on it, every write stamps it).
+    Sessions are scoped to workspace: every write stamps it, and the list read
+    (``sessions()``) filters on it. A single get/update by ``session_id``
+    (``get_session``, ``update_status``) does not filter on workspace — the id
+    is already globally unique, so a workspace filter would be redundant.
     Events are globally keyed by session_id (no workspace filtering on event reads).
     """
 

@@ -439,6 +439,42 @@ async def test_workspaces_use_switch_failure_leaves_marker_untouched():
     assert services["active_name"] == "default"
 
 
+async def test_workspaces_use_rebuild_failure_switches_config_back():
+    """A rebuild failure AFTER config.switch succeeded must not leave a torn
+    switch: config gets switched back to the old workspace, and the marker /
+    active_name (which move last) are untouched."""
+    switched = []
+
+    class _FlakyConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "acme"))
+
+    def boom_rebuild(name, *, config=None):
+        raise RuntimeError("rebuild exploded")
+
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": _FlakyConfig(),
+        "rebuild": boom_rebuild,
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 4, "method": "workspaces.use", "params": {"name": "acme"}},
+        services,
+        emit=emit,
+    )
+    assert sink[0]["id"] == 4
+    assert "rebuild exploded" in sink[0]["error"]
+    assert switched == ["acme", "default"]  # switched forward, then restored
+    assert ws.active == "default"  # marker never flipped
+    assert services["active_name"] == "default"
+
+
 from productagents.agents import runner as rn  # noqa: E402
 from productagents.core.models import (  # noqa: E402
     DecisionRecord,

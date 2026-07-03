@@ -153,7 +153,7 @@ Bootstrap-only settings, read from `.env`/the shell before the workspace even re
 - `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` — overrides for the workspace DB path / connectors YAML path (normally set by workspace activation).
 - `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only** (the CLI streams events to stdout; the GUI consumes IPC).
 - `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback. Runtime-only — not in `settings()`/the GUI.
-- `PRODUCTAGENTS_PROMPTS_DIR` — directory of per-workspace prompt overrides (default `<workspace.root>/prompts`, set by `WorkspaceService.activate`). Each prompt is `<dir>/<name>/NNNN.txt`; the highest number is active; version 0 is the bundled default. An explicit export wins (`setdefault`).
+- `PRODUCTAGENTS_PROMPTS_DIR` — the shared home's `prompts/` root (default `<home>/prompts`, set by `WorkspaceService.activate`), holding one subdirectory per workspace. A workspace's prompt overrides live at `<dir>/<workspace>/<name>/NNNN.txt`; the highest number is active; version 0 is the bundled default. An explicit export wins (`setdefault`).
 
 ### Workspace configuration (pipeline tunables, DB-backed)
 

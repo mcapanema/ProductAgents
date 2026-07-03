@@ -38,10 +38,30 @@ def _legacy_db(home: SharedHome):
     return home.legacy_workspaces_dir / DEFAULT_WORKSPACE / "productagents.db"
 
 
+def _warn_other_legacy_workspaces(home: SharedHome) -> None:
+    """Flag legacy workspace dirs besides ``default/`` — only default is adopted."""
+    legacy_dir = home.legacy_workspaces_dir
+    if not legacy_dir.is_dir():
+        return
+    others = [
+        p.name
+        for p in legacy_dir.iterdir()
+        if p.is_dir() and p.name != DEFAULT_WORKSPACE
+    ]
+    if others:
+        logger.warning(
+            "legacy workspace dir(s) %s not auto-imported; see docs", sorted(others)
+        )
+
+
 def _adopt_env(home: SharedHome) -> None:
     legacy_env = home.legacy_workspaces_dir / DEFAULT_WORKSPACE / ".env"
     if not home.env_file.exists() and legacy_env.exists():
-        os.replace(legacy_env, home.env_file)
+        try:
+            os.replace(legacy_env, home.env_file)
+        except OSError:
+            # degrade, never crash: env adoption failing must not block startup
+            logger.error("legacy .env adoption failed; starting fresh", exc_info=True)
 
 
 def _copy_rows(home: SharedHome) -> None:
@@ -98,6 +118,7 @@ async def bootstrap_home(home: SharedHome, *, engine=None) -> None:
     # is what brings home.db_path into existence.
     adopt = not home.db_path.exists() and _legacy_db(home).exists()
     _adopt_env(home)
+    _warn_other_legacy_workspaces(home)
 
     engine = engine if engine is not None else get_engine()
     await knowledge_create_all(engine)
@@ -105,8 +126,11 @@ async def bootstrap_home(home: SharedHome, *, engine=None) -> None:
 
     if adopt:
         try:
+            # The legacy-DB copy and its .imported rename are one adoption step —
+            # a rename failure (e.g. cross-device, permissions) must degrade the
+            # same way a corrupt legacy DB does, so OSError joins sqlite3.Error.
             _copy_rows(home)
-        except sqlite3.Error:
+        except sqlite3.Error, OSError:
             # degrade, never crash: a bad legacy file must not block startup
             logger.error("legacy DB adoption failed; starting fresh", exc_info=True)
 
