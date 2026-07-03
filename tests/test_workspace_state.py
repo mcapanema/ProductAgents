@@ -92,3 +92,60 @@ async def test_registry_create_list_ensure(sessionmaker):
             await reg.create("acme")
         assert [w["name"] for w in await reg.list()] == ["acme", "default"]
         assert await reg.get("nope") is None
+
+
+async def test_rename_workspace_moves_all_memory_rows(sessionmaker):
+    from productagents.memory.tables import DecisionRow, RuntimeSessionRow
+    from productagents.memory.workspace_state import rename_workspace
+
+    async with sessionmaker() as session:
+        reg = WorkspaceRegistry(session)
+        created = await reg.create("old")
+        await reg.create("bystander")
+        session.add(
+            DecisionRow(
+                workspace="old",
+                decision_id="d1",
+                initiative_title="t",
+                payload={},
+                embedding=[],
+                created_at="t",
+            )
+        )
+        session.add(
+            DecisionRow(
+                workspace="bystander",
+                decision_id="d2",
+                initiative_title="t",
+                payload={},
+                embedding=[],
+                created_at="t",
+            )
+        )
+        session.add(
+            RuntimeSessionRow(
+                workspace="old", id="s1", workflow="wf", status="done", created_at="t"
+            )
+        )
+        await WorkspaceConfigStore(session, "old").set("model", "m")
+        await ConnectorConfigStore(session, "old").set("github", {"repo": "r"})
+        await session.commit()
+
+        await rename_workspace(session, "old", "new")
+        await session.commit()
+
+        assert await WorkspaceConfigStore(session, "new").all() == {"model": "m"}
+        assert await WorkspaceConfigStore(session, "old").all() == {}
+        assert await ConnectorConfigStore(session, "new").all() == {
+            "github": {"repo": "r"}
+        }
+        assert (await session.get(DecisionRow, "d1")).workspace == "new"
+        assert (await session.get(DecisionRow, "d2")).workspace == "bystander"
+        assert (await session.get(RuntimeSessionRow, "s1")).workspace == "new"
+        rows = await reg.list()
+        assert [w["name"] for w in rows] == ["bystander", "new"]
+        renamed = await reg.get("new")
+        assert renamed is not None
+        # original creation time survives
+        assert renamed["created_at"] == created["created_at"]
+        assert await reg.get("old") is None

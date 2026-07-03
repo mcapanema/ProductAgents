@@ -13,12 +13,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from productagents.memory.tables import (
     ConnectorConfigRow,
+    DecisionRow,
+    OutcomeRow,
     PreferenceRow,
+    RuntimeSessionRow,
     WorkspaceConfigRow,
     WorkspaceRow,
 )
@@ -145,3 +148,37 @@ class WorkspaceRegistry:
         if await self._session.get(WorkspaceRow, name) is None:
             self._session.add(WorkspaceRow(name=name, created_at=_now()))
             await self._session.commit()
+
+
+async def rename_workspace(session: AsyncSession, old: str, new: str) -> None:
+    """Move every pa-memory row scoped to ``old`` under ``new``.
+
+    No commit — the caller owns the transaction (the platform composes this
+    with the pa-knowledge half and commits once, so the DB side of a rename
+    is atomic). The registry row swap preserves the original created_at.
+    """
+    await session.execute(
+        update(DecisionRow).where(DecisionRow.workspace == old).values(workspace=new)
+    )
+    await session.execute(
+        update(OutcomeRow).where(OutcomeRow.workspace == old).values(workspace=new)
+    )
+    await session.execute(
+        update(RuntimeSessionRow)
+        .where(RuntimeSessionRow.workspace == old)
+        .values(workspace=new)
+    )
+    await session.execute(
+        update(WorkspaceConfigRow)
+        .where(WorkspaceConfigRow.workspace == old)
+        .values(workspace=new)
+    )
+    await session.execute(
+        update(ConnectorConfigRow)
+        .where(ConnectorConfigRow.workspace == old)
+        .values(workspace=new)
+    )
+    row = await session.get(WorkspaceRow, old)
+    if row is not None:
+        session.add(WorkspaceRow(name=new, created_at=row.created_at))
+        await session.delete(row)

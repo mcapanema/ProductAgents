@@ -104,3 +104,30 @@ async def test_upsert_dedups_within_workspace_only():
         again = await a.upsert(CustomerFeedback(body="v2", source=src))
         assert again.id == first.id  # stable platform id within the workspace
         assert len(await a.list()) == 1
+
+
+async def test_rename_workspace_moves_canonical_and_cursor_rows():
+    from productagents.knowledge import rename_workspace
+    from productagents.knowledge.sync_state import SyncStateStore
+
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        repo_old = CanonicalRepository(session, CustomerFeedback, workspace="old")
+        repo_by = CanonicalRepository(session, CustomerFeedback, workspace="bystander")
+        kept = await repo_old.upsert(CustomerFeedback(body="feedback1"))
+        await repo_by.upsert(CustomerFeedback(body="feedback2"))
+        await SyncStateStore(session, workspace="old").save("github", "cur")
+
+        await rename_workspace(session, "old", "new")
+        await session.commit()
+
+        repo_new = CanonicalRepository(session, CustomerFeedback, workspace="new")
+        assert [m.id for m in await repo_new.list()] == [kept.id]
+        assert (
+            await CanonicalRepository(session, CustomerFeedback, workspace="old").list()
+            == []
+        )
+        assert len(await repo_by.list()) == 1
+        assert await SyncStateStore(session, workspace="new").cursors() == {
+            "github": "cur"
+        }
+        assert await SyncStateStore(session, workspace="old").cursors() == {}
