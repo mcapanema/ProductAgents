@@ -53,6 +53,6 @@ describe("ReflectionPanel", () => {
 
   it("degrades when decisions fail to load", async () => {
     renderPanel({ decisionsList: async () => { throw new Error("down"); } } as unknown as IpcClient);
-    expect(await screen.findByText(/no decisions/i)).toBeInTheDocument();
+    expect(await screen.findByText(/nothing to reflect on/i)).toBeInTheDocument();
   });
 });
