@@ -37,7 +37,7 @@ export default function AgentNode({ data }: NodeProps) {
       data-editable={d.editable ? "true" : "false"}
       data-selected={d.selected ? "true" : "false"}
       data-status={d.status}
-      role="button"
+      role={d.editable ? "button" : undefined}
       tabIndex={0}
       aria-label={`${label}${d.editable ? ", edit prompts" : ""}${ariaStatus}`}
     >

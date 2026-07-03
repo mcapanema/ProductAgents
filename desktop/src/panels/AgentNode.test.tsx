@@ -46,7 +46,9 @@ describe("AgentNode", () => {
 
   it("renders a non-editable node without the edit affordance", () => {
     renderNode({ id: "recall", kind: "memory", editable: false });
-    const el = screen.getByRole("button");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    const el = document.querySelector(".agent-node") as HTMLElement;
     expect(el).toHaveAttribute("data-editable", "false");
+    expect(el).not.toHaveAttribute("role");
   });
 });

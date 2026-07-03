@@ -37,7 +37,11 @@ export function NodePromptDrawer({ node, onClose, onDirtyChange }: Props) {
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   useEffect(() => {
-    if (!ipc || !node) return;
+    if (!node) {
+      setDrafts({}); setOriginals({}); setSummaries({}); setSaveState({}); setShowDiff({});
+      return;
+    }
+    if (!ipc) return;
     setDrafts({}); setOriginals({}); setSaveState({}); setShowDiff({});
     (async () => {
       try {
