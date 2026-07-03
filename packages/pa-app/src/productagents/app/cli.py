@@ -177,6 +177,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ws_create.add_argument("name")
     p_ws_use = ws_sub.add_parser("use", help="set the active workspace")
     p_ws_use.add_argument("name")
+    p_ws_rename = ws_sub.add_parser(
+        "rename", help="rename a workspace (moves all of its data)"
+    )
+    p_ws_rename.add_argument("old")
+    p_ws_rename.add_argument("new")
     p_ws_show = ws_sub.add_parser("show", help="show a workspace's paths")
     p_ws_show.add_argument("name", nargs="?", default=None, help="defaults to active")
 
@@ -268,6 +273,17 @@ async def workspace_use(name: str, *, service: WorkspaceService) -> int:
         print(f"{exc} — create it with `productagents workspace create {name}`")
         return 1
     print(f"active workspace: {name}")
+    return 0
+
+
+async def workspace_rename(old: str, new: str, *, service: WorkspaceService) -> int:
+    """Rename a workspace; all of its scoped data moves with it."""
+    try:
+        await service.rename(old, new)
+    except WorkspaceError as exc:
+        print(str(exc))
+        return 1
+    print(f"renamed workspace {old} → {new}")
     return 0
 
 
@@ -449,6 +465,10 @@ def main(argv: list[str] | None = None) -> None:
             )
         if args.ws_command == "use":
             raise SystemExit(asyncio.run(workspace_use(args.name, service=workspaces)))
+        if args.ws_command == "rename":
+            raise SystemExit(
+                asyncio.run(workspace_rename(args.old, args.new, service=workspaces))
+            )
         if args.ws_command == "show":
             raise SystemExit(
                 asyncio.run(

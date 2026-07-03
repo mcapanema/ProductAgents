@@ -156,6 +156,9 @@ exercised), then persists the `.active` marker **last** — only after the
 in-process switch succeeded, so a mid-switch failure never leaves the marker
 pointing at a workspace this process never actually switched to. Returns
 `{name, active: true}`. Both guarded by the existing `workspaces=None` kwarg.
+`workspaces.rename {name, new_name}` → the renamed row with `active`; renaming
+the active workspace finishes with the live-switch tail (marker already moved
+by the rename itself).
 
 `reflection.record {decision_id, note}` → the `OutcomeRecord` dump
 (`{decision_id, actual_outcomes, prediction_accuracy, lessons_learned, reflected_at, failed}`);

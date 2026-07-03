@@ -81,6 +81,18 @@ class _FakeWorkspaces:
     def prompts_dir(self, name):
         return self.home().prompts_root / name
 
+    async def rename(self, old, new):
+        from productagents.platform.workspace import WorkspaceError
+
+        if old not in self._names:
+            raise WorkspaceError(f"no such workspace: {old}")
+        if new in self._names:
+            raise WorkspaceError(f"workspace already exists: {new}")
+        self._names[self._names.index(old)] = new
+        if self.active == old:
+            self.active = new
+        return {"name": new, "created_at": "t"}
+
 
 class _FakeConnectors:
     """Stand-in for ConnectorService returning canned reports."""
@@ -473,6 +485,101 @@ async def test_workspaces_use_rebuild_failure_switches_config_back():
     assert switched == ["acme", "default"]  # switched forward, then restored
     assert ws.active == "default"  # marker never flipped
     assert services["active_name"] == "default"
+
+
+async def test_workspaces_rename_active_runs_switch_tail():
+    switched, rebuilt = [], []
+
+    class _FakeConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "other"))
+
+    def fake_rebuild(name, config=None):
+        rebuilt.append((name, config))
+        return {"workspaces": object(), "sessions": _FakeSessions()}
+
+    config = _FakeConfig()
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": config,
+        "rebuild": fake_rebuild,
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 1,
+            "method": "workspaces.rename",
+            "params": {"name": "default", "new_name": "main"},
+        },
+        services,
+        emit=emit,
+    )
+    assert sink == [
+        {"id": 1, "result": {"name": "main", "created_at": "t", "active": True}}
+    ]
+    assert switched == ["main"]
+    assert rebuilt == [("main", config)]
+    assert services["active_name"] == "main"
+    assert services["workspaces"] is ws  # identity preserved through rebuild
+
+
+async def test_workspaces_rename_nonactive_skips_switch_tail():
+    switched = []
+
+    class _FakeConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "other"))
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": _FakeConfig(),
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 2,
+            "method": "workspaces.rename",
+            "params": {"name": "other", "new_name": "renamed"},
+        },
+        services,
+        emit=emit,
+    )
+    assert sink == [
+        {"id": 2, "result": {"name": "renamed", "created_at": "t", "active": False}}
+    ]
+    assert switched == []
+    assert services["active_name"] == "default"
+
+
+async def test_workspaces_rename_duplicate_emits_error():
+    ws = _FakeWorkspaces(names=("default", "other"))
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 3,
+            "method": "workspaces.rename",
+            "params": {"name": "other", "new_name": "default"},
+        },
+        services,
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "already exists" in sink[0]["error"]
 
 
 from productagents.agents import runner as rn  # noqa: E402

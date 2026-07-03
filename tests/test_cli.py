@@ -567,3 +567,25 @@ async def test_workspace_use_unknown_suggests_create(workspace_service, capsys):
     out = capsys.readouterr().out
     assert code == 1
     assert "workspace create nope" in out
+
+
+async def test_workspace_rename_success_and_errors(tmp_path, capsys):
+    from productagents.knowledge.repositories.sqlmodel.engine import (
+        create_all as knowledge_create_all,
+    )
+    from productagents.knowledge.repositories.sqlmodel.engine import (
+        make_engine,
+    )
+    from productagents.memory.store import create_all
+    from productagents.platform.workspace import SharedHome, WorkspaceService
+
+    engine = make_engine("sqlite+aiosqlite:///:memory:")
+    await create_all(engine)
+    await knowledge_create_all(engine)
+    svc = WorkspaceService(home=SharedHome(root=tmp_path), engine=engine)
+    await svc.create("old")
+
+    assert await cli_module.workspace_rename("old", "new", service=svc) == 0
+    assert "renamed workspace old → new" in capsys.readouterr().out
+    assert await cli_module.workspace_rename("missing", "x", service=svc) == 1
+    assert "no such workspace" in capsys.readouterr().out

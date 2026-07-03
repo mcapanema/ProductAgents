@@ -128,6 +128,7 @@ uv run productagents workspace list          # list workspaces (active marked wi
 uv run productagents workspace show [name]   # show a workspace's on-disk paths (defaults to active)
 uv run productagents workspace create <name>  # create a new workspace
 uv run productagents workspace use <name>     # persist <name> as the active workspace
+uv run productagents workspace rename <old> <new>  # rename a workspace (moves all its data)
 uv run productagents sessions list           # list persisted runtime sessions
 uv run productagents sessions show <id>      # replay a session's event timeline
 uv run productagents reflect [<decision-id> "<note>"]   # list past decisions / record an outcome

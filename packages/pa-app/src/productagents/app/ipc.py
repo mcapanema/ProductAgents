@@ -477,6 +477,30 @@ async def handle(
                 raise
             await emit({"id": rid, "result": {"name": name, "active": True}})
 
+        async def _workspaces_rename(p: dict) -> None:
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
+            name = p["name"]
+            new_name = p["new_name"]
+            renaming_active = name == services["active_name"]
+            row = await workspaces.rename(name, new_name)
+            if not renaming_active:
+                await emit({"id": rid, "result": {**row, "active": False}})
+                return
+            # The rename already moved the marker (unlike `use`, where it moves
+            # last) — a failure below leaves the rename durable, which is
+            # correct: the rename itself succeeded. The client sees {id, error}
+            # and re-selecting the workspace retries the switch tail.
+            if config is not None:
+                await config.switch(new_name)
+            rebuild = services.get("rebuild")
+            if rebuild is not None:
+                fresh = rebuild(new_name, config=config)
+                fresh.pop("workspaces", None)  # keep the (possibly faked) instance
+                services.update(fresh)
+            services["active_name"] = new_name
+            await emit({"id": rid, "result": {**row, "active": True}})
+
         async def _sessions_list(_p: dict) -> None:
             rows = await sessions.list()
             await emit({"id": rid, "result": [_session_dict(s) for s in rows]})
@@ -647,6 +671,7 @@ async def handle(
             "workspaces.show": _workspaces_show,
             "workspaces.create": _workspaces_create,
             "workspaces.use": _workspaces_use,
+            "workspaces.rename": _workspaces_rename,
             "sessions.list": _sessions_list,
             "sessions.show": _sessions_show,
             "decisions.list": _decisions_list,
