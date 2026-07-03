@@ -1,21 +1,36 @@
 import { useEffect, useState } from "react";
-import { Background, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  ReactFlow,
+  type NodeMouseHandler,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Typography, Segmented, Modal } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
-import { layoutTopology, nodeLabel } from "./workflowView";
+import { buildFlowNodes, buildFlowEdges } from "./workflowView";
+import AgentNode from "./AgentNode";
+import { WorkflowLegend } from "./WorkflowLegend";
 import { NodePromptDrawer } from "./NodePromptDrawer";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
+import { tokenVar } from "../ui/tokens";
+import "./WorkflowsPanel.css";
+
+const nodeTypes = { agent: AgentNode };
 
 export function WorkflowsPanel() {
   const ipc = useIpc();
   const [list, setList] = useState<WorkflowSummary[]>([]);
   const [detail, setDetail] = useState<WorkflowDetail | null>(null);
   const [promptNode, setPromptNode] = useState<WorkflowNode | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   async function open(name: string) {
     setPromptNode(null);
+    setDirty(false);
     if (!ipc) return;
     try {
       setDetail(await ipc.workflowsShow(name));
@@ -37,34 +52,63 @@ export function WorkflowsPanel() {
   }, [ipc]);
 
   const topology = detail?.topology ?? null;
-  const flowNodes: Node[] = topology
-    ? layoutTopology(topology).map((n) => ({
-        id: n.id,
-        position: { x: n.x, y: n.y },
-        data: { label: nodeLabel(n.id) },
-        ...(n.id === "__start__" ? { type: "input" as const } : {}),
-        ...(n.id === "__end__" ? { type: "output" as const } : {}),
-        ...(n.prompts.length === 0 && !n.id.startsWith("__")
-          ? { style: { opacity: 0.7 } }
-          : {}),
+  const flowNodes = topology
+    ? buildFlowNodes(topology, { selectedId: promptNode?.id ?? null }).map((n) => ({
+        // initialWidth/Height is a size hint used only until React Flow's own
+        // ResizeObserver measures the real DOM node — it never overrides a
+        // real measurement, but it lets the node render immediately instead
+        // of staying `visibility: hidden` for the first frame (or, in jsdom
+        // where ResizeObserver never fires, indefinitely).
+        ...n,
+        initialWidth: 190,
+        initialHeight: 64,
       }))
     : [];
-  const flowEdges: Edge[] = topology
-    ? topology.edges.map((e) => ({
-        id: `${e.source}->${e.target}`,
-        source: e.source,
-        target: e.target,
-        ...(e.conditional ? { style: { strokeDasharray: "6 3" } } : {}),
-      }))
-    : [];
+  const flowEdges = topology ? buildFlowEdges(topology) : [];
+
+  // Guarded node open: if the drawer has unsaved edits, confirm before switching.
+  function requestNode(next: WorkflowNode | null) {
+    if (dirty && next?.id !== promptNode?.id) {
+      Modal.confirm({
+        title: "Discard unsaved prompt edits?",
+        content: "You have edits in the open prompt editor that haven't been saved as a new version.",
+        okText: "Discard",
+        cancelText: "Keep editing",
+        onOk: () => {
+          setDirty(false);
+          setPromptNode(next);
+        },
+      });
+      return;
+    }
+    setPromptNode(next);
+  }
+
+  const onNodeClick: NodeMouseHandler = (_, node) => {
+    const n = topology?.nodes.find((x) => x.id === node.id);
+    if (n && n.prompts.length > 0) requestNode(n);
+  };
 
   return (
-    <div>
-      <h1>Workflows</h1>
-      <p className="page-desc">
-        Registered decision pipelines. Select a workflow to see its graph; click
-        an agent to edit its prompts.
-      </p>
+    <div className="wf-panel">
+      <div className="wf-panel__head">
+        <div>
+          <Typography.Title level={2} style={{ margin: 0 }}>Workflows</Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ maxWidth: "66ch", margin: "4px 0 0" }}>
+            {detail?.description ??
+              "Registered decision pipelines. Select a workflow to inspect its reasoning graph; click an agent to edit the prompts that steer it."}
+          </Typography.Paragraph>
+        </div>
+        {list.length > 0 && (
+          <Segmented
+            className="wf-panel__switcher"
+            value={detail?.name}
+            onChange={(v) => requestNode(null) ?? void open(String(v))}
+            options={list.map((w) => ({ label: w.title, value: w.name }))}
+          />
+        )}
+      </div>
+
       {list.length === 0 && (
         <EmptyState
           title="No workflows registered"
@@ -72,53 +116,44 @@ export function WorkflowsPanel() {
           icon={<EmptyStateIcon name="workflows" />}
         />
       )}
-      <div className="master-detail">
-        {list.length > 0 && (
-          <div className="master-detail__list" style={{ flexBasis: 280 }}>
-            {list.map((w) => (
-              <div
-                className={`list-item${detail?.name === w.name ? " is-selected" : ""}`}
-                key={w.name}
-                onClick={() => open(w.name)}
-              >
-                <div>
-                  <strong>{w.title}</strong>{" "}
-                  <span className="muted">({w.name})</span>
-                </div>
-                <div className="muted">{w.description}</div>
-              </div>
-            ))}
+
+      {detail && (
+        topology ? (
+          <div className="wf-panel__canvas">
+            <ReactFlow
+              nodes={flowNodes}
+              edges={flowEdges}
+              nodeTypes={nodeTypes}
+              onNodeClick={onNodeClick}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color={tokenVar("--border-subtle")} />
+              <Controls showInteractive={false} />
+            </ReactFlow>
+            <div className="wf-panel__legend"><WorkflowLegend /></div>
           </div>
-        )}
-        {detail && (
-          <div className="master-detail__detail">
-            {topology ? (
-              <div style={{ height: 560 }}>
-                <ReactFlow
-                  nodes={flowNodes}
-                  edges={flowEdges}
-                  onNodeClick={(_, node) => {
-                    const n = topology.nodes.find((x) => x.id === node.id);
-                    if (n && n.prompts.length > 0) setPromptNode(n);
-                  }}
-                  fitView
-                  nodesDraggable={false}
-                  nodesConnectable={false}
-                >
-                  <Background />
-                </ReactFlow>
-              </div>
-            ) : (
-              <EmptyState
-                title="No graph available"
-                description="This workflow does not expose its structure."
-                icon={<EmptyStateIcon name="workflows" />}
-              />
-            )}
-          </div>
-        )}
-      </div>
-      <NodePromptDrawer node={promptNode} onClose={() => setPromptNode(null)} />
+        ) : (
+          <EmptyState
+            title="No graph available"
+            description="This workflow does not expose its structure."
+            icon={<EmptyStateIcon name="workflows" />}
+          />
+        )
+      )}
+
+      {/*
+        The brief wires `onDirtyChange={setDirty}` here so the unsaved-changes
+        guard above (`dirty`/`requestNode`) is live. NodePromptDrawer doesn't
+        accept that prop yet — Task 8 adds real dirty-tracking to the drawer
+        and should pass it through here; until then the guard is inert
+        (`dirty` never flips true) but the plumbing is in place.
+      */}
+      <NodePromptDrawer node={promptNode} onClose={() => requestNode(null)} />
     </div>
   );
 }

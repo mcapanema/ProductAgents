@@ -1,0 +1,19 @@
+/* desktop/src/panels/WorkflowsPanel.css — graph-is-hero layout */
+.wf-panel { display: flex; flex-direction: column; gap: var(--gap-stack); min-height: 0; }
+.wf-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-16); }
+.wf-panel__switcher { flex-shrink: 0; }
+.wf-panel__canvas {
+  position: relative;
+  height: min(68vh, 720px);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+.wf-panel__legend { position: absolute; left: var(--space-12); bottom: var(--space-12); z-index: var(--z-raised); }
+/* React Flow chrome tinted to tokens (Controls buttons). */
+.wf-panel__canvas .react-flow__controls { box-shadow: var(--elevation-floating); border-radius: var(--radius-popover); overflow: hidden; }
+.wf-panel__canvas .react-flow__controls-button {
+  background: var(--surface-raised); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary);
+}
+.wf-panel__canvas .react-flow__controls-button:hover { background: var(--surface-hover); }
