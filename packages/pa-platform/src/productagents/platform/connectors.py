@@ -185,13 +185,15 @@ async def run_connector_sync(
     registry: dict[str, type[Connector]] | None = None,
     engine=None,
     env: dict | None = None,
+    only: str | None = None,
 ) -> SyncReport:
     """Load config, sync every enabled connector, persist returned cursors.
 
     Reads canonical/sync-state schema into existence first (idempotent local
     bootstrap; Alembic remains the migration source of truth). Connectors write
     to the shared canonical store via ``DbCanonicalSink``; cursors round-trip
-    through ``SyncStateStore`` as strings.
+    through ``SyncStateStore`` as strings. ``only`` scopes the pass to a single
+    connector key; an unknown/unconfigured key degrades to a problems-only report.
     """
     # Imported lazily so importing this module for the static planner does not
     # pull in the (heavier) decision_context graph wiring.
@@ -207,6 +209,10 @@ async def run_connector_sync(
     raw = await load_db_config(
         sessionmaker, workspace=workspace, config_path=config_path
     )
+    if only is not None:
+        if only not in raw:
+            return SyncReport(problems=[f"connector '{only}': not configured"])
+        raw = {only: raw[only]}
     plan = plan_connectors(raw, registry, env)
     if not plan.configs:
         return SyncReport(results=[], problems=plan.problems)
@@ -318,13 +324,15 @@ async def check_connector_health(
     registry: dict[str, type[Connector]] | None = None,
     env: dict | None = None,
     engine=None,
+    only: str | None = None,
 ) -> HealthReport:
     """Probe every enabled connector's readiness (auth + reachability).
 
     Config now lives in the DB, so this needs storage to read it — a no-op
     sink is still used so health probes never write canonical data. Each
     probe runs in a ``connector.health`` span and concurrently with its
-    siblings.
+    siblings. ``only`` scopes the probe to a single connector key; an
+    unknown/unconfigured key degrades to a problems-only report.
     """
     from productagents.platform.context import get_engine
 
@@ -335,6 +343,10 @@ async def check_connector_health(
     raw = await load_db_config(
         make_sessionmaker(engine), workspace=workspace, config_path=config_path
     )
+    if only is not None:
+        if only not in raw:
+            return HealthReport(problems=[f"connector '{only}': not configured"])
+        raw = {only: raw[only]}
     plan = plan_connectors(raw, registry, env)
     if not plan.configs:
         return HealthReport(problems=plan.problems)

@@ -39,6 +39,22 @@ class _RecordingConnector(Connector):
         )
 
 
+class _OtherConnector(Connector):
+    """A second connector used to prove `only=` scoping."""
+
+    key: ClassVar[str] = "other"
+    produces = frozenset({CustomerFeedback})
+    config_cls = ConnectorConfig
+    synced: ClassVar[bool] = False
+
+    async def health_check(self) -> HealthStatus:
+        return HealthStatus(ok=True)
+
+    async def sync(self, cursor: SyncCursor | None) -> SyncResult:
+        type(self).synced = True
+        return SyncResult(connector=self.key)
+
+
 async def test_build_connectors_instantiates_from_registry():
     from productagents.platform.connectors import build_connectors
 
@@ -113,4 +129,47 @@ async def test_run_connector_sync_no_connectors_returns_problems_only():
     )
     assert report.results == []
     assert report.problems == []
+    await engine.dispose()
+
+
+async def test_run_connector_sync_only_scopes_to_one_connector():
+    from productagents.platform.connectors import run_connector_sync
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await create_all(engine)
+    await memory_create_all(engine)
+    sessionmaker = make_sessionmaker(engine)
+    async with sessionmaker() as session:
+        await ConnectorConfigStore(session).set("rec", {"enabled": True})
+        await ConnectorConfigStore(session).set("other", {"enabled": True})
+
+    _OtherConnector.synced = False
+    report = await run_connector_sync(
+        registry={"rec": _RecordingConnector, "other": _OtherConnector},
+        engine=engine,
+        env={},
+        only="rec",
+    )
+
+    assert [r.connector for r in report.results] == ["rec"]
+    assert _OtherConnector.synced is False
+    assert report.problems == []
+    await engine.dispose()
+
+
+async def test_run_connector_sync_only_unknown_connector_reports_problem():
+    from productagents.platform.connectors import run_connector_sync
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await create_all(engine)
+    await memory_create_all(engine)
+    report = await run_connector_sync(
+        config_path="/nonexistent.yaml",
+        registry={"rec": _RecordingConnector},
+        engine=engine,
+        env={},
+        only="nope",
+    )
+    assert report.results == []
+    assert report.problems == ["connector 'nope': not configured"]
     await engine.dispose()

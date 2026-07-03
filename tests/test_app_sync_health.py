@@ -76,6 +76,40 @@ async def test_describe_health_summarizes_report(tmp_path):
     assert "sick: ✗ down" in line
 
 
+async def test_check_connector_health_only_probes_named_connector(tmp_path):
+    from productagents.platform.connectors import check_connector_health
+
+    path = tmp_path / "connectors.yaml"
+    path.write_text(
+        "connectors:\n  ok:\n    enabled: true\n  sick:\n    enabled: true\n"
+    )
+
+    report = await check_connector_health(
+        config_path=str(path),
+        registry={"ok": _HealthyConnector, "sick": _SickConnector},
+        env={},
+        engine=make_engine("sqlite+aiosqlite://"),
+        only="ok",
+    )
+
+    assert set(report.statuses) == {"ok"}
+    assert report.problems == []
+
+
+async def test_check_connector_health_only_unknown_connector_reports_problem():
+    from productagents.platform.connectors import check_connector_health
+
+    report = await check_connector_health(
+        config_path="/nonexistent.yaml",
+        registry={"ok": _HealthyConnector},
+        env={},
+        engine=make_engine("sqlite+aiosqlite://"),
+        only="nope",
+    )
+    assert report.statuses == {}
+    assert report.problems == ["connector 'nope': not configured"]
+
+
 async def test_check_connector_health_no_connectors_is_empty():
     from productagents.platform.connectors import (
         check_connector_health,
