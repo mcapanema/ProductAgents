@@ -102,14 +102,18 @@ class _FakeConnectors:
         self._health = health
         self._sync = sync
         self._last_synced = last_synced or {}
+        self.health_connector: str | None = "UNSET"
+        self.sync_connector: str | None = "UNSET"
 
     async def plan(self):
         return self._plan
 
-    async def health(self):
+    async def health(self, connector=None):
+        self.health_connector = connector
         return self._health
 
-    async def sync(self):
+    async def sync(self, connector=None):
+        self.sync_connector = connector
         return self._sync
 
     async def last_synced(self):
@@ -1011,6 +1015,46 @@ async def test_connectors_sync_returns_results():
             },
         }
     ]
+
+
+async def test_connectors_health_forwards_connector_param():
+    from productagents.platform.connectors import HealthReport
+
+    fake = _FakeConnectors(health=HealthReport(statuses={}, problems=[]))
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 26, "method": "connectors.health", "params": {"connector": "github"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": fake,
+        },
+        emit=emit,
+    )
+    assert fake.health_connector == "github"
+    assert sink == [{"id": 26, "result": {"statuses": {}, "problems": []}}]
+
+
+async def test_connectors_sync_forwards_connector_param():
+    from productagents.platform.connectors import SyncReport
+
+    fake = _FakeConnectors(sync=SyncReport(results=[], problems=[]))
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 27, "method": "connectors.sync", "params": {"connector": "github"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": fake,
+        },
+        emit=emit,
+    )
+    assert fake.sync_connector == "github"
+    assert sink == [{"id": 27, "result": {"results": [], "problems": []}}]
 
 
 async def test_connectors_method_without_service_errors():

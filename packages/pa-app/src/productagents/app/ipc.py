@@ -546,16 +546,16 @@ async def handle(
             result["last_synced"] = await connectors.last_synced()
             await emit({"id": rid, "result": result})
 
-        async def _connectors_health(_p: dict) -> None:
+        async def _connectors_health(p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
-            report = await connectors.health()
+            report = await connectors.health(connector=p.get("connector"))
             await emit({"id": rid, "result": _health_dict(report)})
 
-        async def _connectors_sync(_p: dict) -> None:
+        async def _connectors_sync(p: dict) -> None:
             if connectors is None:
                 raise RuntimeError("connectors service not available")
-            report = await connectors.sync()
+            report = await connectors.sync(connector=p.get("connector"))
             await emit({"id": rid, "result": _sync_dict(report)})
 
         async def _prompts_list(_p: dict) -> None:
