@@ -9,6 +9,7 @@ canonical models, assembled by ``build_services``.
 from productagents.knowledge.config import database_url
 from productagents.knowledge.container import KnowledgeServices, build_services
 from productagents.knowledge.repositories._base import Repository
+from productagents.knowledge.repositories.sqlmodel.workspace_ops import rename_workspace
 from productagents.knowledge.services._page import Page
 from productagents.knowledge.services._query import Query
 from productagents.knowledge.services.feedback_service import (
@@ -42,4 +43,5 @@ __all__ = [
     "SyncStateStore",
     "build_services",
     "database_url",
+    "rename_workspace",
 ]

@@ -17,11 +17,16 @@ class CanonicalRecord(SQLModel, table=True):
     __tablename__ = "canonical_record"
     __table_args__ = (
         UniqueConstraint(
-            "connector", "vendor_type", "vendor_id", name="uq_canonical_source"
+            "workspace",
+            "connector",
+            "vendor_type",
+            "vendor_id",
+            name="uq_canonical_source",
         ),
     )
 
     pk: str = Field(primary_key=True)  # CanonicalModel.id
+    workspace: str = Field(default="default", index=True)
     model_type: str = Field(index=True)  # e.g. "Initiative", "CustomerFeedback"
     connector: str
     vendor_type: str
@@ -42,6 +47,7 @@ class SyncStateRecord(SQLModel, table=True):
 
     __tablename__ = "sync_state"
 
+    workspace: str = Field(default="default", primary_key=True)
     connector_key: str = Field(primary_key=True)
     cursor_value: str | None = Field(default=None)
     updated_at: datetime

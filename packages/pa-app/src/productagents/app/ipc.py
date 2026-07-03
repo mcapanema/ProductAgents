@@ -36,14 +36,14 @@ from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import Workflow, WorkflowService
-from productagents.platform.workspace import Workspace, WorkspaceService
+from productagents.platform.workspace import WorkspaceService
 
 logger = logging.getLogger(__name__)
 
 Emit = Callable[[dict], Awaitable[None]]
 
 
-def _build_workflows(*, human_in_the_loop: bool) -> WorkflowService:
+def _build_workflows(active_name: str, *, human_in_the_loop: bool) -> WorkflowService:
     """Build the run service, degrading to a model-less one if no key is set.
 
     A freshly installed app has no API key until the user enters one in Settings,
@@ -56,23 +56,28 @@ def _build_workflows(*, human_in_the_loop: bool) -> WorkflowService:
     from productagents.app.cli import _build_run_service, make_recorder
 
     try:
-        return _build_run_service(human_in_the_loop=human_in_the_loop)
+        return _build_run_service(
+            human_in_the_loop=human_in_the_loop, workspace=active_name
+        )
     except Exception:  # noqa: BLE001 — degraded mode; any failure (missing key, bad config) must not crash the sidecar
         logger.warning(
             "model unavailable; runs disabled until an API key is set", exc_info=True
         )
         return WorkflowService.for_model(
-            None, recorder=make_recorder(), human_in_the_loop=human_in_the_loop
+            None,
+            recorder=make_recorder(workspace=active_name),
+            human_in_the_loop=human_in_the_loop,
+            workspace=active_name,
         )
 
 
-def _build_reflection():
+def _build_reflection(active_name: str):
     """ReflectionService for the GUI, or None if no model is available yet."""
     from productagents.platform.llm import get_model
     from productagents.platform.reflection_service import ReflectionService
 
     try:
-        return ReflectionService.for_model(get_model())
+        return ReflectionService.for_model(get_model(), workspace=active_name)
     except Exception:  # noqa: BLE001
         logger.warning(
             "model unavailable; reflection disabled until an API key is set",
@@ -89,8 +94,8 @@ def build_services(
     Shared by ``serve_stdio`` (stdio transport) and the dev WebSocket bridge
     (``devbridge.py``) so both expose the identical surface. Builds a real
     model-backed WorkflowService (so ``run`` works), plus the workspace + session
-    + decision read services. The returned dict is exactly the keyword set
-    ``serve`` / ``handle`` consume.
+    + decision read services. The returned dict is exactly what ``serve`` /
+    ``handle`` read from at dispatch time.
 
     ``config`` lets a caller (``cli.main``) hand in the single, already-``load()``ed
     ``ConfigurationService`` for this process, so its ``_seeded``/``_overrides``
@@ -98,23 +103,28 @@ def build_services(
     chain instead of a fresh instance's empty state. Falls back to a fresh
     instance for tests/back-compat.
 
+    The ``"rebuild"`` entry is this function itself — the live ``workspaces.use``
+    switch calls back through it to re-materialize every scoped service against
+    the new active workspace.
+
     ponytail: the model is built up front, so even read methods need a key. Make
     the WorkflowService lazy-on-first-run only if a client must browse without one.
     """
     return {
-        "workflows": _build_workflows(human_in_the_loop=True),
+        "workflows": _build_workflows(active_name, human_in_the_loop=True),
         "workspaces": WorkspaceService(),
         "active_name": active_name,
-        "sessions": SessionService.create(),
-        "decisions": DecisionReadService.create(),
-        "connectors": ConnectorService(),
-        "prompts": PromptService.create(),
+        "sessions": SessionService.create(active_name),
+        "decisions": DecisionReadService.create(active_name),
+        "connectors": ConnectorService(workspace=active_name),
+        "prompts": PromptService.create(active_name),
         "config": config
         if config is not None
         else ConfigurationService(active_name=active_name),
         "preferences": PreferenceService(),
-        "reflection": _build_reflection(),
-        "memory": MemoryService.create(),
+        "reflection": _build_reflection(active_name),
+        "memory": MemoryService.create(active_name),
+        "rebuild": build_services,
     }
 
 
@@ -126,7 +136,7 @@ def serve_stdio(
     Backs ``productagents ipc``. The Tauri shell (Phase 8) spawns this as its
     sidecar.
     """
-    asyncio.run(serve(**build_services(active_name, config=config)))
+    asyncio.run(serve(build_services(active_name, config=config)))
 
 
 async def _run(
@@ -252,19 +262,6 @@ def _workflow_dict(w: Workflow) -> dict:
     return {"name": w.name, "title": w.title, "description": w.description}
 
 
-def _workspace_dict(ws: Workspace, *, active_name: str) -> dict:
-    return {
-        "name": ws.name,
-        "active": ws.name == active_name,
-        "root": str(ws.root),
-        "db_url": ws.db_url,
-        "connectors_file": str(ws.connectors_file),
-        "env_file": str(ws.env_file),
-        "log_file": str(ws.log_file),
-        "prompts_dir": str(ws.prompts_dir),
-    }
-
-
 def _session_dict(s: Session) -> dict:
     return {
         "id": s.id,
@@ -364,22 +361,16 @@ def _config_dict(config) -> dict:
 
 async def handle(
     request: dict,
+    services: dict,
     *,
-    workflows: WorkflowService,
-    workspaces: WorkspaceService | None,
-    active_name: str,
-    sessions,
-    decisions: Any = None,
-    connectors: Any = None,
-    prompts: Any = None,
-    config: Any = None,
-    preferences: Any = None,
-    reflection: Any = None,
-    memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     emit: Emit,
 ) -> None:
     """Dispatch one request, emitting one or more response messages.
+
+    ``services`` is a mutable dict (see ``build_services``) read at dispatch
+    time — ``workspaces.use`` mutates it in place, so the very next request
+    sees the freshly rebuilt scope.
 
     Every emitted message echoes ``request['id']``. Every method except ``run``
     emits a single ``result``; any failure becomes one ``error`` message so the
@@ -388,6 +379,17 @@ async def handle(
     rid = request.get("id")
     method = request.get("method")
     params = request.get("params") or {}
+    workflows: WorkflowService = services["workflows"]
+    workspaces: WorkspaceService | None = services.get("workspaces")
+    active_name: str = services["active_name"]
+    sessions = services["sessions"]
+    decisions: Any = services.get("decisions")
+    connectors: Any = services.get("connectors")
+    prompts: Any = services.get("prompts")
+    config: Any = services.get("config")
+    preferences: Any = services.get("preferences")
+    reflection: Any = services.get("reflection")
+    memory: Any = services.get("memory")
     try:
         # ``run`` streams multiple events before its terminal result — kept as an
         # explicit branch rather than forced into the uniform request/response table.
@@ -406,17 +408,98 @@ async def handle(
         async def _workspaces_list(_p: dict) -> None:
             if workspaces is None:
                 raise RuntimeError("workspaces service not available")
-            wss = [
-                _workspace_dict(ws, active_name=active_name) for ws in workspaces.list()
-            ]
-            await emit({"id": rid, "result": wss})
+            rows = await workspaces.list()
+            await emit(
+                {
+                    "id": rid,
+                    "result": [{**r, "active": r["name"] == active_name} for r in rows],
+                }
+            )
 
         async def _workspaces_show(p: dict) -> None:
             if workspaces is None:
                 raise RuntimeError("workspaces service not available")
-            ws = workspaces.resolve(p.get("name"))
-            ws_dict = _workspace_dict(ws, active_name=active_name)
-            await emit({"id": rid, "result": ws_dict})
+            name = p.get("name") or active_name
+            row = await workspaces.get(name)
+            if row is None:
+                await emit({"id": rid, "error": f"no such workspace: {name}"})
+                return
+            home = workspaces.home()
+            await emit(
+                {
+                    "id": rid,
+                    "result": {
+                        **row,
+                        "active": name == active_name,
+                        "prompts_dir": str(workspaces.prompts_dir(name)),
+                        "root": str(home.root),
+                        "db_url": home.db_url,
+                        "env_file": str(home.env_file),
+                        "log_file": str(home.log_file),
+                        "connectors_file": str(home.connectors_file),
+                    },
+                }
+            )
+
+        async def _workspaces_create(p: dict) -> None:
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
+            row = await workspaces.create(p["name"])
+            await emit({"id": rid, "result": {**row, "active": False}})
+
+        async def _workspaces_use(p: dict) -> None:
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
+            name = p["name"]
+            if await workspaces.get(name) is None:
+                await emit({"id": rid, "error": f"no such workspace: {name}"})
+                return
+            old = services["active_name"]
+            if config is not None:
+                await config.switch(name)
+            try:
+                rebuild = services.get("rebuild")
+                if rebuild is not None:
+                    fresh = rebuild(name, config=config)
+                    fresh.pop("workspaces", None)  # keep the (possibly faked) instance
+                    services.update(fresh)
+                services["active_name"] = name
+                # Marker persists only after the in-process switch succeeded — a
+                # mid-switch failure must never leave the marker pointing at a
+                # workspace this process never actually switched to.
+                await workspaces.set_active(name)
+            except Exception:
+                if config is not None:
+                    # ponytail: switch-back keeps config/env symmetric with
+                    # services on a mid-switch failure; the marker only ever
+                    # moves last, so a crash self-heals on restart.
+                    await config.switch(old)
+                raise
+            await emit({"id": rid, "result": {"name": name, "active": True}})
+
+        async def _workspaces_rename(p: dict) -> None:
+            if workspaces is None:
+                raise RuntimeError("workspaces service not available")
+            name = p["name"]
+            new_name = p["new_name"]
+            renaming_active = name == services["active_name"]
+            row = await workspaces.rename(name, new_name)
+            if not renaming_active:
+                await emit({"id": rid, "result": {**row, "active": False}})
+                return
+            # The rename already moved the marker (unlike `use`, where it moves
+            # last) — a failure below leaves the rename durable, which is
+            # correct: the rename itself succeeded. The client sees {id, error}
+            # and re-selecting the workspace retries the switch tail.
+            if config is not None:
+                await config.switch(new_name)
+            rebuild = services.get("rebuild")
+            if rebuild is not None:
+                fresh = rebuild(new_name, config=config)
+                fresh.pop("workspaces", None)  # keep the (possibly faked) instance
+                services.update(fresh)
+            services["active_name"] = new_name
+            await emit({"id": rid, "result": {**row, "active": True}})
 
         async def _sessions_list(_p: dict) -> None:
             rows = await sessions.list()
@@ -586,6 +669,9 @@ async def handle(
             "workflows.list": _workflows_list,
             "workspaces.list": _workspaces_list,
             "workspaces.show": _workspaces_show,
+            "workspaces.create": _workspaces_create,
+            "workspaces.use": _workspaces_use,
+            "workspaces.rename": _workspaces_rename,
             "sessions.list": _sessions_list,
             "sessions.show": _sessions_show,
             "decisions.list": _decisions_list,
@@ -620,18 +706,8 @@ async def handle(
 
 
 async def serve(
+    services: dict,
     *,
-    workflows: WorkflowService,
-    workspaces: WorkspaceService | None,
-    active_name: str,
-    sessions,
-    decisions: Any = None,
-    connectors: Any = None,
-    prompts: Any = None,
-    config: Any = None,
-    preferences: Any = None,
-    reflection: Any = None,
-    memory: Any = None,
     read_line: Callable[[], Awaitable[str]] | None = None,
     write_line: Callable[[str], None] | None = None,
 ) -> None:
@@ -678,19 +754,4 @@ async def serve(
         except json.JSONDecodeError as exc:
             await emit({"id": None, "error": f"invalid json: {exc}"})
             continue
-        await handle(
-            request,
-            workflows=workflows,
-            workspaces=workspaces,
-            active_name=active_name,
-            sessions=sessions,
-            decisions=decisions,
-            connectors=connectors,
-            prompts=prompts,
-            config=config,
-            preferences=preferences,
-            reflection=reflection,
-            memory=memory,
-            read_line=read_line,
-            emit=emit,
-        )
+        await handle(request, services, read_line=read_line, emit=emit)

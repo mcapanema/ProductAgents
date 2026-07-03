@@ -37,18 +37,32 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   - `transport.ts` — `isTauri()`, `createTauriClient()` (invoke/listen),
     `createWsClient()` (dev WebSocket, injectable socket), and `createClient()`
     which picks the right one for the environment.
-- `src/app/` — `App.tsx` (shell composition: wraps `Sidebar` + the selected
-  panel, and lifts a `running` boolean out of `RunPanel` via
-  `onRunningChange` so the sidebar can show a live-run indicator),
+- `src/app/` — `App.tsx` (shell composition: wraps `Sidebar` + `TopBar` + the
+  selected panel, and lifts a `running` boolean out of `RunPanel` via
+  `onRunningChange` so the sidebar and top bar can show a live-run indicator
+  / disable controls),
   `Sidebar.tsx` (the nine-item resource nav: icon + label per item, an
   active-item accent marker, a `localStorage`-persisted collapsible
   icon-only rail, and an amber pulsing dot on "Run" while a decision run is
   in flight — ported from `design/docs/phase-3b-navigation.md`'s
   reference nav/rail), `Sidebar.css` (the ported nav-item/rail/live-dot styling, tokens
-  only), `IpcProvider.tsx` (`useIpc()` context; builds the client once on
+  only), `TopBar.tsx` / `topBarView.ts` (the header bar: a workspace `Select`
+  + "New workspace…" modal — `switchTo`/`onCreate` call `workspacesUse`/
+  `workspacesCreate` then `window.location.reload()`: the backend already
+  switched live (`workspaces.use` rebuilds its services in-process), the
+  reload just remounts panels so every list refetches in the new scope;
+  an antd `Breadcrumb` showing workspace › current
+  panel; a ⌘K-focusable global search (`AutoComplete`) over decisions/
+  sessions/workflows — `topBarView.ts`'s `searchEntries`/`filterEntries` are
+  pure and unit-tested, `onSelect` navigates to the entry's owning panel, not
+  a deep link; and a "New decision" button. The workspace selector, search,
+  and "New decision" are all `disabled` while `running` is true — the IPC
+  protocol is single-in-flight, so no request can be issued mid-run),
+  `IpcProvider.tsx` (`useIpc()` context; builds the client once on
   mount, or takes an injected one in tests; `useIpc()` returns
   `IpcClient | null` — **null until ready, panels must handle it**),
-  `App.css` (shell layout only — sidebar styling lives in `Sidebar.css`).
+  `App.css` (shell layout only — sidebar styling lives in `Sidebar.css`,
+  top-bar styling in `TopBar.css`).
 - `src/panels/` — one panel per resource. **Pure logic is extracted and
   unit-tested**, components stay thin: `runReducer.ts` (Run event stream),
   `decisionView.ts` (`formatConfidence`/`predictionRows`), `connectorView.ts`
@@ -58,7 +72,9 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
   (registered workflow list), `SettingsPanel.tsx` (sub-navigated: Workspace ›
   Configuration/Connectors/Preferences, Application › Runtime/Updates.
-  Configuration holds model/provider/key plus the pipeline tunables — debate
+  Configuration opens with a Workspace section whose rename field calls
+  `workspaces.rename` then reloads (same live-switch convention as TopBar),
+  disabled mid-run, then holds model/provider/key plus the pipeline tunables — debate
   rounds, judge threshold/retries, provider retries — each field showing an
   `origins` hint ("Overridden by environment" / "Set by --set override") when
   a tier above the workspace DB is in play; Connectors is the connector-config
@@ -117,7 +133,11 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   needed by `Table`'s internal responsive/scrollbar-measurement hooks) and
   `window.ResizeObserver` (needed by `Input.TextArea`'s internal resize
   handling) — jsdom implements none of these.
-- `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`).
+- `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`), exposing only the
+  `ipc_send` command. A workspace switch takes effect live in the sidecar (no
+  process restart); `TopBar.tsx` calls `window.location.reload()` after
+  `workspaces.use`/`workspaces.create` to remount panels so their lists
+  refetch under the new scope.
 - `e2e/` — Playwright browser tests (see `e2e/CLAUDE.md`).
 
 ## Commands

@@ -21,6 +21,7 @@ import type {
   SessionSummary,
   WorkflowSummary,
   WorkspaceInfo,
+  WorkspaceUseResult,
 } from "./types";
 
 type Pending = {
@@ -151,6 +152,25 @@ export class IpcClient {
 
   workspacesShow(name?: string): Promise<WorkspaceInfo> {
     return this.call<WorkspaceInfo>("workspaces.show", name ? { name } : {});
+  }
+
+  workspacesList(): Promise<WorkspaceInfo[]> {
+    return this.call<WorkspaceInfo[]>("workspaces.list");
+  }
+
+  workspacesCreate(name: string): Promise<WorkspaceInfo> {
+    return this.call<WorkspaceInfo>("workspaces.create", { name });
+  }
+
+  workspacesUse(name: string): Promise<WorkspaceUseResult> {
+    return this.call<WorkspaceUseResult>("workspaces.use", { name });
+  }
+
+  workspacesRename(name: string, newName: string): Promise<WorkspaceInfo> {
+    return this.call<WorkspaceInfo>("workspaces.rename", {
+      name,
+      new_name: newName,
+    });
   }
 
   reflectionRecord(decisionId: string, note: string): Promise<OutcomeRecord> {

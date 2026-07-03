@@ -71,3 +71,22 @@ async def test_reflect_on_unknown_decision_raises_lookup_error():
     svc = _service(decisions=[_decision("dec-1")], recorded=[])
     with pytest.raises(LookupError):
         await svc.reflect_on("missing", "note")
+
+
+async def test_for_model_reflector_prompts_are_workspace_scoped(monkeypatch, tmp_path):
+    """Regression: for_model used to build its reflector with no `prompts` kwarg,
+    so agents/reflection.py fell back to PromptStore() over the shared root and
+    silently ignored a workspace's `reflection` prompt override. Mirrors
+    test_platform_context.py's test_agent_context_prompts_are_workspace_scoped."""
+    override_dir = tmp_path / "team-a" / "reflection"
+    override_dir.mkdir(parents=True)
+    (override_dir / "0001.txt").write_text("team-a override", encoding="utf-8")
+    monkeypatch.setenv("PRODUCTAGENTS_PROMPTS_DIR", str(tmp_path))
+
+    svc = ReflectionService.for_model(None, workspace="team-a")
+    prompts = svc._reflect.keywords["prompts"]
+    assert prompts.get("reflection") == "team-a override"
+
+    svc_other = ReflectionService.for_model(None, workspace="team-b")
+    other_prompts = svc_other._reflect.keywords["prompts"]
+    assert other_prompts.active_version("reflection") == 0

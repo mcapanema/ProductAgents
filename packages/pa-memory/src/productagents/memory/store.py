@@ -13,15 +13,20 @@ from productagents.memory.tables import Base, DecisionRow, OutcomeRow
 
 
 class DecisionStore:
-    """Append/upsert decisions and outcomes; read them back for retrieval."""
+    """Append/upsert decisions and outcomes; read them back for retrieval.
 
-    def __init__(self, session: AsyncSession) -> None:
+    Scoped to one workspace: every read filters on it, every write stamps it.
+    """
+
+    def __init__(self, session: AsyncSession, workspace: str = "default") -> None:
         self._session = session
+        self._workspace = workspace
 
     async def record(self, decision: DecisionRecord, embedding: list[float]) -> None:
         await self._session.merge(
             DecisionRow(
                 decision_id=decision.decision_id,
+                workspace=self._workspace,
                 initiative_title=decision.initiative.title,
                 payload=decision.model_dump(mode="json"),
                 embedding=embedding,
@@ -34,6 +39,7 @@ class DecisionStore:
         self._session.add(
             OutcomeRow(
                 decision_id=outcome.decision_id,
+                workspace=self._workspace,
                 payload=outcome.model_dump(mode="json"),
                 reflected_at=outcome.reflected_at,
             )
@@ -45,7 +51,9 @@ class DecisionStore:
         rows = (
             (
                 await self._session.execute(
-                    select(DecisionRow).order_by(DecisionRow.created_at)
+                    select(DecisionRow)
+                    .where(DecisionRow.workspace == self._workspace)
+                    .order_by(DecisionRow.created_at)
                 )
             )
             .scalars()
@@ -54,13 +62,23 @@ class DecisionStore:
         return [DecisionRecord.model_validate(row.payload) for row in rows]
 
     async def outcomes(self) -> list[OutcomeRecord]:
-        rows = (await self._session.execute(select(OutcomeRow))).scalars().all()
+        rows = (
+            (
+                await self._session.execute(
+                    select(OutcomeRow).where(OutcomeRow.workspace == self._workspace)
+                )
+            )
+            .scalars()
+            .all()
+        )
         return [OutcomeRecord.model_validate(row.payload) for row in rows]
 
     async def embeddings(self) -> dict[str, list[float]]:
         rows = (
             await self._session.execute(
-                select(DecisionRow.decision_id, DecisionRow.embedding)
+                select(DecisionRow.decision_id, DecisionRow.embedding).where(
+                    DecisionRow.workspace == self._workspace
+                )
             )
         ).all()
         return {row.decision_id: row.embedding for row in rows}

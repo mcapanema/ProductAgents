@@ -36,10 +36,12 @@ class SessionService:
         self._open = store_opener
 
     @classmethod
-    def create(cls) -> SessionService:
+    def create(cls, workspace: str = "default") -> SessionService:
+        from functools import partial
+
         from productagents.platform.context import open_event_store
 
-        return cls(open_event_store)
+        return cls(partial(open_event_store, workspace=workspace))
 
     async def list(self) -> _L[Session]:
         async with self._open() as store:

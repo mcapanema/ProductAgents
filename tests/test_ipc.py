@@ -11,7 +11,7 @@ from productagents.platform.events import Event
 from productagents.platform.memory_service import Lesson
 from productagents.platform.session import Session
 from productagents.platform.workflow import Workflow, WorkflowService
-from productagents.platform.workspace import Workspace, WorkspaceService
+from productagents.platform.workspace import WorkspaceService
 
 
 def _collect():
@@ -45,14 +45,53 @@ class _FakeSessions:
 
 
 class _FakeWorkspaces:
-    def __init__(self, workspaces):
-        self._workspaces = list(workspaces)
+    def __init__(self, names=("default",), active="default"):
+        self._names = list(names)
+        self.active = active
 
-    def list(self):
-        return self._workspaces
+    async def list(self):
+        return [{"name": n, "created_at": "t"} for n in self._names]
 
-    def resolve(self, name=None):
-        return self._workspaces[0]
+    async def get(self, name):
+        return {"name": name, "created_at": "t"} if name in self._names else None
+
+    async def create(self, name):
+        from productagents.platform.workspace import WorkspaceError
+
+        if name in self._names:
+            raise WorkspaceError(f"workspace already exists: {name}")
+        self._names.append(name)
+        return {"name": name, "created_at": "t"}
+
+    async def set_active(self, name):
+        from productagents.platform.workspace import WorkspaceError
+
+        if name not in self._names:
+            raise WorkspaceError(f"no such workspace: {name}")
+        self.active = name
+        return {"name": name, "created_at": "t"}
+
+    def home(self):  # for workspaces.show paths
+        from pathlib import Path
+
+        from productagents.platform.workspace import SharedHome
+
+        return SharedHome(root=Path("/tmp/pa-home"))
+
+    def prompts_dir(self, name):
+        return self.home().prompts_root / name
+
+    async def rename(self, old, new):
+        from productagents.platform.workspace import WorkspaceError
+
+        if old not in self._names:
+            raise WorkspaceError(f"no such workspace: {old}")
+        if new in self._names:
+            raise WorkspaceError(f"workspace already exists: {new}")
+        self._names[self._names.index(old)] = new
+        if self.active == old:
+            self.active = new
+        return {"name": new, "created_at": "t"}
 
 
 class _FakeConnectors:
@@ -98,10 +137,12 @@ async def test_workflows_list_returns_registered_workflows():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 1, "method": "workflows.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink == [
@@ -122,10 +163,12 @@ async def test_unknown_method_emits_error():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 7, "method": "nope.nope"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink == [{"id": 7, "error": "unknown method: 'nope.nope'"}]
@@ -141,10 +184,12 @@ async def test_sessions_list_returns_rows():
     )
     await ipc.handle(
         {"id": 2, "method": "sessions.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions([s]),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions([s]),
+        },
         emit=emit,
     )
     assert sink == [
@@ -166,10 +211,12 @@ async def test_sessions_show_unknown_id_emits_error():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 3, "method": "sessions.show", "params": {"session_id": "missing"}},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink == [{"id": 3, "error": "no such session: missing"}]
@@ -180,25 +227,39 @@ async def test_handler_exception_becomes_error_message():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 9, "method": "sessions.show"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 9
     assert "error" in sink[0]
 
 
-async def test_workspaces_list_marks_active(tmp_path):
-    ws = Workspace(name="default", root=tmp_path)
+async def _real_workspaces(tmp_path):
+    """A real, async WorkspaceService over a fresh in-memory engine."""
+    from productagents.knowledge.repositories.sqlmodel.engine import make_engine
+    from productagents.memory.store import create_all
+    from productagents.platform.workspace import SharedHome
+
+    engine = make_engine("sqlite+aiosqlite:///:memory:")
+    await create_all(engine)
+    return WorkspaceService(home=SharedHome(root=tmp_path), engine=engine)
+
+
+async def test_workspaces_list_marks_active():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 4, "method": "workspaces.list"},
-        workflows=_workflows(),
-        workspaces=cast(WorkspaceService, _FakeWorkspaces([ws])),
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": _FakeWorkspaces(),
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     result = sink[0]["result"]
@@ -206,20 +267,319 @@ async def test_workspaces_list_marks_active(tmp_path):
     assert result[0]["active"] is True
 
 
-async def test_workspaces_show_resolves_workspace(tmp_path):
-    ws = Workspace(name="default", root=tmp_path)
+async def test_workspaces_show_resolves_workspace():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 5, "method": "workspaces.show", "params": {}},
-        workflows=_workflows(),
-        workspaces=cast(WorkspaceService, _FakeWorkspaces([ws])),
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": _FakeWorkspaces(),
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["result"]["name"] == "default"
     assert sink[0]["result"]["active"] is True
-    assert sink[0]["result"]["prompts_dir"].endswith("prompts")
+    assert sink[0]["result"]["prompts_dir"].endswith("prompts/default")
+
+
+async def test_workspaces_show_unknown_emits_error():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 5, "method": "workspaces.show", "params": {"name": "nope"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": _FakeWorkspaces(),
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "no such workspace" in sink[0]["error"]
+
+
+async def test_workspaces_create_returns_new_workspace(tmp_path):
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 7, "method": "workspaces.create", "params": {"name": "acme"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": await _real_workspaces(tmp_path),
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
+        emit=emit,
+    )
+    assert sink[0]["id"] == 7
+    assert sink[0]["result"]["name"] == "acme"
+    assert sink[0]["result"]["active"] is False
+
+
+async def test_workspaces_create_duplicate_emits_error(tmp_path):
+    svc = await _real_workspaces(tmp_path)
+    await svc.create("acme")
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 8, "method": "workspaces.create", "params": {"name": "acme"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": svc,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "already exists" in sink[0]["error"]
+
+
+async def test_workspaces_use_switches_marker(tmp_path):
+    svc = await _real_workspaces(tmp_path)
+    await svc.create("acme")
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 9, "method": "workspaces.use", "params": {"name": "acme"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": svc,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
+        emit=emit,
+    )
+    assert sink == [{"id": 9, "result": {"name": "acme", "active": True}}]
+    assert svc.active_name() == "acme"
+
+
+async def test_workspaces_use_unknown_emits_error(tmp_path):
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 10, "method": "workspaces.use", "params": {"name": "nope"}},
+        {
+            "workflows": _workflows(),
+            "workspaces": await _real_workspaces(tmp_path),
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "no such workspace" in sink[0]["error"]
+
+
+async def test_workspaces_use_switches_live():
+    """use -> config.switch + rebuild swap the dict; the NEXT request sees it."""
+    switched = []
+
+    class _FakeConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "acme"))
+    config = _FakeConfig()
+    rebuild_calls = []
+    post_switch_session = Session(
+        id="post-switch-row",
+        workflow="evaluate_initiative",
+        status="finished",
+        created_at=datetime(2026, 6, 28, tzinfo=UTC),
+    )
+
+    def fake_rebuild(name, *, config=None):
+        rebuild_calls.append((name, config))
+        return {
+            "workflows": _workflows(),
+            "workspaces": object(),  # must be popped, never installed
+            "active_name": name,
+            "sessions": _FakeSessions([post_switch_session]),
+            "rebuild": fake_rebuild,
+        }
+
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": config,
+        "rebuild": fake_rebuild,
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 1, "method": "workspaces.use", "params": {"name": "acme"}},
+        services,
+        emit=emit,
+    )
+    assert sink == [{"id": 1, "result": {"name": "acme", "active": True}}]
+    assert switched == ["acme"]
+    assert rebuild_calls == [("acme", config)]
+    assert services["active_name"] == "acme"
+    assert ws.active == "acme"
+    assert services["workspaces"] is ws  # instance identity preserved
+
+    # The very next request against the SAME dict sees the rebuilt scope.
+    await ipc.handle({"id": 2, "method": "sessions.list"}, services, emit=emit)
+    assert sink[1]["id"] == 2
+    assert [row["id"] for row in sink[1]["result"]] == ["post-switch-row"]
+
+
+async def test_workspaces_use_switch_failure_leaves_marker_untouched():
+    """config.switch blowing up -> {id, error}, marker and active_name unchanged."""
+
+    class _BoomConfig:
+        async def switch(self, name):
+            raise RuntimeError("db down")
+
+    ws = _FakeWorkspaces(names=("default", "acme"))
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": _BoomConfig(),
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 3, "method": "workspaces.use", "params": {"name": "acme"}},
+        services,
+        emit=emit,
+    )
+    assert sink[0]["id"] == 3
+    assert "db down" in sink[0]["error"]
+    assert ws.active == "default"  # marker never flipped
+    assert services["active_name"] == "default"
+
+
+async def test_workspaces_use_rebuild_failure_switches_config_back():
+    """A rebuild failure AFTER config.switch succeeded must not leave a torn
+    switch: config gets switched back to the old workspace, and the marker /
+    active_name (which move last) are untouched."""
+    switched = []
+
+    class _FlakyConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "acme"))
+
+    def boom_rebuild(name, *, config=None):
+        raise RuntimeError("rebuild exploded")
+
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": _FlakyConfig(),
+        "rebuild": boom_rebuild,
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 4, "method": "workspaces.use", "params": {"name": "acme"}},
+        services,
+        emit=emit,
+    )
+    assert sink[0]["id"] == 4
+    assert "rebuild exploded" in sink[0]["error"]
+    assert switched == ["acme", "default"]  # switched forward, then restored
+    assert ws.active == "default"  # marker never flipped
+    assert services["active_name"] == "default"
+
+
+async def test_workspaces_rename_active_runs_switch_tail():
+    switched, rebuilt = [], []
+
+    class _FakeConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "other"))
+
+    def fake_rebuild(name, config=None):
+        rebuilt.append((name, config))
+        return {"workspaces": object(), "sessions": _FakeSessions()}
+
+    config = _FakeConfig()
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": config,
+        "rebuild": fake_rebuild,
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 1,
+            "method": "workspaces.rename",
+            "params": {"name": "default", "new_name": "main"},
+        },
+        services,
+        emit=emit,
+    )
+    assert sink == [
+        {"id": 1, "result": {"name": "main", "created_at": "t", "active": True}}
+    ]
+    assert switched == ["main"]
+    assert rebuilt == [("main", config)]
+    assert services["active_name"] == "main"
+    assert services["workspaces"] is ws  # identity preserved through rebuild
+
+
+async def test_workspaces_rename_nonactive_skips_switch_tail():
+    switched = []
+
+    class _FakeConfig:
+        async def switch(self, name):
+            switched.append(name)
+
+    ws = _FakeWorkspaces(names=("default", "other"))
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+        "config": _FakeConfig(),
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 2,
+            "method": "workspaces.rename",
+            "params": {"name": "other", "new_name": "renamed"},
+        },
+        services,
+        emit=emit,
+    )
+    assert sink == [
+        {"id": 2, "result": {"name": "renamed", "created_at": "t", "active": False}}
+    ]
+    assert switched == []
+    assert services["active_name"] == "default"
+
+
+async def test_workspaces_rename_duplicate_emits_error():
+    ws = _FakeWorkspaces(names=("default", "other"))
+    services = {
+        "workflows": _workflows(),
+        "workspaces": ws,
+        "active_name": "default",
+        "sessions": _FakeSessions(),
+    }
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 3,
+            "method": "workspaces.rename",
+            "params": {"name": "other", "new_name": "default"},
+        },
+        services,
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "already exists" in sink[0]["error"]
 
 
 from productagents.agents import runner as rn  # noqa: E402
@@ -298,10 +658,12 @@ async def test_run_streams_events_then_finished_result():
                 "evidence": "sample",
             },
         },
-        workflows=fake_workflow_service(runner),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": fake_workflow_service(runner),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
 
@@ -329,10 +691,12 @@ async def test_run_reports_failed_status_on_abort():
                 "evidence": "sample",
             },
         },
-        workflows=fake_workflow_service(runner),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": fake_workflow_service(runner),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[-1]["id"] == 6
@@ -344,10 +708,12 @@ async def test_run_unknown_workflow_emits_error():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 8, "method": "run", "params": {"workflow": "nope", "title": "X"}},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 8
@@ -373,10 +739,12 @@ async def test_serve_dispatches_each_line_until_eof():
         ]
     )
     await ipc.serve(
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         read_line=read_line,
         write_line=out.append,
     )
@@ -394,10 +762,12 @@ async def test_serve_reports_invalid_json_and_continues():
         ]
     )
     await ipc.serve(
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         read_line=read_line,
         write_line=out.append,
     )
@@ -413,10 +783,12 @@ async def test_serve_skips_blank_lines():
         ["\n", "   \n", json.dumps({"id": 3, "method": "workflows.list"}) + "\n"]
     )
     await ipc.serve(
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         read_line=read_line,
         write_line=out.append,
     )
@@ -426,10 +798,11 @@ async def test_serve_skips_blank_lines():
 def test_serve_stdio_builds_services_and_serves(monkeypatch):
     captured = {}
 
-    def fake_build_run_service(*, human_in_the_loop=False):
+    def fake_build_run_service(*, human_in_the_loop=False, workspace="default"):
         return _workflows()
 
-    async def fake_serve(**kwargs):
+    async def fake_serve(services, **kwargs):
+        captured.update(services)
         captured.update(kwargs)
 
     monkeypatch.setattr(
@@ -437,7 +810,9 @@ def test_serve_stdio_builds_services_and_serves(monkeypatch):
     )
     monkeypatch.setattr(ipc, "serve", fake_serve)
     monkeypatch.setattr(
-        ipc.SessionService, "create", classmethod(lambda cls: "SESSIONS")
+        ipc.SessionService,
+        "create",
+        classmethod(lambda cls, workspace="default": "SESSIONS"),
     )
 
     ipc.serve_stdio("acme")
@@ -452,11 +827,13 @@ async def test_decisions_list_returns_summaries():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 10, "method": "decisions.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        decisions=_FakeDecisions([_decision("d1")]),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "decisions": _FakeDecisions([_decision("d1")]),
+        },
         emit=emit,
     )
     assert sink == [
@@ -486,11 +863,13 @@ async def test_decisions_show_returns_record_and_outcomes():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 11, "method": "decisions.show", "params": {"decision_id": "d1"}},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        decisions=_FakeDecisions([_decision("d1")], {"d1": [outcome]}),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "decisions": _FakeDecisions([_decision("d1")], {"d1": [outcome]}),
+        },
         emit=emit,
     )
     result = sink[0]["result"]
@@ -504,11 +883,13 @@ async def test_decisions_show_unknown_id_emits_error():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 12, "method": "decisions.show", "params": {"decision_id": "missing"}},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        decisions=_FakeDecisions([_decision("d1")]),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "decisions": _FakeDecisions([_decision("d1")]),
+        },
         emit=emit,
     )
     assert sink == [{"id": 12, "error": "no such decision: missing"}]
@@ -525,11 +906,13 @@ async def test_connectors_list_returns_names_only():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 20, "method": "connectors.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=_FakeConnectors(plan=plan),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": _FakeConnectors(plan=plan),
+        },
         emit=emit,
     )
     assert sink == [
@@ -552,13 +935,15 @@ async def test_connectors_list_includes_last_synced_timestamps():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 24, "method": "connectors.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=_FakeConnectors(
-            plan=plan, last_synced={"github": "2026-06-29T10:00:00+00:00"}
-        ),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": _FakeConnectors(
+                plan=plan, last_synced={"github": "2026-06-29T10:00:00+00:00"}
+            ),
+        },
         emit=emit,
     )
     assert sink[0]["result"]["last_synced"] == {"github": "2026-06-29T10:00:00+00:00"}
@@ -575,11 +960,13 @@ async def test_connectors_health_returns_statuses():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 21, "method": "connectors.health"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=_FakeConnectors(health=report),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": _FakeConnectors(health=report),
+        },
         emit=emit,
     )
     assert sink == [
@@ -604,11 +991,13 @@ async def test_connectors_sync_returns_results():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 22, "method": "connectors.sync"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=_FakeConnectors(sync=report),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": _FakeConnectors(sync=report),
+        },
         emit=emit,
     )
     assert sink == [
@@ -628,10 +1017,12 @@ async def test_connectors_method_without_service_errors():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 23, "method": "connectors.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 23
@@ -673,11 +1064,13 @@ async def test_prompts_list_returns_names_versions_and_active():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 30, "method": "prompts.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        prompts=prompts,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "prompts": prompts,
+        },
         emit=emit,
     )
     assert sink == [
@@ -700,11 +1093,13 @@ async def test_prompts_show_returns_version_text():
             "method": "prompts.show",
             "params": {"name": "strategist", "version": 2},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        prompts=prompts,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "prompts": prompts,
+        },
         emit=emit,
     )
     assert sink == [
@@ -721,11 +1116,13 @@ async def test_prompts_diff_returns_unified_diff():
             "method": "prompts.diff",
             "params": {"name": "strategist", "old": 0, "new": 2},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        prompts=prompts,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "prompts": prompts,
+        },
         emit=emit,
     )
     assert sink == [
@@ -745,10 +1142,12 @@ async def test_prompts_method_without_service_errors():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 33, "method": "prompts.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 33
@@ -764,11 +1163,13 @@ async def test_prompts_save_appends_version_and_returns_summary():
             "method": "prompts.save",
             "params": {"name": "strategist", "text": "v1 body"},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        prompts=prompts,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "prompts": prompts,
+        },
         emit=emit,
     )
     assert sink == [
@@ -785,11 +1186,13 @@ async def test_prompts_rollback_reactivates_and_returns_summary():
             "method": "prompts.rollback",
             "params": {"name": "strategist", "version": 0},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        prompts=prompts,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "prompts": prompts,
+        },
         emit=emit,
     )
     assert sink == [
@@ -801,10 +1204,12 @@ async def test_prompts_save_without_service_errors():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 36, "method": "prompts.save", "params": {"name": "x", "text": "y"}},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 36
@@ -852,10 +1257,12 @@ async def test_run_with_approval_reads_decision_and_resumes():
                 "approval": True,
             },
         },
-        workflows=fake_workflow_service(runner),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": fake_workflow_service(runner),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         read_line=read_line,
         emit=emit,
     )
@@ -906,10 +1313,12 @@ async def test_run_approval_defaults_invalid_verdict_to_approve():
                 "approval": True,
             },
         },
-        workflows=fake_workflow_service(runner),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": fake_workflow_service(runner),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         read_line=read_line,
         emit=emit,
     )
@@ -971,11 +1380,13 @@ async def test_config_get_returns_status_and_providers():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 40, "method": "config.get"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        config=config,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "config": config,
+        },
         emit=emit,
     )
     result = sink[0]["result"]
@@ -994,11 +1405,13 @@ async def test_config_set_delegates_to_service():
             "method": "config.set",
             "params": {"model": "openai:gpt-4o", "api_key": "sk-test"},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        config=config,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "config": config,
+        },
         emit=emit,
     )
     assert config.sets == [("openai:gpt-4o", None, "sk-test", None)]
@@ -1010,11 +1423,13 @@ async def test_config_get_includes_settings():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 44, "method": "config.get"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        config=config,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "config": config,
+        },
         emit=emit,
     )
     result = sink[0]["result"]
@@ -1038,11 +1453,13 @@ async def test_config_set_forwards_settings():
                 "settings": {"debate_rounds": 3, "log_level": "DEBUG"},
             },
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        config=config,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "config": config,
+        },
         emit=emit,
     )
     assert config.sets == [
@@ -1055,10 +1472,12 @@ async def test_config_method_without_service_errors():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 43, "method": "config.get"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 43
@@ -1094,11 +1513,13 @@ async def test_reflection_record_persists_and_returns_outcome():
             "method": "reflection.record",
             "params": {"decision_id": "dec-1", "note": "shipped"},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        reflection=_FakeReflection(outcome=_outcome()),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "reflection": _FakeReflection(outcome=_outcome()),
+        },
         emit=emit,
     )
     assert sink == [{"id": 7, "result": _outcome().model_dump(mode="json")}]
@@ -1112,11 +1533,13 @@ async def test_reflection_record_unknown_decision_emits_error():
             "method": "reflection.record",
             "params": {"decision_id": "nope", "note": "x"},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        reflection=_FakeReflection(missing=True),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "reflection": _FakeReflection(missing=True),
+        },
         emit=emit,
     )
     assert sink == [{"id": 8, "error": "no such decision: nope"}]
@@ -1130,10 +1553,12 @@ async def test_reflection_record_unavailable_when_service_missing():
             "method": "reflection.record",
             "params": {"decision_id": "d", "note": "x"},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 9
@@ -1152,21 +1577,23 @@ async def test_memory_lessons_returns_records():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 50, "method": "memory.lessons"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        memory=_FakeMemory(
-            [
-                Lesson(
-                    decision_id="d1",
-                    title="Add SSO",
-                    text="took longer",
-                    validated=True,
-                    prediction_accuracy=0.5,
-                )
-            ]
-        ),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "memory": _FakeMemory(
+                [
+                    Lesson(
+                        decision_id="d1",
+                        title="Add SSO",
+                        text="took longer",
+                        validated=True,
+                        prediction_accuracy=0.5,
+                    )
+                ]
+            ),
+        },
         emit=emit,
     )
     assert sink == [
@@ -1189,10 +1616,12 @@ async def test_memory_method_without_service_errors():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 51, "method": "memory.lessons"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink[0]["id"] == 51
@@ -1239,10 +1668,12 @@ async def test_run_cancel_mid_stream_reports_cancelled():
             "method": "run",
             "params": {"workflow": "evaluate_initiative", "title": "X"},
         },
-        workflows=cast(WorkflowService, wf),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": cast(WorkflowService, wf),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         read_line=read_line,
         emit=emit,
     )
@@ -1261,10 +1692,12 @@ async def test_run_cancel_standalone_when_no_active_run():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 6, "method": "run.cancel", "params": {"session_id": "ghost"}},
-        workflows=_workflows(),  # plain WorkflowService, cancel → False
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert sink == [{"id": 6, "result": {"ok": False}}]
@@ -1289,21 +1722,25 @@ async def test_preferences_get_and_set():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 60, "method": "preferences.set", "params": {"theme": "dark"}},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        preferences=prefs,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "preferences": prefs,
+        },
         emit=emit,
     )
     assert sink[0]["result"] == {"theme": "dark"}
     await ipc.handle(
         {"id": 61, "method": "preferences.get"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        preferences=prefs,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "preferences": prefs,
+        },
         emit=emit,
     )
     assert sink[1]["result"] == {"theme": "dark"}
@@ -1313,10 +1750,12 @@ async def test_preferences_without_service_errors():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 62, "method": "preferences.get"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
         emit=emit,
     )
     assert "preferences service not available" in sink[0]["error"]
@@ -1350,11 +1789,13 @@ async def test_connectors_config_list_and_save():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 63, "method": "connectors.config.list"},
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=svc,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": svc,
+        },
         emit=emit,
     )
     assert sink[0]["result"][0]["connector"] == "github"
@@ -1364,11 +1805,13 @@ async def test_connectors_config_list_and_save():
             "method": "connectors.config.save",
             "params": {"connector": "github", "config": {"owner": "a"}},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=svc,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": svc,
+        },
         emit=emit,
     )
     assert sink[1]["result"]["config"] == {"owner": "a"}
@@ -1378,11 +1821,13 @@ async def test_connectors_config_list_and_save():
             "method": "connectors.config.save",
             "params": {"connector": "github", "config": {"bad": True}},
         },
-        workflows=_workflows(),
-        workspaces=None,
-        active_name="default",
-        sessions=_FakeSessions(),
-        connectors=svc,
+        {
+            "workflows": _workflows(),
+            "workspaces": None,
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+            "connectors": svc,
+        },
         emit=emit,
     )
     assert "invalid" in sink[2]["error"]

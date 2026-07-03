@@ -8,16 +8,25 @@ Secret values must never be written here — connector blocks reference secrets
 as ``<field>_env`` names only.
 """
 
-from datetime import UTC, datetime
+from __future__ import annotations
 
-from sqlalchemy import delete, select
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from productagents.memory.tables import (
     ConnectorConfigRow,
+    DecisionRow,
+    OutcomeRow,
     PreferenceRow,
+    RuntimeSessionRow,
     WorkspaceConfigRow,
+    WorkspaceRow,
 )
+
+_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 def _now() -> str:
@@ -27,22 +36,34 @@ def _now() -> str:
 class WorkspaceConfigStore:
     """Workspace configuration values (friendly key -> env-shaped string)."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, workspace: str = "default") -> None:
         self._session = session
+        self._workspace = workspace
 
     async def all(self) -> dict[str, str]:
-        rows = (await self._session.execute(select(WorkspaceConfigRow))).scalars()
+        rows = (
+            await self._session.execute(
+                select(WorkspaceConfigRow).where(
+                    WorkspaceConfigRow.workspace == self._workspace
+                )
+            )
+        ).scalars()
         return {row.key: row.value for row in rows}
 
     async def set(self, key: str, value: str) -> None:
         await self._session.merge(
-            WorkspaceConfigRow(key=key, value=value, updated_at=_now())
+            WorkspaceConfigRow(
+                workspace=self._workspace, key=key, value=value, updated_at=_now()
+            )
         )
         await self._session.commit()
 
     async def delete(self, key: str) -> None:
         await self._session.execute(
-            delete(WorkspaceConfigRow).where(WorkspaceConfigRow.key == key)
+            delete(WorkspaceConfigRow).where(
+                WorkspaceConfigRow.workspace == self._workspace,
+                WorkspaceConfigRow.key == key,
+            )
         )
         await self._session.commit()
 
@@ -50,16 +71,28 @@ class WorkspaceConfigStore:
 class ConnectorConfigStore:
     """Raw connector config blocks (registry key -> dict, YAML-block shaped)."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, workspace: str = "default") -> None:
         self._session = session
+        self._workspace = workspace
 
     async def all(self) -> dict[str, dict]:
-        rows = (await self._session.execute(select(ConnectorConfigRow))).scalars()
+        rows = (
+            await self._session.execute(
+                select(ConnectorConfigRow).where(
+                    ConnectorConfigRow.workspace == self._workspace
+                )
+            )
+        ).scalars()
         return {row.connector: row.config for row in rows}
 
     async def set(self, connector: str, config: dict) -> None:
         await self._session.merge(
-            ConnectorConfigRow(connector=connector, config=config, updated_at=_now())
+            ConnectorConfigRow(
+                workspace=self._workspace,
+                connector=connector,
+                config=config,
+                updated_at=_now(),
+            )
         )
         await self._session.commit()
 
@@ -83,3 +116,69 @@ class PreferenceStore:
             PreferenceRow(key=key, value=value, updated_at=_now())
         )
         await self._session.commit()
+
+
+class WorkspaceRegistry:
+    """The workspace registry rows: one per project/team scope."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def list(self) -> _L[dict[str, Any]]:
+        rows = (
+            await self._session.execute(
+                select(WorkspaceRow).order_by(WorkspaceRow.name)
+            )
+        ).scalars()
+        return [{"name": r.name, "created_at": r.created_at} for r in rows]
+
+    async def get(self, name: str) -> dict | None:
+        row = await self._session.get(WorkspaceRow, name)
+        return {"name": row.name, "created_at": row.created_at} if row else None
+
+    async def create(self, name: str) -> dict:
+        if await self._session.get(WorkspaceRow, name) is not None:
+            raise ValueError(f"workspace already exists: {name}")
+        row = WorkspaceRow(name=name, created_at=_now())
+        self._session.add(row)
+        await self._session.commit()
+        return {"name": row.name, "created_at": row.created_at}
+
+    async def ensure(self, name: str) -> None:
+        if await self._session.get(WorkspaceRow, name) is None:
+            self._session.add(WorkspaceRow(name=name, created_at=_now()))
+            await self._session.commit()
+
+
+async def rename_workspace(session: AsyncSession, old: str, new: str) -> None:
+    """Move every pa-memory row scoped to ``old`` under ``new``.
+
+    No commit — the caller owns the transaction (the platform composes this
+    with the pa-knowledge half and commits once, so the DB side of a rename
+    is atomic). The registry row swap preserves the original created_at.
+    """
+    await session.execute(
+        update(DecisionRow).where(DecisionRow.workspace == old).values(workspace=new)
+    )
+    await session.execute(
+        update(OutcomeRow).where(OutcomeRow.workspace == old).values(workspace=new)
+    )
+    await session.execute(
+        update(RuntimeSessionRow)
+        .where(RuntimeSessionRow.workspace == old)
+        .values(workspace=new)
+    )
+    await session.execute(
+        update(WorkspaceConfigRow)
+        .where(WorkspaceConfigRow.workspace == old)
+        .values(workspace=new)
+    )
+    await session.execute(
+        update(ConnectorConfigRow)
+        .where(ConnectorConfigRow.workspace == old)
+        .values(workspace=new)
+    )
+    row = await session.get(WorkspaceRow, old)
+    if row is not None:
+        session.add(WorkspaceRow(name=new, created_at=row.created_at))
+        await session.delete(row)

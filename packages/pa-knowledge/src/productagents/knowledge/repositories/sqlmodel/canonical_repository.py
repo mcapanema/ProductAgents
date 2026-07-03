@@ -15,9 +15,12 @@ from productagents.knowledge.repositories.sqlmodel.tables import CanonicalRecord
 
 
 class CanonicalRepository[T: CanonicalModel]:
-    def __init__(self, session: AsyncSession, model_type: type[T]) -> None:
+    def __init__(
+        self, session: AsyncSession, model_type: type[T], workspace: str = "default"
+    ) -> None:
         self._session = session
         self._model_type = model_type
+        self._workspace = workspace
 
     @property
     def _type_name(self) -> str:
@@ -27,12 +30,17 @@ class CanonicalRepository[T: CanonicalModel]:
         row = await self._session.get(CanonicalRecord, str(id))
         if row is None or row.model_type != self._type_name:
             return None
+        if row.workspace != self._workspace:
+            return None
         return from_row(row, self._model_type)
 
     async def list(self, *, limit: int = 100, offset: int = 0) -> list[T]:  # ty: ignore[invalid-type-form]  # shadowed-builtin
         stmt = (
             select(CanonicalRecord)
-            .where(CanonicalRecord.model_type == self._type_name)
+            .where(
+                CanonicalRecord.model_type == self._type_name,
+                CanonicalRecord.workspace == self._workspace,
+            )
             .order_by(CanonicalRecord.ingested_at)  # ty: ignore[invalid-argument-type]  # sqlalchemy-typing
             .limit(limit)
             .offset(offset)
@@ -41,7 +49,7 @@ class CanonicalRepository[T: CanonicalModel]:
         return [from_row(row, self._model_type) for row in rows]
 
     async def upsert(self, model: T) -> T:
-        incoming = to_row(model)
+        incoming = to_row(model, self._workspace)
         existing = await self._find_existing(incoming)
         if existing is None:
             self._session.add(incoming)
@@ -65,9 +73,13 @@ class CanonicalRepository[T: CanonicalModel]:
     async def _find_existing(self, incoming: CanonicalRecord) -> CanonicalRecord | None:
         if incoming.vendor_id is not None:
             stmt = select(CanonicalRecord).where(
+                CanonicalRecord.workspace == self._workspace,
                 CanonicalRecord.connector == incoming.connector,
                 CanonicalRecord.vendor_type == incoming.vendor_type,
                 CanonicalRecord.vendor_id == incoming.vendor_id,
             )
             return (await self._session.exec(stmt)).first()
-        return await self._session.get(CanonicalRecord, incoming.pk)
+        existing = await self._session.get(CanonicalRecord, incoming.pk)
+        if existing is None or existing.workspace != self._workspace:
+            return None
+        return existing

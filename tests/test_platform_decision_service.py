@@ -75,6 +75,31 @@ async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
     assert seen_request  # approver was actually invoked
 
 
+async def test_for_model_threads_workspace_into_both_openers(monkeypatch):
+    """for_model must bind the workspace key into the agent-context opener and
+    the event-store opener — otherwise live runs always hit "default"."""
+    from productagents.platform import context as ctx_mod
+
+    calls = []
+
+    def fake_agent_context(model, **kwargs):
+        calls.append(("agent", kwargs.get("workspace")))
+        return "agent-cm"
+
+    def fake_event_store(**kwargs):
+        calls.append(("events", kwargs.get("workspace")))
+        return "events-cm"
+
+    monkeypatch.setattr(ctx_mod, "open_agent_context", fake_agent_context)
+    monkeypatch.setattr(ctx_mod, "open_event_store", fake_event_store)
+
+    service = DecisionService.for_model("model", workspace="team-a")
+    assert service._context_opener() == "agent-cm"
+    assert service._event_store_opener is not None
+    assert service._event_store_opener() == "events-cm"
+    assert calls == [("agent", "team-a"), ("events", "team-a")]
+
+
 async def test_cancel_emits_session_cancelled_and_closes(decision_inputs, monkeypatch):
     from productagents.agents import runner as rn
 

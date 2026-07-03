@@ -26,6 +26,7 @@ def test_upgrade_head_creates_canonical_record(tmp_path, monkeypatch):
     columns = {c["name"] for c in insp.get_columns("canonical_record")}
     assert {
         "pk",
+        "workspace",
         "model_type",
         "connector",
         "vendor_type",

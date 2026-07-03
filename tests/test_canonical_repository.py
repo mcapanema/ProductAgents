@@ -79,3 +79,55 @@ async def test_vendor_upsert_preserves_original_platform_id():
     assert returned.id == first.id  # original id wins
     assert returned.body == "sync 2"  # newer payload wins
     assert returned.ingested_at == first.ingested_at  # first-seen time is stable
+
+
+async def test_canonical_records_isolated_per_workspace():
+    src = SourceRef(connector="zendesk", vendor_type="ticket", vendor_id="1")
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        a = CanonicalRepository(session, CustomerFeedback, workspace="a")
+        b = CanonicalRepository(session, CustomerFeedback, workspace="b")
+        fa = await a.upsert(CustomerFeedback(body="hi", source=src))
+        # same vendor identity, other workspace — allowed
+        await b.upsert(CustomerFeedback(body="hi", source=src))
+        assert [m.id for m in await a.list()] == [fa.id]
+        assert await a.get(str(fa.id)) is not None
+        only_b = await b.list()
+    assert len(only_b) == 1
+    assert only_b[0].id != fa.id
+
+
+async def test_upsert_dedups_within_workspace_only():
+    src = SourceRef(connector="zendesk", vendor_type="ticket", vendor_id="7")
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        a = CanonicalRepository(session, CustomerFeedback, workspace="a")
+        first = await a.upsert(CustomerFeedback(body="v1", source=src))
+        again = await a.upsert(CustomerFeedback(body="v2", source=src))
+        assert again.id == first.id  # stable platform id within the workspace
+        assert len(await a.list()) == 1
+
+
+async def test_rename_workspace_moves_canonical_and_cursor_rows():
+    from productagents.knowledge import rename_workspace
+    from productagents.knowledge.sync_state import SyncStateStore
+
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        repo_old = CanonicalRepository(session, CustomerFeedback, workspace="old")
+        repo_by = CanonicalRepository(session, CustomerFeedback, workspace="bystander")
+        kept = await repo_old.upsert(CustomerFeedback(body="feedback1"))
+        await repo_by.upsert(CustomerFeedback(body="feedback2"))
+        await SyncStateStore(session, workspace="old").save("github", "cur")
+
+        await rename_workspace(session, "old", "new")
+        await session.commit()
+
+        repo_new = CanonicalRepository(session, CustomerFeedback, workspace="new")
+        assert [m.id for m in await repo_new.list()] == [kept.id]
+        assert (
+            await CanonicalRepository(session, CustomerFeedback, workspace="old").list()
+            == []
+        )
+        assert len(await repo_by.list()) == 1
+        assert await SyncStateStore(session, workspace="new").cursors() == {
+            "github": "cur"
+        }
+        assert await SyncStateStore(session, workspace="old").cursors() == {}

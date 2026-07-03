@@ -17,8 +17,12 @@ class PromptService:
         self._store = store
 
     @classmethod
-    def create(cls) -> PromptService:
-        return cls(PromptStore())
+    def create(cls, workspace: str = "default") -> PromptService:
+        import os
+        from pathlib import Path
+
+        root = Path(os.environ.get("PRODUCTAGENTS_PROMPTS_DIR", "prompts"))
+        return cls(PromptStore(prompts_dir=root / workspace))
 
     def names(self) -> list[str]:
         return self._store.names()

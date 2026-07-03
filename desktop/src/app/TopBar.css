@@ -1,0 +1,26 @@
+/* Top Bar — phase-3a-layout.md: crumbs · spacer · search (⌘K) · primary action.
+   Height is the styleguide's --la-topbar-h composition: var(--control-lg). */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  height: var(--control-lg);
+  padding: 0 16px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.topbar-ws { min-width: 160px; }
+.topbar-crumbs { min-width: 0; white-space: nowrap; }
+.topbar-spacer { flex: 1; }
+.topbar-search { width: 320px; }
+.topbar-kbd {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.topbar-modal-hint { color: var(--text-secondary); margin: 12px 0 0; }
+.topbar-modal-error { color: var(--text-error); margin: 8px 0 0; }

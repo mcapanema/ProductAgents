@@ -58,7 +58,7 @@ async def _handle_connection(websocket, *, services: dict) -> None:
             except (json.JSONDecodeError, TypeError) as exc:
                 await emit({"id": None, "error": f"invalid json: {exc}"})
                 continue
-            await ipc.handle(request, emit=emit, read_line=read_line, **services)
+            await ipc.handle(request, services, emit=emit, read_line=read_line)
     except websockets.exceptions.ConnectionClosed:
         return  # client went away mid-request; nothing to clean up
 

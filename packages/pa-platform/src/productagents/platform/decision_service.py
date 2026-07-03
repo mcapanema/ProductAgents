@@ -53,14 +53,21 @@ class DecisionService:
         recorder: Recorder | None = None,
         human_in_the_loop: bool = False,
         persist_events: bool = True,
+        workspace: str = "default",
     ) -> DecisionService:
+        from functools import partial
+
         from productagents.platform.context import open_agent_context, open_event_store
 
         return cls(
-            lambda: open_agent_context(model),
+            lambda: open_agent_context(model, workspace=workspace),
             recorder=recorder,
             human_in_the_loop=human_in_the_loop,
-            event_store_opener=open_event_store if persist_events else None,
+            event_store_opener=(
+                partial(open_event_store, workspace=workspace)
+                if persist_events
+                else None
+            ),
         )
 
     def _spawn(self, coro) -> asyncio.Task:

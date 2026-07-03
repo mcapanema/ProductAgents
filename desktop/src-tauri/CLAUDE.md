@@ -42,10 +42,17 @@ webview. No product logic lives here.
 
 ## Sidecar resolution & lifecycle
 
-- `sidecar_kind()` chooses the backend: **Bundled** if a `productagents-ipc[.exe]`
-  sits next to the current executable (Tauri's `externalBin` lands it there in a
-  packaged build), else **Dev** (`uv run productagents ipc` from `repo_root()`).
-  It is a pure function with a `#[cfg(test)]` unit test asserting the Dev fallback.
+- `sidecar_kind()` chooses the backend: **debug builds are ALWAYS Dev**
+  (`uv run productagents ipc` from `repo_root()`); release builds are **Bundled**
+  if a `productagents-ipc[.exe]` sits next to the current executable (Tauri's
+  `externalBin` lands it there in a packaged build), else Dev. The debug
+  short-circuit exists because `externalBin` forces a sidecar file to exist for
+  every local build and `tauri dev` copies it next to the executable — a
+  placeholder (or stale frozen binary) would otherwise silently hijack dev runs
+  and die instantly (broken pipe on the first `ipc_send`). Unit tests cover both
+  the Dev fallback and the debug-ignores-bundled rule; the local
+  `binaries/productagents-ipc-*` placeholder (gitignored) loudly exits 1 so an
+  accidental release-side use is visible.
 - The spawned `Child` is held in `Sidecar { stdin, child }` managed state and
   **killed on `RunEvent::ExitRequested`**, so the Python backend never orphans on
   quit (the old dev spawn dropped the handle and leaked the child).

@@ -19,10 +19,12 @@ class DecisionReadService:
         self._open = store_opener
 
     @classmethod
-    def create(cls) -> DecisionReadService:
+    def create(cls, workspace: str = "default") -> DecisionReadService:
+        from functools import partial
+
         from productagents.platform.context import open_decision_store
 
-        return cls(open_decision_store)
+        return cls(partial(open_decision_store, workspace=workspace))
 
     async def list(self) -> _L[DecisionRecord]:
         async with self._open() as store:

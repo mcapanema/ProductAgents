@@ -29,14 +29,17 @@ def _is_secret_shaped(name: str) -> bool:
 
 
 class ConnectorService:
-    def __init__(self, *, engine=None, env_path: str | None = None) -> None:
+    def __init__(
+        self, workspace: str = "default", *, engine=None, env_path: str | None = None
+    ) -> None:
+        self._workspace = workspace
         self._engine = engine
         self._env_path = env_path
 
     def _resolved_env_path(self) -> str:
         if self._env_path is not None:
             return self._env_path
-        return str(WorkspaceService().resolve(None).env_file)
+        return str(WorkspaceService().home().env_file)
 
     async def _blocks(self):
         from productagents.platform.context import get_engine
@@ -44,7 +47,7 @@ class ConnectorService:
         engine = self._engine or get_engine()
         await memory_create_all(engine)
         maker = make_sessionmaker(engine)
-        return maker, await load_db_config(maker)
+        return maker, await load_db_config(maker, workspace=self._workspace)
 
     def _entry(self, key, registry, blocks, problems):
         cls = registry.get(key)
@@ -58,17 +61,17 @@ class ConnectorService:
 
     async def plan(self) -> ConnectorPlan:
         """The static view: which connectors are configured + problems (no sync)."""
-        return await connectors.connector_plan()
+        return await connectors.connector_plan(workspace=self._workspace)
 
     async def sync(self) -> SyncReport:
-        return await connectors.run_connector_sync()
+        return await connectors.run_connector_sync(workspace=self._workspace)
 
     async def health(self) -> HealthReport:
-        return await connectors.check_connector_health()
+        return await connectors.check_connector_health(workspace=self._workspace)
 
     async def last_synced(self) -> dict[str, str]:
         """Each connector's last successful-sync timestamp (ISO-8601), by key."""
-        return await connectors.last_sync_times()
+        return await connectors.last_sync_times(workspace=self._workspace)
 
     async def config_list(self, *, registry=None) -> list[dict]:
         """Every installed or configured connector: block + schema + problems."""
@@ -123,7 +126,9 @@ class ConnectorService:
             write_env(secrets, dotenv_path=self._resolved_env_path())
         maker, _ = await self._blocks()
         async with maker() as session:
-            await ConnectorConfigStore(session).set(connector, dict(config))
+            await ConnectorConfigStore(session, self._workspace).set(
+                connector, dict(config)
+            )
         _maker, blocks = await self._blocks()
         check = plan_connectors(blocks, registry, dict(os.environ))
         return self._entry(connector, registry, blocks, check.problems)

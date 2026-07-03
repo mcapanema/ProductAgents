@@ -201,3 +201,61 @@ describe("IpcClient", () => {
     await expect(p).resolves.toMatchObject({ connector: "github" });
   });
 });
+
+describe("workspace methods", () => {
+  function harness() {
+    const sent: string[] = [];
+    let push: (msg: IpcMessage) => void = () => {};
+    const client = new IpcClient(
+      (line) => {
+        sent.push(line);
+        return Promise.resolve();
+      },
+      (cb) => {
+        push = cb;
+      },
+    );
+    return { client, sent, push: (msg: IpcMessage) => push(msg) };
+  }
+
+  it("workspacesList sends workspaces.list and resolves the result", async () => {
+    const { client, sent, push } = harness();
+    const promise = client.workspacesList();
+    const req = JSON.parse(sent[0]);
+    expect(req.method).toBe("workspaces.list");
+    push({ id: req.id, result: [{ name: "default", active: true }] });
+    await expect(promise).resolves.toEqual([{ name: "default", active: true }]);
+  });
+
+  it("workspacesCreate sends the name param", async () => {
+    const { client, sent, push } = harness();
+    const promise = client.workspacesCreate("acme");
+    const req = JSON.parse(sent[0]);
+    expect(req.method).toBe("workspaces.create");
+    expect(req.params).toEqual({ name: "acme" });
+    push({ id: req.id, result: { name: "acme", active: false } });
+    await promise;
+  });
+
+  it("workspacesUse resolves the switched workspace", async () => {
+    const { client, sent, push } = harness();
+    const promise = client.workspacesUse("acme");
+    const req = JSON.parse(sent[0]);
+    expect(req.method).toBe("workspaces.use");
+    push({ id: req.id, result: { name: "acme", active: true } });
+    await expect(promise).resolves.toEqual({
+      name: "acme",
+      active: true,
+    });
+  });
+
+  it("workspacesRename sends both names", async () => {
+    const { client, sent, push } = harness();
+    const promise = client.workspacesRename("default", "main");
+    const req = JSON.parse(sent[0]);
+    expect(req.method).toBe("workspaces.rename");
+    expect(req.params).toEqual({ name: "default", new_name: "main" });
+    push({ id: req.id, result: { name: "main", active: true, created_at: "t" } });
+    await expect(promise).resolves.toEqual({ name: "main", active: true, created_at: "t" });
+  });
+});

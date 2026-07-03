@@ -28,14 +28,23 @@ class CanonicalSink(Protocol):
 class DbCanonicalSink:
     """A ``CanonicalSink`` backed by the canonical store."""
 
-    def __init__(self, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(
+        self,
+        sessionmaker: async_sessionmaker[AsyncSession],
+        workspace: str = "default",
+    ) -> None:
         self._sessionmaker = sessionmaker
+        self._workspace = workspace
 
     async def write(self, model: CanonicalModel) -> None:
         async with self._sessionmaker() as session:
-            await CanonicalRepository(session, type(model)).upsert(model)
+            await CanonicalRepository(session, type(model), self._workspace).upsert(
+                model
+            )
 
     async def write_many(self, models: Iterable[CanonicalModel]) -> None:
         async with self._sessionmaker() as session:
             for model in models:
-                await CanonicalRepository(session, type(model)).upsert(model)
+                await CanonicalRepository(session, type(model), self._workspace).upsert(
+                    model
+                )

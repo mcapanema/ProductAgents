@@ -237,7 +237,7 @@ class ConfigurationService:
         self,
         *,
         workspaces: WorkspaceService | None = None,
-        active_name: str | None = None,
+        active_name: str = "default",
         engine=None,
     ) -> None:
         self._workspaces = workspaces if workspaces is not None else WorkspaceService()
@@ -263,7 +263,7 @@ class ConfigurationService:
         await create_all(self._engine or get_engine())
 
     def _env_path(self) -> str:
-        return str(self._workspaces.resolve(self._active_name).env_file)
+        return str(self._workspaces.home().env_file)
 
     # -- precedence -------------------------------------------------------
 
@@ -293,7 +293,7 @@ class ConfigurationService:
         from productagents.memory.workspace_state import WorkspaceConfigStore
 
         async with self._sessionmaker()() as session:
-            store = WorkspaceConfigStore(session)
+            store = WorkspaceConfigStore(session, self._active_name)
             await self._migrate_env_file(store)
             for key, value in (await store.all()).items():
                 var = _WORKSPACE_ENV.get(key)
@@ -302,6 +302,36 @@ class ConfigurationService:
                 if var not in os.environ:
                     os.environ[var] = value
                     self._seeded.add(key)
+
+    async def switch(self, name: str) -> None:
+        """Re-scope to ``name`` and re-materialize the db/default tiers.
+
+        Only keys this service seeded (or that nothing supplies) are touched:
+        a shell export (origin ``env``) and a CLI ``--set`` (origin
+        ``override``) keep winning across switches, exactly like at startup.
+        """
+        self._active_name = name
+        await self._ensure_schema()
+        from productagents.memory.workspace_state import WorkspaceConfigStore
+
+        async with self._sessionmaker()() as session:
+            stored = await WorkspaceConfigStore(session, name).all()
+        for key, var in _WORKSPACE_ENV.items():
+            if key in self._overrides:
+                continue
+            # ponytail: _seeded is bookkeeping-truth — a later manual os.environ
+            # mutation of a seeded key is treated as service-owned and overwritten
+            # on switch; re-detect live values if that ever bites.
+            owned = key in self._seeded or var not in os.environ
+            if not owned:
+                continue  # shell export tier — never touch
+            value = stored.get(key)
+            if value is None:
+                os.environ.pop(var, None)
+                self._seeded.discard(key)
+            else:
+                os.environ[var] = value
+                self._seeded.add(key)
 
     async def _migrate_env_file(self, store) -> None:
         """One-time move of workspace keys out of the workspace ``.env``.
@@ -379,7 +409,7 @@ class ConfigurationService:
         from productagents.memory.workspace_state import WorkspaceConfigStore
 
         async with self._sessionmaker()() as session:
-            store = WorkspaceConfigStore(session)
+            store = WorkspaceConfigStore(session, self._active_name)
             for key, value in db_values.items():
                 await store.set(key, value)
                 var = _WORKSPACE_ENV[key]

@@ -9,9 +9,10 @@ Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services*
 - `sink.py` — `CanonicalSink` protocol + `DbCanonicalSink`. **Connectors write
   here** and stay storage-ignorant; the sink routes each model to a repository
   by `type(model)`.
-- `sync_state.py` — `SyncStateStore(session)`: per-connector incremental cursor
-  persistence (`sync_state` table). Cursors are **plain strings**, never
-  `SyncCursor`, so storage never imports a connector type. The app converts.
+- `sync_state.py` — `SyncStateStore(session, workspace="default")`:
+  per-connector incremental cursor persistence (`sync_state` table), scoped to
+  `workspace`. Cursors are **plain strings**, never `SyncCursor`, so storage
+  never imports a connector type. The app converts.
 - `repositories/_base.py` — `Repository[T]` protocol (`get`/`upsert`/`list`).
   Services depend on this, never on a concrete impl, so SQLite↔Postgres is a
   driver swap and tests inject fakes.
@@ -22,9 +23,11 @@ Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services*
     fields are columns; domain fields live verbatim in the JSON `payload`.
   - `mapping.py` — pure `to_row`/`from_row`. `from_row` validates `payload`, so
     round-trips are byte-stable.
-  - `canonical_repository.py` — `CanonicalRepository[T]`. Upsert dedups on
-    `(connector, vendor_type, vendor_id)` for synced records, on the platform id
-    for manual ones, and **keeps the original platform id stable across re-syncs**.
+  - `canonical_repository.py` — `CanonicalRepository[T](session, model_type,
+    workspace="default")`. Upsert dedups on `(workspace, connector, vendor_type,
+    vendor_id)` for synced records, on the platform id (checked against
+    `self._workspace`) for manual ones, and **keeps the original platform id
+    stable across re-syncs**.
 - `alembic/` — migrations (source of truth for the schema). `env.py` is async and
   reads the URL from `database_url()`.
 
@@ -42,8 +45,10 @@ Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services*
 - `services/{feedback,initiative,metrics}_service.py` — the three concrete
   services + their `*Query` types. Roadmap/Strategy/Risk services are deferred
   until a consumer is concrete (YAGNI); they are the same two-class shape.
-- `container.py` — `KnowledgeServices` bundle + `build_services(session)`. This
-  is the DI assembly; Phase 5 wraps it + the chat model into `AgentContext`.
+- `container.py` — `KnowledgeServices` bundle + `build_services(session,
+  workspace="default")`. This is the DI assembly (every repository it builds
+  is scoped to `workspace`); Phase 5 wraps it + the chat model into
+  `AgentContext`.
 
 **Service rules:** services depend on the `Repository[T]` *protocol*, never on a
 concrete repo, a session, or `CanonicalRecord` (only `container.py` constructs
@@ -60,4 +65,9 @@ test the container against the real in-memory store.
 - **`pa-core` never imports SQLAlchemy.** The table model is a *separate* type
   from the canonical model; mapping is explicit.
 - **Schema changes go through Alembic** (`uv run alembic revision --autogenerate`
-  from `packages/pa-knowledge`, review, commit). `create_all` is test-only.
+  from `packages/pa-knowledge`, review, commit). `create_all` is test-only (and
+  the one-time shared-home bootstrap, see root CLAUDE.md's ponytail note on
+  `bootstrap.py`). Head is now `0003_workspace_scope` (`0001_canonical_record` →
+  `0002_sync_state` adds the `sync_state` table → `0003_workspace_scope` adds a
+  `workspace` column to `canonical_record`/`sync_state`, widening their unique
+  key / primary key to include it).

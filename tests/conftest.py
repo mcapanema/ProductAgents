@@ -16,6 +16,7 @@ from productagents.agents.context import AgentContext
 from productagents.core.models import (
     AnalystFindings,
     DebateArgument,
+    DecisionRecord,
     GovernanceFinding,
     Initiative,
     JudgeFinding,
@@ -23,6 +24,27 @@ from productagents.core.models import (
     RiskFinding,
 )
 from tests.fakes import FakeChatModel
+
+
+@pytest.fixture
+def make_decision_record():
+    """Factory for a minimal valid DecisionRecord, keyed by decision_id."""
+
+    def _make(decision_id="d1", title="Add enterprise SSO") -> DecisionRecord:
+        return DecisionRecord(
+            decision_id=decision_id,
+            initiative=Initiative(title=title, description="desc"),
+            recommendation=Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            reports=[],
+            timestamp="2026-06-19T12:00:00+00:00",
+        )
+
+    return _make
 
 
 def _standard_fake_model() -> FakeChatModel:

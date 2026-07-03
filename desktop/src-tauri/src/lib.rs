@@ -37,6 +37,14 @@ enum SidecarKind {
 /// Bundled if a `productagents-ipc[.exe]` exists next to the current executable
 /// (Tauri's externalBin lands there), else Dev.
 fn sidecar_kind() -> SidecarKind {
+    // Debug builds ALWAYS run the dev sidecar. `externalBin` forces a sidecar
+    // file to exist for every local build and `tauri dev` copies it next to
+    // the executable — so a placeholder (or a stale frozen binary from an old
+    // `make build-sidecar`) would otherwise silently hijack dev runs: the
+    // placeholder exits immediately and every ipc_send gets a broken pipe.
+    if cfg!(debug_assertions) {
+        return SidecarKind::Dev;
+    }
     let name = if cfg!(windows) {
         "productagents-ipc.exe"
     } else {
@@ -66,35 +74,41 @@ fn sidecar_command() -> Command {
     }
 }
 
+/// Spawn the sidecar and wire its stdout to `ipc://message` events.
+/// Returns the child handle and its stdin for `ipc_send`.
+fn spawn_sidecar(handle: &tauri::AppHandle) -> Result<(Child, ChildStdin), String> {
+    let mut child = sidecar_command()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("failed to spawn the IPC sidecar: {e}"))?;
+    let stdout = child.stdout.take().ok_or("sidecar stdout missing")?;
+    let stdin = child.stdin.take().ok_or("sidecar stdin missing")?;
+    let handle = handle.clone();
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(text) => {
+                    let _ = handle.emit("ipc://message", text);
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    Ok((child, stdin))
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            let mut child = sidecar_command()
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .spawn()
-                .expect("failed to spawn the IPC sidecar");
-
-            let stdout = child.stdout.take().expect("sidecar stdout missing");
-            let stdin = child.stdin.take().expect("sidecar stdin missing");
+            let (child, stdin) =
+                spawn_sidecar(&app.handle().clone()).expect("failed to spawn the IPC sidecar");
             app.manage(Sidecar {
                 stdin: Mutex::new(stdin),
                 child: Mutex::new(Some(child)),
-            });
-
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines() {
-                    match line {
-                        Ok(text) => {
-                            let _ = handle.emit("ipc://message", text);
-                        }
-                        Err(_) => break,
-                    }
-                }
             });
             Ok(())
         })
@@ -118,6 +132,20 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_builds_ignore_a_bundled_binary() {
+        // `externalBin` forces a (placeholder) sidecar binary to exist for
+        // local builds, and `tauri dev` copies it next to the executable. A
+        // debug build must never spawn it — a leftover `#!/bin/sh exit 0`
+        // placeholder dies instantly and every ipc_send gets a broken pipe.
+        let exe = std::env::current_exe().unwrap();
+        let sibling = exe.parent().unwrap().join("productagents-ipc");
+        std::fs::write(&sibling, b"#!/bin/sh\nexit 0\n").unwrap();
+        let kind = sidecar_kind();
+        let _ = std::fs::remove_file(&sibling);
+        assert!(matches!(kind, SidecarKind::Dev));
+    }
 
     #[test]
     fn falls_back_to_dev_without_a_bundled_binary() {

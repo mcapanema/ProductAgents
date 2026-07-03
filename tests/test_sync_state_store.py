@@ -54,3 +54,15 @@ async def test_last_synced_returns_iso_timestamps():
             stamps = await SyncStateStore(session).last_synced()
     assert set(stamps) == {"github"}
     assert stamps["github"].startswith("20")  # ISO-8601 datetime string
+
+
+async def test_cursors_isolated_per_workspace():
+    from productagents.knowledge.sync_state import SyncStateStore
+
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        a = SyncStateStore(session, workspace="a")
+        b = SyncStateStore(session, workspace="b")
+        await a.save("github", "cursor-a")
+        await b.save("github", "cursor-b")
+        assert await a.cursors() == {"github": "cursor-a"}
+        assert list((await a.last_synced()).keys()) == ["github"]

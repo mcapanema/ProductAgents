@@ -23,18 +23,30 @@ class ReflectionService:
         self._record = recorder
 
     @classmethod
-    def for_model(cls, model) -> ReflectionService:
+    def for_model(cls, model, workspace: str = "default") -> ReflectionService:
         # Lazy imports keep platform.__init__ free of import-time cycles.
+        import os
+        from pathlib import Path
+
+        from productagents.agents.prompts import PromptStore
         from productagents.platform.context import (
             make_decision_reader,
             make_outcome_recorder,
         )
         from productagents.platform.reflection import reflect
 
+        # Same dir resolution as open_agent_context/PromptService.create — the
+        # reflect agent must see this workspace's prompt overrides, not the raw
+        # PRODUCTAGENTS_PROMPTS_DIR root.
+        prompts = PromptStore(
+            prompts_dir=Path(os.environ.get("PRODUCTAGENTS_PROMPTS_DIR", "prompts"))
+            / workspace
+        )
+
         return cls(
-            reflector=partial(reflect, model=model),
-            reader=make_decision_reader(),
-            recorder=make_outcome_recorder(),
+            reflector=partial(reflect, model=model, prompts=prompts),
+            reader=make_decision_reader(workspace=workspace),
+            recorder=make_outcome_recorder(workspace=workspace),
         )
 
     async def decisions(self) -> list[DecisionRecord]:

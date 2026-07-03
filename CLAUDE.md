@@ -77,7 +77,7 @@ packages/
         ├── serialization.py     #   platform Event <-> Event-Store row bridge (pydantic TypeAdapter)
         ├── session_service.py   #   SessionService — list/get/replay persisted sessions
         ├── workflow.py          #   WorkflowService — registry over the decision pipeline (evaluate_initiative)
-        ├── workspace.py         #   WorkspaceService — a workspace is a directory of local state (DB/connectors/.env/logs)
+        ├── workspace.py         #   WorkspaceService — a workspace is a logical scope (row), not a directory; SharedHome is the one shared home
         ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
         ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)
         ├── evidence.py     #   re-exports collect_evidence / load_scenario / EvidenceError
@@ -100,7 +100,7 @@ from productagents.agents.runner import run_decision
 from productagents.agents.evidence import collect_evidence
 from productagents.platform import DecisionService, ConnectorService, SessionService
 from productagents.platform import WorkflowService
-from productagents.platform import Workspace, WorkspaceService
+from productagents.platform import SharedHome, WorkspaceService
 from productagents.platform import PromptService
 from productagents.platform.events import SessionFinished, SessionFailed
 from productagents.platform.llm import DEFAULT_MODEL, get_model
@@ -126,6 +126,9 @@ uv run productagents sync   # headless one-shot connector sync (for cron/launchd
 uv run productagents run evaluate_initiative "My initiative" --evidence sample  # headless decision run, streams events
 uv run productagents workspace list          # list workspaces (active marked with *)
 uv run productagents workspace show [name]   # show a workspace's on-disk paths (defaults to active)
+uv run productagents workspace create <name>  # create a new workspace
+uv run productagents workspace use <name>     # persist <name> as the active workspace
+uv run productagents workspace rename <old> <new>  # rename a workspace (moves all its data)
 uv run productagents sessions list           # list persisted runtime sessions
 uv run productagents sessions show <id>      # replay a session's event timeline
 uv run productagents reflect [<decision-id> "<note>"]   # list past decisions / record an outcome
@@ -146,12 +149,12 @@ cd desktop && npm run tauri dev   # launch the V3 desktop GUI (dev; spawns the i
 
 Bootstrap-only settings, read from `.env`/the shell before the workspace even resolves. These are never in the workspace DB and have no `--set` key.
 
-- `PRODUCTAGENTS_HOME` — directory holding all workspaces (default `~/.productagents`; workspaces live under `<home>/workspaces/<name>/`).
-- `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). On launch the platform resolves this workspace, creates its directory if absent, and **activates** it: the workspace's `productagents.db`, `connectors.yaml`, `.env`, and `productagents.log` become the defaults by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the workspace `.env`.
+- `PRODUCTAGENTS_HOME` — the single shared directory for **every** workspace (default `~/.productagents`): one `productagents.db`, one `.env`, one `productagents.log`, `prompts/<workspace>/` (per-workspace prompt overrides), and `.active` (the persisted active-workspace marker). A **workspace is a row** in the `workspace` table that scopes data via a `workspace` column on the scoped stores — not a directory (see the pa-memory / pa-knowledge CLAUDE.md files for exactly which stores are scoped vs. shared). On launch the platform **activates** the shared home (creates it if absent) by setting `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` / `PRODUCTAGENTS_LOG_FILE` (an explicit export of any of these still wins) and loading the home's `.env`, then a one-time `bootstrap_home()` runs `create_all` and (idempotently) **adopts legacy data**: if `<home>/workspaces/default/productagents.db` exists and `<home>/productagents.db` does not, its rows are copied into the shared DB stamped `workspace='default'` and the legacy DB is renamed `.imported` (its `.env` is moved too, following the `connectors.yaml` → `.imported` precedent); a corrupt/incompatible legacy DB degrades — logged, adoption skipped, the process starts fresh.
+- `PRODUCTAGENTS_WORKSPACE` — name of the active workspace (default `default`). Precedence: `--workspace` (CLI flag) > `PRODUCTAGENTS_WORKSPACE` (env) > the persisted `.active` marker (`<home>/.active`, written by `workspace use` / the GUI's `workspaces.use`) > `default`.
 - `PRODUCTAGENTS_DB_URL` / `PRODUCTAGENTS_CONNECTORS_FILE` — overrides for the workspace DB path / connectors YAML path (normally set by workspace activation).
 - `PRODUCTAGENTS_LOG_FILE` — path of the rotating log file (default `productagents.log`). Logging is **file-only** (the CLI streams events to stdout; the GUI consumes IPC).
 - `PRODUCTAGENTS_LOG_LEVEL` — `DEBUG`/`INFO`/`WARNING`/`ERROR` (default `INFO`; invalid values fall back to `INFO`). `DEBUG` logs every structured LLM call; failures (including a model that returns no structured output) are logged at `ERROR` with a full traceback. Runtime-only — not in `settings()`/the GUI.
-- `PRODUCTAGENTS_PROMPTS_DIR` — directory of per-workspace prompt overrides (default `<workspace.root>/prompts`, set by `WorkspaceService.activate`). Each prompt is `<dir>/<name>/NNNN.txt`; the highest number is active; version 0 is the bundled default. An explicit export wins (`setdefault`).
+- `PRODUCTAGENTS_PROMPTS_DIR` — the shared home's `prompts/` root (default `<home>/prompts`, set by `WorkspaceService.activate`), holding one subdirectory per workspace. A workspace's prompt overrides live at `<dir>/<workspace>/<name>/NNNN.txt`; the highest number is active; version 0 is the bundled default. An explicit export wins (`setdefault`).
 
 ### Workspace configuration (pipeline tunables, DB-backed)
 

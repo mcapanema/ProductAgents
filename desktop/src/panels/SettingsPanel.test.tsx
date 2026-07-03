@@ -1,9 +1,18 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { SettingsPanel } from "./SettingsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
 import type { ConfigSetParams, ConfigStatus, WorkspaceInfo } from "../ipc/types";
+
+const reloadSpy = vi.fn();
+beforeAll(() => {
+  Object.defineProperty(window, "location", {
+    value: { ...window.location, reload: reloadSpy },
+    writable: true,
+  });
+});
+beforeEach(() => reloadSpy.mockClear());
 
 const status: ConfigStatus = {
   model: "anthropic:claude-sonnet-4-6",
@@ -34,6 +43,7 @@ const status: ConfigStatus = {
 const workspace: WorkspaceInfo = {
   name: "default",
   active: true,
+  created_at: "2026-06-28T00:00:00+00:00",
   root: "/home/u/.productagents/workspaces/default",
   db_url: "sqlite:///home/u/.productagents/workspaces/default/productagents.db",
   connectors_file: "/home/u/.productagents/workspaces/default/connectors.yaml",
@@ -50,10 +60,10 @@ function client(overrides: Partial<IpcClient> = {}): IpcClient {
   } as unknown as IpcClient;
 }
 
-function renderPanel(c: IpcClient, onThemeChange = vi.fn()) {
+function renderPanel(c: IpcClient, onThemeChange = vi.fn(), running = false) {
   render(
     <IpcProvider client={c}>
-      <SettingsPanel theme="light" onThemeChange={onThemeChange} />
+      <SettingsPanel theme="light" onThemeChange={onThemeChange} running={running} />
     </IpcProvider>,
   );
   return { onThemeChange };
@@ -151,7 +161,7 @@ describe("SettingsPanel", () => {
     renderPanel(client());
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
     fireEvent.click(screen.getByRole("button", { name: /runtime/i }));
-    expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
+    expect(await screen.findByText(workspace.db_url!)).toBeInTheDocument();
   });
 
   it("shows Saved after a successful save and clears it on the next edit", async () => {
@@ -174,5 +184,41 @@ describe("SettingsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(await screen.findByText(/save failed/i)).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: /debate rounds/i })).toHaveValue("3");
+  });
+
+  it("prefills the rename field with the active workspace and disables when unchanged", async () => {
+    renderPanel(client());
+    const input = await screen.findByRole("textbox", { name: "workspace name" });
+    expect(input).toHaveValue("default");
+    expect(screen.getByRole("button", { name: "Rename" })).toBeDisabled();
+  });
+
+  it("renames then reloads", async () => {
+    const workspacesRename = vi.fn().mockResolvedValue({ name: "main", active: true, created_at: "t" });
+    renderPanel(client({ workspacesRename } as Partial<IpcClient>));
+    const input = await screen.findByRole("textbox", { name: "workspace name" });
+    fireEvent.change(input, { target: { value: "main" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(workspacesRename).toHaveBeenCalledWith("default", "main"));
+    await waitFor(() => expect(reloadSpy).toHaveBeenCalled());
+  });
+
+  it("shows a backend error inline and does not reload", async () => {
+    const workspacesRename = vi
+      .fn()
+      .mockRejectedValue(new Error("WorkspaceError: workspace already exists: main"));
+    renderPanel(client({ workspacesRename } as Partial<IpcClient>));
+    const input = await screen.findByRole("textbox", { name: "workspace name" });
+    fireEvent.change(input, { target: { value: "main" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    expect(await screen.findByText(/already exists/)).toBeInTheDocument();
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it("disables rename while a run streams and for invalid names", async () => {
+    renderPanel(client(), vi.fn(), true);
+    const input = await screen.findByRole("textbox", { name: "workspace name" });
+    fireEvent.change(input, { target: { value: "main" } });
+    expect(screen.getByRole("button", { name: "Rename" })).toBeDisabled();
   });
 });

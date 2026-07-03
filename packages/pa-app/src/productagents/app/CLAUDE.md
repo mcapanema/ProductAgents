@@ -9,14 +9,18 @@ or `connectors`.
 
 | Module | Role |
 | --- | --- |
-| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
 ## CLI contract
 
-`main(argv=None)` always: resolve workspace (`WorkspaceService().resolve(--workspace)`)
-→ `activate` → `load_env` → `configure_logging` → dispatch. Every command handler
+`main(argv=None)` always: `WorkspaceService().activate()` (point env vars at the
+shared home, `PRODUCTAGENTS_HOME`) → `load_env()` → resolve the active workspace
+name (`workspaces.resolve(--workspace)`: flag > `PRODUCTAGENTS_WORKSPACE` env >
+the persisted `.active` marker > `default`) → `bootstrap_home()` (idempotent:
+legacy adoption + `create_all` schema, see root CLAUDE.md) → `ConfigurationService.load()`
+(workspace-DB tunables → env) → `configure_logging()` → dispatch. Every command handler
 returns an `int` exit code; `main` raises `SystemExit(code)`. Handlers take their
 collaborating service via a keyword arg so they test headless (see
 `tests/test_cli.py`) — no command builds a real model or hits the network in tests.
@@ -129,9 +133,32 @@ connector's schema declares, and a blank secret value is skipped rather than
 overwriting a stored one. Both guarded by the existing `connectors=None`
 kwarg.
 
-`workspaces.list`/`workspaces.show` entries now also carry `prompts_dir` (the
-workspace's per-workspace prompt-override directory, `Workspace.prompts_dir`)
-alongside `root`/`db_url`/`connectors_file`/`env_file`/`log_file`.
+Workspaces are rows in the shared home's `workspace` table, not directories —
+every workspace shares one DB/`.env`/log under `PRODUCTAGENTS_HOME` (see root
+CLAUDE.md); a workspace only scopes rows (the `workspace` column on the scoped
+stores) and owns a per-workspace prompt-override directory. `workspaces.list`
+→ `[{name, created_at, active}]`. `workspaces.show {name?}` (defaults to the
+active workspace) → `{name, created_at, active, prompts_dir, root, db_url,
+env_file, log_file, connectors_file}` — the workspace's own prompt-override
+directory (`Workspace.prompts_dir`) plus the shared home's paths (identical
+for every workspace); `error` "no such workspace: <name>" if unknown.
+
+`workspaces.create {name}` → `{name, created_at, active: false}`; `error`
+"workspace already exists: <name>" / "invalid workspace name: …" on a bad
+name. `workspaces.use {name}` switches **live** — no sidecar restart: checks
+the workspace exists (else `error` "no such workspace: <name>"), calls
+`ConfigurationService.switch(name)` (re-materializes the db/default tiers of
+the six workspace-config keys for the new workspace only — a shell export or
+a CLI `--set` still outranks the switch, same precedence as startup), rebuilds
+every scoped service in-process via the `services["rebuild"]` seam (literally
+`build_services` again, captured in the dict so a test double is still
+exercised), then persists the `.active` marker **last** — only after the
+in-process switch succeeded, so a mid-switch failure never leaves the marker
+pointing at a workspace this process never actually switched to. Returns
+`{name, active: true}`. Both guarded by the existing `workspaces=None` kwarg.
+`workspaces.rename {name, new_name}` → the renamed row with `active`; renaming
+the active workspace finishes with the live-switch tail (marker already moved
+by the rename itself).
 
 `reflection.record {decision_id, note}` → the `OutcomeRecord` dump
 (`{decision_id, actual_outcomes, prediction_accuracy, lessons_learned, reflected_at, failed}`);
