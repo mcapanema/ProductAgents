@@ -31,12 +31,16 @@ export function statusStyle(status: NodeStatus): StatusStyle {
 export function deriveNodeStatuses(events: IpcEvent[]): Record<string, NodeStatus> {
   const out: Record<string, NodeStatus> = {};
   for (const e of events) {
+    if (e.type === "ApprovalRequested") {
+      out.human_approval = "awaiting-human";
+      continue;
+    }
     const node = typeof e.payload.node === "string" ? e.payload.node : null;
     if (!node) continue;
-    if (e.type === "ProgressEvent") out[node] = "running";
-    else if (e.type === "NodeComplete") out[node] = e.payload.failed ? "degraded" : "done";
-    else if (e.type === "ApprovalRequested") out[node] = "awaiting-human";
-    else if (e.type === "RunAborted") out[node] = "failed";
+    if (e.type === "NodeProgress") out[node] = "running";
+    else if (e.type === "AnalystCompleted") out[node] = "done";
+    else if (e.type === "NodeFailed") out[node] = "degraded";
+    else if (e.type === "SessionFailed") out[node] = "failed";
   }
   return out;
 }

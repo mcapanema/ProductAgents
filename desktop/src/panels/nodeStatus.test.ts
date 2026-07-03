@@ -16,25 +16,34 @@ describe("statusStyle", () => {
 describe("deriveNodeStatuses", () => {
   const ev = (type: string, payload: Record<string, unknown> = {}): IpcEvent => ({ type, payload });
 
-  it("marks a node running on ProgressEvent and done on NodeComplete", () => {
+  it("marks a node running on NodeProgress and done on AnalystCompleted", () => {
     const s = deriveNodeStatuses([
-      ev("ProgressEvent", { node: "strategist" }),
+      ev("NodeProgress", { node: "customer_research", message: "working" }),
     ]);
-    expect(s.strategist).toBe("running");
+    expect(s.customer_research).toBe("running");
     const s2 = deriveNodeStatuses([
-      ev("ProgressEvent", { node: "strategist" }),
-      ev("NodeComplete", { node: "strategist" }),
+      ev("NodeProgress", { node: "customer_research", message: "working" }),
+      ev("AnalystCompleted", { node: "customer_research", report: {} }),
     ]);
-    expect(s2.strategist).toBe("done");
+    expect(s2.customer_research).toBe("done");
   });
 
-  it("marks a degraded node from a failed NodeComplete payload", () => {
-    const s = deriveNodeStatuses([ev("NodeComplete", { node: "market", failed: true })]);
-    expect(s.market).toBe("degraded");
+  it("marks a degraded node from NodeFailed", () => {
+    const s = deriveNodeStatuses([ev("NodeFailed", { node: "strategist", message: "transient error" })]);
+    expect(s.strategist).toBe("degraded");
   });
 
-  it("flags the approval node awaiting-human", () => {
-    const s = deriveNodeStatuses([ev("ApprovalRequested", { node: "human_approval" })]);
+  it("marks a failed node from SessionFailed", () => {
+    const s = deriveNodeStatuses([
+      ev("SessionFailed", { node: "strategist", category: "rate_limit", message: "boom" }),
+    ]);
+    expect(s.strategist).toBe("failed");
+  });
+
+  it("flags the approval node awaiting-human regardless of payload", () => {
+    const s = deriveNodeStatuses([
+      ev("ApprovalRequested", { advisory_verdict: "approve", advisory_rationale: "looks good" }),
+    ]);
     expect(s.human_approval).toBe("awaiting-human");
   });
 
