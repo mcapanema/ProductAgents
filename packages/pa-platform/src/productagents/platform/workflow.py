@@ -46,6 +46,7 @@ def build_evaluate_initiative(
     recorder=None,
     human_in_the_loop: bool = False,
     persist_events: bool = True,
+    workspace: str = "default",
 ) -> Workflow:
     """Build the advisory decision pipeline as a Workflow over ``model``.
 
@@ -58,6 +59,7 @@ def build_evaluate_initiative(
         recorder=recorder,
         human_in_the_loop=human_in_the_loop,
         persist_events=persist_events,
+        workspace=workspace,
     )
     return Workflow(
         name="evaluate_initiative",
@@ -83,6 +85,7 @@ class WorkflowService:
         recorder=None,
         human_in_the_loop: bool = False,
         persist_events: bool = True,
+        workspace: str = "default",
     ) -> WorkflowService:
         """Build the registry from every installed ``productagents.workflows``
         plugin. The first-party ``evaluate_initiative`` is one such plugin."""
@@ -97,6 +100,7 @@ class WorkflowService:
                         recorder=recorder,
                         human_in_the_loop=human_in_the_loop,
                         persist_events=persist_events,
+                        workspace=workspace,
                     )
                 )
             except Exception:  # noqa: BLE001 — one bad workflow must not break the rest

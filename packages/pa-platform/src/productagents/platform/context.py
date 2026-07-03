@@ -6,10 +6,13 @@ spans the event stream, so the Knowledge Services read a consistent local
 snapshot of the canonical store the connectors populated out of band.
 """
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from productagents.agents.context import AgentContext
+from productagents.agents.prompts import PromptStore
 from productagents.knowledge import build_services
 from productagents.knowledge.repositories.sqlmodel.engine import (
     make_engine,
@@ -46,7 +49,18 @@ async def open_agent_context(
     async with factory() as session:
         services = build_services(session, workspace)
         learning = LearningService(DecisionStore(session, workspace), _EMBEDDER)
-        yield AgentContext(model=model, feedback=services.feedback, learning=learning)
+        # Same dir resolution as PromptService.create — live-run nodes must see
+        # this workspace's prompt overrides, not the raw PRODUCTAGENTS_PROMPTS_DIR.
+        prompts = PromptStore(
+            prompts_dir=Path(os.environ.get("PRODUCTAGENTS_PROMPTS_DIR", "prompts"))
+            / workspace
+        )
+        yield AgentContext(
+            model=model,
+            feedback=services.feedback,
+            learning=learning,
+            prompts=prompts,
+        )
 
 
 @asynccontextmanager
