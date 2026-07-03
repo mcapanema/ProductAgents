@@ -5,6 +5,17 @@ import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
 import type { RunHandlers, RunParams, IpcEvent } from "../ipc/types";
 
+describe("RunPanel idle state", () => {
+  it("shows a first-run hint before any run has started", () => {
+    render(
+      <IpcProvider client={{} as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    expect(screen.getByText(/ready when you are/i)).toBeInTheDocument();
+  });
+});
+
 describe("RunPanel approval flow", () => {
   it("passes approval=true when the checkbox is checked", async () => {
     const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
