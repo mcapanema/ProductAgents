@@ -86,16 +86,20 @@ def _copy_rows(home: SharedHome) -> None:
                 for r in con.execute(f"PRAGMA legacy.table_info({table})").fetchall()
             ]
             col_list = ", ".join('"' + c.replace('"', '""') + '"' for c in cols)
+            # B608: not injectable — `table` comes from the hardcoded _TABLES
+            # dict, `col_list` identifiers are double-quote-escaped above, and
+            # DEFAULT_WORKSPACE is a module constant.
             if scoped:
-                con.execute(
+                stmt = (
                     f"INSERT OR IGNORE INTO main.{table} ({col_list}, workspace) "
                     f"SELECT {col_list}, '{DEFAULT_WORKSPACE}' FROM legacy.{table}"
-                )
+                )  # nosec B608
             else:
-                con.execute(
+                stmt = (
                     f"INSERT OR IGNORE INTO main.{table} ({col_list}) "
                     f"SELECT {col_list} FROM legacy.{table}"
-                )
+                )  # nosec B608
+            con.execute(stmt)
         con.commit()
         con.execute("DETACH DATABASE legacy")
     finally:
