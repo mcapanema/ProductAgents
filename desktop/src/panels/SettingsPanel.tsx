@@ -220,6 +220,7 @@ export function SettingsPanel({
   return (
     <div className="settings">
       <h1>Settings</h1>
+      <p className="page-desc">Configure this workspace, the model that runs the pipeline, and application preferences.</p>
       <div className="settings-layout">
         <SettingsNav active={section} onSelect={setSection} />
         <div className="settings-content">
