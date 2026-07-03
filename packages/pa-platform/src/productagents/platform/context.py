@@ -39,68 +39,72 @@ def get_engine():
 
 @asynccontextmanager
 async def open_agent_context(
-    model, *, session_factory=None
+    model, *, workspace: str = "default", session_factory=None
 ) -> AsyncIterator[AgentContext]:
     """Yield an AgentContext bound to one DB session for the duration of a run."""
     factory = session_factory or make_sessionmaker(get_engine())
     async with factory() as session:
-        services = build_services(session)
-        learning = LearningService(DecisionStore(session), _EMBEDDER)
+        services = build_services(session, workspace)
+        learning = LearningService(DecisionStore(session, workspace), _EMBEDDER)
         yield AgentContext(model=model, feedback=services.feedback, learning=learning)
 
 
 @asynccontextmanager
-async def open_event_store(*, engine=None) -> AsyncIterator[EventStore]:
+async def open_event_store(
+    *, workspace: str = "default", engine=None
+) -> AsyncIterator[EventStore]:
     """Yield an EventStore bound to one DB session (mirrors open_agent_context)."""
     maker = make_sessionmaker(engine or get_engine())
     async with maker() as session:
-        yield EventStore(session)
+        yield EventStore(session, workspace)
 
 
 @asynccontextmanager
-async def open_decision_store(*, engine=None) -> AsyncIterator[DecisionStore]:
+async def open_decision_store(
+    *, workspace: str = "default", engine=None
+) -> AsyncIterator[DecisionStore]:
     """Yield a DecisionStore bound to one DB session (mirrors open_event_store)."""
     maker = make_sessionmaker(engine or get_engine())
     async with maker() as session:
-        yield DecisionStore(session)
+        yield DecisionStore(session, workspace)
 
 
 def _sessionmaker(engine):
     return make_sessionmaker(engine or get_engine())
 
 
-def make_recorder(*, engine=None):
+def make_recorder(*, workspace: str = "default", engine=None):
     """Async recorder: persist a full DecisionRecord to the memory store."""
     maker = _sessionmaker(engine)
 
     async def recorder(record) -> None:
         async with maker() as session:
-            await LearningService(DecisionStore(session), _EMBEDDER).record_decision(
-                record
-            )
+            await LearningService(
+                DecisionStore(session, workspace), _EMBEDDER
+            ).record_decision(record)
 
     return recorder
 
 
-def make_outcome_recorder(*, engine=None):
+def make_outcome_recorder(*, workspace: str = "default", engine=None):
     """Async outcome recorder: persist a reflected OutcomeRecord."""
     maker = _sessionmaker(engine)
 
     async def outcome_recorder(outcome) -> None:
         async with maker() as session:
-            await LearningService(DecisionStore(session), _EMBEDDER).record_outcome(
-                outcome
-            )
+            await LearningService(
+                DecisionStore(session, workspace), _EMBEDDER
+            ).record_outcome(outcome)
 
     return outcome_recorder
 
 
-def make_decision_reader(*, engine=None):
+def make_decision_reader(*, workspace: str = "default", engine=None):
     """Async reader: list persisted decisions (for the reflection picker)."""
     maker = _sessionmaker(engine)
 
     async def reader() -> list:
         async with maker() as session:
-            return await DecisionStore(session).decisions()
+            return await DecisionStore(session, workspace).decisions()
 
     return reader

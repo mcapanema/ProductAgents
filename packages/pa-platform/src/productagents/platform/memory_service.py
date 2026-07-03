@@ -29,10 +29,12 @@ class MemoryService:
         self._open = store_opener
 
     @classmethod
-    def create(cls) -> MemoryService:
+    def create(cls, workspace: str = "default") -> MemoryService:
+        from functools import partial
+
         from productagents.platform.context import open_decision_store
 
-        return cls(open_decision_store)
+        return cls(partial(open_decision_store, workspace=workspace))
 
     async def lessons(self, *, limit: int = 50) -> _L[Lesson]:
         async with self._open() as store:

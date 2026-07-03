@@ -10,7 +10,6 @@ as ``<field>_env`` names only.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,6 +22,8 @@ from productagents.memory.tables import (
     WorkspaceConfigRow,
     WorkspaceRow,
 )
+
+_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 def _now() -> str:
@@ -120,7 +121,7 @@ class WorkspaceRegistry:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def list(self) -> Sequence[dict[str, Any]]:
+    async def list(self) -> _L[dict[str, Any]]:
         rows = (
             await self._session.execute(
                 select(WorkspaceRow).order_by(WorkspaceRow.name)

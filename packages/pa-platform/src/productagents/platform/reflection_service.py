@@ -23,7 +23,7 @@ class ReflectionService:
         self._record = recorder
 
     @classmethod
-    def for_model(cls, model) -> ReflectionService:
+    def for_model(cls, model, workspace: str = "default") -> ReflectionService:
         # Lazy imports keep platform.__init__ free of import-time cycles.
         from productagents.platform.context import (
             make_decision_reader,
@@ -33,8 +33,8 @@ class ReflectionService:
 
         return cls(
             reflector=partial(reflect, model=model),
-            reader=make_decision_reader(),
-            recorder=make_outcome_recorder(),
+            reader=make_decision_reader(workspace=workspace),
+            recorder=make_outcome_recorder(workspace=workspace),
         )
 
     async def decisions(self) -> list[DecisionRecord]:

@@ -57,7 +57,7 @@ def load_raw_config(path: str) -> dict[str, dict]:
 
 
 async def load_db_config(
-    sessionmaker, *, config_path: str | None = None
+    sessionmaker, *, workspace: str = "default", config_path: str | None = None
 ) -> dict[str, dict]:
     """Raw connector blocks from the DB, importing a legacy YAML file once.
 
@@ -70,7 +70,7 @@ async def load_db_config(
     imported as-is; secret values never enter the database.
     """
     async with sessionmaker() as session:
-        store = ConnectorConfigStore(session)
+        store = ConnectorConfigStore(session, workspace)
         blocks = await store.all()
         if blocks:
             return blocks
@@ -180,6 +180,7 @@ class SyncReport:
 
 async def run_connector_sync(
     *,
+    workspace: str = "default",
     config_path: str | None = None,
     registry: dict[str, type[Connector]] | None = None,
     engine=None,
@@ -203,16 +204,18 @@ async def run_connector_sync(
     await create_all(engine)  # bootstrap canonical_record + sync_state locally
     await memory_create_all(engine)
 
-    raw = await load_db_config(sessionmaker, config_path=config_path)
+    raw = await load_db_config(
+        sessionmaker, workspace=workspace, config_path=config_path
+    )
     plan = plan_connectors(raw, registry, env)
     if not plan.configs:
         return SyncReport(results=[], problems=plan.problems)
 
-    sink = DbCanonicalSink(sessionmaker)
+    sink = DbCanonicalSink(sessionmaker, workspace)
     connectors = build_connectors(plan.configs, registry, sink)
 
     async with sessionmaker() as session:
-        stored = await SyncStateStore(session).cursors()
+        stored = await SyncStateStore(session, workspace).cursors()
     cursor_map: dict[str, SyncCursor | None] = {
         key: SyncCursor(value=value)
         for key, value in stored.items()
@@ -222,14 +225,14 @@ async def run_connector_sync(
     results = await run_sync(connectors, cursor_map)
 
     async with sessionmaker() as session:
-        store = SyncStateStore(session)
+        store = SyncStateStore(session, workspace)
         for result in results:
             if result.ok and result.cursor is not None:
                 await store.save(result.connector, result.cursor.value)
     return SyncReport(results=results, problems=plan.problems)
 
 
-async def last_sync_times(*, engine=None) -> dict[str, str]:
+async def last_sync_times(*, workspace: str = "default", engine=None) -> dict[str, str]:
     """Each connector's last sync timestamp from the sync_state table (no sync run).
 
     ponytail: only connectors that have ever persisted a cursor appear here — a
@@ -242,11 +245,12 @@ async def last_sync_times(*, engine=None) -> dict[str, str]:
     await create_all(engine)  # idempotent local bootstrap of sync_state
     sessionmaker = make_sessionmaker(engine)
     async with sessionmaker() as session:
-        return await SyncStateStore(session).last_synced()
+        return await SyncStateStore(session, workspace).last_synced()
 
 
 async def connector_plan(
     *,
+    workspace: str = "default",
     registry: Mapping[str, type[Connector]] | None = None,
     env: Mapping | None = None,
     engine=None,
@@ -259,7 +263,7 @@ async def connector_plan(
     engine = engine if engine is not None else get_engine()
     await memory_create_all(engine)  # idempotent local bootstrap
     maker = make_sessionmaker(engine)
-    raw = await load_db_config(maker)
+    raw = await load_db_config(maker, workspace=workspace)
     return plan_connectors(raw, registry, env)
 
 
@@ -309,6 +313,7 @@ class HealthReport:
 
 async def check_connector_health(
     *,
+    workspace: str = "default",
     config_path: str | None = None,
     registry: dict[str, type[Connector]] | None = None,
     env: dict | None = None,
@@ -327,7 +332,9 @@ async def check_connector_health(
     registry = registry if registry is not None else discover()
     engine = engine if engine is not None else get_engine()
     await memory_create_all(engine)
-    raw = await load_db_config(make_sessionmaker(engine), config_path=config_path)
+    raw = await load_db_config(
+        make_sessionmaker(engine), workspace=workspace, config_path=config_path
+    )
     plan = plan_connectors(raw, registry, env)
     if not plan.configs:
         return HealthReport(problems=plan.problems)
