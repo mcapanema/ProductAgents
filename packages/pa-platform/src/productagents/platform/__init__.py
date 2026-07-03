@@ -15,9 +15,16 @@ from productagents.platform.prompt_service import PromptService
 from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
 from productagents.platform.workflow import Workflow, WorkflowService
-from productagents.platform.workspace import Workspace, WorkspaceService
+from productagents.platform.workspace import (
+    DEFAULT_WORKSPACE,
+    SharedHome,
+    WorkspaceError,
+    WorkspaceService,
+    default_home,
+)
 
 __all__ = [
+    "DEFAULT_WORKSPACE",
     "ConfigurationService",
     "ConnectorService",
     "DecisionReadService",
@@ -27,8 +34,10 @@ __all__ = [
     "PromptService",
     "ReflectionService",
     "SessionService",
+    "SharedHome",
     "Workflow",
     "WorkflowService",
-    "Workspace",
+    "WorkspaceError",
     "WorkspaceService",
+    "default_home",
 ]
