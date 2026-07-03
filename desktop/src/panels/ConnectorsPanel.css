@@ -2,10 +2,10 @@
    classes (.settings-layout / .settings-nav / .settings-content, defined in
    SettingsPanel.css, always bundled); this file adds only the connector-
    specific pieces. */
-.connectors { max-width: 860px; display: flex; flex-direction: column; gap: var(--space-24); }
+.connectors { max-width: 860px; }
 
-/* Nav item: brand icon + name + (enabled group only) live status dot. */
-.connectors-nav__item { display: flex; align-items: center; gap: var(--space-8); }
+/* Connectors nav reuses .settings-nav__item (flex + gap). Only the label needs
+   to flex-grow so the trailing status dot is pushed to the right. */
 .connectors-nav__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .connector-icon { flex: none; }
 

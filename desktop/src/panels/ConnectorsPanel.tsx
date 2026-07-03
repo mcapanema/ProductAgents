@@ -14,6 +14,8 @@ import {
 } from "./connectorView";
 import { ConnectorIcon } from "./connectorIcons";
 import { ConnectorConfigForm } from "./ConnectorConfigForm";
+import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 import "./ConnectorsPanel.css";
 
 /* Status badge — Phase 4A styleguide port (design/styleguide/src/phase4):
@@ -53,7 +55,7 @@ function NavGroup({
             <li key={e.connector}>
               <button
                 type="button"
-                className="settings-nav__item connectors-nav__item"
+                className="settings-nav__item"
                 aria-current={selected === e.connector ? "page" : undefined}
                 onClick={() => onSelect(e.connector)}
               >
@@ -137,67 +139,74 @@ export function ConnectorsPanel() {
   return (
     <div className="connectors">
       <h1>Connectors</h1>
-      <div className="settings-layout">
-        <nav className="settings-nav" aria-label="Connectors">
-          <NavGroup
-            title="Enabled"
-            entries={enabled}
-            health={health}
-            selected={selected}
-            onSelect={setSelected}
-            withStatus
-          />
-          <NavGroup
-            title="Available"
-            entries={available}
-            health={health}
-            selected={selected}
-            onSelect={setSelected}
-            withStatus={false}
-          />
-        </nav>
-        <div className="settings-content">
-          {entry && status ? (
-            <>
-              <header className="connector-detail__head">
-                <ConnectorIcon name={entry.connector} size={28} />
-                <h2 className="connector-detail__title">{entry.title ?? entry.connector}</h2>
-                <StatusBadge status={status} />
-                <span className="connector-detail__actions">
-                  <Button onClick={() => checkHealth(entry.connector)} disabled={!ipc || busy} loading={busy}>
-                    Check health
-                  </Button>
-                  <Button onClick={() => runSync(entry.connector)} disabled={!ipc || busy || !isEnabled(entry)} loading={busy}>
-                    Sync now
-                  </Button>
-                </span>
-              </header>
-              {entry.description && <p className="muted">{entry.description}</p>}
-              {status.detail && <p className="muted">{status.detail}</p>}
-              {synced && <p className="muted">{synced}</p>}
-              {stamp && <p className="muted">Last synced {stamp}</p>}
-              <ConnectorConfigForm key={entry.connector} entry={entry} onSaved={onSaved} />
-            </>
-          ) : (
-            <p className="muted">No connectors installed.</p>
-          )}
-          {list?.problems.map((p, i) => (
-            <p className="muted" key={`list-${i}`}>
-              ⚠ {p}
-            </p>
-          ))}
-          {health?.problems.map((p, i) => (
-            <p className="muted" key={`health-${i}`}>
-              ⚠ {p}
-            </p>
-          ))}
-          {sync?.problems.map((p, i) => (
-            <p className="muted" key={`sync-${i}`}>
-              ⚠ {p}
-            </p>
-          ))}
+      <p className="page-desc">Evidence sources that sync external data into the workspace. Select one to configure or check its health.</p>
+      {entries.length === 0 ? (
+        <EmptyState
+          title="No connectors installed"
+          description="Connectors bring in evidence from tools like GitHub and Jira. None are available in this workspace yet."
+          icon={<EmptyStateIcon name="connectors" />}
+        />
+      ) : (
+        <div className="settings-layout">
+          <nav className="settings-nav" aria-label="Connectors">
+            <NavGroup
+              title="Enabled"
+              entries={enabled}
+              health={health}
+              selected={selected}
+              onSelect={setSelected}
+              withStatus
+            />
+            <NavGroup
+              title="Available"
+              entries={available}
+              health={health}
+              selected={selected}
+              onSelect={setSelected}
+              withStatus={false}
+            />
+          </nav>
+          <div className="settings-content">
+            {entry && status && (
+              <>
+                <header className="connector-detail__head">
+                  <ConnectorIcon name={entry.connector} size={28} />
+                  <h2 className="connector-detail__title">{entry.title ?? entry.connector}</h2>
+                  <StatusBadge status={status} />
+                  <span className="connector-detail__actions">
+                    <Button onClick={() => checkHealth(entry.connector)} disabled={!ipc || busy} loading={busy}>
+                      Check health
+                    </Button>
+                    <Button onClick={() => runSync(entry.connector)} disabled={!ipc || busy || !isEnabled(entry)} loading={busy}>
+                      Sync now
+                    </Button>
+                  </span>
+                </header>
+                {entry.description && <p className="muted">{entry.description}</p>}
+                {status.detail && <p className="muted">{status.detail}</p>}
+                {synced && <p className="muted">{synced}</p>}
+                {stamp && <p className="muted">Last synced {stamp}</p>}
+                <ConnectorConfigForm key={entry.connector} entry={entry} onSaved={onSaved} />
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+      {list?.problems.map((p, i) => (
+        <p className="muted" key={`list-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
+      {health?.problems.map((p, i) => (
+        <p className="muted" key={`health-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
+      {sync?.problems.map((p, i) => (
+        <p className="muted" key={`sync-${i}`}>
+          ⚠ {p}
+        </p>
+      ))}
     </div>
   );
 }

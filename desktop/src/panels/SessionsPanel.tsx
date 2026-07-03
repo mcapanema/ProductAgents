@@ -4,11 +4,14 @@ import type { IpcEvent, SessionSummary } from "../ipc/types";
 import { deriveStages } from "./runTimeline";
 import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
+import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function SessionsPanel() {
   const ipc = useIpc();
   const [list, setList] = useState<SessionSummary[]>([]);
   const [events, setEvents] = useState<IpcEvent[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (ipc) ipc.sessionsList().then(setList).catch(() => setList([]));
@@ -16,6 +19,7 @@ export function SessionsPanel() {
 
   async function open(id: string) {
     if (!ipc) return;
+    setOpenId(id);
     try {
       const detail = await ipc.sessionsShow(id);
       setEvents(detail.events);
@@ -27,23 +31,35 @@ export function SessionsPanel() {
   return (
     <div>
       <h1>Sessions</h1>
-      {list.length === 0 && <p className="muted">No sessions recorded yet.</p>}
-      <div className="row" style={{ alignItems: "flex-start", gap: 24 }}>
-        <div style={{ flex: "0 0 320px" }}>
-          {list.map((s) => (
-            <div className="list-item" key={s.id} onClick={() => open(s.id)}>
-              <div>{s.workflow}</div>
-              <div className="muted">{s.status} · {s.created_at}</div>
-            </div>
-          ))}
-        </div>
-        {events && (
-          <div style={{ flex: 1 }}>
-            <StageTimeline stages={deriveStages(events)} />
-            <RawEvents events={events} />
+      <p className="page-desc">Every persisted pipeline run and its event timeline.</p>
+      {list.length === 0 ? (
+        <EmptyState
+          title="No sessions recorded yet"
+          description="Run a decision from the Run tab; each run is persisted here with its full event timeline."
+          icon={<EmptyStateIcon name="sessions" />}
+        />
+      ) : (
+        <div className="master-detail">
+          <div className="master-detail__list">
+            {list.map((s) => (
+              <div
+                className={`list-item${openId === s.id ? " is-selected" : ""}`}
+                key={s.id}
+                onClick={() => open(s.id)}
+              >
+                <div>{s.workflow}</div>
+                <div className="muted">{s.status} · {s.created_at}</div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+          {events && (
+            <div className="master-detail__detail">
+              <StageTimeline stages={deriveStages(events)} />
+              <RawEvents events={events} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

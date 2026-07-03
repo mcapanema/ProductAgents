@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import type { DecisionDetail, DecisionSummary } from "../ipc/types";
 import { decisionSections, formatConfidence, predictionRows } from "./decisionView";
+import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function DecisionsPanel() {
   const ipc = useIpc();
   const [list, setList] = useState<DecisionSummary[]>([]);
   const [detail, setDetail] = useState<DecisionDetail | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (ipc) ipc.decisionsList().then(setList).catch(() => setList([]));
@@ -14,6 +17,7 @@ export function DecisionsPanel() {
 
   async function open(id: string) {
     if (!ipc) return;
+    setOpenId(id);
     try {
       setDetail(await ipc.decisionsShow(id));
     } catch {
@@ -24,20 +28,32 @@ export function DecisionsPanel() {
   return (
     <div>
       <h1>Decision Explorer</h1>
-      {list.length === 0 && <p className="muted">No decisions recorded yet.</p>}
-      <div className="row" style={{ alignItems: "flex-start", gap: 24 }}>
-        <div style={{ flex: "0 0 320px" }}>
-          {list.map((d) => (
-            <div className="list-item" key={d.id} onClick={() => open(d.id)}>
-              <div>{d.title}</div>
-              <div className="muted">
-                {d.recommendation} · {formatConfidence(d.confidence)} · {d.created_at}
+      <p className="page-desc">Past recommendations with their evidence, debate, risk, and outcomes.</p>
+      {list.length === 0 ? (
+        <EmptyState
+          title="No decisions recorded yet"
+          description="Completed runs that reach a recommendation are stored here for review and reflection."
+          icon={<EmptyStateIcon name="decisions" />}
+        />
+      ) : (
+        <div className="master-detail">
+          <div className="master-detail__list">
+            {list.map((d) => (
+              <div
+                className={`list-item${openId === d.id ? " is-selected" : ""}`}
+                key={d.id}
+                onClick={() => open(d.id)}
+              >
+                <div>{d.title}</div>
+                <div className="muted">
+                  {d.recommendation} · {formatConfidence(d.confidence)} · {d.created_at}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          {detail && <DecisionDetailView detail={detail} />}
         </div>
-        {detail && <DecisionDetailView detail={detail} />}
-      </div>
+      )}
     </div>
   );
 }
@@ -47,7 +63,7 @@ function DecisionDetailView({ detail }: { detail: DecisionDetail }) {
   const rec = detail.record.recommendation;
   const sections = decisionSections(detail);
   return (
-    <div style={{ flex: 1 }}>
+    <div className="master-detail__detail">
       <h2 style={{ marginTop: 0 }}>{detail.record.initiative.title}</h2>
       <p>
         <strong>{rec.recommendation}</strong> · {formatConfidence(rec.confidence)}

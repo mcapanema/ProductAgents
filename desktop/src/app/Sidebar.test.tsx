@@ -10,8 +10,8 @@ const LABELS = [
   "Memory",
   "Connectors",
   "Prompts",
-  "Settings",
   "Reflection",
+  "Settings",
 ];
 
 function renderSidebar({ view = "run", running = false }: { view?: string; running?: boolean } = {}) {
@@ -78,5 +78,14 @@ describe("Sidebar", () => {
   it("keeps the Run button's accessible name as its visible label while running", () => {
     const { nav } = renderSidebar({ running: true });
     expect(within(nav).getByRole("button", { name: "Run" })).toBeInTheDocument();
+  });
+
+  it("renders Settings as the last nav item", () => {
+    const { nav } = renderSidebar();
+    const buttons = within(nav)
+      .getAllByRole("button")
+      .filter((b) => b.classList.contains("sidebar-item"));
+    const last = buttons[buttons.length - 1];
+    expect(last).toHaveTextContent("Settings");
   });
 });

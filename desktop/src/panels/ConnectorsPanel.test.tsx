@@ -115,4 +115,19 @@ describe("ConnectorsPanel", () => {
     expect(await screen.findByText(/7 records written/)).toBeInTheDocument();
     expect(calls).toEqual(["github", "github"]);
   });
+
+  it("shows a full-width empty state with no sub-nav when no connectors are installed", async () => {
+    renderPanel({ connectorsConfigList: async () => [] });
+    expect(await screen.findByText("No connectors installed")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Connectors" })).not.toBeInTheDocument();
+  });
+
+  it("still surfaces list-load problems alongside the empty state when no connectors are installed", async () => {
+    renderPanel({
+      connectorsConfigList: async () => [],
+      connectorsList: async () => ({ connectors: [], problems: ["registry unreachable"], last_synced: {} }),
+    });
+    expect(await screen.findByText("No connectors installed")).toBeInTheDocument();
+    expect(screen.getByText(/registry unreachable/)).toBeInTheDocument();
+  });
 });

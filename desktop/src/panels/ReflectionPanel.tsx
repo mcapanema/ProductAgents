@@ -3,6 +3,8 @@ import { Button, Input, Select } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { DecisionSummary, OutcomeRecord } from "../ipc/types";
 import { formatConfidence } from "./decisionView";
+import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function ReflectionPanel() {
   const ipc = useIpc();
@@ -39,7 +41,14 @@ export function ReflectionPanel() {
   return (
     <div>
       <h1>Reflection</h1>
-      {decisions.length === 0 && <p className="muted">No decisions to reflect on yet.</p>}
+      <p className="page-desc">Record what actually happened after a decision; the system scores the prediction and distills lessons.</p>
+      {decisions.length === 0 && (
+        <EmptyState
+          title="Nothing to reflect on yet"
+          description="Reflection needs at least one completed decision. Run one from the Run tab, then come back."
+          icon={<EmptyStateIcon name="reflection" />}
+        />
+      )}
       {decisions.length > 0 && (
         <div style={{ maxWidth: 560 }}>
           <label className="field">

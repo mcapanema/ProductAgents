@@ -5,6 +5,8 @@ import { runReducer, initialRunState } from "./runReducer";
 import { deriveStages } from "./runTimeline";
 import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
+import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 const VERDICTS: { verdict: string; label: string }[] = [
   { verdict: "approve", label: "Approve" },
@@ -60,6 +62,7 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
   return (
     <div>
       <h1>Run a decision</h1>
+      <p className="page-desc">Evaluate an initiative through the advisory pipeline.</p>
       <div className="row" style={{ marginBottom: 8 }}>
         <Input
           aria-label="initiative"
@@ -114,6 +117,13 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
           {state.sessionId ? ` · session ${state.sessionId}` : ""}
           {state.error ? ` · ${state.error}` : ""}
         </p>
+      )}
+      {state.status === "idle" && (
+        <EmptyState
+          title="Ready when you are"
+          description="Enter an initiative title and evidence source, then Run. Progress and the final verdict stream in here."
+          icon={<EmptyStateIcon name="run" />}
+        />
       )}
       {state.events.length > 0 && (
         <>

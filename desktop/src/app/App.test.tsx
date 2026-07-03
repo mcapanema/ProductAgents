@@ -135,6 +135,11 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: /^reflection$/i })).toBeInTheDocument();
   });
 
+  it("shows a page description under the Run heading", async () => {
+    render(<App client={fakeClient()} />);
+    expect(await screen.findByText(/advisory pipeline/i)).toBeInTheDocument();
+  });
+
   it("shows a live-run dot on the Run nav item while a run is in flight, and clears it when the run settles", async () => {
     let resolveRun!: (value: RunResult) => void;
     const client = fakeClient();
