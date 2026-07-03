@@ -1,5 +1,22 @@
 /** The variables the pipeline substitutes into prompts (reference chips). */
-export const KNOWN_VARIABLES = ["persona", "initiative", "reports", "evidence", "lessons", "transcript"];
+export const KNOWN_VARIABLES = [
+  "confidence",
+  "critique",
+  "debate",
+  "evidence",
+  "expected_outcomes",
+  "focus",
+  "history",
+  "initiative",
+  "lessons",
+  "outcome_note",
+  "persona",
+  "portfolio",
+  "recommendation",
+  "reports",
+  "risks",
+  "role",
+];
 
 const VAR_RE = /\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?/g;
 
