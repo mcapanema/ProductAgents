@@ -17,23 +17,31 @@ from productagents.knowledge.repositories.sqlmodel.tables import SyncStateRecord
 class SyncStateStore:
     """Read/write the last cursor each connector returned."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, workspace: str = "default") -> None:
         self._session = session
+        self._workspace = workspace
 
     async def cursors(self) -> dict[str, str | None]:
         """Every connector's last persisted cursor value, keyed by connector key."""
-        rows = (await self._session.exec(select(SyncStateRecord))).all()
+        stmt = select(SyncStateRecord).where(
+            SyncStateRecord.workspace == self._workspace
+        )
+        rows = (await self._session.exec(stmt)).all()
         return {row.connector_key: row.cursor_value for row in rows}
 
     async def last_synced(self) -> dict[str, str]:
         """Each connector's last sync time (updated_at, ISO-8601), by connector key."""
-        rows = (await self._session.exec(select(SyncStateRecord))).all()
+        stmt = select(SyncStateRecord).where(
+            SyncStateRecord.workspace == self._workspace
+        )
+        rows = (await self._session.exec(stmt)).all()
         return {row.connector_key: row.updated_at.isoformat() for row in rows}
 
     async def save(self, connector_key: str, cursor_value: str | None) -> None:
         """Upsert one connector's cursor (keyed on ``connector_key``)."""
         await self._session.merge(
             SyncStateRecord(
+                workspace=self._workspace,
                 connector_key=connector_key,
                 cursor_value=cursor_value,
                 updated_at=datetime.now(UTC),

@@ -79,3 +79,28 @@ async def test_vendor_upsert_preserves_original_platform_id():
     assert returned.id == first.id  # original id wins
     assert returned.body == "sync 2"  # newer payload wins
     assert returned.ingested_at == first.ingested_at  # first-seen time is stable
+
+
+async def test_canonical_records_isolated_per_workspace():
+    src = SourceRef(connector="zendesk", vendor_type="ticket", vendor_id="1")
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        a = CanonicalRepository(session, CustomerFeedback, workspace="a")
+        b = CanonicalRepository(session, CustomerFeedback, workspace="b")
+        fa = await a.upsert(CustomerFeedback(body="hi", source=src))
+        # same vendor identity, other workspace — allowed
+        await b.upsert(CustomerFeedback(body="hi", source=src))
+        assert [m.id for m in await a.list()] == [fa.id]
+        assert await a.get(str(fa.id)) is not None
+        only_b = await b.list()
+    assert len(only_b) == 1
+    assert only_b[0].id != fa.id
+
+
+async def test_upsert_dedups_within_workspace_only():
+    src = SourceRef(connector="zendesk", vendor_type="ticket", vendor_id="7")
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        a = CanonicalRepository(session, CustomerFeedback, workspace="a")
+        first = await a.upsert(CustomerFeedback(body="v1", source=src))
+        again = await a.upsert(CustomerFeedback(body="v2", source=src))
+        assert again.id == first.id  # stable platform id within the workspace
+        assert len(await a.list()) == 1

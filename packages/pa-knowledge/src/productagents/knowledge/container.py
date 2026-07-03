@@ -28,10 +28,16 @@ class KnowledgeServices:
     metrics: MetricsService
 
 
-def build_services(session: AsyncSession) -> KnowledgeServices:
+def build_services(
+    session: AsyncSession, workspace: str = "default"
+) -> KnowledgeServices:
     """Wire every service to its repository over one session."""
     return KnowledgeServices(
-        feedback=FeedbackService(CanonicalRepository(session, CustomerFeedback)),
-        initiatives=InitiativeService(CanonicalRepository(session, Initiative)),
-        metrics=MetricsService(CanonicalRepository(session, ProductMetric)),
+        feedback=FeedbackService(
+            CanonicalRepository(session, CustomerFeedback, workspace)
+        ),
+        initiatives=InitiativeService(
+            CanonicalRepository(session, Initiative, workspace)
+        ),
+        metrics=MetricsService(CanonicalRepository(session, ProductMetric, workspace)),
     )

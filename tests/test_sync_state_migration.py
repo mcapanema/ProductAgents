@@ -24,4 +24,4 @@ def test_upgrade_head_creates_sync_state(tmp_path, monkeypatch):
     insp = inspect(create_engine(f"sqlite:///{db}"))
     assert "sync_state" in insp.get_table_names()
     columns = {c["name"] for c in insp.get_columns("sync_state")}
-    assert {"connector_key", "cursor_value", "updated_at"} == columns
+    assert {"workspace", "connector_key", "cursor_value", "updated_at"} == columns

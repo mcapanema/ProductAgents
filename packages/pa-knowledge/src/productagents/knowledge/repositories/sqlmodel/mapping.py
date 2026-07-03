@@ -9,10 +9,11 @@ from productagents.core.models import CanonicalModel
 from productagents.knowledge.repositories.sqlmodel.tables import CanonicalRecord
 
 
-def to_row(model: CanonicalModel) -> CanonicalRecord:
+def to_row(model: CanonicalModel, workspace: str = "default") -> CanonicalRecord:
     """Project a canonical model onto its storage row."""
     return CanonicalRecord(
         pk=str(model.id),
+        workspace=workspace,
         model_type=type(model).__name__,
         connector=model.source.connector,
         vendor_type=model.source.vendor_type,
