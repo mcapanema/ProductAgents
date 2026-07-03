@@ -91,14 +91,14 @@ def _copy_rows(home: SharedHome) -> None:
             # DEFAULT_WORKSPACE is a module constant.
             if scoped:
                 stmt = (
-                    f"INSERT OR IGNORE INTO main.{table} ({col_list}, workspace) "
+                    f"INSERT OR IGNORE INTO main.{table} ({col_list}, workspace) "  # nosec B608
                     f"SELECT {col_list}, '{DEFAULT_WORKSPACE}' FROM legacy.{table}"
-                )  # nosec B608
+                )
             else:
                 stmt = (
-                    f"INSERT OR IGNORE INTO main.{table} ({col_list}) "
+                    f"INSERT OR IGNORE INTO main.{table} ({col_list}) "  # nosec B608
                     f"SELECT {col_list} FROM legacy.{table}"
-                )  # nosec B608
+                )
             con.execute(stmt)
         con.commit()
         con.execute("DETACH DATABASE legacy")
