@@ -1,15 +1,20 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { IpcClient } from "../ipc/client";
 import { IpcProvider } from "./IpcProvider";
 import { TopBar } from "./TopBar";
 
 vi.mock("../ipc/transport", () => ({
   isTauri: () => false,
-  restartBackend: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { restartBackend } from "../ipc/transport";
+const reloadSpy = vi.fn();
+beforeAll(() => {
+  Object.defineProperty(window, "location", {
+    value: { ...window.location, reload: reloadSpy },
+    writable: true,
+  });
+});
 
 function fakeIpc(overrides: Partial<Record<keyof IpcClient, unknown>> = {}) {
   return {
@@ -22,7 +27,7 @@ function fakeIpc(overrides: Partial<Record<keyof IpcClient, unknown>> = {}) {
       .mockResolvedValue({ name: "beta", active: false }),
     workspacesUse: vi
       .fn()
-      .mockResolvedValue({ name: "acme", restart_required: true }),
+      .mockResolvedValue({ name: "acme", active: true }),
     decisionsList: vi.fn().mockResolvedValue([
       { id: "d1", title: "Dark mode", recommendation: "go", confidence: 0.8, created_at: "t" },
     ]),
@@ -50,17 +55,17 @@ describe("TopBar", () => {
     expect(screen.getByText("Run")).toBeInTheDocument();
   });
 
-  it("switches workspace via the selector and restarts the backend", async () => {
+  it("switches workspace via the selector and reloads", async () => {
     const ipc = fakeIpc();
     renderBar(ipc);
     await waitFor(() => expect(screen.getByTitle("default")).toBeInTheDocument());
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "Workspace" }));
     fireEvent.click(await screen.findByTitle("acme"));
     await waitFor(() => expect(ipc.workspacesUse).toHaveBeenCalledWith("acme"));
-    expect(restartBackend).toHaveBeenCalled();
+    await waitFor(() => expect(reloadSpy).toHaveBeenCalled());
   });
 
-  it("creates a workspace through the modal, then switches to it", async () => {
+  it("creates a workspace through the modal, then switches to it and reloads", async () => {
     const ipc = fakeIpc();
     renderBar(ipc);
     await waitFor(() => expect(screen.getByTitle("default")).toBeInTheDocument());
@@ -71,6 +76,7 @@ describe("TopBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(ipc.workspacesCreate).toHaveBeenCalledWith("beta"));
     await waitFor(() => expect(ipc.workspacesUse).toHaveBeenCalledWith("beta"));
+    await waitFor(() => expect(reloadSpy).toHaveBeenCalled());
   });
 
   it("rejects an invalid workspace name without calling the backend", async () => {

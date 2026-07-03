@@ -237,15 +237,15 @@ describe("workspace methods", () => {
     await promise;
   });
 
-  it("workspacesUse resolves the restart flag", async () => {
+  it("workspacesUse resolves the switched workspace", async () => {
     const { client, sent, push } = harness();
     const promise = client.workspacesUse("acme");
     const req = JSON.parse(sent[0]);
     expect(req.method).toBe("workspaces.use");
-    push({ id: req.id, result: { name: "acme", restart_required: true } });
+    push({ id: req.id, result: { name: "acme", active: true } });
     await expect(promise).resolves.toEqual({
       name: "acme",
-      restart_required: true,
+      active: true,
     });
   });
 });

@@ -91,25 +91,6 @@ fn spawn_sidecar(handle: &tauri::AppHandle) -> Result<(Child, ChildStdin), Strin
     Ok((child, stdin))
 }
 
-/// Restart the sidecar in place (used after a workspace switch: the Python
-/// backend resolves the active workspace at startup, so switching requires a
-/// fresh process). The old reader thread exits on EOF after the kill.
-#[tauri::command]
-fn ipc_restart(app: tauri::AppHandle, sidecar: State<'_, Sidecar>) -> Result<(), String> {
-    // Spawn the replacement first — if this fails, the old sidecar keeps
-    // running and the app degrades to an error instead of a dead pipe.
-    let (child, stdin) = spawn_sidecar(&app)?;
-    let mut child_guard = sidecar.child.lock().map_err(|e| e.to_string())?;
-    let mut stdin_guard = sidecar.stdin.lock().map_err(|e| e.to_string())?;
-    if let Some(mut old) = child_guard.take() {
-        let _ = old.kill();
-        let _ = old.wait();
-    }
-    *stdin_guard = stdin;
-    *child_guard = Some(child);
-    Ok(())
-}
-
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -123,7 +104,7 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![ipc_send, ipc_restart])
+        .invoke_handler(tauri::generate_handler![ipc_send])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 

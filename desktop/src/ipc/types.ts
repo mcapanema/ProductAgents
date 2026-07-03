@@ -204,17 +204,18 @@ export interface ConfigSetParams {
 export interface WorkspaceInfo {
   name: string;
   active: boolean;
-  root: string;
-  db_url: string;
-  connectors_file: string;
-  env_file: string;
-  log_file: string;
-  prompts_dir: string;
+  created_at: string;
+  prompts_dir?: string;
+  root?: string;
+  db_url?: string;
+  env_file?: string;
+  log_file?: string;
+  connectors_file?: string;
 }
 
 export interface WorkspaceUseResult {
   name: string;
-  restart_required: boolean;
+  active: boolean;
 }
 
 export interface Lesson {

@@ -34,6 +34,7 @@ const status: ConfigStatus = {
 const workspace: WorkspaceInfo = {
   name: "default",
   active: true,
+  created_at: "2026-06-28T00:00:00+00:00",
   root: "/home/u/.productagents/workspaces/default",
   db_url: "sqlite:///home/u/.productagents/workspaces/default/productagents.db",
   connectors_file: "/home/u/.productagents/workspaces/default/connectors.yaml",
@@ -151,7 +152,7 @@ describe("SettingsPanel", () => {
     renderPanel(client());
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");
     fireEvent.click(screen.getByRole("button", { name: /runtime/i }));
-    expect(await screen.findByText(workspace.db_url)).toBeInTheDocument();
+    expect(await screen.findByText(workspace.db_url!)).toBeInTheDocument();
   });
 
   it("shows Saved after a successful save and clears it on the next edit", async () => {

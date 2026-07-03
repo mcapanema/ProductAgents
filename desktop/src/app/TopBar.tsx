@@ -5,7 +5,6 @@ import { useIpc } from "./IpcProvider";
 import type { View } from "./Sidebar";
 import type { SearchEntry } from "./topBarView";
 import type { WorkspaceInfo } from "../ipc/types";
-import { restartBackend } from "../ipc/transport";
 import {
   CREATE_OPTION,
   activeWorkspaceName,
@@ -87,7 +86,9 @@ export function TopBar({
     setSwitching(true);
     try {
       await ipc.workspacesUse(name);
-      await restartBackend();
+      // Backend already switched live (workspaces.use rebuilds its services);
+      // reload just remounts the panels so every list refetches in the new scope.
+      window.location.reload();
     } catch {
       setSwitching(false); // degrade: stay on the current workspace
     }
@@ -115,7 +116,9 @@ export function TopBar({
     try {
       await ipc.workspacesCreate(name);
       await ipc.workspacesUse(name);
-      await restartBackend();
+      // Backend already switched live (workspaces.use rebuilds its services);
+      // reload just remounts the panels so every list refetches in the new scope.
+      window.location.reload();
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : String(err));
     }
@@ -206,7 +209,6 @@ export function TopBar({
         <p className="topbar-modal-hint">
           A workspace is an isolated home for one product organization: its own
           decisions, sessions, memory, connectors, prompts and settings.
-          Switching restarts the backend.
         </p>
         {createError && <p className="topbar-modal-error">{createError}</p>}
       </Modal>
