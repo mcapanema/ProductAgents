@@ -9,6 +9,7 @@ from productagents.memory.workspace_state import (
     ConnectorConfigStore,
     PreferenceStore,
     WorkspaceConfigStore,
+    WorkspaceRegistry,
 )
 
 
@@ -56,3 +57,38 @@ async def test_preference_roundtrip(sessionmaker):
         await store.set("theme", "dark")
         assert await store.get("theme") == "dark"
         assert await store.all() == {"theme": "dark"}
+
+
+async def test_config_store_isolated_per_workspace(sessionmaker):
+    async with sessionmaker() as session:
+        a = WorkspaceConfigStore(session, "a")
+        b = WorkspaceConfigStore(session, "b")
+        await a.set("model", "anthropic:x")
+        await b.set("model", "openai:y")
+        assert await a.all() == {"model": "anthropic:x"}
+        await a.delete("model")
+        assert await a.all() == {}
+        assert await b.all() == {"model": "openai:y"}
+
+
+async def test_connector_store_isolated_per_workspace(sessionmaker):
+    async with sessionmaker() as session:
+        a = ConnectorConfigStore(session, "a")
+        b = ConnectorConfigStore(session, "b")
+        await a.set("github", {"repo": "org/a"})
+        await b.set("github", {"repo": "org/b"})
+        assert await a.all() == {"github": {"repo": "org/a"}}
+
+
+async def test_registry_create_list_ensure(sessionmaker):
+    async with sessionmaker() as session:
+        reg = WorkspaceRegistry(session)
+        await reg.ensure("default")
+        await reg.ensure("default")  # idempotent
+        created = await reg.create("acme")
+        assert created["name"] == "acme"
+        assert created["created_at"]
+        with pytest.raises(ValueError, match="workspace already exists"):
+            await reg.create("acme")
+        assert [w["name"] for w in await reg.list()] == ["acme", "default"]
+        assert await reg.get("nope") is None
