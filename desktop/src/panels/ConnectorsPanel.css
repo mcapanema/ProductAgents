@@ -2,7 +2,7 @@
    classes (.settings-layout / .settings-nav / .settings-content, defined in
    SettingsPanel.css, always bundled); this file adds only the connector-
    specific pieces. */
-.connectors { max-width: 860px; display: flex; flex-direction: column; gap: var(--space-24); }
+.connectors { max-width: 860px; }
 
 /* Connectors nav reuses .settings-nav__item (flex + gap). Only the label needs
    to flex-grow so the trailing status dot is pushed to the right. */

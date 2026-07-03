@@ -4,6 +4,7 @@ import { useIpc } from "../app/IpcProvider";
 import type { PromptDiff, PromptSummary, PromptVersion } from "../ipc/types";
 import { defaultDiffPair, versionLabel } from "./promptView";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function PromptsPanel() {
   const ipc = useIpc();
@@ -90,6 +91,7 @@ export function PromptsPanel() {
         <EmptyState
           title="No prompts found"
           description="Prompt templates ship with the app and appear here once the registry loads."
+          icon={<EmptyStateIcon name="prompts" />}
         />
       )}
       <div className="master-detail">

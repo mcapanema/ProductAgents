@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowSummary } from "../ipc/types";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function WorkflowsPanel() {
   const ipc = useIpc();
@@ -19,6 +20,7 @@ export function WorkflowsPanel() {
         <EmptyState
           title="No workflows registered"
           description="Workflows are defined in the platform registry. None are available in this workspace yet."
+          icon={<EmptyStateIcon name="workflows" />}
         />
       )}
       {list.map((w) => (

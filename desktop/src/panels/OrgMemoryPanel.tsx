@@ -3,6 +3,7 @@ import { useIpc } from "../app/IpcProvider";
 import type { Lesson } from "../ipc/types";
 import { formatConfidence } from "./decisionView";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function OrgMemoryPanel() {
   const ipc = useIpc();
@@ -20,6 +21,7 @@ export function OrgMemoryPanel() {
         <EmptyState
           title="No lessons recorded yet"
           description="Reflect on a past decision to capture its outcome; validated lessons surface here and feed future runs."
+          icon={<EmptyStateIcon name="memory" />}
         />
       )}
       {lessons.map((l, i) => (

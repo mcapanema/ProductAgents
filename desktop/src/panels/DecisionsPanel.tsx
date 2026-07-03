@@ -3,6 +3,7 @@ import { useIpc } from "../app/IpcProvider";
 import type { DecisionDetail, DecisionSummary } from "../ipc/types";
 import { decisionSections, formatConfidence, predictionRows } from "./decisionView";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function DecisionsPanel() {
   const ipc = useIpc();
@@ -32,6 +33,7 @@ export function DecisionsPanel() {
         <EmptyState
           title="No decisions recorded yet"
           description="Completed runs that reach a recommendation are stored here for review and reflection."
+          icon={<EmptyStateIcon name="decisions" />}
         />
       ) : (
         <div className="master-detail">

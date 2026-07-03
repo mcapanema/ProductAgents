@@ -5,6 +5,7 @@ import { deriveStages } from "./runTimeline";
 import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function SessionsPanel() {
   const ipc = useIpc();
@@ -35,6 +36,7 @@ export function SessionsPanel() {
         <EmptyState
           title="No sessions recorded yet"
           description="Run a decision from the Run tab; each run is persisted here with its full event timeline."
+          icon={<EmptyStateIcon name="sessions" />}
         />
       ) : (
         <div className="master-detail">

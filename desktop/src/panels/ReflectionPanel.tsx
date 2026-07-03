@@ -4,6 +4,7 @@ import { useIpc } from "../app/IpcProvider";
 import type { DecisionSummary, OutcomeRecord } from "../ipc/types";
 import { formatConfidence } from "./decisionView";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 export function ReflectionPanel() {
   const ipc = useIpc();
@@ -45,6 +46,7 @@ export function ReflectionPanel() {
         <EmptyState
           title="Nothing to reflect on yet"
           description="Reflection needs at least one completed decision. Run one from the Run tab, then come back."
+          icon={<EmptyStateIcon name="reflection" />}
         />
       )}
       {decisions.length > 0 && (

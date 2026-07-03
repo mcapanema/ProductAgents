@@ -6,6 +6,7 @@ import { deriveStages } from "./runTimeline";
 import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
 const VERDICTS: { verdict: string; label: string }[] = [
   { verdict: "approve", label: "Approve" },
@@ -121,6 +122,7 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
         <EmptyState
           title="Ready when you are"
           description="Enter an initiative title and evidence source, then Run. Progress and the final verdict stream in here."
+          icon={<EmptyStateIcon name="run" />}
         />
       )}
       {state.events.length > 0 && (
