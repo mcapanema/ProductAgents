@@ -275,3 +275,37 @@ describe("workspace methods", () => {
     await expect(promise).resolves.toEqual({ name: "main", active: true, created_at: "t" });
   });
 });
+
+describe("workflowsShow", () => {
+  it("sends workflows.show with the name and resolves the detail", async () => {
+    const sent: string[] = [];
+    let deliver: (msg: IpcMessage) => void = () => {};
+    const client = new IpcClient(
+      async (line) => {
+        sent.push(line);
+      },
+      (cb) => {
+        deliver = cb;
+      },
+    );
+    const promise = client.workflowsShow("evaluate_initiative");
+    expect(JSON.parse(sent[0])).toEqual({
+      id: 1,
+      method: "workflows.show",
+      params: { name: "evaluate_initiative" },
+    });
+    deliver({
+      id: 1,
+      result: {
+        name: "evaluate_initiative",
+        title: "Evaluate Initiative",
+        description: "d",
+        topology: null,
+      },
+    });
+    await expect(promise).resolves.toMatchObject({
+      name: "evaluate_initiative",
+      topology: null,
+    });
+  });
+});

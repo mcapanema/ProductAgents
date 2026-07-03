@@ -8,6 +8,12 @@ import type { RunParams, RunHandlers, RunResult } from "../ipc/types";
 function fakeClient(): IpcClient {
   return {
     workflowsList: async () => [],
+    workflowsShow: async () => ({
+      name: "",
+      title: "",
+      description: "",
+      topology: null,
+    }),
     sessionsList: async () => [],
     sessionsShow: async () => ({ session: {} as never, events: [] }),
     decisionsList: async () => [],

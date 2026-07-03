@@ -405,6 +405,16 @@ async def handle(
             wfs = [_workflow_dict(w) for w in workflows.list()]
             await emit({"id": rid, "result": wfs})
 
+        async def _workflows_show(p: dict) -> None:
+            name = p.get("name", "")
+            w = workflows.get(name)
+            if w is None:
+                await emit({"id": rid, "error": f"no such workflow: {name!r}"})
+                return
+            detail = _workflow_dict(w)
+            detail["topology"] = w.topology() if w.topology is not None else None
+            await emit({"id": rid, "result": detail})
+
         async def _workspaces_list(_p: dict) -> None:
             if workspaces is None:
                 raise RuntimeError("workspaces service not available")
@@ -667,6 +677,7 @@ async def handle(
 
         table: dict[str, Callable[[dict], Awaitable[None]]] = {
             "workflows.list": _workflows_list,
+            "workflows.show": _workflows_show,
             "workspaces.list": _workspaces_list,
             "workspaces.show": _workspaces_show,
             "workspaces.create": _workspaces_create,

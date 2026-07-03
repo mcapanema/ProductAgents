@@ -44,6 +44,7 @@ packages/
 │       ├── llm_errors.py   #   error classifier (fatal vs transient)
 │       ├── evidence.py     #   EvidenceSource protocol + scenario/dir sources
 │       ├── graph.py        #   LangGraph StateGraph assembly + GraphState
+│       ├── topology.py     #   serializable {nodes, edges} view of the compiled graph (GUI Workflows panel)
 │       ├── runner.py       #   graph→UI boundary: normalizes stream into events
 │       ├── customer_research.py · product_analytics.py · market.py
 │       ├── business.py · technical.py            # the five parallel analysts
@@ -76,7 +77,7 @@ packages/
         ├── context.py      #   open_decision_context (per-run AgentContext + DB session); also exposes open_event_store
         ├── serialization.py     #   platform Event <-> Event-Store row bridge (pydantic TypeAdapter)
         ├── session_service.py   #   SessionService — list/get/replay persisted sessions
-        ├── workflow.py          #   WorkflowService — registry over the decision pipeline (evaluate_initiative)
+        ├── workflow.py          #   WorkflowService — registry over the decision pipeline (evaluate_initiative); Workflow.topology feeds the GUI graph view
         ├── workspace.py         #   WorkspaceService — a workspace is a logical scope (row), not a directory; SharedHome is the one shared home
         ├── connectors.py   #   connector YAML loading + sync runtime (relocated from pa-app)
         ├── llm.py          #   re-exports get_model + DEFAULT_MODEL (platform seam)

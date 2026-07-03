@@ -19,6 +19,7 @@ import type {
   RunResult,
   SessionDetail,
   SessionSummary,
+  WorkflowDetail,
   WorkflowSummary,
   WorkspaceInfo,
   WorkspaceUseResult,
@@ -88,6 +89,10 @@ export class IpcClient {
 
   workflowsList(): Promise<WorkflowSummary[]> {
     return this.call<WorkflowSummary[]>("workflows.list");
+  }
+
+  workflowsShow(name: string): Promise<WorkflowDetail> {
+    return this.call<WorkflowDetail>("workflows.show", { name });
   }
 
   sessionsList(): Promise<SessionSummary[]> {

@@ -90,7 +90,13 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   value under a secret-shaped key server-side too, so a secret can never
   reach the DB regardless of client), `PromptsPanel.tsx` (read-only
   Prompt Registry browser: list → versions → text/diff), `WorkflowsPanel.tsx`
-  (registered workflow list), `SettingsPanel.tsx` (sub-navigated: Workspace ›
+  (master–detail: registered workflow list + a React Flow
+  (`@xyflow/react`) graph of the selected workflow's topology from
+  `workflows.show` — layered layout via `workflowView.ts` (`nodeLabel`,
+  `nodeRanks`, `layoutTopology`; longest-path ranks, cycle-safe against the
+  judge→strategist retry edge), conditional edges dashed; clicking an agent node
+  opens `NodePromptDrawer.tsx`, one editor per prompt the node renders, saving
+  through the existing `prompts.*` surface), `SettingsPanel.tsx` (sub-navigated: Workspace ›
   Configuration/Preferences, Application › Runtime/Updates.
   Configuration opens with a Workspace section whose rename field calls
   `workspaces.rename` then reloads (same live-switch convention as TopBar),
@@ -144,7 +150,9 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   `window.matchMedia` and `getComputedStyle`'s pseudo-element form (both
   needed by `Table`'s internal responsive/scrollbar-measurement hooks) and
   `window.ResizeObserver` (needed by `Input.TextArea`'s internal resize
-  handling) — jsdom implements none of these.
+  handling) — jsdom implements none of these. It also stubs `DOMMatrixReadOnly`,
+  `HTMLElement.offsetWidth`/`offsetHeight`, and `SVGElement.getBBox` (React
+  Flow's zoom/measure APIs, also absent in jsdom).
 - `src-tauri/` — the Rust shell (see `src-tauri/CLAUDE.md`), exposing only the
   `ipc_send` command. A workspace switch takes effect live in the sidecar (no
   process restart); `TopBar.tsx` calls `window.location.reload()` after

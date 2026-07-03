@@ -31,6 +31,9 @@ class Workflow:
     ``start`` returns ``(Session, AsyncIterator[Event])`` — the same contract
     ``DecisionService.start_session`` already produces. Each workflow defines its
     own ``start`` signature; the caller (which picks the workflow) passes inputs.
+
+    ``topology`` (optional) returns the workflow's graph structure as plain
+    ``{nodes, edges}`` dicts for presentation (the GUI's Workflows panel).
     """
 
     name: str
@@ -38,6 +41,7 @@ class Workflow:
     description: str
     start: Callable[..., tuple[Session, AsyncIterator[ev.Event]]]
     cancel: Callable[[str], bool] | None = None
+    topology: Callable[[], dict] | None = None
 
 
 def build_evaluate_initiative(
@@ -52,6 +56,7 @@ def build_evaluate_initiative(
 
     The first-party ``productagents.workflows`` entry point resolves here.
     """
+    from productagents.agents.topology import graph_topology
     from productagents.platform.decision_service import DecisionService
 
     service = DecisionService.for_model(
@@ -70,6 +75,7 @@ def build_evaluate_initiative(
         ),
         start=service.start_session,
         cancel=service.cancel,
+        topology=lambda: graph_topology(human_in_the_loop=human_in_the_loop),
     )
 
 

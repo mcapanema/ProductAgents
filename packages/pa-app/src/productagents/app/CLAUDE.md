@@ -10,7 +10,7 @@ or `connectors`.
 | Module | Role |
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list/show`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
 ## CLI contract
@@ -70,6 +70,14 @@ serve-ws`) for browser/Playwright UI testing — it reuses `ipc.handle` +
 `ipc.build_services`, so a new method/event needs no bridge change. It is a
 localhost dev affordance, not the product client/server split (which remains
 deferred); the shipped Tauri app still talks NDJSON over stdio.
+
+`workflows.show {name}` → `{name, title, description, topology}` — one registered
+workflow plus its graph structure: `topology` is `{nodes: [{id, prompts: [str]}],
+edges: [{source, target, conditional}]}` from the workflow's registered topology
+accessor (`Workflow.topology`), or `null` when the workflow does not expose one.
+`prompts` lists the prompt-registry names the node renders (so the GUI can wire
+node-click → the existing `prompts.*` surface). `error` "no such workflow: <name>"
+if unknown.
 
 `decisions.list` → `[{id, title, recommendation, confidence, created_at}]` (summaries
 from the DecisionStore via `DecisionReadService`). `decisions.show {decision_id}` →

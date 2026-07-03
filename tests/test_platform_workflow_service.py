@@ -2,7 +2,12 @@ from collections.abc import AsyncIterator
 
 from productagents.platform import events as ev
 from productagents.platform.session import Session
-from productagents.platform.workflow import Workflow, WorkflowService
+from productagents.platform.workflow import (
+    Workflow,
+    WorkflowService,
+    build_evaluate_initiative,
+)
+from tests.fakes import FakeChatModel
 
 
 async def _no_stream() -> AsyncIterator[ev.Event]:
@@ -36,3 +41,27 @@ def test_cancel_routes_to_owning_workflow():
 def test_cancel_false_when_no_workflow_owns_it():
     svc = WorkflowService([_wf("a", lambda sid: False)])
     assert svc.cancel("nope") is False
+
+
+def test_workflow_topology_defaults_to_none():
+    assert _wf("a", None).topology is None
+
+
+def test_evaluate_initiative_exposes_graph_topology():
+    wf = build_evaluate_initiative(FakeChatModel({}), persist_events=False)
+    assert wf.topology is not None
+    topo = wf.topology()
+    ids = [n["id"] for n in topo["nodes"]]
+    assert "strategist" in ids
+    assert "human_approval" not in ids  # HITL off by default
+    assert {"source": "risk", "target": "governance", "conditional": False} in topo[
+        "edges"
+    ]
+
+
+def test_evaluate_initiative_topology_tracks_human_in_the_loop():
+    wf = build_evaluate_initiative(
+        FakeChatModel({}), human_in_the_loop=True, persist_events=False
+    )
+    assert wf.topology is not None
+    assert "human_approval" in [n["id"] for n in wf.topology()["nodes"]]

@@ -74,3 +74,34 @@ if (typeof globalThis.localStorage?.setItem !== "function") {
     value: new MemoryStorage(),
   });
 }
+
+// React Flow (@xyflow/react) needs DOMMatrixReadOnly for zoom math, element
+// dimensions for its viewport, and SVGElement.getBBox for edge labels; jsdom
+// implements none of these.
+class DOMMatrixReadOnlyStub {
+  m22: number;
+  constructor(transform?: string) {
+    const scale = transform?.match(/scale\(([1-9.]+)\)/)?.[1];
+    this.m22 = scale !== undefined ? +scale : 1;
+  }
+}
+Object.defineProperty(window, "DOMMatrixReadOnly", {
+  writable: true,
+  value: DOMMatrixReadOnlyStub,
+});
+
+Object.defineProperties(window.HTMLElement.prototype, {
+  offsetHeight: {
+    get() {
+      return parseFloat((this as HTMLElement).style.height) || 1;
+    },
+  },
+  offsetWidth: {
+    get() {
+      return parseFloat((this as HTMLElement).style.width) || 1;
+    },
+  },
+});
+
+(window.SVGElement.prototype as unknown as { getBBox: () => DOMRect }).getBBox =
+  () => ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect;
