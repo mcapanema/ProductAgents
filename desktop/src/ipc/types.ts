@@ -171,6 +171,8 @@ export interface ConnectorSchema {
 export interface ConnectorConfigEntry {
   connector: string;
   installed: boolean;
+  title?: string;
+  description?: string;
   config: Record<string, unknown>;
   schema: ConnectorSchema | null;
   problems: string[];

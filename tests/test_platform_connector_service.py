@@ -71,6 +71,29 @@ async def test_config_list_includes_schema_and_current_block(tmp_path):
     assert gh["installed"] is True
     assert gh["config"]["owner"] == "acme"
     assert "owner" in gh["schema"]["properties"]
+    assert gh["title"] == "GitHub"
+    assert gh["description"] == "Syncs repository issues into customer feedback."
+
+
+async def test_config_list_metadata_falls_back_to_key_when_uninstalled(tmp_path):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.memory.workspace_state import ConnectorConfigStore
+    from productagents.platform.connector_service import ConnectorService
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    svc = ConnectorService(engine=engine, env_path=str(tmp_path / ".env"))
+    async with maker() as session:
+        await ConnectorConfigStore(session).set("slack", {"enabled": True})
+    (entry,) = await svc.config_list(registry={})
+    assert entry["installed"] is False
+    assert entry["title"] == "slack"
+    assert entry["description"] == ""
 
 
 async def test_config_save_validates_writes_and_persists_secret(tmp_path, monkeypatch):
