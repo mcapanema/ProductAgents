@@ -67,7 +67,9 @@ export function WorkflowsPanel() {
   const flowEdges = topology ? buildFlowEdges(topology) : [];
 
   // Guarded node open: if the drawer has unsaved edits, confirm before switching.
-  function requestNode(next: WorkflowNode | null) {
+  // `after` runs once the guard is satisfied — immediately if not dirty, or from
+  // the confirm dialog's onOk if the user chooses to discard.
+  function requestNode(next: WorkflowNode | null, after?: () => void) {
     if (dirty && next?.id !== promptNode?.id) {
       Modal.confirm({
         title: "Discard unsaved prompt edits?",
@@ -77,11 +79,13 @@ export function WorkflowsPanel() {
         onOk: () => {
           setDirty(false);
           setPromptNode(next);
+          after?.();
         },
       });
       return;
     }
     setPromptNode(next);
+    after?.();
   }
 
   const onNodeClick: NodeMouseHandler = (_, node) => {
@@ -94,16 +98,21 @@ export function WorkflowsPanel() {
       <div className="wf-panel__head">
         <div>
           <Typography.Title level={2} style={{ margin: 0 }}>Workflows</Typography.Title>
+          {detail?.title && (
+            <Typography.Text strong style={{ display: "block", margin: "4px 0 0" }}>
+              {detail.title}
+            </Typography.Text>
+          )}
           <Typography.Paragraph type="secondary" style={{ maxWidth: "66ch", margin: "4px 0 0" }}>
             {detail?.description ??
               "Registered decision pipelines. Select a workflow to inspect its reasoning graph; click an agent to edit the prompts that steer it."}
           </Typography.Paragraph>
         </div>
-        {list.length > 0 && (
+        {list.length > 1 && (
           <Segmented
             className="wf-panel__switcher"
             value={detail?.name}
-            onChange={(v) => requestNode(null) ?? void open(String(v))}
+            onChange={(v) => requestNode(null, () => void open(String(v)))}
             options={list.map((w) => ({ label: w.title, value: w.name }))}
           />
         )}
