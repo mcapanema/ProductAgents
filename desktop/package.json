@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "pretauri": "bash packaging/ensure-sidecar.sh",
     "tauri": "tauri"
   },
   "dependencies": {
