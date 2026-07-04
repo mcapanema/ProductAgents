@@ -162,16 +162,24 @@ export function buildFlowEdges(topology: WorkflowTopology): Edge[] {
  * Convert React Flow's editable state back into a `WorkflowDefinitionDTO` for
  * `ipc.workflowsSave`. `__start__`/`__end__` are terminal markers rendered on
  * the canvas, never real node instances — excluded from both `nodes` and
- * `layout`. Each node's backend `kind` (e.g. "market") comes from
- * `data.backendKind`, set by `buildFlowNodes`/the palette's add-node handler
- * — falling back to the node id covers a hand-built node missing it.
+ * `layout` (their edges pass through unfiltered, as before). `human_approval`
+ * is a builder-managed preview node `definition_topology` synthesizes
+ * whenever HITL is on (always, for the desktop GUI) — not user-placeable, so
+ * it's excluded from `nodes`/`layout` too, and any edge touching it
+ * (`governance -> human_approval`, `human_approval -> __end__`) is dropped —
+ * an edge to a node that isn't being saved would otherwise reach the backend
+ * referencing an unknown node. Each node's backend `kind` (e.g. "market")
+ * comes from `data.backendKind`, set by `buildFlowNodes`/the palette's
+ * add-node handler — falling back to the node id covers a hand-built node
+ * missing it.
  */
 export function flowToDefinition(
   nodes: Node<AgentNodeData>[],
   edges: Edge[],
   base: { name: string; title: string; description: string; builtin: boolean },
 ): WorkflowDefinitionDTO {
-  const real = nodes.filter((n) => n.id !== "__start__" && n.id !== "__end__");
+  const real = nodes.filter((n) => n.id !== "__start__" && n.id !== "__end__" && n.id !== "human_approval");
+  const realEdges = edges.filter((e) => e.source !== "human_approval" && e.target !== "human_approval");
   return {
     ...base,
     nodes: real.map((n) => ({
@@ -179,7 +187,7 @@ export function flowToDefinition(
       kind: (n.data.backendKind as string | undefined) ?? n.id,
       config: (n.data.config as Record<string, unknown> | undefined) ?? {},
     })),
-    edges: edges.map((e) => ({
+    edges: realEdges.map((e) => ({
       source: e.source,
       target: e.target,
       conditional: Boolean((e.data as { conditional?: boolean } | undefined)?.conditional),
