@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { RunPanel } from "./RunPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { RunHandlers, RunParams, IpcEvent } from "../ipc/types";
+import type { RunHandlers, RunParams, IpcEvent, WorkflowSummary } from "../ipc/types";
 
 describe("RunPanel idle state", () => {
   it("shows a first-run hint before any run has started", () => {
@@ -122,6 +122,59 @@ describe("RunPanel stage timeline", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByText("Market")).toBeInTheDocument();
     expect(screen.getByText("demand up")).toBeInTheDocument();
+  });
+});
+
+describe("RunPanel workflow selector", () => {
+  const WORKFLOWS: WorkflowSummary[] = [
+    { name: "custom_flow", title: "Custom Flow", description: "", is_default: false },
+    { name: "other_flow", title: "Other Flow", description: "", is_default: true },
+  ];
+
+  it("preselects the workflow whose is_default is true", async () => {
+    const workflowsList = vi.fn(async () => WORKFLOWS);
+    render(
+      <IpcProvider client={{ workflowsList } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    await waitFor(() => expect(screen.getByTitle("★ Other Flow")).toBeInTheDocument());
+  });
+
+  it("sends the selected (non-default) workflow's name when running", async () => {
+    const workflowsList = vi.fn(async () => WORKFLOWS);
+    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    render(
+      <IpcProvider client={{ workflowsList, run } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    await waitFor(() => expect(screen.getByTitle("★ Other Flow")).toBeInTheDocument());
+
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Workflow" }));
+    fireEvent.click(await screen.findByTitle("Custom Flow"));
+
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(run).toHaveBeenCalled());
+    expect(run.mock.calls[0][0]).toMatchObject({ workflow: "custom_flow" });
+  });
+
+  it("falls back to the evaluate_initiative literal when workflowsList fails", async () => {
+    const workflowsList = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    render(
+      <IpcProvider client={{ workflowsList, run } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    await waitFor(() => expect(workflowsList).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(run).toHaveBeenCalled());
+    expect(run.mock.calls[0][0]).toMatchObject({ workflow: "evaluate_initiative" });
   });
 });
 
