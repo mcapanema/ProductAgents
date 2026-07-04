@@ -17,7 +17,7 @@ export function WorkflowPalette({
   onAdd: (kind: string) => void;
 }) {
   return (
-    <div className="wf-palette">
+    <div className="wf-palette" role="list">
       {palette.map((k) => {
         const meta = KIND_META[nodeKind(k.kind)];
         return (
