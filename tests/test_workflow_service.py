@@ -99,3 +99,40 @@ def test_palette_lists_placeable_kinds(store_opener):
     market = next(k for k in svc.palette() if k["kind"] == "market")
     assert market["singleton"] is False
     assert "reports" in market["writes"]
+
+
+async def test_save_cannot_strip_builtin_protection(store_opener):
+    """A client saving 'evaluate_initiative' with builtin=False must not
+    bypass delete()'s builtin guard (carried-forward C3 review fix)."""
+    svc = _svc(store_opener)
+    await svc.list()  # seed the builtin default
+    defn = await svc.get("evaluate_initiative")
+    payload = defn.model_dump(mode="json")
+    payload["builtin"] = False
+
+    await svc.save(payload)
+
+    reloaded = await svc.get("evaluate_initiative")
+    assert reloaded.builtin is True
+    with pytest.raises(ValueError, match="built-in"):
+        await svc.delete("evaluate_initiative")
+
+
+async def test_show_topology_reflects_human_in_the_loop(store_opener):
+    """The GUI always builds with human_in_the_loop=True; show()'s topology
+    preview must include the approval step it will actually pause at."""
+    hitl_svc = WorkflowService.create(
+        FakeChatModel({}),
+        persist_events=False,
+        store_opener=store_opener,
+        human_in_the_loop=True,
+    )
+    await hitl_svc.list()  # seed
+    hitl_detail = await hitl_svc.show("evaluate_initiative")
+    assert hitl_detail is not None
+    assert "human_approval" in {n["id"] for n in hitl_detail["topology"]["nodes"]}
+
+    plain_svc = _svc(store_opener)
+    plain_detail = await plain_svc.show("evaluate_initiative")
+    assert plain_detail is not None
+    assert "human_approval" not in {n["id"] for n in plain_detail["topology"]["nodes"]}

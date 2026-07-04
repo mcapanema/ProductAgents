@@ -3,23 +3,44 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import cast
 
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
+
 from productagents.app import ipc
+from productagents.memory.store import create_all as _memory_create_all
+from productagents.memory.workspace_state import WorkflowDefinitionStore
 from productagents.platform.events import Event
 from productagents.platform.memory_service import Lesson
 from productagents.platform.session import Session
 from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
+from tests.fakes import FakeChatModel, StandInWorkflowService
 from tests.fakes import StandInWorkflow as Workflow
-from tests.fakes import StandInWorkflowService
 
-# ponytail: `Workflow`/list-of-workflows `WorkflowService(...)` construction below
-# is the pre-Plan-2 sync contract (see tests/fakes.py::StandInWorkflow{,Service}).
-# The real `WorkflowService` (imported above) is now async + DB-backed and can't
-# double as a cheap in-test fake; ipc.py's run/workflows.* handlers are still
-# synchronous against the old shape until Task C4/D1 migrates them.
+# ponytail: `Workflow`/list-of-workflows `StandInWorkflowService` below is a sync
+# stand-in kept only for the `run`/`run.cancel` tests, which don't exercise the
+# real CRUD/palette/validate surface. Those are tested against a real
+# `WorkflowService` over an in-memory DB (`_real_workflows()`), mirroring
+# `_real_workspaces`.
+
+
+async def _real_workflows():
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await _memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    @asynccontextmanager
+    async def opener(*, workspace="default"):
+        async with maker() as session:
+            yield WorkflowDefinitionStore(session, workspace=workspace)
+
+    return WorkflowService.create(
+        FakeChatModel({}), persist_events=False, store_opener=opener
+    )
 
 
 def _collect():
@@ -145,30 +166,81 @@ def _workflows():
     )
 
 
-async def test_workflows_list_returns_registered_workflows():
+async def test_workflows_list_seeds_default():
     emit, sink = _collect()
     await ipc.handle(
         {"id": 1, "method": "workflows.list"},
         {
-            "workflows": _workflows(),
-            "workspaces": None,
+            "workflows": await _real_workflows(),
             "active_name": "default",
             "sessions": _FakeSessions(),
         },
         emit=emit,
     )
-    assert sink == [
+    assert [w["name"] for w in sink[0]["result"]] == ["evaluate_initiative"]
+    assert sink[0]["result"][0]["is_default"] is True
+
+
+async def test_workflows_create_then_show():
+    wf = await _real_workflows()
+    emit, sink = _collect()
+    services = {"workflows": wf, "active_name": "default", "sessions": _FakeSessions()}
+    await ipc.handle(
         {
-            "id": 1,
-            "result": [
-                {
-                    "name": "evaluate_initiative",
-                    "title": "Evaluate Initiative",
-                    "description": "advisory pipeline",
+            "id": 2,
+            "method": "workflows.create",
+            "params": {"name": "roadmap", "title": "Roadmap"},
+        },
+        services,
+        emit=emit,
+    )
+    assert sink[0]["result"]["name"] == "roadmap"
+    await ipc.handle(
+        {"id": 3, "method": "workflows.show", "params": {"name": "roadmap"}},
+        services,
+        emit=emit,
+    )
+    assert sink[1]["result"]["definition"]["name"] == "roadmap"
+
+
+async def test_workflows_save_rejects_invalid():
+    wf = await _real_workflows()
+    emit, sink = _collect()
+    await ipc.handle(
+        {
+            "id": 4,
+            "method": "workflows.save",
+            "params": {
+                "definition": {
+                    "name": "broken",
+                    "title": "B",
+                    "nodes": [{"id": "judge", "kind": "judge"}],
+                    "edges": [
+                        {"source": "__start__", "target": "judge"},
+                        {"source": "judge", "target": "__end__"},
+                    ],
                 }
-            ],
-        }
-    ]
+            },
+        },
+        {"workflows": wf, "active_name": "default", "sessions": _FakeSessions()},
+        emit=emit,
+    )
+    assert "error" in sink[0]
+    assert "recommendation" in sink[0]["error"]
+
+
+async def test_workflows_palette_lists_kinds():
+    emit, sink = _collect()
+    await ipc.handle(
+        {"id": 5, "method": "workflows.palette"},
+        {
+            "workflows": await _real_workflows(),
+            "active_name": "default",
+            "sessions": _FakeSessions(),
+        },
+        emit=emit,
+    )
+    assert any(k["kind"] == "market" for k in sink[0]["result"])
 
 
 async def test_unknown_method_emits_error():
@@ -811,7 +883,9 @@ def test_serve_stdio_builds_services_and_serves(monkeypatch):
     captured = {}
 
     def fake_build_run_service(*, human_in_the_loop=False, workspace="default"):
-        return _workflows()
+        return WorkflowService.create(
+            None, workspace=workspace, human_in_the_loop=human_in_the_loop
+        )
 
     async def fake_serve(services, **kwargs):
         captured.update(services)
@@ -1687,7 +1761,7 @@ class _CancellableWorkflows:
         self._fire = asyncio.Event()
         self.cancelled = None
 
-    def run(self, name, initiative, evidence, *, approver=None):
+    async def run(self, name, initiative, evidence, *, approver=None):
         session = Session(id="s-cancel", workflow="evaluate_initiative")
         return session, self._stream(session)
 
@@ -1883,83 +1957,3 @@ async def test_connectors_config_list_and_save():
         emit=emit,
     )
     assert "invalid" in sink[2]["error"]
-
-
-def _topology_workflow(topology):
-    async def _stream():
-        return
-        yield  # async generator
-
-    return Workflow(
-        name="evaluate_initiative",
-        title="Evaluate Initiative",
-        description="d",
-        start=lambda *a, **k: (
-            Session(id="x", workflow="evaluate_initiative"),
-            _stream(),
-        ),
-        topology=topology,
-    )
-
-
-def _show_services(wf):
-    return {
-        "workflows": StandInWorkflowService([wf]),
-        "workspaces": None,
-        "active_name": "default",
-        "sessions": _FakeSessions(),
-    }
-
-
-async def test_workflows_show_returns_topology():
-    topo = {
-        "nodes": [{"id": "strategist", "prompts": ["strategist"]}],
-        "edges": [
-            {"source": "__start__", "target": "strategist", "conditional": False}
-        ],
-    }
-    emit, sink = _collect()
-    await ipc.handle(
-        {
-            "id": 60,
-            "method": "workflows.show",
-            "params": {"name": "evaluate_initiative"},
-        },
-        _show_services(_topology_workflow(lambda: topo)),
-        emit=emit,
-    )
-    assert sink == [
-        {
-            "id": 60,
-            "result": {
-                "name": "evaluate_initiative",
-                "title": "Evaluate Initiative",
-                "description": "d",
-                "topology": topo,
-            },
-        }
-    ]
-
-
-async def test_workflows_show_without_topology_returns_null():
-    emit, sink = _collect()
-    await ipc.handle(
-        {
-            "id": 61,
-            "method": "workflows.show",
-            "params": {"name": "evaluate_initiative"},
-        },
-        _show_services(_topology_workflow(None)),
-        emit=emit,
-    )
-    assert sink[0]["result"]["topology"] is None
-
-
-async def test_workflows_show_unknown_name_errors():
-    emit, sink = _collect()
-    await ipc.handle(
-        {"id": 62, "method": "workflows.show", "params": {"name": "nope"}},
-        _show_services(_topology_workflow(None)),
-        emit=emit,
-    )
-    assert sink == [{"id": 62, "error": "no such workflow: 'nope'"}]

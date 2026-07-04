@@ -170,10 +170,15 @@ async def _run(
         ):  # advisory already streamed; read client's decision
             return await _ipc_approve(read_line, emit)
 
-    # WorkflowService.run is now async (Plan 2); this sync call site is
-    # pre-existing fallout left for Task C4/D1 to `await`.
-    session, stream = workflows.run(  # ty: ignore[not-iterable]
-        params["workflow"], initiative, params.get("evidence", ""), approver=approver
+    workflow_name = params.get("workflow")
+    if not workflow_name:
+        listed = await workflows.list()
+        workflow_name = next(
+            (w["name"] for w in listed if w.get("is_default")),
+            listed[0]["name"] if listed else "evaluate_initiative",
+        )
+    session, stream = await workflows.run(
+        workflow_name, initiative, params.get("evidence", ""), approver=approver
     )
 
     # Concurrent cancel watcher — only for non-approval runs (HITL already owns
@@ -258,13 +263,6 @@ async def _watch_cancel(
             if msg.get("id") is not None:
                 await emit({"id": msg["id"], "result": {"ok": ok}})
             return
-
-
-def _workflow_dict(w) -> dict:
-    # ponytail: `w` was a Workflow dataclass pre-Plan-2; the real (async, DB-backed)
-    # WorkflowService.list()/.show() now return dicts directly. Handler bodies here
-    # still assume the old attribute-style shape — Task C4/D1 migrates them.
-    return {"name": w.name, "title": w.title, "description": w.description}
 
 
 def _session_dict(s: Session) -> dict:
@@ -406,31 +404,48 @@ async def handle(
         # and (rid, emit) so it can emit directly. Exceptions bubble to the outer
         # except so one bad request never kills the loop.
 
-        # ponytail: workflows.list/.get are now async (Plan 2's WorkflowService);
-        # these two handlers still call them synchronously — pre-existing fallout
-        # left for Task C4/D1 to `await` and re-shape against the new dict return
-        # values (.list()/.show() already produce the {name, title, description,
-        # is_default[, topology]} shape these handlers hand-roll today).
         async def _workflows_list(_p: dict) -> None:
-            wfs = [
-                _workflow_dict(w)
-                for w in workflows.list()  # ty: ignore[not-iterable]
-            ]
-            await emit({"id": rid, "result": wfs})
+            await emit({"id": rid, "result": await workflows.list()})
 
         async def _workflows_show(p: dict) -> None:
-            name = p.get("name", "")
-            w = workflows.get(name)
-            if w is None:
-                await emit({"id": rid, "error": f"no such workflow: {name!r}"})
+            detail = await workflows.show(p.get("name", ""))
+            if detail is None:
+                await emit({"id": rid, "error": f"no such workflow: {p.get('name')!r}"})
                 return
-            detail = _workflow_dict(w)
-            detail["topology"] = (
-                w.topology()  # ty: ignore[unresolved-attribute]
-                if w.topology is not None  # ty: ignore[unresolved-attribute]
-                else None
-            )
             await emit({"id": rid, "result": detail})
+
+        async def _workflows_palette(_p: dict) -> None:
+            await emit({"id": rid, "result": workflows.palette()})
+
+        async def _workflows_validate(p: dict) -> None:
+            errors = await workflows.validate(p["definition"])
+            await emit({"id": rid, "result": {"errors": errors}})
+
+        async def _workflows_create(p: dict) -> None:
+            row = await workflows.create_workflow(
+                p["name"], p["title"], p.get("description", "")
+            )
+            await emit({"id": rid, "result": row})
+
+        async def _workflows_clone(p: dict) -> None:
+            row = await workflows.clone(p["name"], p["new_name"], title=p.get("title"))
+            await emit({"id": rid, "result": row})
+
+        async def _workflows_save(p: dict) -> None:
+            row = await workflows.save(p["definition"])
+            await emit({"id": rid, "result": row})
+
+        async def _workflows_rename(p: dict) -> None:
+            row = await workflows.rename(p["name"], p["new_name"])
+            await emit({"id": rid, "result": row})
+
+        async def _workflows_delete(p: dict) -> None:
+            await workflows.delete(p["name"])
+            await emit({"id": rid, "result": {"ok": True}})
+
+        async def _workflows_set_default(p: dict) -> None:
+            await workflows.set_default(p["name"])
+            await emit({"id": rid, "result": {"ok": True}})
 
         async def _workspaces_list(_p: dict) -> None:
             if workspaces is None:
@@ -695,6 +710,14 @@ async def handle(
         table: dict[str, Callable[[dict], Awaitable[None]]] = {
             "workflows.list": _workflows_list,
             "workflows.show": _workflows_show,
+            "workflows.palette": _workflows_palette,
+            "workflows.validate": _workflows_validate,
+            "workflows.create": _workflows_create,
+            "workflows.clone": _workflows_clone,
+            "workflows.save": _workflows_save,
+            "workflows.rename": _workflows_rename,
+            "workflows.delete": _workflows_delete,
+            "workflows.setDefault": _workflows_set_default,
             "workspaces.list": _workspaces_list,
             "workspaces.show": _workspaces_show,
             "workspaces.create": _workspaces_create,

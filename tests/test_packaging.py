@@ -20,7 +20,7 @@ def test_sidecar_entry_runs_ipc(monkeypatch):
     assert seen == [["ipc"]]
 
 
-def test_build_workflows_survives_missing_model(monkeypatch):
+async def test_build_workflows_survives_missing_model(monkeypatch):
     """A fresh install has no API key; the sidecar must still start so the GUI
     can reach Settings. get_model() failing must not crash build_workflows."""
 
@@ -30,15 +30,7 @@ def test_build_workflows_survives_missing_model(monkeypatch):
     monkeypatch.setattr("productagents.app.cli.get_model", boom)
     service = ipc._build_workflows("default", human_in_the_loop=True)
     # list() reads the registered workflow names; it needs no model.
-    # ponytail: WorkflowService.list() is now async (Plan 2's DB-backed
-    # rewrite); this assertion still calls it synchronously against the real
-    # service and currently fails with TypeError. Left failing on purpose —
-    # Task C4/D1 migrates this test alongside the rest of the CLI/IPC async
-    # call sites rather than patching it here.
-    assert any(
-        w.name == "evaluate_initiative"
-        for w in service.list()  # ty: ignore[not-iterable]
-    )
+    assert any(w["name"] == "evaluate_initiative" for w in await service.list())
 
 
 def test_bundle_metadata_present():

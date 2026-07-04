@@ -30,10 +30,18 @@ def _summary(defn: WorkflowDefinition, *, is_default: bool) -> dict:
 
 
 class WorkflowService:
-    def __init__(self, decision_service, *, workspace: str, store_opener) -> None:
+    def __init__(
+        self,
+        decision_service,
+        *,
+        workspace: str,
+        store_opener,
+        human_in_the_loop: bool = False,
+    ) -> None:
         self._decisions = decision_service
         self._workspace = workspace
         self._open = store_opener
+        self._hitl = human_in_the_loop
 
     @classmethod
     def create(
@@ -55,7 +63,12 @@ class WorkflowService:
             persist_events=persist_events,
             workspace=workspace,
         )
-        return cls(decisions, workspace=workspace, store_opener=store_opener)
+        return cls(
+            decisions,
+            workspace=workspace,
+            store_opener=store_opener,
+            human_in_the_loop=human_in_the_loop,
+        )
 
     def _store(self):
         return self._open(workspace=self._workspace)
@@ -89,7 +102,7 @@ class WorkflowService:
             default = await store.get_default()
             detail = _summary(defn, is_default=bool(default and default.name == name))
             detail["definition"] = defn.model_dump(mode="json")
-            detail["topology"] = definition_topology(defn)
+            detail["topology"] = definition_topology(defn, human_in_the_loop=self._hitl)
             return detail
 
     async def create_workflow(
@@ -132,6 +145,12 @@ class WorkflowService:
             raise ValueError("; ".join(errors))
         async with self._store() as store:
             await self._seed(store)
+            existing = await store.get(defn.name)
+            if existing is not None and existing.builtin:
+                # A client can't strip the undeletable-builtin flag by omitting
+                # it from the payload — the store writes `builtin` verbatim on
+                # every save, so this is the one place that guards it.
+                defn = defn.model_copy(update={"builtin": True})
             await store.save(defn)
             default = await store.get_default()
         return _summary(defn, is_default=bool(default and default.name == defn.name))

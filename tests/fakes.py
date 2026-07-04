@@ -95,8 +95,11 @@ class StandInWorkflow:
 
 class StandInWorkflowService:
     """ponytail: sync test double matching the pre-Plan-2 WorkflowService
-    contract (a name -> Workflow registry). Use in tests instead of the real
-    (async, DB-backed) WorkflowService until callers are migrated."""
+    contract (a name -> Workflow registry). Kept alive only for the `run`/
+    `run.cancel` IPC tests, which exercise the run-streaming path rather than
+    the real CRUD/palette/validate surface (see tests/test_ipc.py's
+    `_real_workflows()` for that). `run` is `async def` so it satisfies
+    ipc.py's `await workflows.run(...)` call site."""
 
     def __init__(self, workflows):
         self._workflows = {w.name: w for w in workflows}
@@ -107,7 +110,7 @@ class StandInWorkflowService:
     def get(self, name):
         return self._workflows.get(name)
 
-    def run(self, name, *args, **kwargs):
+    async def run(self, name, *args, **kwargs):
         workflow = self._workflows.get(name)
         if workflow is None:
             raise KeyError(f"unknown workflow: {name!r}")
