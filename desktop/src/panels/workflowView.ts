@@ -86,6 +86,18 @@ export function buildFlowNodes(
   }));
 }
 
+/**
+ * Patch which node is "selected" (drives the open-drawer ring) onto an
+ * existing node list without touching position — used after a drag, where
+ * `buildFlowNodes` would otherwise reset every node back to its computed
+ * layout position.
+ */
+export function withSelection(nodes: Node<AgentNodeData>[], selectedId: string | null): Node<AgentNodeData>[] {
+  return nodes.map((n) =>
+    n.data.selected === (n.id === selectedId) ? n : { ...n, data: { ...n.data, selected: n.id === selectedId } },
+  );
+}
+
 export function buildFlowEdges(topology: WorkflowTopology): Edge[] {
   return topology.edges.map((e) => ({
     id: `${e.source}->${e.target}`,

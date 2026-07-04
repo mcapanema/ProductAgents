@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  applyNodeChanges,
   Background,
   BackgroundVariant,
   Controls,
   ReactFlow,
-  type NodeMouseHandler,
+  type Node,
+  type NodeChange,
+  type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Typography, Segmented, Modal } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
-import { buildFlowNodes, buildFlowEdges } from "./workflowView";
-import AgentNode from "./AgentNode";
+import { buildFlowNodes, buildFlowEdges, withSelection } from "./workflowView";
+import AgentNode, { type AgentNodeData } from "./AgentNode";
 import { WorkflowLegend } from "./WorkflowLegend";
 import { NodePromptDrawer } from "./NodePromptDrawer";
 import { EmptyState } from "../ui/EmptyState";
@@ -21,12 +24,22 @@ import "./WorkflowsPanel.css";
 
 const nodeTypes = { agent: AgentNode };
 
+// initialWidth/Height is a size hint used only until React Flow's own
+// ResizeObserver measures the real DOM node — it never overrides a real
+// measurement, but it lets the node render immediately instead of staying
+// `visibility: hidden` for the first frame (or, in jsdom where
+// ResizeObserver never fires, indefinitely).
+function withSizeHint(nodes: Node<AgentNodeData>[]): Node<AgentNodeData>[] {
+  return nodes.map((n) => ({ ...n, initialWidth: 190, initialHeight: 64 }));
+}
+
 export function WorkflowsPanel() {
   const ipc = useIpc();
   const [list, setList] = useState<WorkflowSummary[]>([]);
   const [detail, setDetail] = useState<WorkflowDetail | null>(null);
   const [promptNode, setPromptNode] = useState<WorkflowNode | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [flowNodes, setFlowNodes] = useState<Node<AgentNodeData>[]>([]);
 
   async function open(name: string) {
     setPromptNode(null);
@@ -52,19 +65,28 @@ export function WorkflowsPanel() {
   }, [ipc]);
 
   const topology = detail?.topology ?? null;
-  const flowNodes = topology
-    ? buildFlowNodes(topology, { selectedId: promptNode?.id ?? null }).map((n) => ({
-        // initialWidth/Height is a size hint used only until React Flow's own
-        // ResizeObserver measures the real DOM node — it never overrides a
-        // real measurement, but it lets the node render immediately instead
-        // of staying `visibility: hidden` for the first frame (or, in jsdom
-        // where ResizeObserver never fires, indefinitely).
-        ...n,
-        initialWidth: 190,
-        initialHeight: 64,
-      }))
-    : [];
+
+  // Recompute the layout (including positions) only when the topology itself
+  // changes — first load or a workflow switch. A different graph has a
+  // different natural layout, so dragged positions intentionally don't
+  // survive a workflow switch.
+  useEffect(() => {
+    setFlowNodes(topology ? withSizeHint(buildFlowNodes(topology, { selectedId: promptNode?.id ?? null })) : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topology]);
+
+  // Patch which node is selected onto the *existing* node list — e.g. after a
+  // drag — without resetting anyone's position back to the computed layout.
+  useEffect(() => {
+    setFlowNodes((nodes) => withSelection(nodes, promptNode?.id ?? null));
+  }, [promptNode?.id]);
+
   const flowEdges = topology ? buildFlowEdges(topology) : [];
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<Node<AgentNodeData>>[]) => setFlowNodes((nodes) => applyNodeChanges(changes, nodes)),
+    [],
+  );
 
   // Guarded node open: if the drawer has unsaved edits, confirm before switching.
   // `after` runs once the guard is satisfied — immediately if not dirty, or from
@@ -88,8 +110,12 @@ export function WorkflowsPanel() {
     after?.();
   }
 
-  const onNodeClick: NodeMouseHandler = (_, node) => {
-    const n = topology?.nodes.find((x) => x.id === node.id);
+  // Single source of truth for "which node opens the drawer": React Flow's own
+  // selection state, driven by either a mouse click or keyboard Enter/Space on
+  // a focused node — both funnel through here since `onNodesChange` is wired.
+  const onSelectionChange: OnSelectionChangeFunc = ({ nodes: selected }) => {
+    if (selected.length !== 1) return;
+    const n = topology?.nodes.find((x) => x.id === selected[0].id);
     if (n && n.prompts.length > 0) requestNode(n);
   };
 
@@ -133,12 +159,14 @@ export function WorkflowsPanel() {
               nodes={flowNodes}
               edges={flowEdges}
               nodeTypes={nodeTypes}
-              onNodeClick={onNodeClick}
+              onNodesChange={onNodesChange}
+              onSelectionChange={onSelectionChange}
               fitView
               fitViewOptions={{ padding: 0.2 }}
-              nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable
+              selectNodesOnDrag={false}
+              deleteKeyCode={null}
               proOptions={{ hideAttribution: true }}
             >
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color={tokenVar("--border-subtle")} />

@@ -61,6 +61,15 @@ describe("WorkflowsPanel", () => {
     expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
   });
 
+  it("opens the prompt editor on keyboard Enter, not just mouse click", async () => {
+    renderPanel(fake());
+    await screen.findByRole("button", { name: /Strategist/ });
+    const rfNode = document.querySelector('[data-testid="rf__node-strategist"]') as HTMLElement;
+    expect(rfNode).toBeTruthy();
+    fireEvent.keyDown(rfNode, { key: "Enter" });
+    expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
+  });
+
   it("blocks switching nodes on unsaved prompt edits until the user confirms", async () => {
     const detailWithJudge: WorkflowDetail = {
       ...detail,

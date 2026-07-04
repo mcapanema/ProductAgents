@@ -138,7 +138,7 @@ export function NodePromptDrawer({ node, onClose, onDirtyChange }: Props) {
                   setSaveState((s) => ({ ...s, [name]: "idle" }));
                 }}
                 autoSize={{ minRows: 8, maxRows: 20 }}
-                style={{ ...MONO, whiteSpace: "pre" }}
+                style={{ ...MONO, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                 spellCheck={false}
               />
             )}

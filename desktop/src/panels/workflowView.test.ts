@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { layoutTopology, nodeLabel, nodeRanks, buildFlowNodes, buildFlowEdges } from "./workflowView";
+import { layoutTopology, nodeLabel, nodeRanks, buildFlowNodes, buildFlowEdges, withSelection } from "./workflowView";
 import type { WorkflowTopology } from "../ipc/types";
 
 const topo: WorkflowTopology = {
@@ -103,6 +103,33 @@ describe("buildFlowNodes", () => {
     expect(byId.strategist.data.selected).toBe(true);
     expect(byId.customer_research.data.status).toBe("done");
     expect(byId.strategist.data.status).toBe("idle"); // default
+  });
+});
+
+describe("withSelection", () => {
+  it("marks only the given node id as selected, leaving other fields (like position) untouched", () => {
+    const nodes = buildFlowNodes(topoSmall, { selectedId: "customer_research" });
+    const dragged = nodes.map((n) => (n.id === "strategist" ? { ...n, position: { x: 999, y: 999 } } : n));
+    const patched = withSelection(dragged, "strategist");
+    const byId = Object.fromEntries(patched.map((n) => [n.id, n]));
+    expect(byId.strategist.data.selected).toBe(true);
+    expect(byId.customer_research.data.selected).toBe(false); // previous selection cleared
+    expect(byId.strategist.position).toEqual({ x: 999, y: 999 }); // the drag survives
+  });
+
+  it("returns a new array reference only for nodes whose selected flag actually changed", () => {
+    const nodes = buildFlowNodes(topoSmall, { selectedId: "strategist" });
+    const patched = withSelection(nodes, "strategist");
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const patchedById = Object.fromEntries(patched.map((n) => [n.id, n]));
+    expect(patchedById.strategist).toBe(byId.strategist); // unchanged: same object
+    expect(patchedById.customer_research).toBe(byId.customer_research); // unchanged: same object
+  });
+
+  it("clears selection when passed null", () => {
+    const nodes = buildFlowNodes(topoSmall, { selectedId: "strategist" });
+    const patched = withSelection(nodes, null);
+    expect(patched.every((n) => n.data.selected === false)).toBe(true);
   });
 });
 
