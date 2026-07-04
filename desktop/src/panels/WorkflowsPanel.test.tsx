@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -10,7 +10,6 @@ const summary: WorkflowSummary = {
   title: "Evaluate Initiative",
   description: "Advisory pipeline: evidence → analysts → debate → strategist.",
 };
-
 const detail: WorkflowDetail = {
   ...summary,
   topology: {
@@ -25,8 +24,7 @@ const detail: WorkflowDetail = {
     ],
   },
 };
-
-export function fake(overrides: Record<string, unknown> = {}): IpcClient {
+function fake(overrides: Record<string, unknown> = {}): IpcClient {
   return {
     workflowsList: async () => [summary],
     workflowsShow: async () => detail,
@@ -36,22 +34,15 @@ export function fake(overrides: Record<string, unknown> = {}): IpcClient {
     ...overrides,
   } as unknown as IpcClient;
 }
-
-export function renderPanel(client: IpcClient) {
-  render(
-    <IpcProvider client={client}>
-      <WorkflowsPanel />
-    </IpcProvider>,
-  );
+function renderPanel(client: IpcClient) {
+  render(<IpcProvider client={client}><WorkflowsPanel /></IpcProvider>);
 }
 
 describe("WorkflowsPanel", () => {
-  it("lists workflows and renders the selected workflow's graph", async () => {
+  it("renders the selected workflow's graph as themed agent nodes", async () => {
     renderPanel(fake());
-    expect(await screen.findByText("Evaluate Initiative")).toBeInTheDocument();
-    expect(await screen.findByText("Strategist")).toBeInTheDocument();
-    expect(screen.getByText("Start")).toBeInTheDocument();
-    expect(screen.getByText("End")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Strategist/ })).toBeInTheDocument();
+    expect(screen.getByText("Evaluate Initiative")).toBeInTheDocument();
   });
 
   it("shows an empty state when there are no workflows", async () => {
@@ -60,29 +51,72 @@ describe("WorkflowsPanel", () => {
   });
 
   it("shows a fallback when a workflow exposes no topology", async () => {
-    renderPanel(
-      fake({ workflowsShow: async () => ({ ...summary, topology: null }) }),
-    );
+    renderPanel(fake({ workflowsShow: async () => ({ ...summary, topology: null }) }));
     expect(await screen.findByText(/no graph available/i)).toBeInTheDocument();
   });
 
-  it("opens the prompt editor when an agent node is clicked", async () => {
-    const saves: [string, string][] = [];
-    renderPanel(
-      fake({
-        promptsSave: async (name: string, text: string) => {
-          saves.push([name, text]);
-          return { name, versions: [0, 1], active: 1 };
-        },
-      }),
-    );
-    fireEvent.click(await screen.findByText("Strategist"));
+  it("opens the prompt editor when an editable agent node is clicked", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByRole("button", { name: /Strategist/ }));
+    expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
+  });
+
+  it("opens the prompt editor on keyboard Enter, not just mouse click", async () => {
+    renderPanel(fake());
+    await screen.findByRole("button", { name: /Strategist/ });
+    const rfNode = document.querySelector('[data-testid="rf__node-strategist"]') as HTMLElement;
+    expect(rfNode).toBeTruthy();
+    fireEvent.keyDown(rfNode, { key: "Enter" });
+    expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
+  });
+
+  it("closing the prompt drawer keeps it closed", async () => {
+    // Regression: React Flow re-invokes onSelectionChange on every parent
+    // render (not just on an actual selection change). An unmemoized handler
+    // kept re-reading the *stale* still-selected node and reopening the
+    // drawer the instant it closed — closing never stuck.
+    renderPanel(fake());
+    fireEvent.click(await screen.findByRole("button", { name: /Strategist/ }));
+    expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
+
+    const closeButton = document.querySelector(".ant-drawer-close") as HTMLElement;
+    expect(closeButton).toBeTruthy();
+    fireEvent.click(closeButton);
+    await waitFor(() => expect(screen.queryByDisplayValue("Decide.")).not.toBeInTheDocument());
+
+    // Let any pending effects (e.g. the drawer's own state-reset effect,
+    // which itself triggers a parent re-render via onDirtyChange) settle,
+    // then confirm the drawer is still closed rather than having reopened.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByDisplayValue("Decide.")).not.toBeInTheDocument();
+  });
+
+  it("blocks switching nodes on unsaved prompt edits until the user confirms", async () => {
+    const detailWithJudge: WorkflowDetail = {
+      ...detail,
+      topology: {
+        nodes: [...detail.topology!.nodes, { id: "judge", prompts: ["judge"] }],
+        edges: [...detail.topology!.edges, { source: "strategist", target: "judge", conditional: false }],
+      },
+    };
+    renderPanel(fake({
+      workflowsShow: async () => detailWithJudge,
+      promptsList: async () => [
+        { name: "strategist", versions: [0], active: 0 },
+        { name: "judge", versions: [0], active: 0 },
+      ],
+      promptsShow: async (name: string) => ({ name, version: 0, text: name === "judge" ? "Score it." : "Decide." }),
+    }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Strategist/ }));
     const area = await screen.findByDisplayValue("Decide.");
     fireEvent.change(area, { target: { value: "Decide boldly." } });
-    fireEvent.click(
-      screen.getByRole("button", { name: /save as new version/i }),
-    );
-    expect(await screen.findByText("Saved.")).toBeInTheDocument();
-    expect(saves).toEqual([["strategist", "Decide boldly."]]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Judge/ }));
+    expect((await screen.findAllByText("Discard unsaved prompt edits?")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /keep editing/i }));
+    expect(await screen.findByDisplayValue("Decide boldly.")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Score it.")).not.toBeInTheDocument();
   });
 });

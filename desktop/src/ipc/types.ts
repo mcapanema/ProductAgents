@@ -53,6 +53,18 @@ export interface WorkflowDetail extends WorkflowSummary {
   topology: WorkflowTopology | null;
 }
 
+/** Per-node execution state. Neutral "idle" on the Workflows config view;
+ *  the live-run view (future) maps run events onto these. */
+export type NodeStatus =
+  | "idle"
+  | "waiting"
+  | "running"
+  | "done"
+  | "degraded"
+  | "failed"
+  | "awaiting-human"
+  | "cancelled";
+
 export interface SessionSummary {
   id: string;
   workflow: string;

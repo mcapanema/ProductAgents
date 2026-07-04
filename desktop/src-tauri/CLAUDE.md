@@ -53,6 +53,13 @@ webview. No product logic lives here.
   the Dev fallback and the debug-ignores-bundled rule; the local
   `binaries/productagents-ipc-*` placeholder (gitignored) loudly exits 1 so an
   accidental release-side use is visible.
+- Since `externalBin` requires *some* file to exist even in dev, and
+  `binaries/` doesn't travel with git worktree checkouts, `npm run tauri ...`
+  (any subcommand) runs `packaging/ensure-sidecar.sh` first (wired as
+  `pretauri` in `package.json`): a no-op if the placeholder for this machine's
+  target triple already exists, otherwise it copies one from another worktree
+  of the repo (content doesn't matter in dev — see above), falling back to a
+  real `build-sidecar.sh` run if no copy exists anywhere.
 - The spawned `Child` is held in `Sidecar { stdin, child }` managed state and
   **killed on `RunEvent::ExitRequested`**, so the Python backend never orphans on
   quit (the old dev spawn dropped the handle and leaked the child).

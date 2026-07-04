@@ -1,0 +1,18 @@
+.wf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12) var(--space-20);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-default);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  font: var(--text-caption);
+  color: var(--text-secondary);
+}
+.wf-legend__item { display: inline-flex; align-items: center; gap: var(--gap-inline); }
+.wf-legend__swatch { width: 12px; height: 12px; border-radius: var(--radius-pill); }
+.wf-legend__edge { width: 20px; height: 0; border-top: 1.5px dashed var(--ai-edge); }
+.wf-legend__ring {
+  width: 12px; height: 12px; border-radius: var(--radius-sm);
+  border: var(--border-width-strong) solid var(--ai-node-active-border);
+}

@@ -132,7 +132,7 @@
   /* Workflow graph. */
   --ai-node-border: var(--c-slate-600);
   --ai-node-active-border: var(--c-amber-500);
-  --ai-edge: var(--c-slate-700);
+  --ai-edge: var(--c-slate-600);              /* slate-700 read <3:1 on the canvas panel bg */
   --ai-edge-active: var(--c-amber-500);
 
   /* Log levels (trace → critical). Mono stream; level pairs with a text label. */

@@ -101,7 +101,7 @@
 
   --ai-node-border: var(--c-slate-600);
   --ai-node-active-border: var(--c-amber-500);
-  --ai-edge: var(--c-sand-300);
+  --ai-edge: var(--c-sand-500);               /* sand-300 read <3:1 on the canvas panel bg */
   --ai-edge-active: var(--c-amber-500);
 
   --ai-log-trace: var(--c-slate-600);
