@@ -124,7 +124,7 @@ def _build_run_service(
     run can pause for approval; with no approver the graph still auto-approves.
     """
     model = get_model()
-    return WorkflowService.for_model(
+    return WorkflowService.create(
         model,
         recorder=make_recorder(workspace=workspace),
         human_in_the_loop=human_in_the_loop,

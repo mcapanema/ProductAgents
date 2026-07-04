@@ -1,56 +1,101 @@
-"""WorkflowService — registry over the decision pipeline (V3 Phase 3)."""
+"""WorkflowService — DB-backed definition CRUD + run wiring (Plan 2)."""
+
+from contextlib import asynccontextmanager
 
 import pytest
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
-from productagents.platform.workflow import Workflow, WorkflowService
+from productagents.memory.store import create_all
+from productagents.memory.workspace_state import WorkflowDefinitionStore
+from productagents.platform.workflow import WorkflowService
 from tests.fakes import FakeChatModel
 
 
-def _wf(start) -> Workflow:
-    return Workflow(name="demo", title="Demo", description="a demo", start=start)
+@pytest.fixture
+async def store_opener():
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    @asynccontextmanager
+    async def opener(*, workspace="default"):
+        async with maker() as session:
+            yield WorkflowDefinitionStore(session, workspace=workspace)
+
+    yield opener
+    await engine.dispose()
 
 
-def test_list_returns_registered_workflows():
-    svc = WorkflowService([_wf(lambda *a, **k: None)])
-    assert [w.name for w in svc.list()] == ["demo"]
+def _svc(store_opener):
+    return WorkflowService.create(
+        FakeChatModel({}), persist_events=False, store_opener=store_opener
+    )
 
 
-def test_get_returns_workflow_by_name_or_none():
-    wf = _wf(lambda *a, **k: None)
-    svc = WorkflowService([wf])
-    assert svc.get("demo") is wf
-    assert svc.get("missing") is None
+async def test_list_seeds_and_returns_default(store_opener):
+    svc = _svc(store_opener)
+    rows = await svc.list()
+    assert [r["name"] for r in rows] == ["evaluate_initiative"]
+    assert rows[0]["is_default"] is True
 
 
-def test_run_delegates_to_workflow_start_passing_inputs_through():
-    calls = []
-
-    def start(initiative, evidence_spec, *, approver=None):
-        calls.append((initiative, evidence_spec, approver))
-        return ("session", "stream")
-
-    svc = WorkflowService([_wf(start)])
-    result = svc.run("demo", "INIT", "SPEC", approver="cb")
-
-    assert result == ("session", "stream")
-    assert calls == [("INIT", "SPEC", "cb")]
+async def test_show_returns_topology(store_opener):
+    svc = _svc(store_opener)
+    await svc.list()  # seed
+    detail = await svc.show("evaluate_initiative")
+    assert detail["title"] == "Evaluate Initiative"
+    assert any(n["id"] == "market" for n in detail["topology"]["nodes"])
 
 
-def test_run_unknown_workflow_raises_keyerror():
-    svc = WorkflowService([])
-    with pytest.raises(KeyError):
-        svc.run("nope", "x", "y")
+async def test_create_clone_rename_delete(store_opener):
+    svc = _svc(store_opener)
+    await svc.list()
+    made = await svc.create_workflow("roadmap", "Roadmap")
+    assert made["name"] == "roadmap"
+    cloned = await svc.clone("evaluate_initiative", "eval_copy")
+    assert cloned["name"] == "eval_copy"
+    await svc.rename("roadmap", "roadmap2")
+    names = {r["name"] for r in await svc.list()}
+    assert "roadmap2" in names
+    assert "roadmap" not in names
+    await svc.delete("roadmap2")
+    assert "roadmap2" not in {r["name"] for r in await svc.list()}
+    with pytest.raises(ValueError, match="built-in"):
+        await svc.delete("evaluate_initiative")
 
 
-def test_for_model_registers_evaluate_initiative():
-    svc = WorkflowService.for_model(FakeChatModel({}), persist_events=False)
+async def test_save_rejects_invalid_definition(store_opener):
+    svc = _svc(store_opener)
+    await svc.list()
+    bad = {
+        "name": "broken",
+        "title": "Broken",
+        "nodes": [{"id": "judge", "kind": "judge"}],
+        "edges": [
+            {"source": "__start__", "target": "judge"},
+            {"source": "judge", "target": "__end__"},
+        ],
+    }
+    with pytest.raises(ValueError, match="recommendation"):
+        await svc.save(bad)
 
-    names = [w.name for w in svc.list()]
-    assert names == ["evaluate_initiative"]
 
-    wf = svc.get("evaluate_initiative")
-    assert wf is not None
-    assert wf.title == "Evaluate Initiative"
-    # start is wired to a real DecisionService.start_session; calling it would
-    # need a DB. We only assert it is callable here — the TUI tests exercise run().
-    assert callable(wf.start)
+async def test_set_default_moves_flag(store_opener):
+    svc = _svc(store_opener)
+    await svc.list()
+    await svc.create_workflow("roadmap", "Roadmap")
+    await svc.set_default("roadmap")
+    rows = {r["name"]: r["is_default"] for r in await svc.list()}
+    assert rows["roadmap"] is True
+    assert rows["evaluate_initiative"] is False
+
+
+def test_palette_lists_placeable_kinds(store_opener):
+    svc = _svc(store_opener)
+    kinds = {k["kind"] for k in svc.palette()}
+    assert "market" in kinds
+    assert "strategist" in kinds
+    market = next(k for k in svc.palette() if k["kind"] == "market")
+    assert market["singleton"] is False
+    assert "reports" in market["writes"]

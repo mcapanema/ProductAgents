@@ -13,9 +13,6 @@ dependencies = [
     "pyyaml>=6",
 ]
 
-[project.entry-points."productagents.workflows"]
-evaluate_initiative = "productagents.platform.workflow:build_evaluate_initiative"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

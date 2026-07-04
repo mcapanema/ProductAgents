@@ -77,22 +77,61 @@ class FakeDecisionService:
         return runner_approver
 
 
+class StandInWorkflow:
+    """ponytail: the pre-Plan-2 ``Workflow`` dataclass, kept alive here only as a
+    test double. Production replaced it with a DB-backed ``WorkflowDefinition``
+    (see productagents.platform.workflow); ipc.py's run/run.cancel/workflows.*
+    handlers are still synchronous against this old shape until Task C4/D1 makes
+    them async against the real service."""
+
+    def __init__(self, name, title, description, start, cancel=None, topology=None):
+        self.name = name
+        self.title = title
+        self.description = description
+        self.start = start
+        self.cancel = cancel
+        self.topology = topology
+
+
+class StandInWorkflowService:
+    """ponytail: sync test double matching the pre-Plan-2 WorkflowService
+    contract (a name -> Workflow registry). Use in tests instead of the real
+    (async, DB-backed) WorkflowService until callers are migrated."""
+
+    def __init__(self, workflows):
+        self._workflows = {w.name: w for w in workflows}
+
+    def list(self):
+        return list(self._workflows.values())
+
+    def get(self, name):
+        return self._workflows.get(name)
+
+    def run(self, name, *args, **kwargs):
+        workflow = self._workflows.get(name)
+        if workflow is None:
+            raise KeyError(f"unknown workflow: {name!r}")
+        return workflow.start(*args, **kwargs)
+
+    def cancel(self, session_id):
+        return any(w.cancel(session_id) for w in self._workflows.values() if w.cancel)
+
+
 def fake_workflow_service(
     runner, *, recorder=None, evidence=None, collector=collect_evidence
 ):
-    """Wrap a runner in a real WorkflowService over a FakeDecisionService.
+    """Wrap a runner in a StandInWorkflowService over a FakeDecisionService.
 
-    Gives TUI tests the production code path: app.run("evaluate_initiative", …)
-    → Workflow.start → FakeDecisionService.start_session → translated events.
+    Gives TUI/IPC tests the old, synchronous code path:
+    app.run("evaluate_initiative", …) → Workflow.start →
+    FakeDecisionService.start_session → translated events.
     """
-    from productagents.platform.workflow import Workflow, WorkflowService
-
     service = FakeDecisionService(
         runner, recorder=recorder, evidence=evidence, collector=collector
     )
-    return WorkflowService(
+    return StandInWorkflowService(
         [
-            Workflow(
+            StandInWorkflow(
                 name="evaluate_initiative",
                 title="Evaluate Initiative",
                 description="test",

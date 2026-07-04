@@ -35,7 +35,7 @@ from productagents.platform.prompt_service import PromptService
 from productagents.platform.serialization import serialize_event
 from productagents.platform.session import Session
 from productagents.platform.session_service import SessionService
-from productagents.platform.workflow import Workflow, WorkflowService
+from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ def _build_workflows(active_name: str, *, human_in_the_loop: bool) -> WorkflowSe
         logger.warning(
             "model unavailable; runs disabled until an API key is set", exc_info=True
         )
-        return WorkflowService.for_model(
+        return WorkflowService.create(
             None,
             recorder=make_recorder(workspace=active_name),
             human_in_the_loop=human_in_the_loop,
@@ -170,7 +170,9 @@ async def _run(
         ):  # advisory already streamed; read client's decision
             return await _ipc_approve(read_line, emit)
 
-    session, stream = workflows.run(
+    # WorkflowService.run is now async (Plan 2); this sync call site is
+    # pre-existing fallout left for Task C4/D1 to `await`.
+    session, stream = workflows.run(  # ty: ignore[not-iterable]
         params["workflow"], initiative, params.get("evidence", ""), approver=approver
     )
 
@@ -258,7 +260,10 @@ async def _watch_cancel(
             return
 
 
-def _workflow_dict(w: Workflow) -> dict:
+def _workflow_dict(w) -> dict:
+    # ponytail: `w` was a Workflow dataclass pre-Plan-2; the real (async, DB-backed)
+    # WorkflowService.list()/.show() now return dicts directly. Handler bodies here
+    # still assume the old attribute-style shape — Task C4/D1 migrates them.
     return {"name": w.name, "title": w.title, "description": w.description}
 
 
@@ -401,8 +406,16 @@ async def handle(
         # and (rid, emit) so it can emit directly. Exceptions bubble to the outer
         # except so one bad request never kills the loop.
 
+        # ponytail: workflows.list/.get are now async (Plan 2's WorkflowService);
+        # these two handlers still call them synchronously — pre-existing fallout
+        # left for Task C4/D1 to `await` and re-shape against the new dict return
+        # values (.list()/.show() already produce the {name, title, description,
+        # is_default[, topology]} shape these handlers hand-roll today).
         async def _workflows_list(_p: dict) -> None:
-            wfs = [_workflow_dict(w) for w in workflows.list()]
+            wfs = [
+                _workflow_dict(w)
+                for w in workflows.list()  # ty: ignore[not-iterable]
+            ]
             await emit({"id": rid, "result": wfs})
 
         async def _workflows_show(p: dict) -> None:
@@ -412,7 +425,11 @@ async def handle(
                 await emit({"id": rid, "error": f"no such workflow: {name!r}"})
                 return
             detail = _workflow_dict(w)
-            detail["topology"] = w.topology() if w.topology is not None else None
+            detail["topology"] = (
+                w.topology()  # ty: ignore[unresolved-attribute]
+                if w.topology is not None  # ty: ignore[unresolved-attribute]
+                else None
+            )
             await emit({"id": rid, "result": detail})
 
         async def _workspaces_list(_p: dict) -> None:

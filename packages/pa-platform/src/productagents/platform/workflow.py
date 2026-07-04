@@ -1,22 +1,18 @@
-"""WorkflowService — workflows as first-class, registered citizens.
+"""WorkflowService — persisted, editable workflow definitions (Plan 2).
 
-A workflow is a named, described pipeline the platform can run. Today there is
-exactly one — ``evaluate_initiative`` — but presentation now selects it *by name*
-from a registry instead of calling ``DecisionService`` directly. Adding a future
-workflow (roadmap prioritization, quarterly planning, …) is registration, not a
-new service call: build its ``Workflow`` and hand it to ``WorkflowService``.
-
-``WorkflowService`` is a thin router. The decision pipeline's real work still
-lives in ``DecisionService``; this layer maps a name to that work.
+Workflows are DB-backed definitions now, not code entry points. This service is
+the single Application-Layer face for both editing (CRUD + validate + palette)
+and running: ``run`` loads a definition and hands it to a DecisionService.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from collections.abc import AsyncIterator
 
+from productagents.core.models import WorkflowDefinition
 from productagents.platform import events as ev
+from productagents.platform.context import open_workflow_store
 from productagents.platform.session import Session
 
 logger = logging.getLogger(__name__)
@@ -24,67 +20,23 @@ logger = logging.getLogger(__name__)
 _L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
-@dataclass(frozen=True)
-class Workflow:
-    """Metadata + a runner for one workflow.
-
-    ``start`` returns ``(Session, AsyncIterator[Event])`` — the same contract
-    ``DecisionService.start_session`` already produces. Each workflow defines its
-    own ``start`` signature; the caller (which picks the workflow) passes inputs.
-
-    ``topology`` (optional) returns the workflow's graph structure as plain
-    ``{nodes, edges}`` dicts for presentation (the GUI's Workflows panel).
-    """
-
-    name: str
-    title: str
-    description: str
-    start: Callable[..., tuple[Session, AsyncIterator[ev.Event]]]
-    cancel: Callable[[str], bool] | None = None
-    topology: Callable[[], dict] | None = None
-
-
-def build_evaluate_initiative(
-    model,
-    *,
-    recorder=None,
-    human_in_the_loop: bool = False,
-    persist_events: bool = True,
-    workspace: str = "default",
-) -> Workflow:
-    """Build the advisory decision pipeline as a Workflow over ``model``.
-
-    The first-party ``productagents.workflows`` entry point resolves here.
-    """
-    from productagents.agents.topology import graph_topology
-    from productagents.platform.decision_service import DecisionService
-
-    service = DecisionService.for_model(
-        model,
-        recorder=recorder,
-        human_in_the_loop=human_in_the_loop,
-        persist_events=persist_events,
-        workspace=workspace,
-    )
-    return Workflow(
-        name="evaluate_initiative",
-        title="Evaluate Initiative",
-        description=(
-            "Advisory pipeline: evidence → analysts → debate → "
-            "strategist → judge → risk → governance."
-        ),
-        start=service.start_session,
-        cancel=service.cancel,
-        topology=lambda: graph_topology(human_in_the_loop=human_in_the_loop),
-    )
+def _summary(defn: WorkflowDefinition, *, is_default: bool) -> dict:
+    return {
+        "name": defn.name,
+        "title": defn.title,
+        "description": defn.description,
+        "is_default": is_default,
+    }
 
 
 class WorkflowService:
-    def __init__(self, workflows: _L[Workflow]) -> None:
-        self._workflows: dict[str, Workflow] = {w.name: w for w in workflows}
+    def __init__(self, decision_service, *, workspace: str, store_opener) -> None:
+        self._decisions = decision_service
+        self._workspace = workspace
+        self._open = store_opener
 
     @classmethod
-    def for_model(
+    def create(
         cls,
         model,
         *,
@@ -92,48 +44,170 @@ class WorkflowService:
         human_in_the_loop: bool = False,
         persist_events: bool = True,
         workspace: str = "default",
+        store_opener=open_workflow_store,
     ) -> WorkflowService:
-        """Build the registry from every installed ``productagents.workflows``
-        plugin. The first-party ``evaluate_initiative`` is one such plugin."""
-        from productagents.platform.workflow_registry import discover
+        from productagents.platform.decision_service import DecisionService
 
-        built: _L[Workflow] = []
-        for name, build in discover().items():
-            try:
-                built.append(
-                    build(
-                        model,
-                        recorder=recorder,
-                        human_in_the_loop=human_in_the_loop,
-                        persist_events=persist_events,
-                        workspace=workspace,
-                    )
-                )
-            except Exception:  # noqa: BLE001 — one bad workflow must not break the rest
-                logger.warning(
-                    "workflow %r failed to build; skipping", name, exc_info=True
-                )
-        return cls(built)
+        decisions = DecisionService.for_model(
+            model,
+            recorder=recorder,
+            human_in_the_loop=human_in_the_loop,
+            persist_events=persist_events,
+            workspace=workspace,
+        )
+        return cls(decisions, workspace=workspace, store_opener=store_opener)
 
-    def list(self) -> _L[Workflow]:
-        return list(self._workflows.values())
+    def _store(self):
+        return self._open(workspace=self._workspace)
 
-    def get(self, name: str) -> Workflow | None:
-        return self._workflows.get(name)
+    async def _seed(self, store) -> None:
+        from productagents.agents.default_workflow import default_definition
 
-    def run(
-        self, name: str, *args, **kwargs
+        await store.ensure_default(default_definition())
+
+    async def list(self) -> _L[dict]:
+        async with self._store() as store:
+            await self._seed(store)
+            defns = await store.list()
+            default = await store.get_default()
+            default_name = default.name if default else None
+            return [_summary(d, is_default=d.name == default_name) for d in defns]
+
+    async def get(self, name: str) -> WorkflowDefinition | None:
+        async with self._store() as store:
+            await self._seed(store)
+            return await store.get(name)
+
+    async def show(self, name: str) -> dict | None:
+        from productagents.agents.topology import definition_topology
+
+        async with self._store() as store:
+            await self._seed(store)
+            defn = await store.get(name)
+            if defn is None:
+                return None
+            default = await store.get_default()
+            detail = _summary(defn, is_default=bool(default and default.name == name))
+            detail["definition"] = defn.model_dump(mode="json")
+            detail["topology"] = definition_topology(defn)
+            return detail
+
+    async def create_workflow(
+        self, name: str, title: str, description: str = ""
+    ) -> dict:
+        _validate_name(name)
+        defn = WorkflowDefinition(name=name, title=title, description=description)
+        async with self._store() as store:
+            await self._seed(store)
+            if await store.get(name) is not None:
+                raise ValueError(f"workflow already exists: {name}")
+            await store.save(defn)
+        return _summary(defn, is_default=False)
+
+    async def clone(self, source_name: str, new_name: str, *, title=None) -> dict:
+        _validate_name(new_name)
+        async with self._store() as store:
+            await self._seed(store)
+            src = await store.get(source_name)
+            if src is None:
+                raise ValueError(f"no such workflow: {source_name}")
+            if await store.get(new_name) is not None:
+                raise ValueError(f"workflow already exists: {new_name}")
+            clone = src.model_copy(
+                update={
+                    "name": new_name,
+                    "title": title or f"{src.title} (copy)",
+                    "builtin": False,
+                }
+            )
+            await store.save(clone, is_default=False)
+        return _summary(clone, is_default=False)
+
+    async def save(self, defn_dict: dict) -> dict:
+        from productagents.agents.workflow_validation import validate_definition
+
+        defn = WorkflowDefinition.model_validate(defn_dict)
+        errors = validate_definition(defn)
+        if errors:
+            raise ValueError("; ".join(errors))
+        async with self._store() as store:
+            await self._seed(store)
+            await store.save(defn)
+            default = await store.get_default()
+        return _summary(defn, is_default=bool(default and default.name == defn.name))
+
+    async def rename(self, name: str, new_name: str) -> dict:
+        _validate_name(new_name)
+        async with self._store() as store:
+            await self._seed(store)
+            defn = await store.get(name)
+            if defn is None:
+                raise ValueError(f"no such workflow: {name}")
+            if defn.builtin:
+                raise ValueError(f"cannot rename built-in workflow: {name}")
+            if await store.get(new_name) is not None:
+                raise ValueError(f"workflow already exists: {new_name}")
+            was_default = await store.get_default()
+            renamed = defn.model_copy(update={"name": new_name})
+            await store.save(
+                renamed,
+                is_default=bool(was_default and was_default.name == name),
+            )
+            await store.delete(name)
+        return _summary(
+            renamed, is_default=bool(was_default and was_default.name == name)
+        )
+
+    async def delete(self, name: str) -> None:
+        async with self._store() as store:
+            await self._seed(store)
+            await store.delete(name)
+
+    async def set_default(self, name: str) -> None:
+        async with self._store() as store:
+            await self._seed(store)
+            await store.set_default(name)
+
+    async def validate(self, defn_dict: dict) -> _L[str]:
+        from productagents.agents.workflow_validation import validate_definition
+
+        return validate_definition(WorkflowDefinition.model_validate(defn_dict))
+
+    def palette(self) -> _L[dict]:
+        from productagents.agents.node_kinds import KIND_REGISTRY, PLACEABLE
+
+        out = []
+        for kind_id in PLACEABLE:
+            k = KIND_REGISTRY[kind_id]
+            out.append(
+                {
+                    "kind": k.kind,
+                    "label": k.label,
+                    "role": k.role,
+                    "singleton": k.singleton,
+                    "prompts": list(k.prompts),
+                    "reads": sorted(k.reads),
+                    "writes": sorted(k.writes),
+                }
+            )
+        return out
+
+    async def run(
+        self, name: str, initiative, evidence_spec: str, *, approver=None
     ) -> tuple[Session, AsyncIterator[ev.Event]]:
-        workflow = self._workflows.get(name)
-        if workflow is None:
+        defn = await self.get(name)
+        if defn is None:
             raise KeyError(f"unknown workflow: {name!r}")
-        return workflow.start(*args, **kwargs)
+        return self._decisions.start_session(
+            initiative, evidence_spec, approver=approver, definition=defn
+        )
 
     def cancel(self, session_id: str) -> bool:
-        """Ask every workflow to cancel the session; True if any owned it.
+        return self._decisions.cancel(session_id)
 
-        ponytail: the session→workflow map isn't tracked (one workflow today);
-        DecisionService.cancel is a no-op for sessions it doesn't own, so a
-        fan-out is safe. Add a session index only when many workflows coexist.
-        """
-        return any(w.cancel(session_id) for w in self._workflows.values() if w.cancel)
+
+def _validate_name(name: str) -> None:
+    if not name or not name.strip():
+        raise ValueError("workflow name must not be empty")
+    if any(c.isspace() for c in name):
+        raise ValueError("workflow name must not contain whitespace")

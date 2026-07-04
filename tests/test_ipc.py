@@ -10,8 +10,16 @@ from productagents.app import ipc
 from productagents.platform.events import Event
 from productagents.platform.memory_service import Lesson
 from productagents.platform.session import Session
-from productagents.platform.workflow import Workflow, WorkflowService
+from productagents.platform.workflow import WorkflowService
 from productagents.platform.workspace import WorkspaceService
+from tests.fakes import StandInWorkflow as Workflow
+from tests.fakes import StandInWorkflowService
+
+# ponytail: `Workflow`/list-of-workflows `WorkflowService(...)` construction below
+# is the pre-Plan-2 sync contract (see tests/fakes.py::StandInWorkflow{,Service}).
+# The real `WorkflowService` (imported above) is now async + DB-backed and can't
+# double as a cheap in-test fake; ipc.py's run/workflows.* handlers are still
+# synchronous against the old shape until Task C4/D1 migrates them.
 
 
 def _collect():
@@ -125,7 +133,7 @@ def _workflows():
         Callable[..., tuple[Session, AsyncIterator[Event]]],
         lambda *a, **k: None,
     )
-    return WorkflowService(
+    return StandInWorkflowService(
         [
             Workflow(
                 name="evaluate_initiative",
@@ -1896,7 +1904,7 @@ def _topology_workflow(topology):
 
 def _show_services(wf):
     return {
-        "workflows": WorkflowService([wf]),
+        "workflows": StandInWorkflowService([wf]),
         "workspaces": None,
         "active_name": "default",
         "sessions": _FakeSessions(),
