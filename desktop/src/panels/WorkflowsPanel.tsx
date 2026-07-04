@@ -10,7 +10,7 @@ import {
   type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Typography, Segmented, Modal } from "antd";
+import { Typography, Modal } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
 import {
@@ -23,6 +23,7 @@ import {
 } from "./workflowView";
 import AgentNode, { type AgentNodeData } from "./AgentNode";
 import { WorkflowLegend } from "./WorkflowLegend";
+import { WorkflowSelect } from "./WorkflowSelect";
 import { NodePromptDrawer } from "./NodePromptDrawer";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
@@ -176,12 +177,11 @@ export function WorkflowsPanel() {
               "Registered decision pipelines. Select a workflow to inspect its reasoning graph; click an agent to edit the prompts that steer it."}
           </Typography.Paragraph>
         </div>
-        {list.length > 1 && (
-          <Segmented
-            className="wf-panel__switcher"
+        {list.length > 0 && (
+          <WorkflowSelect
+            workflows={list}
             value={detail?.name}
-            onChange={(v) => requestNode(null, () => void open(String(v)))}
-            options={list.map((w) => ({ label: w.title, value: w.name }))}
+            onChange={(name) => requestNode(null, () => void open(name))}
           />
         )}
       </div>

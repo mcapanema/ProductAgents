@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
@@ -42,7 +42,7 @@ describe("WorkflowsPanel", () => {
   it("renders the selected workflow's graph as themed agent nodes", async () => {
     renderPanel(fake());
     expect(await screen.findByRole("button", { name: /Strategist/ })).toBeInTheDocument();
-    expect(screen.getByText("Evaluate Initiative")).toBeInTheDocument();
+    expect(screen.getByText("Evaluate Initiative", { selector: "strong" })).toBeInTheDocument();
   });
 
   it("shows an empty state when there are no workflows", async () => {
@@ -118,5 +118,18 @@ describe("WorkflowsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /keep editing/i }));
     expect(await screen.findByDisplayValue("Decide boldly.")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Score it.")).not.toBeInTheDocument();
+  });
+
+  it("switches the inspected workflow via the selector", async () => {
+    const second: WorkflowSummary = { name: "roadmap", title: "Roadmap Prioritization", description: "b" };
+    const show = vi.fn(async (name: string) =>
+      name === "roadmap" ? { ...second, topology: null } : detail,
+    );
+    renderPanel(fake({ workflowsList: async () => [summary, second], workflowsShow: show }));
+    // First workflow's graph renders on load.
+    await screen.findByRole("button", { name: /Strategist/ });
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "workflow" }));
+    fireEvent.click(await screen.findByTitle("Roadmap Prioritization"));
+    await waitFor(() => expect(show).toHaveBeenCalledWith("roadmap"));
   });
 });

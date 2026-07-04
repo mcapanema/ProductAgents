@@ -1,7 +1,6 @@
 /* desktop/src/panels/WorkflowsPanel.css — graph-is-hero layout */
 .wf-panel { display: flex; flex-direction: column; gap: var(--gap-stack); min-height: 0; }
 .wf-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-16); }
-.wf-panel__switcher { flex-shrink: 0; }
 .wf-panel__canvas {
   position: relative;
   height: min(68vh, 720px);
