@@ -10,7 +10,7 @@ or `connectors`.
 | Module | Role |
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `workflows list/show`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list/show`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface plus the GUI-only workflow editor CRUD (`workflows.list/show/palette/validate/create/clone/save/rename/delete/setDefault`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
 ## CLI contract
@@ -78,13 +78,31 @@ serve-ws`) for browser/Playwright UI testing — it reuses `ipc.handle` +
 localhost dev affordance, not the product client/server split (which remains
 deferred); the shipped Tauri app still talks NDJSON over stdio.
 
-`workflows.show {name}` → `{name, title, description, topology}` — one registered
-workflow plus its graph structure: `topology` is `{nodes: [{id, prompts: [str]}],
-edges: [{source, target, conditional}]}` from the workflow's registered topology
-accessor (`Workflow.topology`), or `null` when the workflow does not expose one.
-`prompts` lists the prompt-registry names the node renders (so the GUI can wire
-node-click → the existing `prompts.*` surface). `error` "no such workflow: <name>"
-if unknown.
+`workflows.list` → `[{name, title, description, is_default}]` — every saved
+`WorkflowDefinition` in the active workspace (seeded with the built-in
+`evaluate_initiative` default on first call). `workflows.show {name}` →
+`{name, title, description, is_default, definition, topology}` — `definition`
+is the full `WorkflowDefinition` (nodes/edges/layout/builtin) dump; `topology`
+is `{nodes: [{id, kind, prompts: [str], config}], edges: [{source, target,
+conditional}]}` derived straight from the definition (`definition_topology`),
+including a spliced `human_approval` node when the service runs with
+`human_in_the_loop=True`. `prompts` lists the prompt-registry names the node
+renders (so the GUI can wire node-click → the existing `prompts.*` surface).
+`error` "no such workflow: <name>" if unknown.
+
+`workflows.palette` → `[{kind, label, role, singleton, prompts, reads,
+writes}]` — the placeable node kinds (`node_kinds.PLACEABLE`) for the GUI's
+palette sidebar. `workflows.validate {definition}` → `{errors: [str]}` — runs
+`validate_definition` without persisting; empty list means safe to save.
+`workflows.create {name, title, description?}` → the new workflow's summary.
+`workflows.clone {name, new_name, title?}` → a copy's summary (never
+`builtin`/`is_default`). `workflows.save {definition}` → persists (validates
+first; `error` carries the joined validation messages on failure) and returns
+the summary; saving over a `builtin` name always keeps `builtin=True`
+regardless of the payload. `workflows.rename {name, new_name}` and
+`workflows.delete {name}` reject `builtin` workflows. `workflows.setDefault
+{name}` (wire name is camelCase, unlike its siblings) → `{ok: true}`, moves
+the workspace default.
 
 `decisions.list` → `[{id, title, recommendation, confidence, created_at}]` (summaries
 from the DecisionStore via `DecisionReadService`). `decisions.show {decision_id}` →
