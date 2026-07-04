@@ -16,12 +16,14 @@ from typing import Any
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from productagents.core.models import WorkflowDefinition
 from productagents.memory.tables import (
     ConnectorConfigRow,
     DecisionRow,
     OutcomeRow,
     PreferenceRow,
     RuntimeSessionRow,
+    WorkflowDefinitionRow,
     WorkspaceConfigRow,
     WorkspaceRow,
 )
@@ -182,3 +184,120 @@ async def rename_workspace(session: AsyncSession, old: str, new: str) -> None:
     if row is not None:
         session.add(WorkspaceRow(name=new, created_at=row.created_at))
         await session.delete(row)
+
+
+class WorkflowDefinitionStore:
+    """Workspace-scoped CRUD over saved workflow definitions."""
+
+    def __init__(self, session: AsyncSession, workspace: str = "default") -> None:
+        self._session = session
+        self._workspace = workspace
+
+    def _to_model(self, row: WorkflowDefinitionRow) -> WorkflowDefinition:
+        return WorkflowDefinition.model_validate(row.payload)
+
+    async def list(self) -> _L[WorkflowDefinition]:
+        rows = (
+            (
+                await self._session.execute(
+                    select(WorkflowDefinitionRow)
+                    .where(WorkflowDefinitionRow.workspace == self._workspace)
+                    .order_by(
+                        WorkflowDefinitionRow.is_default.desc(),
+                        WorkflowDefinitionRow.name,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return [self._to_model(r) for r in rows]
+
+    async def get(self, name: str) -> WorkflowDefinition | None:
+        row = await self._session.get(WorkflowDefinitionRow, (self._workspace, name))
+        return self._to_model(row) if row is not None else None
+
+    async def save(
+        self, defn: WorkflowDefinition, *, is_default: bool | None = None
+    ) -> WorkflowDefinition:
+        existing = await self._session.get(
+            WorkflowDefinitionRow, (self._workspace, defn.name)
+        )
+        default_flag = (
+            is_default
+            if is_default is not None
+            else (existing.is_default if existing is not None else False)
+        )
+        await self._session.merge(
+            WorkflowDefinitionRow(
+                workspace=self._workspace,
+                name=defn.name,
+                title=defn.title,
+                payload=defn.model_dump(mode="json"),
+                builtin=defn.builtin,
+                is_default=default_flag,
+                updated_at=_now(),
+            )
+        )
+        await self._session.commit()
+        return defn
+
+    async def delete(self, name: str) -> None:
+        row = await self._session.get(WorkflowDefinitionRow, (self._workspace, name))
+        if row is None:
+            return
+        if row.builtin:
+            raise ValueError(f"cannot delete built-in workflow: {name}")
+        await self._session.delete(row)
+        await self._session.commit()
+
+    async def set_default(self, name: str) -> None:
+        rows = (
+            (
+                await self._session.execute(
+                    select(WorkflowDefinitionRow).where(
+                        WorkflowDefinitionRow.workspace == self._workspace
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not any(r.name == name for r in rows):
+            raise ValueError(f"no such workflow: {name}")
+        for r in rows:
+            r.is_default = r.name == name
+        await self._session.commit()
+
+    async def get_default(self) -> WorkflowDefinition | None:
+        row = (
+            await self._session.execute(
+                select(WorkflowDefinitionRow)
+                .where(WorkflowDefinitionRow.workspace == self._workspace)
+                .where(WorkflowDefinitionRow.is_default.is_(True))
+            )
+        ).scalar_one_or_none()
+        return self._to_model(row) if row is not None else None
+
+    async def ensure_default(self, defn: WorkflowDefinition) -> None:
+        existing = (
+            await self._session.execute(
+                select(WorkflowDefinitionRow.name).where(
+                    WorkflowDefinitionRow.workspace == self._workspace
+                )
+            )
+        ).first()
+        if existing is not None:
+            return
+        await self._session.merge(
+            WorkflowDefinitionRow(
+                workspace=self._workspace,
+                name=defn.name,
+                title=defn.title,
+                payload=defn.model_dump(mode="json"),
+                builtin=True,
+                is_default=True,
+                updated_at=_now(),
+            )
+        )
+        await self._session.commit()

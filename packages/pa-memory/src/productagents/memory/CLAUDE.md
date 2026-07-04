@@ -43,6 +43,14 @@ Phase 6; JSONL demoted to export/audit.
   `PreferenceStore(session)` — **deliberately unscoped**: preferences (e.g.
   theme) are a user-level UX setting, not workflow-execution state, so they
   follow the person across workspaces rather than resetting on every switch.
+  `WorkflowDefinitionStore(session, workspace)` — CRUD over saved workflow
+  definitions, scoped by composite primary key `(workspace, name)`; round-trips
+  `WorkflowDefinition` (pa-core) through the row's JSON `payload` (the one store
+  that returns a pydantic model rather than dicts, matching `DecisionStore`'s
+  pattern). `list()` orders default-first then alphabetical; `save()` preserves
+  an existing row's `is_default` unless overridden; `delete()` rejects `builtin`
+  rows; `set_default()` clears other defaults atomically; `ensure_default()` is
+  the idempotent seed used at startup (no-ops once the workspace has any row).
 
 ## Rules that matter
 - **Sibling-layer boundary:** pa-memory imports only `pa-core` (+ sqlalchemy).
