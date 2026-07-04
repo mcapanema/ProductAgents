@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from productagents.agents import runner as rn
 from productagents.agents.evidence import collect_evidence
-from productagents.agents.graph import build_graph
+from productagents.agents.graph import build_graph_from_definition
 from productagents.core.models import DecisionRecord, HumanDecision, Initiative
 from productagents.platform import events as ev
 from productagents.platform._event_translation import status_for, translate
@@ -82,8 +82,12 @@ class DecisionService:
         evidence_spec: str,
         *,
         approver: Approver | None = None,
+        definition=None,
     ) -> tuple[Session, AsyncIterator[ev.Event]]:
-        session = Session(id=uuid4().hex, workflow="evaluate_initiative")
+        from productagents.agents.default_workflow import default_definition
+
+        defn = definition if definition is not None else default_definition()
+        session = Session(id=uuid4().hex, workflow=defn.name)
         bus = EventBus()
         # subscribe() registers synchronously — no events lost before iteration.
         stream = bus.subscribe()  # the caller's (UI) stream
@@ -93,7 +97,7 @@ class DecisionService:
             opener = self._event_store_opener
             self._spawn(self._persist(session, bus.subscribe(), opener))
         run_task = self._spawn(
-            self._run(session, bus, initiative, evidence_spec, approver)
+            self._run(session, bus, initiative, evidence_spec, approver, defn)
         )
         self._runs[session.id] = run_task
         run_task.add_done_callback(lambda _t, sid=session.id: self._runs.pop(sid, None))
@@ -143,6 +147,7 @@ class DecisionService:
         initiative: Initiative,
         evidence_spec: str,
         approver: Approver | None,
+        definition,
     ) -> None:
         seq = 0
 
@@ -163,7 +168,9 @@ class DecisionService:
             # Open a fresh context per run; session stays open across the full
             # event stream including any human-approval interrupt.
             async with self._context_opener() as ctx:
-                graph = build_graph(ctx, human_in_the_loop=self._hitl)
+                graph = build_graph_from_definition(
+                    definition, ctx, human_in_the_loop=self._hitl
+                )
 
                 async for r in rn.run_decision(
                     graph, initiative, evidence, approver=runner_approver
