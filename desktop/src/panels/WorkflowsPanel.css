@@ -10,7 +10,13 @@
   overflow: hidden;
   background: var(--bg-secondary);
 }
-.wf-panel__legend { position: absolute; left: var(--space-12); bottom: var(--space-12); z-index: var(--z-raised); }
+.wf-panel__legend {
+  position: absolute;
+  left: var(--space-12);
+  bottom: var(--space-12);
+  z-index: var(--z-raised);
+  max-width: min(600px, calc(100% - var(--space-48)));
+}
 /* React Flow chrome tinted to tokens (Controls buttons). */
 .wf-panel__canvas .react-flow__controls { box-shadow: var(--elevation-floating); border-radius: var(--radius-popover); overflow: hidden; }
 .wf-panel__canvas .react-flow__controls-button {
