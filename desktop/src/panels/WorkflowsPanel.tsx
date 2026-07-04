@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyNodeChanges,
   Background,
@@ -13,7 +13,14 @@ import "@xyflow/react/dist/style.css";
 import { Typography, Segmented, Modal } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
-import { buildFlowNodes, buildFlowEdges, withSelection } from "./workflowView";
+import {
+  buildFlowNodes,
+  buildFlowEdges,
+  withSelection,
+  withCachedPositions,
+  cachePosition,
+  type PositionCache,
+} from "./workflowView";
 import AgentNode, { type AgentNodeData } from "./AgentNode";
 import { WorkflowLegend } from "./WorkflowLegend";
 import { NodePromptDrawer } from "./NodePromptDrawer";
@@ -32,6 +39,15 @@ const nodeTypes = { agent: AgentNode };
 function withSizeHint(nodes: Node<AgentNodeData>[]): Node<AgentNodeData>[] {
   return nodes.map((n) => ({ ...n, initialWidth: 190, initialHeight: 64 }));
 }
+
+// Dragged positions, keyed by workflow name then node id. Module-level (not
+// component state) on purpose: the app's shell conditionally renders
+// `{view === "workflows" && <WorkflowsPanel />}`, so navigating to another
+// sidebar panel and back fully unmounts/remounts this component — plain
+// useState would lose every drag. This survives that; it resets on a full
+// page reload, which is an acceptable session-only scope (ask before adding
+// real backend/localStorage persistence).
+const positionCache: PositionCache = new Map();
 
 export function WorkflowsPanel() {
   const ipc = useIpc();
@@ -67,11 +83,17 @@ export function WorkflowsPanel() {
   const topology = detail?.topology ?? null;
 
   // Recompute the layout (including positions) only when the topology itself
-  // changes — first load or a workflow switch. A different graph has a
-  // different natural layout, so dragged positions intentionally don't
-  // survive a workflow switch.
+  // changes — first load, a workflow switch, or this component remounting
+  // (e.g. after navigating to another sidebar panel and back). A different
+  // graph gets a fresh computed layout; the *same* graph gets any positions
+  // the user previously dragged, restored from positionCache.
   useEffect(() => {
-    setFlowNodes(topology ? withSizeHint(buildFlowNodes(topology, { selectedId: promptNode?.id ?? null })) : []);
+    if (!topology || !detail) {
+      setFlowNodes([]);
+      return;
+    }
+    const built = withSizeHint(buildFlowNodes(topology, { selectedId: promptNode?.id ?? null }));
+    setFlowNodes(withCachedPositions(built, positionCache, detail.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topology]);
 
@@ -84,8 +106,16 @@ export function WorkflowsPanel() {
   const flowEdges = topology ? buildFlowEdges(topology) : [];
 
   const onNodesChange = useCallback(
-    (changes: NodeChange<Node<AgentNodeData>>[]) => setFlowNodes((nodes) => applyNodeChanges(changes, nodes)),
-    [],
+    (changes: NodeChange<Node<AgentNodeData>>[]) => {
+      setFlowNodes((nodes) => applyNodeChanges(changes, nodes));
+      if (!detail) return;
+      for (const change of changes) {
+        if (change.type === "position" && change.position) {
+          cachePosition(positionCache, detail.name, change.id, change.position);
+        }
+      }
+    },
+    [detail],
   );
 
   // Guarded node open: if the drawer has unsaved edits, confirm before switching.
@@ -110,14 +140,26 @@ export function WorkflowsPanel() {
     after?.();
   }
 
+  // React Flow re-invokes onSelectionChange on every parent render (its
+  // internal listener effect depends on the callback's own identity, not just
+  // on whether the selection actually changed) — so a non-memoized callback
+  // here would keep firing with the *previous* selection on every unrelated
+  // state update, e.g. re-opening a node right after closing it. Keep this
+  // callback's identity permanently stable (empty deps) and reach for the
+  // latest topology/requestNode via refs instead of closing over them.
+  const topologyRef = useRef(topology);
+  topologyRef.current = topology;
+  const requestNodeRef = useRef(requestNode);
+  requestNodeRef.current = requestNode;
+
   // Single source of truth for "which node opens the drawer": React Flow's own
   // selection state, driven by either a mouse click or keyboard Enter/Space on
   // a focused node — both funnel through here since `onNodesChange` is wired.
-  const onSelectionChange: OnSelectionChangeFunc = ({ nodes: selected }) => {
+  const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: selected }) => {
     if (selected.length !== 1) return;
-    const n = topology?.nodes.find((x) => x.id === selected[0].id);
-    if (n && n.prompts.length > 0) requestNode(n);
-  };
+    const n = topologyRef.current?.nodes.find((x) => x.id === selected[0].id);
+    if (n && n.prompts.length > 0) requestNodeRef.current(n);
+  }, []);
 
   return (
     <div className="wf-panel">

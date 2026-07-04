@@ -72,18 +72,25 @@ export function buildFlowNodes(
   opts: { selectedId?: string | null; statuses?: Record<string, NodeStatus> },
 ): Node<AgentNodeData>[] {
   const statuses = opts.statuses ?? {};
-  return layoutTopology(topology).map((n) => ({
-    id: n.id,
-    type: "agent",
-    position: { x: n.x, y: n.y },
-    data: {
+  return layoutTopology(topology).map((n) => {
+    const selected = opts.selectedId === n.id;
+    return {
       id: n.id,
-      kind: nodeKind(n.id),
-      status: statuses[n.id] ?? "idle",
-      editable: n.prompts.length > 0,
-      selected: opts.selectedId === n.id,
-    },
-  }));
+      type: "agent",
+      position: { x: n.x, y: n.y },
+      // `selected` (top-level) is React Flow's own selection flag; keep it in
+      // sync with `data.selected` (our ring styling) from the start — see
+      // withSelection()'s comment for why the two must never drift apart.
+      selected,
+      data: {
+        id: n.id,
+        kind: nodeKind(n.id),
+        status: statuses[n.id] ?? "idle",
+        editable: n.prompts.length > 0,
+        selected,
+      },
+    };
+  });
 }
 
 /**
@@ -91,11 +98,45 @@ export function buildFlowNodes(
  * existing node list without touching position — used after a drag, where
  * `buildFlowNodes` would otherwise reset every node back to its computed
  * layout position.
+ *
+ * Sets both `data.selected` (our own ring styling) AND the node's top-level
+ * `selected` (React Flow's own internal selection flag). Skipping the latter
+ * left RF believing a closed node was still selected, so re-syncing the
+ * `nodes` prop kept re-deriving the same "selected" node and reopening its
+ * drawer — closing never stuck.
  */
 export function withSelection(nodes: Node<AgentNodeData>[], selectedId: string | null): Node<AgentNodeData>[] {
-  return nodes.map((n) =>
-    n.data.selected === (n.id === selectedId) ? n : { ...n, data: { ...n.data, selected: n.id === selectedId } },
-  );
+  return nodes.map((n) => {
+    const selected = n.id === selectedId;
+    return n.data.selected === selected && n.selected === selected
+      ? n
+      : { ...n, selected, data: { ...n.data, selected } };
+  });
+}
+
+export type PositionCache = Map<string, Record<string, { x: number; y: number }>>;
+
+/** Restore any previously-dragged positions (from cachePosition) for a workflow. */
+export function withCachedPositions(
+  nodes: Node<AgentNodeData>[],
+  cache: PositionCache,
+  workflowName: string,
+): Node<AgentNodeData>[] {
+  const cached = cache.get(workflowName);
+  if (!cached) return nodes;
+  return nodes.map((n) => (cached[n.id] ? { ...n, position: cached[n.id] } : n));
+}
+
+/** Record a node's dragged position, scoped to one workflow so switching workflows doesn't leak positions. */
+export function cachePosition(
+  cache: PositionCache,
+  workflowName: string,
+  nodeId: string,
+  position: { x: number; y: number },
+): void {
+  const forWorkflow = cache.get(workflowName) ?? {};
+  forWorkflow[nodeId] = position;
+  cache.set(workflowName, forWorkflow);
 }
 
 export function buildFlowEdges(topology: WorkflowTopology): Edge[] {

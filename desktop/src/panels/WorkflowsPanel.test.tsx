@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -68,6 +68,27 @@ describe("WorkflowsPanel", () => {
     expect(rfNode).toBeTruthy();
     fireEvent.keyDown(rfNode, { key: "Enter" });
     expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
+  });
+
+  it("closing the prompt drawer keeps it closed", async () => {
+    // Regression: React Flow re-invokes onSelectionChange on every parent
+    // render (not just on an actual selection change). An unmemoized handler
+    // kept re-reading the *stale* still-selected node and reopening the
+    // drawer the instant it closed — closing never stuck.
+    renderPanel(fake());
+    fireEvent.click(await screen.findByRole("button", { name: /Strategist/ }));
+    expect(await screen.findByDisplayValue("Decide.")).toBeInTheDocument();
+
+    const closeButton = document.querySelector(".ant-drawer-close") as HTMLElement;
+    expect(closeButton).toBeTruthy();
+    fireEvent.click(closeButton);
+    await waitFor(() => expect(screen.queryByDisplayValue("Decide.")).not.toBeInTheDocument());
+
+    // Let any pending effects (e.g. the drawer's own state-reset effect,
+    // which itself triggers a parent re-render via onDirtyChange) settle,
+    // then confirm the drawer is still closed rather than having reopened.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByDisplayValue("Decide.")).not.toBeInTheDocument();
   });
 
   it("blocks switching nodes on unsaved prompt edits until the user confirms", async () => {
