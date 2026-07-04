@@ -100,6 +100,20 @@ def validate_definition(defn: WorkflowDefinition) -> list[str]:
         errors.append("graph has a cycle in its forward edges")
         return errors
 
+    reachable = {START_ID}
+    queue = deque([START_ID])
+    while queue:
+        cur = queue.popleft()
+        for e in defn.edges:
+            if e.source == cur and e.target in id_set and e.target not in reachable:
+                reachable.add(e.target)
+                queue.append(e.target)
+    for n in defn.nodes:
+        if n.id not in reachable:
+            errors.append(f"node {n.id!r} is unreachable from start")
+    if errors:
+        return errors
+
     for n in defn.nodes:
         kind = KIND_REGISTRY[n.kind]
         available = set(_START_KEYS)

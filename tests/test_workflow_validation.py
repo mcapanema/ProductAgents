@@ -90,6 +90,26 @@ def test_unknown_edge_endpoint_is_rejected():
     assert any("ghost" in e for e in errs)
 
 
+def test_unreachable_node_is_rejected():
+    # market->debate is a valid connected pair; business has no edges at all
+    defn = WorkflowDefinition(
+        name="x",
+        title="X",
+        nodes=[
+            WorkflowNodeDef(id="market", kind="market"),
+            WorkflowNodeDef(id="debate", kind="debate"),
+            WorkflowNodeDef(id="business", kind="business"),
+        ],
+        edges=[
+            WorkflowEdgeDef(source=START_ID, target="market"),
+            WorkflowEdgeDef(source="market", target="debate"),
+            WorkflowEdgeDef(source="debate", target=END_ID),
+        ],
+    )
+    errs = validate_definition(defn)
+    assert any("unreachable" in e for e in errs)
+
+
 def test_cycle_in_forward_edges_is_rejected():
     defn = WorkflowDefinition(
         name="x",
