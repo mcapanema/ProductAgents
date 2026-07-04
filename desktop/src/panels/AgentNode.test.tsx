@@ -8,6 +8,8 @@ function renderNode(data: Partial<AgentNodeData> = {}) {
   const full: AgentNodeData = {
     id: "customer_research",
     kind: "analyst-customer",
+    backendKind: "customer_research",
+    config: {},
     status: "idle",
     editable: true,
     selected: false,

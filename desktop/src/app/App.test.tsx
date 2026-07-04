@@ -12,8 +12,13 @@ function fakeClient(): IpcClient {
       name: "",
       title: "",
       description: "",
+      definition: {
+        name: "", title: "", description: "",
+        nodes: [], edges: [], layout: {}, builtin: false,
+      },
       topology: null,
     }),
+    workflowsPalette: async () => [],
     sessionsList: async () => [],
     sessionsShow: async () => ({ session: {} as never, events: [] }),
     decisionsList: async () => [],

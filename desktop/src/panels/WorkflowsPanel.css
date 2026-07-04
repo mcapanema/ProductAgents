@@ -2,6 +2,10 @@
 .wf-panel { display: flex; flex-direction: column; gap: var(--gap-stack); min-height: 0; }
 .wf-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-16); }
 .wf-panel__switcher { flex-shrink: 0; }
+.wf-panel__toolbar { display: flex; align-items: center; gap: var(--space-8); }
+.wf-panel__editor { display: flex; gap: var(--space-12); min-height: 0; }
+.wf-panel__editor .wf-palette { width: 220px; flex-shrink: 0; overflow-y: auto; }
+.wf-panel__editor .wf-panel__canvas { flex: 1; min-width: 0; }
 .wf-panel__canvas {
   position: relative;
   height: min(68vh, 720px);

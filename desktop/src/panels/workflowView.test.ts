@@ -5,6 +5,7 @@ import {
   nodeRanks,
   buildFlowNodes,
   buildFlowEdges,
+  flowToDefinition,
   withSelection,
   withCachedPositions,
   cachePosition,
@@ -14,13 +15,13 @@ import type { WorkflowTopology } from "../ipc/types";
 
 const topo: WorkflowTopology = {
   nodes: [
-    { id: "__start__", prompts: [] },
-    { id: "customer_research", prompts: ["customer_research"] },
-    { id: "technical", prompts: ["technical"] },
-    { id: "debate", prompts: ["debate"] },
-    { id: "strategist", prompts: ["strategist"] },
-    { id: "judge", prompts: ["judge"] },
-    { id: "__end__", prompts: [] },
+    { id: "__start__", prompts: [], kind: "__start__", config: {} },
+    { id: "customer_research", prompts: ["customer_research"], kind: "customer_research", config: {} },
+    { id: "technical", prompts: ["technical"], kind: "technical", config: {} },
+    { id: "debate", prompts: ["debate"], kind: "debate", config: {} },
+    { id: "strategist", prompts: ["strategist"], kind: "strategist", config: {} },
+    { id: "judge", prompts: ["judge"], kind: "judge", config: {} },
+    { id: "__end__", prompts: [], kind: "__end__", config: {} },
   ],
   edges: [
     { source: "__start__", target: "customer_research", conditional: false },
@@ -59,7 +60,7 @@ describe("nodeRanks", () => {
 
   it("gives unreachable nodes rank 0 instead of dropping them", () => {
     const ranks = nodeRanks({
-      nodes: [{ id: "orphan", prompts: [] }],
+      nodes: [{ id: "orphan", prompts: [], kind: "orphan", config: {} }],
       edges: [],
     });
     expect(ranks.get("orphan")).toBe(0);
@@ -80,11 +81,11 @@ describe("layoutTopology", () => {
 
 const topoSmall: WorkflowTopology = {
   nodes: [
-    { id: "__start__", prompts: [] },
-    { id: "customer_research", prompts: ["customer_research"] },
-    { id: "recall", prompts: [] },
-    { id: "strategist", prompts: ["strategist"] },
-    { id: "__end__", prompts: [] },
+    { id: "__start__", prompts: [], kind: "__start__", config: {} },
+    { id: "customer_research", prompts: ["customer_research"], kind: "customer_research", config: {} },
+    { id: "recall", prompts: [], kind: "recall", config: {} },
+    { id: "strategist", prompts: ["strategist"], kind: "strategist", config: {} },
+    { id: "__end__", prompts: [], kind: "__end__", config: {} },
   ],
   edges: [
     { source: "__start__", target: "customer_research", conditional: false },
@@ -202,5 +203,47 @@ describe("buildFlowEdges", () => {
     expect(String(cond.style?.stroke)).toContain("var(--ai-edge");
     const plain = edges.find((e) => e.id === "__start__->customer_research")!;
     expect(plain.style?.strokeDasharray).toBeFalsy();
+  });
+
+  it("carries conditional in data and a stable id", () => {
+    const edges = buildFlowEdges({
+      nodes: [],
+      edges: [{ source: "strategist", target: "judge", conditional: true }],
+    });
+    expect(edges[0].id).toBe("strategist->judge");
+    expect((edges[0].data as { conditional?: boolean }).conditional).toBe(true);
+  });
+});
+
+describe("flowToDefinition", () => {
+  it("captures positions as layout and preserves kind/config", () => {
+    const defn = flowToDefinition(
+      [
+        {
+          id: "market",
+          type: "agent",
+          position: { x: 5, y: 9 },
+          data: { id: "market", kind: "analyst-market", backendKind: "market", config: {}, status: "idle", editable: true, selected: false },
+        },
+      ],
+      [],
+      { name: "d", title: "D", description: "", builtin: false },
+    );
+    expect(defn.nodes[0]).toMatchObject({ id: "market", kind: "market" });
+    expect(defn.layout.market).toEqual([5, 9]);
+  });
+
+  it("excludes the __start__/__end__ terminal markers from nodes and layout", () => {
+    const defn = flowToDefinition(
+      [
+        { id: "__start__", type: "agent", position: { x: 0, y: 0 }, data: { id: "__start__", kind: "terminal", backendKind: "__start__", config: {}, status: "idle", editable: false, selected: false } },
+        { id: "strategist", type: "agent", position: { x: 5, y: 9 }, data: { id: "strategist", kind: "strategist", backendKind: "strategist", config: {}, status: "idle", editable: true, selected: false } },
+      ],
+      [{ id: "__start__->strategist", source: "__start__", target: "strategist", data: { conditional: false } }],
+      { name: "d", title: "D", description: "", builtin: false },
+    );
+    expect(defn.nodes.map((n) => n.id)).toEqual(["strategist"]);
+    expect(defn.layout).toEqual({ strategist: [5, 9] });
+    expect(defn.edges).toEqual([{ source: "__start__", target: "strategist", conditional: false }]);
   });
 });

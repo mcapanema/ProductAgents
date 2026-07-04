@@ -3,20 +3,33 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { WorkflowDetail, WorkflowSummary } from "../ipc/types";
+import type { WorkflowDefinitionDTO, WorkflowDetail, WorkflowSummary } from "../ipc/types";
 
 const summary: WorkflowSummary = {
   name: "evaluate_initiative",
   title: "Evaluate Initiative",
   description: "Advisory pipeline: evidence → analysts → debate → strategist.",
 };
+const definition: WorkflowDefinitionDTO = {
+  name: summary.name,
+  title: summary.title,
+  description: summary.description,
+  nodes: [{ id: "strategist", kind: "strategist", config: {} }],
+  edges: [
+    { source: "__start__", target: "strategist", conditional: false },
+    { source: "strategist", target: "__end__", conditional: true },
+  ],
+  layout: {},
+  builtin: true,
+};
 const detail: WorkflowDetail = {
   ...summary,
+  definition,
   topology: {
     nodes: [
-      { id: "__start__", prompts: [] },
-      { id: "strategist", prompts: ["strategist"] },
-      { id: "__end__", prompts: [] },
+      { id: "__start__", prompts: [], kind: "__start__", config: {} },
+      { id: "strategist", prompts: ["strategist"], kind: "strategist", config: {} },
+      { id: "__end__", prompts: [], kind: "__end__", config: {} },
     ],
     edges: [
       { source: "__start__", target: "strategist", conditional: false },
@@ -28,6 +41,8 @@ function fake(overrides: Record<string, unknown> = {}): IpcClient {
   return {
     workflowsList: async () => [summary],
     workflowsShow: async () => detail,
+    workflowsPalette: async () => [],
+    workflowsSave: async () => summary,
     promptsList: async () => [{ name: "strategist", versions: [0], active: 0 }],
     promptsShow: async () => ({ name: "strategist", version: 0, text: "Decide." }),
     promptsSave: async () => ({ name: "strategist", versions: [0, 1], active: 1 }),
@@ -95,7 +110,7 @@ describe("WorkflowsPanel", () => {
     const detailWithJudge: WorkflowDetail = {
       ...detail,
       topology: {
-        nodes: [...detail.topology!.nodes, { id: "judge", prompts: ["judge"] }],
+        nodes: [...detail.topology!.nodes, { id: "judge", prompts: ["judge"], kind: "judge", config: {} }],
         edges: [...detail.topology!.edges, { source: "strategist", target: "judge", conditional: false }],
       },
     };
@@ -118,5 +133,39 @@ describe("WorkflowsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /keep editing/i }));
     expect(await screen.findByDisplayValue("Decide boldly.")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Score it.")).not.toBeInTheDocument();
+  });
+
+  it("adds a node from the palette and saves the resulting flow", async () => {
+    const saved: WorkflowDefinitionDTO[] = [];
+    renderPanel(fake({
+      workflowsPalette: async () => [
+        { kind: "market", label: "Market", role: "Analyst", singleton: false, prompts: ["market"], reads: [], writes: [] },
+      ],
+      workflowsSave: async (defn: WorkflowDefinitionDTO) => {
+        saved.push(defn);
+        return summary;
+      },
+    }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Market/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0].nodes.some((n) => n.id === "market" && n.kind === "market")).toBe(true);
+    expect(await screen.findByText(/workflow saved/i)).toBeInTheDocument();
+  });
+
+  it("surfaces a server-side save error instead of failing silently", async () => {
+    renderPanel(fake({
+      workflowsPalette: async () => [
+        { kind: "market", label: "Market", role: "Analyst", singleton: false, prompts: ["market"], reads: [], writes: [] },
+      ],
+      workflowsSave: async () => { throw new Error("edge target 'market' has no route to __end__"); },
+    }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Market/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText(/no route to __end__/)).toBeInTheDocument();
   });
 });

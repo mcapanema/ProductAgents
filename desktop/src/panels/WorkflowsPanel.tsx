@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  addEdge,
+  applyEdgeChanges,
   applyNodeChanges,
   Background,
   BackgroundVariant,
   Controls,
   ReactFlow,
+  type Connection,
+  type Edge,
+  type EdgeChange,
   type Node,
   type NodeChange,
   type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Typography, Segmented, Modal } from "antd";
+import { Typography, Segmented, Modal, Button, Alert } from "antd";
 import { useIpc } from "../app/IpcProvider";
-import type { WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
+import type { PaletteKind, WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
 import {
   buildFlowNodes,
   buildFlowEdges,
+  flowToDefinition,
   withSelection,
   withCachedPositions,
   cachePosition,
@@ -24,6 +30,8 @@ import {
 import AgentNode, { type AgentNodeData } from "./AgentNode";
 import { WorkflowLegend } from "./WorkflowLegend";
 import { NodePromptDrawer } from "./NodePromptDrawer";
+import { WorkflowPalette, newInstanceId } from "./WorkflowPalette";
+import { nodeKind } from "./workflowNodeKinds";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
 import { tokenVar } from "../ui/tokens";
@@ -56,6 +64,16 @@ export function WorkflowsPanel() {
   const [promptNode, setPromptNode] = useState<WorkflowNode | null>(null);
   const [dirty, setDirty] = useState(false);
   const [flowNodes, setFlowNodes] = useState<Node<AgentNodeData>[]>([]);
+  const [flowEdges, setFlowEdges] = useState<Edge[]>([]);
+  const [palette, setPalette] = useState<PaletteKind[]>([]);
+  const [graphDirty, setGraphDirty] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState("");
+
+  const markGraphDirty = useCallback(() => {
+    setGraphDirty(true);
+    setSaveState("idle");
+  }, []);
 
   async function open(name: string) {
     setPromptNode(null);
@@ -80,6 +98,11 @@ export function WorkflowsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ipc]);
 
+  useEffect(() => {
+    if (!ipc) return;
+    ipc.workflowsPalette().then(setPalette).catch(() => setPalette([]));
+  }, [ipc]);
+
   const topology = detail?.topology ?? null;
 
   // Recompute the layout (including positions) only when the topology itself
@@ -90,10 +113,14 @@ export function WorkflowsPanel() {
   useEffect(() => {
     if (!topology || !detail) {
       setFlowNodes([]);
+      setFlowEdges([]);
       return;
     }
     const built = withSizeHint(buildFlowNodes(topology, { selectedId: promptNode?.id ?? null }));
     setFlowNodes(withCachedPositions(built, positionCache, detail.name));
+    setFlowEdges(buildFlowEdges(topology));
+    setGraphDirty(false);
+    setSaveState("idle");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topology]);
 
@@ -103,8 +130,6 @@ export function WorkflowsPanel() {
     setFlowNodes((nodes) => withSelection(nodes, promptNode?.id ?? null));
   }, [promptNode?.id]);
 
-  const flowEdges = topology ? buildFlowEdges(topology) : [];
-
   const onNodesChange = useCallback(
     (changes: NodeChange<Node<AgentNodeData>>[]) => {
       setFlowNodes((nodes) => applyNodeChanges(changes, nodes));
@@ -112,11 +137,80 @@ export function WorkflowsPanel() {
       for (const change of changes) {
         if (change.type === "position" && change.position) {
           cachePosition(positionCache, detail.name, change.id, change.position);
+          markGraphDirty();
         }
+        if (change.type === "remove") markGraphDirty();
       }
     },
-    [detail],
+    [detail, markGraphDirty],
   );
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      setFlowEdges((es) => applyEdgeChanges(changes, es));
+      if (changes.some((c) => c.type === "remove")) markGraphDirty();
+    },
+    [markGraphDirty],
+  );
+
+  const onConnect = useCallback(
+    (c: Connection) => {
+      setFlowEdges((es) => addEdge({ ...c, id: `${c.source}->${c.target}`, data: { conditional: false } }, es));
+      markGraphDirty();
+    },
+    [markGraphDirty],
+  );
+
+  // Add a new instance of a palette kind to the canvas at a fixed drop point
+  // (drag to reposition — no collision avoidance beyond newInstanceId's own
+  // id-suffixing). Prompt-editability mirrors buildFlowNodes: does this kind
+  // render any prompts, per the palette entry's own `prompts` list.
+  const addNode = useCallback(
+    (kind: string) => {
+      setFlowNodes((ns) => {
+        const id = newInstanceId(kind, new Set(ns.map((n) => n.id)));
+        const meta = palette.find((p) => p.kind === kind);
+        const node: Node<AgentNodeData> = {
+          id,
+          type: "agent",
+          position: { x: 40, y: 40 },
+          initialWidth: 190,
+          initialHeight: 64,
+          data: {
+            id,
+            kind: nodeKind(kind),
+            backendKind: kind,
+            config: {},
+            status: "idle",
+            editable: (meta?.prompts.length ?? 0) > 0,
+            selected: false,
+          },
+        };
+        return [...ns, node];
+      });
+      markGraphDirty();
+    },
+    [palette, markGraphDirty],
+  );
+
+  const save = useCallback(async () => {
+    if (!ipc || !detail) return;
+    try {
+      await ipc.workflowsSave(
+        flowToDefinition(flowNodes, flowEdges, {
+          name: detail.name,
+          title: detail.title,
+          description: detail.description,
+          builtin: detail.definition.builtin,
+        }),
+      );
+      setGraphDirty(false);
+      setSaveState("saved");
+    } catch (err) {
+      setSaveState("error");
+      setSaveError(err instanceof Error ? err.message : String(err));
+    }
+  }, [ipc, detail, flowNodes, flowEdges]);
 
   // Guarded node open: if the drawer has unsaved edits, confirm before switching.
   // `after` runs once the guard is satisfied — immediately if not dirty, or from
@@ -196,26 +290,44 @@ export function WorkflowsPanel() {
 
       {detail && (
         topology ? (
-          <div className="wf-panel__canvas">
-            <ReactFlow
-              nodes={flowNodes}
-              edges={flowEdges}
-              nodeTypes={nodeTypes}
-              onNodesChange={onNodesChange}
-              onSelectionChange={onSelectionChange}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
-              nodesConnectable={false}
-              elementsSelectable
-              selectNodesOnDrag={false}
-              deleteKeyCode={null}
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color={tokenVar("--border-subtle")} />
-              <Controls showInteractive={false} />
-            </ReactFlow>
-            <div className="wf-panel__legend"><WorkflowLegend /></div>
-          </div>
+          <>
+            <div className="wf-panel__toolbar">
+              <Button type="primary" onClick={() => void save()} disabled={!ipc || !graphDirty}>
+                Save
+              </Button>
+              {saveState === "saved" && (
+                <Alert type="success" showIcon message="Workflow saved." style={{ padding: "2px 8px" }} />
+              )}
+              {saveState === "error" && (
+                <Alert type="error" showIcon message={saveError || "Couldn't save — try again."} style={{ padding: "2px 8px" }} />
+              )}
+            </div>
+            <div className="wf-panel__editor">
+              <WorkflowPalette palette={palette} onAdd={addNode} />
+              <div className="wf-panel__canvas">
+                <ReactFlow
+                  nodes={flowNodes}
+                  edges={flowEdges}
+                  nodeTypes={nodeTypes}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  onSelectionChange={onSelectionChange}
+                  fitView
+                  fitViewOptions={{ padding: 0.2 }}
+                  nodesConnectable
+                  elementsSelectable
+                  selectNodesOnDrag={false}
+                  deleteKeyCode={["Backspace", "Delete"]}
+                  proOptions={{ hideAttribution: true }}
+                >
+                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color={tokenVar("--border-subtle")} />
+                  <Controls showInteractive={false} />
+                </ReactFlow>
+                <div className="wf-panel__legend"><WorkflowLegend /></div>
+              </div>
+            </div>
+          </>
         ) : (
           <EmptyState
             title="No graph available"

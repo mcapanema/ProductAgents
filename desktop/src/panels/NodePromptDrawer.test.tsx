@@ -24,7 +24,7 @@ function fake(overrides: Record<string, unknown> = {}): IpcClient {
   } as unknown as IpcClient;
 }
 
-const debateNode = { id: "debate", prompts: ["debate", "debate.advocate"] };
+const debateNode = { id: "debate", prompts: ["debate", "debate.advocate"], kind: "debate", config: {} };
 
 function renderDrawer(client: IpcClient, node = debateNode) {
   render(
@@ -81,7 +81,7 @@ function fake2(overrides: Record<string, unknown> = {}): IpcClient {
     ...overrides,
   } as unknown as IpcClient;
 }
-const strategistNode = { id: "strategist", prompts: ["strategist"] };
+const strategistNode = { id: "strategist", prompts: ["strategist"], kind: "strategist", config: {} };
 function renderDrawer2(client: IpcClient, onDirtyChange = () => {}) {
   render(<IpcProvider client={client}><NodePromptDrawer node={strategistNode} onClose={() => {}} onDirtyChange={onDirtyChange} /></IpcProvider>);
 }

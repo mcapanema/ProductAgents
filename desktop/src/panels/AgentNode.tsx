@@ -8,6 +8,11 @@ import "./AgentNode.css";
 export interface AgentNodeData {
   id: string;
   kind: NodeKind;
+  // The backend registry kind (e.g. "market") this instance was built from —
+  // distinct from `kind` above (the UI's visual category, e.g. "analyst-market").
+  // Round-tripped into WorkflowDefinitionDTO by flowToDefinition().
+  backendKind: string;
+  config: Record<string, unknown>;
   status: NodeStatus;
   editable: boolean;
   selected: boolean;
