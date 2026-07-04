@@ -7,7 +7,7 @@ round-trip, like the canonical store); the decision row also carries the
 initiative embedding so retrieval needs no re-embedding of history.
 """
 
-from sqlalchemy import JSON, Integer, String
+from sqlalchemy import JSON, Boolean, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -98,6 +98,22 @@ class ConnectorConfigRow(Base):
     )
     connector: Mapped[str] = mapped_column(String, primary_key=True)
     config: Mapped[dict] = mapped_column(JSON)
+    updated_at: Mapped[str] = mapped_column(String)
+
+
+class WorkflowDefinitionRow(Base):
+    """One saved workflow definition, scoped to a workspace."""
+
+    __tablename__ = "workflow_definition"
+
+    workspace: Mapped[str] = mapped_column(
+        String, primary_key=True, default="default", server_default="default"
+    )
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    title: Mapped[str] = mapped_column(String)
+    payload: Mapped[dict] = mapped_column(JSON)  # WorkflowDefinition.model_dump
+    builtin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     updated_at: Mapped[str] = mapped_column(String)
 
 

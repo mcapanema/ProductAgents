@@ -18,7 +18,7 @@ Phase 6; JSONL demoted to export/audit.
 - `tables.py` — pa-memory's OWN `Base`/metadata (separate from pa-knowledge's
   `SQLModel.metadata`): `memory_decision` + `memory_outcome` + `runtime_session` +
   `runtime_event` + `workspace` + `workspace_config` + `connector_config` +
-  `preference`, full JSON payloads.
+  `preference` + `workflow_definition`, full JSON payloads.
 - `store.py` — `DecisionStore(session, workspace="default")`: persist/read
   records, scoped to `workspace`. The session is **injected** by the app
   boundary; this package never builds an engine and never imports pa-knowledge.
@@ -55,10 +55,12 @@ Phase 6; JSONL demoted to export/audit.
 - **Schema changes go through pa-memory's own Alembic** (`uv run alembic upgrade
   head` from `packages/pa-memory`; `version_table="alembic_version_memory"` so
   it shares the DB file with pa-knowledge without clobbering its history).
-  Alembic head is now `0004_workspace_scope` (`0001_memory_tables` →
+  Alembic head is now `0005_workflow_definition` (`0001_memory_tables` →
   `0002_event_store` adds `runtime_session`/`runtime_event` →
   `0003_workspace_state` adds `workspace_config`/`connector_config`/
   `preference` → `0004_workspace_scope` creates the `workspace` registry
   table, adds a `workspace` column to `memory_decision`/`memory_outcome`/
   `runtime_session`, and widens `workspace_config`/`connector_config`'s
-  primary key to `(workspace, key)`/`(workspace, connector)`).
+  primary key to `(workspace, key)`/`(workspace, connector)` →
+  `0005_workflow_definition` adds the `workflow_definition` table, keyed
+  `(workspace, name)`).
