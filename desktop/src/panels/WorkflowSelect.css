@@ -1,0 +1,8 @@
+.wf-select { display: inline-flex; align-items: center; gap: var(--gap-inline); flex-shrink: 0; }
+.wf-select__label {
+  font: var(--text-caption);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wf-select__control { min-width: 220px; }
