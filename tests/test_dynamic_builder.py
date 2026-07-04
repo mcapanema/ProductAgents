@@ -2,6 +2,13 @@
 
 from productagents.agents.default_workflow import default_definition
 from productagents.agents.graph import build_graph, build_graph_from_definition
+from productagents.core.models import (
+    END_ID,
+    START_ID,
+    WorkflowDefinition,
+    WorkflowEdgeDef,
+    WorkflowNodeDef,
+)
 from tests.fakes import FakeChatModel
 
 
@@ -74,6 +81,33 @@ def test_hitl_appends_human_approval_via_the_builder():
     nodes, edges = _topo(compiled)
     assert "human_approval" in nodes
     assert ("governance", "human_approval") in edges
+
+
+def test_hitl_splices_before_whichever_node_is_actually_terminal():
+    # Regression for the finding: the HITL splice used to hardcode
+    # governance -> human_approval, so a definition with no governance node
+    # (any of the other 10 kinds may legitimately be terminal in a
+    # user-built workflow) crashed with "edge starting at unknown node
+    # 'governance'". The splice must generalize to whatever node(s) the
+    # definition actually points at END.
+    defn = WorkflowDefinition(
+        name="ends_at_risk",
+        title="Ends At Risk",
+        nodes=[WorkflowNodeDef(id="risk", kind="risk")],
+        edges=[
+            WorkflowEdgeDef(source=START_ID, target="risk"),
+            WorkflowEdgeDef(source="risk", target=END_ID),
+        ],
+    )
+    model = FakeChatModel({})
+    compiled = build_graph_from_definition(defn, model, human_in_the_loop=True)
+    nodes, edges = _topo(compiled)
+
+    assert "governance" not in nodes
+    assert "human_approval" in nodes
+    assert ("risk", "human_approval") in edges
+    assert ("human_approval", "__end__") in edges
+    assert not any(source == "governance" for source, _ in edges)
 
 
 def test_conditional_kinds_route_through_their_kind_router():

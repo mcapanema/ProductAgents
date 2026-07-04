@@ -83,26 +83,31 @@ def build_graph_from_definition(
         kind = KIND_REGISTRY[node.kind]
         graph.add_node(node.id, _traced(node.id, kind.build(ctx, node.config)))
 
-    # Nodes whose out-edges are owned by a router (or by the HITL chain).
+    # Nodes whose out-edges are owned by a router.
     routed = {n.id for n in defn.nodes if KIND_REGISTRY[n.kind].router is not None}
-    if human_in_the_loop:
-        routed.add("governance")
 
     for node in defn.nodes:
         kind = KIND_REGISTRY[node.kind]
         if kind.router is not None:
             graph.add_conditional_edges(node.id, kind.router, kind.router_targets)
 
+    # Mirrors topology.py::definition_topology's HITL retargeting: whichever
+    # node(s) originally pointed at END now point at human_approval instead
+    # (there is no single hardcoded terminal node — any of the 11 kinds may
+    # be the last one in a user-built workflow), then one synthetic
+    # human_approval -> END edge closes the chain.
     for edge in defn.edges:
         if edge.source in routed:
-            continue  # router / HITL chain owns this
+            continue  # router owns this
         src = START if edge.source == START_ID else edge.source
-        tgt = END if edge.target == END_ID else edge.target
+        if human_in_the_loop and edge.target == END_ID:
+            tgt = "human_approval"
+        else:
+            tgt = END if edge.target == END_ID else edge.target
         graph.add_edge(src, tgt)
 
     if human_in_the_loop:
         graph.add_node("human_approval", human_approval_node)
-        graph.add_edge("governance", "human_approval")
         graph.add_edge("human_approval", END)
         return graph.compile(checkpointer=InMemorySaver())
 
