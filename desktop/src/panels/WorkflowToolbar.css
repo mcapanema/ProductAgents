@@ -1,0 +1,3 @@
+/* desktop/src/panels/WorkflowToolbar.css */
+.wf-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); flex-wrap: wrap; }
+.wf-toolbar__switcher { flex-shrink: 0; }

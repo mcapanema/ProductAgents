@@ -57,7 +57,8 @@ describe("WorkflowsPanel", () => {
   it("renders the selected workflow's graph as themed agent nodes", async () => {
     renderPanel(fake());
     expect(await screen.findByRole("button", { name: /Strategist/ })).toBeInTheDocument();
-    expect(screen.getByText("Evaluate Initiative")).toBeInTheDocument();
+    // Appears twice now: the panel head title and the always-shown toolbar switcher.
+    expect(screen.getAllByText("Evaluate Initiative").length).toBeGreaterThan(0);
   });
 
   it("shows an empty state when there are no workflows", async () => {
@@ -66,7 +67,7 @@ describe("WorkflowsPanel", () => {
   });
 
   it("shows a fallback when a workflow exposes no topology", async () => {
-    renderPanel(fake({ workflowsShow: async () => ({ ...summary, topology: null }) }));
+    renderPanel(fake({ workflowsShow: async () => ({ ...detail, topology: null }) }));
     expect(await screen.findByText(/no graph available/i)).toBeInTheDocument();
   });
 

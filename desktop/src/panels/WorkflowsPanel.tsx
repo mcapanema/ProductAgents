@@ -15,7 +15,7 @@ import {
   type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Typography, Segmented, Modal, Button, Alert } from "antd";
+import { Typography, Modal, Alert } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { PaletteKind, WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
 import {
@@ -31,6 +31,7 @@ import AgentNode, { type AgentNodeData } from "./AgentNode";
 import { WorkflowLegend } from "./WorkflowLegend";
 import { NodePromptDrawer } from "./NodePromptDrawer";
 import { WorkflowPalette, newInstanceId } from "./WorkflowPalette";
+import { WorkflowToolbar } from "./WorkflowToolbar";
 import { nodeKind } from "./workflowNodeKinds";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
@@ -85,6 +86,56 @@ export function WorkflowsPanel() {
       setDetail(null);
     }
   }
+
+  // Refetch the workflow list after a CRUD mutation, then re-open `reopen`
+  // (or the first remaining workflow) so `detail` — and its `is_default`/
+  // `builtin` flags the toolbar renders from — reflects the mutation.
+  async function refreshList(reopen?: string) {
+    if (!ipc) return;
+    try {
+      const wfs = await ipc.workflowsList();
+      setList(wfs);
+      if (reopen) await open(reopen);
+      else if (wfs.length > 0) await open(wfs[0].name);
+      else setDetail(null);
+    } catch {
+      setList([]);
+    }
+  }
+
+  // ponytail: these five degrade silently on failure (same "list loads
+  // .catch(() => ...)" convention as the fetches above) — no toast/error
+  // surface for CRUD actions yet. Add one if silent failures (e.g. a
+  // duplicate name on Create) prove confusing in practice.
+  const onCreateWorkflow = useCallback(
+    (name: string, title: string) => {
+      if (!ipc) return;
+      ipc.workflowsCreate(name, title).then(() => refreshList(name)).catch(() => {});
+    },
+    [ipc], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const onCloneWorkflow = useCallback(
+    (newName: string, title: string) => {
+      if (!ipc || !detail) return;
+      ipc.workflowsClone(detail.name, newName, title || undefined).then(() => refreshList(newName)).catch(() => {});
+    },
+    [ipc, detail], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const onRenameWorkflow = useCallback(
+    (newName: string) => {
+      if (!ipc || !detail) return;
+      ipc.workflowsRename(detail.name, newName).then(() => refreshList(newName)).catch(() => {});
+    },
+    [ipc, detail], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const onDeleteWorkflow = useCallback(() => {
+    if (!ipc || !detail) return;
+    ipc.workflowsDelete(detail.name).then(() => refreshList()).catch(() => {});
+  }, [ipc, detail]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onSetDefaultWorkflow = useCallback(() => {
+    if (!ipc || !detail) return;
+    ipc.workflowsSetDefault(detail.name).then(() => refreshList(detail.name)).catch(() => {});
+  }, [ipc, detail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!ipc) return;
@@ -270,15 +321,26 @@ export function WorkflowsPanel() {
               "Registered decision pipelines. Select a workflow to inspect its reasoning graph; click an agent to edit the prompts that steer it."}
           </Typography.Paragraph>
         </div>
-        {list.length > 1 && (
-          <Segmented
-            className="wf-panel__switcher"
-            value={detail?.name}
-            onChange={(v) => requestNode(null, () => void open(String(v)))}
-            options={list.map((w) => ({ label: w.title, value: w.name }))}
-          />
-        )}
       </div>
+
+      <WorkflowToolbar
+        workflows={list}
+        current={detail ? { ...detail, builtin: detail.definition.builtin } : null}
+        dirty={graphDirty && !!ipc}
+        onSelect={(name) => requestNode(null, () => void open(name))}
+        onCreate={onCreateWorkflow}
+        onClone={onCloneWorkflow}
+        onRename={onRenameWorkflow}
+        onDelete={onDeleteWorkflow}
+        onSetDefault={onSetDefaultWorkflow}
+        onSave={() => void save()}
+      />
+      {saveState === "saved" && (
+        <Alert type="success" showIcon message="Workflow saved." style={{ padding: "2px 8px" }} />
+      )}
+      {saveState === "error" && (
+        <Alert type="error" showIcon message={saveError || "Couldn't save — try again."} style={{ padding: "2px 8px" }} />
+      )}
 
       {list.length === 0 && (
         <EmptyState
@@ -291,17 +353,6 @@ export function WorkflowsPanel() {
       {detail && (
         topology ? (
           <>
-            <div className="wf-panel__toolbar">
-              <Button type="primary" onClick={() => void save()} disabled={!ipc || !graphDirty}>
-                Save
-              </Button>
-              {saveState === "saved" && (
-                <Alert type="success" showIcon message="Workflow saved." style={{ padding: "2px 8px" }} />
-              )}
-              {saveState === "error" && (
-                <Alert type="error" showIcon message={saveError || "Couldn't save — try again."} style={{ padding: "2px 8px" }} />
-              )}
-            </div>
             <div className="wf-panel__editor">
               <WorkflowPalette palette={palette} onAdd={addNode} />
               <div className="wf-panel__canvas">
