@@ -23,3 +23,16 @@ def test_edges_flag_conditional():
 
 def test_graph_topology_delegates_to_the_default():
     assert graph_topology() == definition_topology(default_definition())
+
+
+def test_topology_human_in_the_loop_adds_approval_node():
+    topo = definition_topology(default_definition(), human_in_the_loop=True)
+    ids = {n["id"] for n in topo["nodes"]}
+    assert "human_approval" in ids
+    pairs = {(e["source"], e["target"]) for e in topo["edges"]}
+    assert ("governance", "human_approval") in pairs
+    assert ("human_approval", "__end__") in pairs
+    assert ("governance", "__end__") not in pairs
+
+    graph_topo = graph_topology(human_in_the_loop=True)
+    assert graph_topo == topo

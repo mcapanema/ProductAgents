@@ -59,13 +59,26 @@ def test_evaluate_initiative_exposes_graph_topology():
     ]
 
 
-def test_evaluate_initiative_topology_ignores_human_in_the_loop():
-    """Topology is now derived from the definition, not the graph build flags."""
+def test_evaluate_initiative_topology_reflects_human_in_the_loop():
+    """HITL topology adds the human_approval node between governance and END."""
     wf_default = build_evaluate_initiative(FakeChatModel({}), persist_events=False)
     wf_with_hitl = build_evaluate_initiative(
         FakeChatModel({}), human_in_the_loop=True, persist_events=False
     )
     assert wf_default.topology is not None
     assert wf_with_hitl.topology is not None
-    # Both have the same topology now (definition-driven, not build-time driven)
-    assert wf_default.topology() == wf_with_hitl.topology()
+    default_ids = [n["id"] for n in wf_default.topology()["nodes"]]
+    hitl_topo = wf_with_hitl.topology()
+    hitl_ids = [n["id"] for n in hitl_topo["nodes"]]
+    assert "human_approval" not in default_ids
+    assert "human_approval" in hitl_ids
+    assert {
+        "source": "governance",
+        "target": "human_approval",
+        "conditional": False,
+    } in hitl_topo["edges"]
+    assert {
+        "source": "human_approval",
+        "target": "__end__",
+        "conditional": False,
+    } in hitl_topo["edges"]
