@@ -77,6 +77,18 @@ async def test_delete_rejects_builtin(sessionmaker):
         assert await store.get("beta") is None
 
 
+async def test_delete_of_current_default_reassigns_to_builtin(sessionmaker):
+    async with sessionmaker() as session:
+        store = WorkflowDefinitionStore(session, workspace="default")
+        await store.ensure_default(default_definition())
+        await store.save(_defn("beta"))
+        await store.set_default("beta")
+        await store.delete("beta")
+        new_default = await store.get_default()
+        assert new_default is not None
+        assert new_default.name == "evaluate_initiative"
+
+
 async def test_workspace_scoping(sessionmaker):
     async with sessionmaker() as session:
         a = WorkflowDefinitionStore(session, workspace="a")

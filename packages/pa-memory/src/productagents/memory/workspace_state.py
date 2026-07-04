@@ -248,7 +248,23 @@ class WorkflowDefinitionStore:
             return
         if row.builtin:
             raise ValueError(f"cannot delete built-in workflow: {name}")
+        was_default = row.is_default
         await self._session.delete(row)
+        if was_default:
+            # Deleting the current default must not silently leave no default
+            # (list()'s default-first ordering would then fall back to
+            # whichever row sorts first alphabetically). Reassign to the
+            # builtin, which always exists and is never deletable.
+            builtin = (
+                await self._session.execute(
+                    select(WorkflowDefinitionRow).where(
+                        WorkflowDefinitionRow.workspace == self._workspace,
+                        WorkflowDefinitionRow.builtin.is_(True),
+                    )
+                )
+            ).scalar_one_or_none()
+            if builtin is not None:
+                builtin.is_default = True
         await self._session.commit()
 
     async def set_default(self, name: str) -> None:

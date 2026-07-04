@@ -49,7 +49,8 @@ Phase 6; JSONL demoted to export/audit.
   that returns a pydantic model rather than dicts, matching `DecisionStore`'s
   pattern). `list()` orders default-first then alphabetical; `save()` preserves
   an existing row's `is_default` unless overridden; `delete()` rejects `builtin`
-  rows; `set_default()` clears other defaults atomically; `ensure_default()` is
+  rows and reassigns `is_default` to the builtin row when the deleted row was
+  the default; `set_default()` clears other defaults atomically; `ensure_default()` is
   the idempotent seed used at startup (no-ops once the workspace has any row).
 
 ## Rules that matter
