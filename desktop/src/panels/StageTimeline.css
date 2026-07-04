@@ -1,0 +1,137 @@
+/*
+ * Run reasoning timeline — the "Instrument" centrepiece. Ported from the
+ * design-system phase4b execution timeline, wired to the live event stream.
+ * Reuses the app's AI-state vocabulary (--ai-running/done/failed, pulse) so it
+ * reads as the list counterpart of the Workflows graph's AgentNode chips.
+ * Tokens only. Analyst identity rides the coloured leading icon (no side-strip).
+ */
+.run-tl { display: grid; gap: 0; margin: var(--space-8) 0 var(--space-16); }
+
+/* Visually-hidden live region: announces stage transitions to screen readers. */
+.run-tl__live {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Parallel group (the 5 analysts + recall fan out concurrently). */
+.run-tl__group-head {
+  display: flex; align-items: center; gap: var(--space-8);
+  padding: var(--space-8) 0 var(--space-4);
+}
+.run-tl__group-label {
+  font: var(--text-label); letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.run-tl__group-count {
+  font: var(--text-caption); color: var(--text-tertiary);
+  background: var(--surface-sunken);
+  border: var(--border-width-default) solid var(--border-subtle);
+  border-radius: var(--radius-pill); padding: 0 var(--space-6);
+}
+.run-tl__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+
+/* A vertical connecting rail down the sequential stages (marker centre = 12px). */
+.run-tl__seq .run-tl__row { position: relative; }
+.run-tl__seq .run-tl__row:not(:last-child)::before {
+  content: ""; position: absolute; left: calc(var(--space-8) + 11px);
+  top: var(--space-32); bottom: calc(var(--space-2) * -1);
+  width: var(--border-width-default); background: var(--border-subtle);
+}
+
+/* Stage row */
+.run-tl__row { border-radius: var(--radius-control); }
+.run-tl__head {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  gap: var(--space-8); width: 100%; text-align: left;
+  padding: var(--space-8); background: transparent;
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control); cursor: pointer;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+.run-tl__head:disabled { cursor: default; }
+.run-tl__head:not(:disabled):hover { background: var(--surface-hover); }
+.run-tl__head:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.run-tl__row[data-active="true"] > .run-tl__head { background: var(--surface-hover); }
+
+/* Marker: kind icon in a chip, ring coloured by run status. */
+.run-tl__marker {
+  display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: var(--radius-pill);
+  color: var(--stage-accent, var(--accent));
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 var(--border-width-default) var(--stage-status, var(--border-subtle));
+  font-size: var(--icon-sm); flex: none;
+}
+.run-tl__row[data-status="running"] .run-tl__marker {
+  animation: run-tl-pulse var(--transition-pulse) infinite;
+}
+@keyframes run-tl-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 var(--border-width-default) var(--stage-status),
+                         0 0 0 0 color-mix(in oklch, var(--stage-status) 55%, transparent); }
+  50%      { box-shadow: inset 0 0 0 var(--border-width-default) var(--stage-status),
+                         0 0 0 4px color-mix(in oklch, var(--stage-status) 0%, transparent); }
+}
+
+.run-tl__id { min-width: 0; display: grid; }
+.run-tl__role {
+  font: var(--text-label); letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.run-tl__label {
+  font: var(--text-title); color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.run-tl__end {
+  display: flex; align-items: center; gap: var(--space-8);
+  min-width: 0; justify-content: flex-end;
+}
+.run-tl__summary {
+  font: var(--text-body-s); color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.run-tl__summary strong { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.run-tl__status {
+  font: var(--text-caption); font-variant-numeric: tabular-nums;
+  color: var(--stage-status-text, var(--text-tertiary)); flex: none;
+}
+.run-tl__chevron {
+  color: var(--text-tertiary); font-size: var(--icon-sm); flex: none;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.run-tl__head[aria-expanded="true"] .run-tl__chevron { transform: rotate(90deg); }
+
+/* Detail block (findings, transcript, rationale). */
+.run-tl__detail {
+  padding: 0 var(--space-8) var(--space-12) calc(var(--space-8) + 24px + var(--space-8));
+  display: grid; gap: var(--space-6);
+  font: var(--text-body-s); color: var(--text-secondary);
+}
+.run-tl__detail ul { margin: 0; padding-left: var(--space-16); }
+.run-tl__detail p { margin: 0; }
+
+/* Debate dialectic — first-class: side chip + tint by advocate/skeptic. */
+.run-tl__turn { display: grid; gap: var(--space-2); }
+.run-tl__side {
+  display: inline-flex; align-items: center; gap: var(--space-4);
+  font: var(--text-label); letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase; color: var(--turn-color);
+}
+.run-tl__side::before {
+  content: ""; width: 6px; height: 6px; border-radius: var(--radius-pill);
+  background: var(--turn-color);
+}
+
+/* Judge scores: two labelled gauges. */
+.run-tl__scores { display: grid; gap: var(--space-4); }
+.run-tl__score { display: flex; align-items: center; gap: var(--space-8); }
+.run-tl__score-label { font: var(--text-caption); color: var(--text-tertiary); min-width: 9ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  .run-tl__row[data-status="running"] .run-tl__marker { animation: none; }
+  .run-tl__chevron { transition: none; }
+}

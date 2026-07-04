@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useIpc } from "../app/IpcProvider";
 import type { DecisionDetail, DecisionSummary } from "../ipc/types";
 import { decisionSections, formatConfidence, predictionRows } from "./decisionView";
+import { ConfidenceGauge } from "../ui/ConfidenceGauge";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
 
@@ -65,8 +66,9 @@ function DecisionDetailView({ detail }: { detail: DecisionDetail }) {
   return (
     <div className="master-detail__detail">
       <h2 style={{ marginTop: 0 }}>{detail.record.initiative.title}</h2>
-      <p>
-        <strong>{rec.recommendation}</strong> · {formatConfidence(rec.confidence)}
+      <p className="row" style={{ gap: 8 }}>
+        <strong>{rec.recommendation}</strong>
+        <ConfidenceGauge value={rec.confidence} />
       </p>
       <p className="muted">{rec.rationale}</p>
       <h3>Predicted outcomes</h3>
