@@ -1,5 +1,5 @@
 /* RunPanel chrome — tokens only. The timeline itself lives in StageTimeline.css. */
-.run-controls { margin-bottom: var(--space-8); }
+.run-controls { margin-bottom: var(--space-8); flex-wrap: wrap; }
 .run-controls__title { flex: 1; }
 .run-controls__evidence { width: 220px; flex: none; }
 
