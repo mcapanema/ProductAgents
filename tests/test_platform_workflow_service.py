@@ -59,9 +59,13 @@ def test_evaluate_initiative_exposes_graph_topology():
     ]
 
 
-def test_evaluate_initiative_topology_tracks_human_in_the_loop():
-    wf = build_evaluate_initiative(
+def test_evaluate_initiative_topology_ignores_human_in_the_loop():
+    """Topology is now derived from the definition, not the graph build flags."""
+    wf_default = build_evaluate_initiative(FakeChatModel({}), persist_events=False)
+    wf_with_hitl = build_evaluate_initiative(
         FakeChatModel({}), human_in_the_loop=True, persist_events=False
     )
-    assert wf.topology is not None
-    assert "human_approval" in [n["id"] for n in wf.topology()["nodes"]]
+    assert wf_default.topology is not None
+    assert wf_with_hitl.topology is not None
+    # Both have the same topology now (definition-driven, not build-time driven)
+    assert wf_default.topology() == wf_with_hitl.topology()

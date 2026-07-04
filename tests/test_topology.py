@@ -1,51 +1,25 @@
-"""Tests for the serializable graph-topology accessor."""
+"""Topology derives from a WorkflowDefinition, not a compiled graph."""
 
-from productagents.agents.topology import graph_topology
-
-
-def _node_ids(topo: dict) -> list[str]:
-    return [n["id"] for n in topo["nodes"]]
+from productagents.agents.default_workflow import default_definition
+from productagents.agents.topology import definition_topology, graph_topology
 
 
-def test_topology_lists_all_pipeline_nodes():
-    topo = graph_topology()
-    ids = _node_ids(topo)
-    for expected in (
-        "__start__",
-        "__end__",
-        "customer_research",
-        "product_analytics",
-        "market",
-        "business",
-        "technical",
-        "recall",
-        "debate",
-        "strategist",
-        "judge",
-        "risk",
-        "governance",
-    ):
-        assert expected in ids
-    assert "human_approval" not in ids
+def test_definition_topology_carries_kind_and_prompts():
+    topo = definition_topology(default_definition())
+    by_id = {n["id"]: n for n in topo["nodes"]}
+    assert by_id["market"]["kind"] == "market"
+    assert by_id["market"]["prompts"] == ["market"]
+    assert by_id["debate"]["prompts"] == ["debate", "debate.advocate", "debate.skeptic"]
+    assert by_id["recall"]["prompts"] == []
 
 
-def test_topology_human_in_the_loop_adds_approval_node():
-    assert "human_approval" in _node_ids(graph_topology(human_in_the_loop=True))
+def test_edges_flag_conditional():
+    topo = definition_topology(default_definition())
+    pairs = {(e["source"], e["target"]): e["conditional"] for e in topo["edges"]}
+    assert pairs[("strategist", "judge")] is True
+    assert pairs[("risk", "governance")] is False
+    assert pairs[("__start__", "market")] is False
 
 
-def test_topology_marks_conditional_edges():
-    topo = graph_topology()
-    edges = {(e["source"], e["target"]): e["conditional"] for e in topo["edges"]}
-    assert edges[("judge", "strategist")] is True
-    assert edges[("judge", "risk")] is True
-    assert edges[("debate", "strategist")] is False
-    assert edges[("risk", "governance")] is False
-
-
-def test_topology_maps_nodes_to_their_prompts():
-    topo = graph_topology()
-    prompts = {n["id"]: n["prompts"] for n in topo["nodes"]}
-    assert prompts["strategist"] == ["strategist"]
-    assert prompts["debate"] == ["debate", "debate.advocate", "debate.skeptic"]
-    assert prompts["recall"] == []
-    assert prompts["__start__"] == []
+def test_graph_topology_delegates_to_the_default():
+    assert graph_topology() == definition_topology(default_definition())

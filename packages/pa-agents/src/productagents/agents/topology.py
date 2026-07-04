@@ -1,51 +1,35 @@
-"""Serializable view of the decision graph's structure.
+"""Serializable view of a workflow definition's structure (GUI Workflows panel).
 
-The GUI's Workflows panel renders this; pa-platform re-exposes it through the
-``Workflow`` registry (``Workflow.topology``) so presentation never imports
-this package directly.
+Derived directly from the ``WorkflowDefinition`` data (no graph compile needed),
+so prompts come from each node's kind and the picture can never drift from the
+registry.
 """
 
-from productagents.agents.context import AgentContext
-from productagents.agents.graph import build_graph
+from productagents.agents.default_workflow import default_definition
+from productagents.agents.node_kinds import KIND_REGISTRY
+from productagents.core.models import WorkflowDefinition
 
-# Which prompt-registry names each node renders (see each node's
-# ``prompts.render`` call site). Nodes absent here (recall, human_approval,
-# __start__, __end__) render no prompt.
-NODE_PROMPTS: dict[str, list[str]] = {
-    "customer_research": ["customer_research"],
-    "product_analytics": ["product_analytics"],
-    "market": ["market"],
-    "business": ["business"],
-    "technical": ["technical"],
-    "debate": ["debate", "debate.advocate", "debate.skeptic"],
-    "strategist": ["strategist"],
-    "judge": ["judge"],
-    "risk": ["risk"],
-    "governance": ["governance"],
-}
+
+def definition_topology(defn: WorkflowDefinition) -> dict:
+    return {
+        "nodes": [
+            {
+                "id": n.id,
+                "kind": n.kind,
+                "prompts": list(KIND_REGISTRY[n.kind].prompts)
+                if n.kind in KIND_REGISTRY
+                else [],
+                "config": n.config,
+            }
+            for n in defn.nodes
+        ],
+        "edges": [
+            {"source": e.source, "target": e.target, "conditional": e.conditional}
+            for e in defn.edges
+        ],
+    }
 
 
 def graph_topology(*, human_in_the_loop: bool = False) -> dict:
-    """Nodes + edges of the compiled decision graph as plain JSON-able dicts.
-
-    Builds the real graph with no model — nodes are never invoked at build
-    time — so this picture can never drift from ``graph.py``.
-    """
-    compiled = build_graph(
-        AgentContext(model=None), human_in_the_loop=human_in_the_loop
-    )
-    drawable = compiled.get_graph()
-    return {
-        "nodes": [
-            {"id": node_id, "prompts": NODE_PROMPTS.get(node_id, [])}
-            for node_id in drawable.nodes
-        ],
-        "edges": [
-            {
-                "source": e.source,
-                "target": e.target,
-                "conditional": bool(e.conditional),
-            }
-            for e in drawable.edges
-        ],
-    }
+    """Topology of the built-in default pipeline (back-compat accessor)."""
+    return definition_topology(default_definition())
