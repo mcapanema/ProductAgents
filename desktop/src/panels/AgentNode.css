@@ -7,7 +7,7 @@
   align-items: center;
   gap: var(--gap-inline);
   min-width: 168px;
-  padding: var(--space-8) calc(var(--space-12) + var(--icon-sm) + var(--gap-inline)) var(--space-8) var(--space-12);
+  padding: var(--space-12) calc(var(--space-12) + var(--icon-sm) + var(--gap-inline)) var(--space-12) var(--space-12);
   background: var(--surface-raised);
   border: var(--border-width-default) solid var(--node-border, var(--ai-node-border));
   border-radius: var(--radius-card);
@@ -39,7 +39,7 @@
 /* Always top-right of the card, regardless of rail/role layout below it. */
 .agent-node__icon {
   position: absolute;
-  top: var(--space-8);
+  top: var(--space-12);
   right: var(--space-12);
   display: grid;
   place-items: center;
