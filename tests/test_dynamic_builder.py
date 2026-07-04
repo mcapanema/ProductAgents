@@ -13,11 +13,57 @@ def _topo(compiled):
     )
 
 
-def test_default_definition_builds_the_same_graph_as_build_graph():
+_ANALYSTS = [
+    "customer_research",
+    "product_analytics",
+    "market",
+    "business",
+    "technical",
+]
+
+# Independently-written expected topology for the pipeline: 5 analysts + recall
+# fan out from START; each analyst also edges to debate (recall does not — it
+# feeds strategist purely through state, no graph edge); debate -> strategist;
+# strategist/judge are conditional routers (strategist: judge on success, END
+# on failure; judge: risk on pass/exhausted retries, back to strategist on
+# retry); risk -> governance -> END. Nodes with no explicit outgoing edge
+# (recall) get an implicit edge to END from langgraph. This is hardcoded from
+# the current real pipeline shape, not derived by calling build_graph() or
+# default_definition() again, so it catches silent drift in either.
+_EXPECTED_NODES = {
+    *_ANALYSTS,
+    "recall",
+    "debate",
+    "strategist",
+    "judge",
+    "risk",
+    "governance",
+}
+_EXPECTED_EDGES = {
+    *(("__start__", a) for a in _ANALYSTS),
+    ("__start__", "recall"),
+    *((a, "debate") for a in _ANALYSTS),  # each analyst fans into debate
+    ("recall", "__end__"),  # no outgoing edge in the definition -> implicit finish
+    ("debate", "strategist"),
+    ("strategist", "judge"),  # conditional: success path
+    ("strategist", "__end__"),  # conditional: strategist gave up -> fail fast
+    ("judge", "risk"),  # conditional: pass or retries exhausted
+    ("judge", "strategist"),  # conditional: retry back-edge
+    ("risk", "governance"),
+    ("governance", "__end__"),
+}
+
+
+def test_default_definition_matches_the_literal_expected_pipeline_topology():
     model = FakeChatModel({})
-    from_defn = build_graph_from_definition(default_definition(), model)
-    hardcoded = build_graph(model)
-    assert _topo(from_defn) == _topo(hardcoded)
+    compiled = build_graph_from_definition(default_definition(), model)
+    nodes, edges = _topo(compiled)
+    assert nodes == _EXPECTED_NODES | {"__start__", "__end__"}
+    assert edges == _EXPECTED_EDGES
+
+    # Cheap sanity check IN ADDITION to the literal comparison above: the
+    # build_graph() wrapper must delegate to the same builder + definition.
+    assert _topo(build_graph(model)) == _topo(compiled)
 
 
 def test_hitl_appends_human_approval_via_the_builder():
