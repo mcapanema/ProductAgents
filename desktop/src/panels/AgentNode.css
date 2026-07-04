@@ -47,6 +47,20 @@
   color: var(--node-accent, var(--accent));
   font-size: var(--icon-sm);
 }
+/* Pipeline step number — same rank the graph groups parallel nodes by. */
+.agent-node__step {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  font: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
 .agent-node__body { min-width: 0; flex: 1; }
 .agent-node__role {
   font: var(--text-label);

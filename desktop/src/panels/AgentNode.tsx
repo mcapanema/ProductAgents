@@ -11,6 +11,7 @@ export interface AgentNodeData {
   status: NodeStatus;
   editable: boolean;
   selected: boolean;
+  step: number; // pipeline rank — position in the top-to-bottom reading order
   [key: string]: unknown; // React Flow node data is an index type
 }
 
@@ -29,6 +30,7 @@ export default function AgentNode({ data }: NodeProps) {
   } as React.CSSProperties;
 
   const ariaStatus = d.status === "idle" ? "" : `, ${d.status.replace("-", " ")}`;
+  const ariaStep = isTerminal ? "" : `Step ${d.step}, `;
 
   return (
     <div
@@ -39,10 +41,11 @@ export default function AgentNode({ data }: NodeProps) {
       data-status={d.status}
       role={d.editable ? "button" : undefined}
       tabIndex={0}
-      aria-label={`${label}${d.editable ? ", edit prompts" : ""}${ariaStatus}`}
+      aria-label={`${ariaStep}${label}${d.editable ? ", edit prompts" : ""}${ariaStatus}`}
     >
       <Handle type="target" position={Position.Top} isConnectable={false} />
       {!isTerminal && <span className="agent-node__rail" aria-hidden />}
+      {!isTerminal && <span className="agent-node__step" aria-hidden>{d.step}</span>}
       <span className="agent-node__icon" aria-hidden><Icon /></span>
       <span className="agent-node__body">
         {!isTerminal && <div className="agent-node__role">{meta.role}</div>}
