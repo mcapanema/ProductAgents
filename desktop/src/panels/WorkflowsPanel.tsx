@@ -15,7 +15,7 @@ import {
   type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Typography, Modal, Alert } from "antd";
+import { App, Typography, Alert } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { PaletteKind, WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
 import {
@@ -60,6 +60,7 @@ const positionCache: PositionCache = new Map();
 
 export function WorkflowsPanel() {
   const ipc = useIpc();
+  const { modal } = App.useApp();
   const [list, setList] = useState<WorkflowSummary[]>([]);
   const [detail, setDetail] = useState<WorkflowDetail | null>(null);
   const [promptNode, setPromptNode] = useState<WorkflowNode | null>(null);
@@ -113,10 +114,10 @@ export function WorkflowsPanel() {
     throw err;
   }
   const onCreateWorkflow = useCallback(
-    (name: string, title: string) => {
+    (name: string, title: string, description: string) => {
       if (!ipc) return Promise.reject(new Error("Not connected."));
       setCrudError("");
-      return ipc.workflowsCreate(name, title).then(() => refreshList(name)).catch(failCrud);
+      return ipc.workflowsCreate(name, title, description).then(() => refreshList(name)).catch(failCrud);
     },
     [ipc], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -129,10 +130,10 @@ export function WorkflowsPanel() {
     [ipc, detail], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const onRenameWorkflow = useCallback(
-    (newName: string) => {
+    (newName: string, title: string) => {
       if (!ipc || !detail) return Promise.reject(new Error("No workflow selected."));
       setCrudError("");
-      return ipc.workflowsRename(detail.name, newName).then(() => refreshList(newName)).catch(failCrud);
+      return ipc.workflowsRename(detail.name, newName, title || undefined).then(() => refreshList(newName)).catch(failCrud);
     },
     [ipc, detail], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -293,7 +294,7 @@ export function WorkflowsPanel() {
         : canvasDirty
           ? "You have unsaved canvas changes (added nodes, edges, or moved positions) that will be lost if you switch workflows."
           : "You have edits in the open prompt editor that haven't been saved as a new version.";
-      Modal.confirm({
+      modal.confirm({
         title,
         content,
         okText: "Discard",

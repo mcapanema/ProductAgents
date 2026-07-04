@@ -436,7 +436,7 @@ async def handle(
             await emit({"id": rid, "result": row})
 
         async def _workflows_rename(p: dict) -> None:
-            row = await workflows.rename(p["name"], p["new_name"])
+            row = await workflows.rename(p["name"], p["new_name"], title=p.get("title"))
             await emit({"id": rid, "result": row})
 
         async def _workflows_delete(p: dict) -> None:

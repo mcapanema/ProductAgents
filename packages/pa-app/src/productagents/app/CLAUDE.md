@@ -99,8 +99,9 @@ palette sidebar. `workflows.validate {definition}` → `{errors: [str]}` — run
 `builtin`/`is_default`). `workflows.save {definition}` → persists (validates
 first; `error` carries the joined validation messages on failure) and returns
 the summary; saving over a `builtin` name always keeps `builtin=True`
-regardless of the payload. `workflows.rename {name, new_name}` and
-`workflows.delete {name}` reject `builtin` workflows. `workflows.setDefault
+regardless of the payload. `workflows.rename {name, new_name, title?}` (an
+omitted `title` keeps the existing one; `new_name` may equal `name` to retitle
+in place) and `workflows.delete {name}` reject `builtin` workflows. `workflows.setDefault
 {name}` (wire name is camelCase, unlike its siblings) → `{ok: true}`, moves
 the workspace default.
 

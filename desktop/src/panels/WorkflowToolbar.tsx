@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Button, Input, Modal, Segmented, Space } from "antd";
+import { Alert, App, Button, Input, Modal, Segmented, Space } from "antd";
 import type { WorkflowSummary } from "../ipc/types";
 import "./WorkflowToolbar.css";
 
@@ -29,22 +29,25 @@ export function WorkflowToolbar({
   current: CurrentWorkflow | null;
   dirty: boolean;
   onSelect: (name: string) => void;
-  onCreate: (name: string, title: string) => Promise<void>;
+  onCreate: (name: string, title: string, description: string) => Promise<void>;
   onClone: (newName: string, title: string) => Promise<void>;
-  onRename: (newName: string) => Promise<void>;
+  onRename: (newName: string, title: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onSetDefault: () => Promise<void>;
   onSave: () => void;
 }) {
+  const { modal: confirmModal } = App.useApp();
   const [modal, setModal] = useState<ModalKind>(null);
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [modalError, setModalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   function openModal(kind: Exclude<ModalKind, null>) {
     setName(kind === "rename" ? (current?.name ?? "") : "");
     setTitle(kind === "rename" ? (current?.title ?? "") : "");
+    setDescription("");
     setModalError("");
     setModal(kind);
   }
@@ -57,9 +60,9 @@ export function WorkflowToolbar({
     if (!trimmedName) return;
     setSubmitting(true);
     try {
-      if (modal === "new") await onCreate(trimmedName, title.trim());
+      if (modal === "new") await onCreate(trimmedName, title.trim(), description.trim());
       if (modal === "clone") await onClone(trimmedName, title.trim());
-      if (modal === "rename") await onRename(trimmedName);
+      if (modal === "rename") await onRename(trimmedName, title.trim());
       setModal(null);
       setModalError("");
     } catch (err) {
@@ -71,7 +74,7 @@ export function WorkflowToolbar({
 
   function confirmDelete() {
     if (!current) return;
-    Modal.confirm({
+    confirmModal.confirm({
       title: `Delete "${current.title}"?`,
       content: "This cannot be undone.",
       okText: "Delete",
@@ -124,12 +127,19 @@ export function WorkflowToolbar({
           onPressEnter={submit}
           autoFocus
         />
-        {modal !== "rename" && (
-          <Input
-            placeholder="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onPressEnter={submit}
+        <Input
+          placeholder="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onPressEnter={submit}
+          style={{ marginTop: 8 }}
+        />
+        {modal === "new" && (
+          <Input.TextArea
+            placeholder="description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            autoSize={{ minRows: 2, maxRows: 4 }}
             style={{ marginTop: 8 }}
           />
         )}

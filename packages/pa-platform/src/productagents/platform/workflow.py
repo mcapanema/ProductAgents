@@ -155,7 +155,9 @@ class WorkflowService:
             default = await store.get_default()
         return _summary(defn, is_default=bool(default and default.name == defn.name))
 
-    async def rename(self, name: str, new_name: str) -> dict:
+    async def rename(
+        self, name: str, new_name: str, *, title: str | None = None
+    ) -> dict:
         _validate_name(new_name)
         async with self._store() as store:
             await self._seed(store)
@@ -164,15 +166,19 @@ class WorkflowService:
                 raise ValueError(f"no such workflow: {name}")
             if defn.builtin:
                 raise ValueError(f"cannot rename built-in workflow: {name}")
-            if await store.get(new_name) is not None:
+            if new_name != name and await store.get(new_name) is not None:
                 raise ValueError(f"workflow already exists: {new_name}")
             was_default = await store.get_default()
-            renamed = defn.model_copy(update={"name": new_name})
+            update = {"name": new_name}
+            if title is not None:
+                update["title"] = title
+            renamed = defn.model_copy(update=update)
             await store.save(
                 renamed,
                 is_default=bool(was_default and was_default.name == name),
             )
-            await store.delete(name)
+            if new_name != name:
+                await store.delete(name)
         return _summary(
             renamed, is_default=bool(was_default and was_default.name == name)
         )

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { App } from "antd";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -50,7 +51,11 @@ function fake(overrides: Record<string, unknown> = {}): IpcClient {
   } as unknown as IpcClient;
 }
 function renderPanel(client: IpcClient) {
-  render(<IpcProvider client={client}><WorkflowsPanel /></IpcProvider>);
+  render(
+    <App>
+      <IpcProvider client={client}><WorkflowsPanel /></IpcProvider>
+    </App>,
+  );
 }
 
 describe("WorkflowsPanel", () => {

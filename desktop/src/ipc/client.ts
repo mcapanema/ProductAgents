@@ -119,8 +119,10 @@ export class IpcClient {
     return this.call<WorkflowSummary>("workflows.save", { definition });
   }
 
-  workflowsRename(name: string, newName: string): Promise<WorkflowSummary> {
-    return this.call<WorkflowSummary>("workflows.rename", { name, new_name: newName });
+  workflowsRename(name: string, newName: string, title?: string): Promise<WorkflowSummary> {
+    return this.call<WorkflowSummary>("workflows.rename", {
+      name, new_name: newName, ...(title ? { title } : {}),
+    });
   }
 
   workflowsDelete(name: string): Promise<{ ok: boolean }> {

@@ -65,6 +65,28 @@ async def test_create_clone_rename_delete(store_opener):
         await svc.delete("evaluate_initiative")
 
 
+async def test_rename_can_also_update_title(store_opener):
+    svc = _svc(store_opener)
+    await svc.list()
+    await svc.create_workflow("roadmap", "Roadmap")
+    renamed = await svc.rename("roadmap", "roadmap2", title="Product Roadmap")
+    assert renamed["name"] == "roadmap2"
+    assert renamed["title"] == "Product Roadmap"
+    detail = await svc.show("roadmap2")
+    assert detail["title"] == "Product Roadmap"
+
+
+async def test_rename_can_update_title_without_changing_name(store_opener):
+    svc = _svc(store_opener)
+    await svc.list()
+    await svc.create_workflow("roadmap", "Roadmap")
+    renamed = await svc.rename("roadmap", "roadmap", title="Better Title")
+    assert renamed["name"] == "roadmap"
+    assert renamed["title"] == "Better Title"
+    names = {r["name"] for r in await svc.list()}
+    assert names == {"evaluate_initiative", "roadmap"}
+
+
 async def test_save_rejects_invalid_definition(store_opener):
     svc = _svc(store_opener)
     await svc.list()

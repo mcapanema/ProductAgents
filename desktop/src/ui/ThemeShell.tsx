@@ -1,7 +1,7 @@
 // desktop/src/ui/ThemeShell.tsx
 import { useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ConfigProvider } from "antd";
+import { App, ConfigProvider } from "antd";
 import type { ThemeConfig } from "antd";
 import { buildAntdTheme } from "./theme";
 import type { Density, Theme } from "./theme";
@@ -13,6 +13,12 @@ import type { Density, Theme } from "./theme";
  * buildAntdTheme re-reads the resolved CSS custom properties. Fixes the race
  * documented in design/docs/antd-pilot-evaluation.md (stale colors for one
  * commit on the first light<->dark toggle).
+ *
+ * Also wraps children in antd's `<App>` so the static-style `Modal.confirm`/
+ * `message`/`notification` APIs, called via `App.useApp()`, render inside
+ * this theme's ConfigProvider context — otherwise those calls mount outside
+ * the React tree entirely and always render with antd's default look,
+ * regardless of this app's design-system tokens.
  */
 export function ThemeShell({
   theme,
@@ -35,5 +41,9 @@ export function ThemeShell({
     setConfig(buildAntdTheme(theme, density));
   }, [theme, density]);
 
-  return <ConfigProvider theme={config}>{children}</ConfigProvider>;
+  return (
+    <ConfigProvider theme={config}>
+      <App>{children}</App>
+    </ConfigProvider>
+  );
 }
