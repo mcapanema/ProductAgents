@@ -49,14 +49,21 @@ from productagents.core.models.discovery import (
 from productagents.core.models.measurement import MetricSnapshot, ProductMetric
 from productagents.core.models.planning import Feature, Initiative, RoadmapItem
 from productagents.core.models.strategy import KeyResult, Objective
+from productagents.core.models.workflow import (
+    END_ID,
+    START_ID,
+    WorkflowDefinition,
+    WorkflowEdgeDef,
+    WorkflowNodeDef,
+)
 from productagents.core.refs import ExternalRef, SourceRef
 
 __all__ = [
+    "END_ID",
+    "START_ID",
     "AnalystFindings",
     "AnalystReport",
-    # base + helpers
     "CanonicalModel",
-    # discovery
     "CustomerFeedback",
     "DebateArgument",
     "DebateSide",
@@ -64,7 +71,6 @@ __all__ = [
     "DecidedBy",
     "DecisionRecord",
     "Evidence",
-    # decision (v1 migrated)
     "EvidenceSourceRef",
     "ExternalRef",
     "Feature",
@@ -74,18 +80,15 @@ __all__ = [
     "HumanDecision",
     "Incident",
     "IncidentStatus",
-    # planning
     "Initiative",
     "InitiativeStatus",
     "JudgeFinding",
     "JudgeVerdict",
     "KeyResult",
     "MetricSnapshot",
-    # strategy
     "Objective",
     "OutcomeRecord",
     "Priority",
-    # measurement
     "ProductMetric",
     "Recommendation",
     "Reflection",
@@ -95,13 +98,14 @@ __all__ = [
     "RoadmapItem",
     "Sentiment",
     "Severity",
-    # lineage
     "SourceRef",
     "SupportTicket",
     "TicketStatus",
     "UserSegment",
-    # enums
     "Verdict",
+    "WorkflowDefinition",
+    "WorkflowEdgeDef",
+    "WorkflowNodeDef",
     "fingerprint",
     "new_id",
 ]
