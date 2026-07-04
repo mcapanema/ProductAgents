@@ -165,13 +165,17 @@ export function buildFlowEdges(topology: WorkflowTopology): Edge[] {
  * `layout` (their edges pass through unfiltered, as before). `human_approval`
  * is a builder-managed preview node `definition_topology` synthesizes
  * whenever HITL is on (always, for the desktop GUI) — not user-placeable, so
- * it's excluded from `nodes`/`layout` too, and any edge touching it
- * (`governance -> human_approval`, `human_approval -> __end__`) is dropped —
- * an edge to a node that isn't being saved would otherwise reach the backend
- * referencing an unknown node. Each node's backend `kind` (e.g. "market")
- * comes from `data.backendKind`, set by `buildFlowNodes`/the palette's
- * add-node handler — falling back to the node id covers a hand-built node
- * missing it.
+ * it's excluded from `nodes`/`layout`. Its edges need un-splicing rather than
+ * dropping: the backend's preview logic rewrites every real `X -> __end__`
+ * edge into `X -> human_approval` and appends one synthetic
+ * `human_approval -> __end__` edge. So here the synthetic edge (source is
+ * human_approval) is dropped, and every retargeted edge (target is
+ * human_approval) has its target restored to `__end__` — otherwise the saved
+ * definition can end up with zero edges reaching `__end__` and fail the
+ * backend's "no node reaches the end" validation. Each node's backend `kind`
+ * (e.g. "market") comes from `data.backendKind`, set by `buildFlowNodes`/the
+ * palette's add-node handler — falling back to the node id covers a
+ * hand-built node missing it.
  */
 export function flowToDefinition(
   nodes: Node<AgentNodeData>[],
@@ -179,7 +183,9 @@ export function flowToDefinition(
   base: { name: string; title: string; description: string; builtin: boolean },
 ): WorkflowDefinitionDTO {
   const real = nodes.filter((n) => n.id !== "__start__" && n.id !== "__end__" && n.id !== "human_approval");
-  const realEdges = edges.filter((e) => e.source !== "human_approval" && e.target !== "human_approval");
+  const realEdges = edges
+    .filter((e) => e.source !== "human_approval")
+    .map((e) => (e.target === "human_approval" ? { ...e, target: "__end__" } : e));
   return {
     ...base,
     nodes: real.map((n) => ({

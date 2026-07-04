@@ -247,7 +247,7 @@ describe("flowToDefinition", () => {
     expect(defn.edges).toEqual([{ source: "__start__", target: "strategist", conditional: false }]);
   });
 
-  it("excludes the synthesized human_approval preview node and its edges", () => {
+  it("excludes the synthesized human_approval preview node, drops its synthetic edge, and restores the real end-edge", () => {
     const defn = flowToDefinition(
       [
         { id: "governance", type: "agent", position: { x: 0, y: 0 }, data: { id: "governance", kind: "governance", backendKind: "governance", config: {}, status: "idle", editable: true, selected: false } },
@@ -262,6 +262,27 @@ describe("flowToDefinition", () => {
     );
     expect(defn.nodes.map((n) => n.id)).toEqual(["governance"]);
     expect(defn.layout).toEqual({ governance: [0, 0] });
-    expect(defn.edges).toEqual([]);
+    expect(defn.edges).toEqual([{ source: "governance", target: "__end__", conditional: false }]);
+  });
+
+  it("restores every retargeted edge when multiple nodes originally targeted __end__", () => {
+    const defn = flowToDefinition(
+      [
+        { id: "riskA", type: "agent", position: { x: 0, y: 0 }, data: { id: "riskA", kind: "risk", backendKind: "risk", config: {}, status: "idle", editable: true, selected: false } },
+        { id: "riskB", type: "agent", position: { x: 1, y: 1 }, data: { id: "riskB", kind: "risk", backendKind: "risk", config: {}, status: "idle", editable: true, selected: false } },
+        { id: "human_approval", type: "agent", position: { x: 5, y: 9 }, data: { id: "human_approval", kind: "approval", backendKind: "human_approval", config: {}, status: "idle", editable: false, selected: false } },
+        { id: "__end__", type: "agent", position: { x: 10, y: 18 }, data: { id: "__end__", kind: "terminal", backendKind: "__end__", config: {}, status: "idle", editable: false, selected: false } },
+      ],
+      [
+        { id: "riskA->human_approval", source: "riskA", target: "human_approval", data: { conditional: false } },
+        { id: "riskB->human_approval", source: "riskB", target: "human_approval", data: { conditional: true } },
+        { id: "human_approval->__end__", source: "human_approval", target: "__end__", data: { conditional: false } },
+      ],
+      { name: "d", title: "D", description: "", builtin: false },
+    );
+    expect(defn.edges).toEqual([
+      { source: "riskA", target: "__end__", conditional: false },
+      { source: "riskB", target: "__end__", conditional: true },
+    ]);
   });
 });
