@@ -101,6 +101,15 @@ class ConnectorConfigRow(Base):
     updated_at: Mapped[str] = mapped_column(String)
 
 
+class WorkspaceRow(Base):
+    """The workspace registry: one row per project/team scope."""
+
+    __tablename__ = "workspace"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[str] = mapped_column(String)
+
+
 class WorkflowDefinitionRow(Base):
     """One saved workflow definition, scoped to a workspace."""
 
@@ -115,15 +124,6 @@ class WorkflowDefinitionRow(Base):
     builtin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     updated_at: Mapped[str] = mapped_column(String)
-
-
-class WorkspaceRow(Base):
-    """The workspace registry: one row per project/team scope."""
-
-    __tablename__ = "workspace"
-
-    name: Mapped[str] = mapped_column(String, primary_key=True)
-    created_at: Mapped[str] = mapped_column(String)
 
 
 class PreferenceRow(Base):
