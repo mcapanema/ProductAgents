@@ -10,6 +10,7 @@ import type {
   IpcMessage,
   Lesson,
   OutcomeRecord,
+  PaletteKind,
   Preferences,
   PromptDiff,
   PromptSummary,
@@ -19,6 +20,7 @@ import type {
   RunResult,
   SessionDetail,
   SessionSummary,
+  WorkflowDefinitionDTO,
   WorkflowDetail,
   WorkflowSummary,
   WorkspaceInfo,
@@ -93,6 +95,43 @@ export class IpcClient {
 
   workflowsShow(name: string): Promise<WorkflowDetail> {
     return this.call<WorkflowDetail>("workflows.show", { name });
+  }
+
+  workflowsPalette(): Promise<PaletteKind[]> {
+    return this.call<PaletteKind[]>("workflows.palette");
+  }
+
+  workflowsValidate(definition: WorkflowDefinitionDTO): Promise<{ errors: string[] }> {
+    return this.call<{ errors: string[] }>("workflows.validate", { definition });
+  }
+
+  workflowsCreate(name: string, title: string, description = ""): Promise<WorkflowSummary> {
+    return this.call<WorkflowSummary>("workflows.create", { name, title, description });
+  }
+
+  workflowsClone(name: string, newName: string, title?: string): Promise<WorkflowSummary> {
+    return this.call<WorkflowSummary>("workflows.clone", {
+      name, new_name: newName, ...(title ? { title } : {}),
+    });
+  }
+
+  workflowsSave(definition: WorkflowDefinitionDTO): Promise<WorkflowSummary> {
+    return this.call<WorkflowSummary>("workflows.save", { definition });
+  }
+
+  workflowsRename(name: string, newName: string): Promise<WorkflowSummary> {
+    return this.call<WorkflowSummary>("workflows.rename", { name, new_name: newName });
+  }
+
+  workflowsDelete(name: string): Promise<{ ok: boolean }> {
+    return this.call<{ ok: boolean }>("workflows.delete", { name });
+  }
+
+  // ponytail: "workflows.setDefault" is genuinely camelCase on the wire (the
+  // one exception among the workflows.* methods) — confirmed against
+  // pa-app/src/productagents/app/ipc.py's dispatch table, not a typo.
+  workflowsSetDefault(name: string): Promise<{ ok: boolean }> {
+    return this.call<{ ok: boolean }>("workflows.setDefault", { name });
   }
 
   sessionsList(): Promise<SessionSummary[]> {

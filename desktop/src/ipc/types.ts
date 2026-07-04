@@ -31,11 +31,19 @@ export interface WorkflowSummary {
   name: string;
   title: string;
   description: string;
+  is_default?: boolean;
 }
 
 export interface WorkflowNode {
   id: string;
   prompts: string[];
+  // ponytail: optional, not required as in the plan's literal shape — every
+  // node the backend sends does carry kind/config, but keeping these
+  // optional keeps existing WorkflowNode literals (workflowView.test.ts,
+  // WorkflowsPanel.test.tsx, NodePromptDrawer.test.tsx) compiling. Tighten
+  // to required once those fixtures are updated (task E3 touches workflowView.ts).
+  kind?: string;
+  config?: Record<string, unknown>;
 }
 
 export interface WorkflowEdge {
@@ -49,8 +57,32 @@ export interface WorkflowTopology {
   edges: WorkflowEdge[];
 }
 
+export interface WorkflowDefinitionDTO {
+  name: string;
+  title: string;
+  description: string;
+  nodes: { id: string; kind: string; config: Record<string, unknown> }[];
+  edges: { source: string; target: string; conditional: boolean }[];
+  layout: Record<string, [number, number]>;
+  builtin: boolean;
+}
+
 export interface WorkflowDetail extends WorkflowSummary {
+  // ponytail: optional for the same reason as WorkflowNode.kind/config above —
+  // the backend always sends it, but making it required would force edits to
+  // WorkflowsPanel.test.tsx/App.test.tsx, out of scope for this task.
+  definition?: WorkflowDefinitionDTO;
   topology: WorkflowTopology | null;
+}
+
+export interface PaletteKind {
+  kind: string;
+  label: string;
+  role: string;
+  singleton: boolean;
+  prompts: string[];
+  reads: string[];
+  writes: string[];
 }
 
 /** Per-node execution state. Neutral "idle" on the Workflows config view;
