@@ -7,6 +7,8 @@ import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
+import { WorkflowSelect } from "./WorkflowSelect";
+import type { WorkflowSummary } from "../ipc/types";
 import "./RunPanel.css";
 
 const VERDICTS: { verdict: string; label: string }[] = [
@@ -21,13 +23,28 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
   const [evidence, setEvidence] = useState("sample");
   const [approval, setApproval] = useState(false);
   const [state, dispatch] = useReducer(runReducer, initialRunState);
+  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  const [workflow, setWorkflow] = useState("evaluate_initiative");
+
+  // Load the registered workflows so the user can pick which to run. Guarded:
+  // some tests inject a client without workflowsList — degrade to the default.
+  useEffect(() => {
+    if (!ipc?.workflowsList) return;
+    ipc
+      .workflowsList()
+      .then((wfs) => {
+        setWorkflows(wfs);
+        if (wfs.length > 0) setWorkflow(wfs[0].name);
+      })
+      .catch(() => setWorkflows([]));
+  }, [ipc]);
 
   async function start() {
     if (!ipc || !title.trim()) return;
     dispatch({ kind: "start" });
     try {
       const result = await ipc.run(
-        { workflow: "evaluate_initiative", title, evidence, approval },
+        { workflow, title, evidence, approval },
         { onEvent: (event) => dispatch({ kind: "event", event }) },
       );
       dispatch({ kind: "done", result });
@@ -63,8 +80,17 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
   return (
     <div>
       <h1>Run a decision</h1>
-      <p className="page-desc">Evaluate an initiative through the advisory pipeline.</p>
+      <p className="page-desc">
+        {workflows.find((w) => w.name === workflow)?.description ??
+          "Evaluate an initiative through the advisory pipeline."}
+      </p>
       <div className="row run-controls">
+        <WorkflowSelect
+          workflows={workflows}
+          value={workflow}
+          onChange={setWorkflow}
+          disabled={running}
+        />
         <Input
           aria-label="initiative"
           placeholder="Initiative title…"
