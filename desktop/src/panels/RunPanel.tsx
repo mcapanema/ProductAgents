@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState } from "react";
-import { Button, Checkbox, Input } from "antd";
+import { Alert, Button, Checkbox, Input } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import { runReducer, initialRunState } from "./runReducer";
 import { deriveStages } from "./runTimeline";
@@ -7,6 +7,7 @@ import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
+import "./RunPanel.css";
 
 const VERDICTS: { verdict: string; label: string }[] = [
   { verdict: "approve", label: "Approve" },
@@ -63,20 +64,22 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
     <div>
       <h1>Run a decision</h1>
       <p className="page-desc">Evaluate an initiative through the advisory pipeline.</p>
-      <div className="row" style={{ marginBottom: 8 }}>
+      <div className="row run-controls">
         <Input
           aria-label="initiative"
           placeholder="Initiative title…"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          style={{ flex: 1 }}
+          onPressEnter={start}
+          className="run-controls__title"
         />
         <Input
           aria-label="evidence"
           placeholder="evidence (scenario or path)"
           value={evidence}
           onChange={(e) => setEvidence(e.target.value)}
-          style={{ width: 220 }}
+          onPressEnter={start}
+          className="run-controls__evidence"
         />
         <Button type="primary" onClick={start} loading={running} disabled={running || !ipc}>
           Run
@@ -87,7 +90,7 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
           </Button>
         )}
       </div>
-      <div className="row" style={{ gap: 6, marginBottom: 8 }}>
+      <div className="row run-controls">
         <Checkbox
           checked={approval}
           onChange={(e) => setApproval(e.target.checked)}
@@ -97,12 +100,12 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
         </Checkbox>
       </div>
       {state.awaiting && (
-        <div className="approval" style={{ marginBottom: 12 }}>
-          <p>
-            Approval needed
-            {state.advisory ? ` · advisory: ${state.advisory.verdict}` : ""}
-          </p>
-          <div className="row" style={{ gap: 8 }}>
+        <div className="approval">
+          <p className="approval__title">Approval needed</p>
+          {state.advisory && (
+            <p className="approval__advisory">Advisory recommendation: {state.advisory.verdict}</p>
+          )}
+          <div className="row">
             {VERDICTS.map((v) => (
               <Button key={v.verdict} onClick={() => decide(v.verdict)}>
                 {v.label}
@@ -111,11 +114,13 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
           </div>
         </div>
       )}
+      {state.error && (
+        <Alert className="run-alert" type="error" showIcon message="Run failed" description={state.error} />
+      )}
       {state.status !== "idle" && (
-        <p className="muted">
+        <p className="muted run-status">
           Status: {state.awaiting ? "awaiting approval" : state.status}
           {state.sessionId ? ` · session ${state.sessionId}` : ""}
-          {state.error ? ` · ${state.error}` : ""}
         </p>
       )}
       {state.status === "idle" && (

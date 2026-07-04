@@ -21,5 +21,10 @@ body { margin: 0; background: var(--bg-primary); color: var(--text-primary);
 .list-item.is-selected { border-color: var(--accent); background: var(--accent-subtle); }
 .list-item:focus-visible { outline: var(--focus-ring-width) solid var(--border-focus); outline-offset: -2px; }
 .muted { color: var(--text-secondary); }
-.event { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; padding: 4px 8px;
-  border-left: 2px solid var(--border-default); margin: 2px 0; }
+.event { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px;
+  padding: var(--space-8); margin: var(--space-2) 0;
+  border-radius: var(--radius-control); background: var(--surface-sunken); }
+.event > div + div { margin-top: var(--space-8); }
+.event strong { color: var(--text-secondary); }
+.event pre { margin: var(--space-2) 0 0; white-space: pre-wrap; word-break: break-word;
+  color: var(--text-primary); }

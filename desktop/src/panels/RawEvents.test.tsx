@@ -16,6 +16,6 @@ describe("RawEvents", () => {
     render(<RawEvents events={events} />);
     expect(screen.getByText(/raw events \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText("NodeProgress")).toBeInTheDocument();
-    expect(screen.getByText(/"node":"market"/)).toBeInTheDocument();
+    expect(screen.getByText(/"node": "market"/)).toBeInTheDocument();
   });
 });

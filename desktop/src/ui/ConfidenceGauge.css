@@ -1,0 +1,40 @@
+/*
+ * ConfidenceGauge — the "Instrument" signature motif: confidence rendered as a
+ * measured quantity. Ported from design/styleguide phase4b `.p4b-conf-bar`.
+ * Geometry from the --gauge-* tokens (components.css); tier fill from the 2F
+ * --ai-confidence-* scale (themes/*.css). The numeric reading is ALWAYS shown —
+ * color reinforces a number, it never replaces it (WCAG 1.4.1).
+ */
+.confidence-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.confidence-gauge__track {
+  width: 72px;
+  height: var(--gauge-height, 4px);
+  background: var(--gauge-track, var(--border-subtle));
+  border-radius: var(--gauge-radius, 2px);
+  overflow: clip;
+  flex: none;
+}
+.confidence-gauge__fill {
+  height: 100%;
+  border-radius: var(--gauge-radius, 2px);
+  background: var(--gauge-fill, var(--ai-confidence-high));
+  width: var(--gauge-pct, 0%);
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+.confidence-gauge__val {
+  font: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  flex: none;
+}
+
+[data-density="compact"] .confidence-gauge__track { width: 56px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .confidence-gauge__fill { transition: none; }
+}

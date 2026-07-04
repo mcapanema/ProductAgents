@@ -9,3 +9,6 @@ src-tauri/gen/schemas/
 # Phase 8e packaging artifacts
 build/
 src-tauri/binaries/
+
+# impeccable local tooling state (critique snapshots, live-mode config)
+.impeccable/

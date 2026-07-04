@@ -31,8 +31,11 @@ describe("SessionsPanel", () => {
       </IpcProvider>,
     );
     fireEvent.click(await screen.findByText("evaluate_initiative"));
-    await waitFor(() => expect(screen.getByText("demand up")).toBeInTheDocument());
-    expect(screen.getByText("Final Verdict")).toBeInTheDocument();
+    // The finished verdict is the active stage, open by default.
+    await waitFor(() => expect(screen.getByText("Final Verdict")).toBeInTheDocument());
+    // Analyst detail is collapsed behind its summary; expanding Market reveals its finding.
+    fireEvent.click(screen.getByText("Market"));
+    expect(screen.getByText("demand up")).toBeInTheDocument();
     expect(screen.getByText(/raw events \(2\)/i)).toBeInTheDocument();
   });
 });

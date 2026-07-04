@@ -1,0 +1,22 @@
+/* RunPanel chrome — tokens only. The timeline itself lives in StageTimeline.css. */
+.run-controls { margin-bottom: var(--space-8); }
+.run-controls__title { flex: 1; }
+.run-controls__evidence { width: 220px; flex: none; }
+
+/* Human-in-the-loop approval prompt: a decision moment, so it carries the
+ * awaiting-human (indigo) accent as a full border + tint — prominent, not alarming. */
+.approval {
+  margin-bottom: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  display: grid;
+  gap: var(--space-8);
+  border: var(--border-width-default) solid var(--ai-awaiting-human);
+  border-radius: var(--radius-card);
+  background: color-mix(in oklch, var(--ai-awaiting-human) 8%, var(--surface-raised));
+}
+.approval__title { margin: 0; font: var(--text-title); color: var(--text-primary); }
+.approval__advisory { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.run-alert { margin-bottom: var(--space-8); }
+.run-status { margin: var(--space-8) 0 0; }
+.run-raw { margin-top: var(--space-12); }
