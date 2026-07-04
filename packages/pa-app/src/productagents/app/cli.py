@@ -72,13 +72,28 @@ def render_event(event: ev.Event) -> str | None:
     return None
 
 
+async def _default_workflow_name(service) -> str:
+    """The workspace's default workflow name (falls back to first / builtin)."""
+    listed = await service.list()
+    for w in listed:
+        if w.get("is_default"):
+            return w["name"]
+    return listed[0]["name"] if listed else "evaluate_initiative"
+
+
 async def run_workflow(
-    workflow_name: str, title: str, evidence_spec: str, *, service
+    workflow_name: str | None, title: str, evidence_spec: str, *, service
 ) -> int:
-    """Run a workflow and stream its events to stdout. Returns 1 if the run
+    """Run a workflow and stream its events to stdout. ``workflow_name=None``
+    runs the workspace default. Returns 1 if the workflow is unknown or the run
     aborted (a SessionFailed event), else 0."""
     initiative = Initiative(title=title, description=title)
-    _session, stream = service.run(workflow_name, initiative, evidence_spec)
+    if workflow_name is None:
+        workflow_name = await _default_workflow_name(service)
+    if await service.get(workflow_name) is None:
+        print(f"unknown workflow: {workflow_name!r}")
+        return 1
+    _session, stream = await service.run(workflow_name, initiative, evidence_spec)
     failed = False
     async for event in stream:
         if isinstance(event, ev.SessionFailed):
@@ -111,6 +126,30 @@ async def sessions_show(session_id: str, *, service) -> int:
         line = render_event(event)
         if line is not None:
             print(line)
+    return 0
+
+
+async def workflows_list(*, service) -> int:
+    """Print one workflow per line; mark the default with ``*``."""
+    for w in await service.list():
+        marker = "*" if w.get("is_default") else " "
+        print(f"{marker} {w['name']}  {w['title']}")
+    return 0
+
+
+async def workflows_show(name: str, *, service) -> int:
+    """Print a workflow's summary + node/edge counts. Returns 1 if unknown."""
+    detail = await service.show(name)
+    if detail is None:
+        print(f"no such workflow: {name}")
+        return 1
+    topo = detail["topology"]
+    print(f"name:        {detail['name']}")
+    print(f"title:       {detail['title']}")
+    print(f"default:     {'yes' if detail.get('is_default') else 'no'}")
+    print(f"description: {detail['description']}")
+    print(f"nodes:       {len(topo['nodes'])}")
+    print(f"edges:       {len(topo['edges'])}")
     return 0
 
 
@@ -166,9 +205,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p_run = sub.add_parser("run", help="run a workflow and stream its events")
-    p_run.add_argument("workflow", help="workflow name, e.g. evaluate_initiative")
+    p_run.add_argument(
+        "workflow",
+        nargs="?",
+        default=None,
+        help="workflow name (default: the workspace's default workflow)",
+    )
     p_run.add_argument("title", help="initiative title / description")
+    p_run.add_argument(
+        "-w",
+        "--workflow",
+        dest="workflow_flag",
+        default=None,
+        help="workflow name (overrides the positional; omit both to run the default)",
+    )
     p_run.add_argument("--evidence", default="", help="scenario name or directory path")
+
+    p_wf = sub.add_parser("workflows", help="list or show saved workflows")
+    wf_sub = p_wf.add_subparsers(dest="wf_command")
+    wf_sub.add_parser("list", help="list saved workflows (default marked *)")
+    p_wf_show = wf_sub.add_parser("show", help="show a workflow's summary")
+    p_wf_show.add_argument("name")
 
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
@@ -483,12 +540,16 @@ def main(argv: list[str] | None = None) -> None:
             service = _build_run_service(workspace=active)
         except Exception as exc:
             raise SystemExit(f"cannot start run: {exc}") from exc
-        if service.get(args.workflow) is None:
-            raise SystemExit(f"unknown workflow: {args.workflow!r}")
+        workflow_name = args.workflow_flag or args.workflow  # None -> default
         code = asyncio.run(
-            run_workflow(args.workflow, args.title, args.evidence, service=service)
+            run_workflow(workflow_name, args.title, args.evidence, service=service)
         )
         raise SystemExit(code)
+    if args.command == "workflows":
+        service = _build_run_service(workspace=active)
+        if args.wf_command == "show":
+            raise SystemExit(asyncio.run(workflows_show(args.name, service=service)))
+        raise SystemExit(asyncio.run(workflows_list(service=service)))
     if args.command == "sessions":
         service = SessionService.create(active)
         if args.se_command == "show":

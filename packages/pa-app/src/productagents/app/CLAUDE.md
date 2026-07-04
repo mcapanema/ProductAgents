@@ -9,7 +9,7 @@ or `connectors`.
 
 | Module | Role |
 | --- | --- |
-| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
+| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `workflows list/show`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
 | `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list/show`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
@@ -25,9 +25,16 @@ returns an `int` exit code; `main` raises `SystemExit(code)`. Handlers take thei
 collaborating service via a keyword arg so they test headless (see
 `tests/test_cli.py`) — no command builds a real model or hits the network in tests.
 
-- `run WORKFLOW TITLE [--evidence SPEC]` builds a real `WorkflowService`
-  (`human_in_the_loop=False`) and streams events through `render_event`. Exit 1
-  on a `SessionFailed`.
+- `run [WORKFLOW] TITLE [--workflow NAME] [--evidence SPEC]` builds a real
+  `WorkflowService` (`human_in_the_loop=False`) and streams events through
+  `render_event`. The workflow is optional — resolution precedence is
+  `--workflow NAME` (flag) > `WORKFLOW` (positional) > the workspace's default
+  workflow (`_default_workflow_name`, mirroring the IPC `_run` resolution).
+  Exit 1 on an unknown workflow or a `SessionFailed`.
+- `workflows list` prints one saved workflow per line, marking the default
+  with `*`. `workflows show NAME` prints title/description plus node/edge
+  counts from the workflow's topology. Both read the definition registry via
+  `WorkflowService` (`.list()`/`.show()`), same service `run` uses.
 - `render_event(event)` is the CLI's per-event text renderer — one line per event, `None` to skip.
 - `workspace`/`sessions`/`prompts` with no sub-action default to `list`.
 - `prompts list` lists all prompt names with their active version (`(v0)` = bundled

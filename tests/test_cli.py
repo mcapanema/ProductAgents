@@ -228,8 +228,13 @@ class _StubService:
 
     def __init__(self, events):
         self._events = events
+        self.calls = []
 
-    def run(self, name, initiative, evidence_spec):
+    async def get(self, name):
+        return object()  # any non-None -> "known"
+
+    async def run(self, name, initiative, evidence_spec):
+        self.calls.append((name, initiative, evidence_spec))
         session = Session(id="s1", workflow=name)
 
         async def _stream():
@@ -277,14 +282,74 @@ async def test_run_workflow_returns_one_on_session_failed():
     assert code == 1
 
 
+async def test_run_workflow_reports_unknown_workflow(capsys):
+    class _NoWorkflows(_StubService):
+        async def get(self, name):
+            return None
+
+    code = await cli_module.run_workflow("ghost", "Title", "", service=_NoWorkflows([]))
+    assert code == 1
+    assert "unknown workflow" in capsys.readouterr().out
+
+
+async def test_run_workflow_none_uses_default(capsys):
+    class _WF(_StubService):
+        async def list(self):
+            return [
+                {"name": "evaluate_initiative", "title": "E", "is_default": False},
+                {"name": "roadmap", "title": "R", "is_default": True},
+            ]
+
+        async def get(self, name):
+            return object()  # any non-None -> "known"
+
+    svc = _WF([ev.SessionStarted(session_id="s1", seq=0, workflow="roadmap")])
+    code = await cli_module.run_workflow(None, "Title", "", service=svc)
+    assert code == 0
+    assert svc.calls[0][0] == "roadmap"  # resolved to the default
+
+
+def test_run_parser_workflow_is_optional_and_flag_overrides():
+    parse = cli_module.build_parser().parse_args
+    a = parse(["run", "Add SSO"])  # default
+    assert a.workflow is None
+    assert a.workflow_flag is None
+    assert a.title == "Add SSO"
+    b = parse(["run", "roadmap", "Add SSO"])  # positional (back-compat)
+    assert b.workflow == "roadmap"
+    assert b.title == "Add SSO"
+    c = parse(["run", "Add SSO", "--workflow", "roadmap"])  # flag
+    assert c.workflow_flag == "roadmap"
+    assert c.title == "Add SSO"
+
+
+async def test_workflows_list_marks_default(capsys):
+    class _WF:
+        async def list(self):
+            return [
+                {
+                    "name": "evaluate_initiative",
+                    "title": "Evaluate Initiative",
+                    "is_default": True,
+                },
+                {"name": "roadmap", "title": "Roadmap", "is_default": False},
+            ]
+
+    code = await cli_module.workflows_list(service=_WF())
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "* evaluate_initiative" in out
+    assert "  roadmap" in out
+
+
 def test_run_workflow_uses_title_as_initiative(monkeypatch, capsys):
     captured = {}
 
     class _Capturing(_StubService):
-        def run(self, name, initiative, evidence_spec):
+        async def run(self, name, initiative, evidence_spec):
             captured["initiative"] = initiative
             captured["spec"] = evidence_spec
-            return super().run(name, initiative, evidence_spec)
+            return await super().run(name, initiative, evidence_spec)
 
     import asyncio
 
@@ -453,24 +518,24 @@ def test_main_ipc_dispatches_to_serve_stdio(monkeypatch):
     assert ("serve_stdio", "acme") in calls
 
 
-def test_main_run_unknown_workflow_exits_friendly(monkeypatch):
+def test_main_run_unknown_workflow_exits_friendly(monkeypatch, capsys):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
 
     class _Svc:
-        def get(self, name):
+        async def get(self, name):
             return None  # nothing registered → unknown
 
-        def run(self, *a, **k):  # must NOT be reached
+        async def run(self, *a, **k):  # must NOT be reached
             raise AssertionError("run() should not be called for unknown workflow")
 
     monkeypatch.setattr(cli_module, "_build_run_service", lambda **_kw: _Svc())
 
     with pytest.raises(SystemExit) as exc:
         cli_module.main(["run", "bogus_workflow", "Some title"])
-    # friendly: non-zero/str message, not a KeyError traceback
-    assert exc.value.code is not None
-    assert "bogus_workflow" in str(exc.value.code)
+    # friendly: exit code 1 + a printed message, not a KeyError traceback
+    assert exc.value.code == 1
+    assert "bogus_workflow" in capsys.readouterr().out
 
 
 def test_parse_set_overrides_valid():
