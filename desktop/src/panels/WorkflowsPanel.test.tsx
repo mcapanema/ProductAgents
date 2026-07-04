@@ -156,6 +156,43 @@ describe("WorkflowsPanel", () => {
     expect(await screen.findByText(/workflow saved/i)).toBeInTheDocument();
   });
 
+  it("blocks switching workflows on unsaved canvas edits until the user confirms", async () => {
+    const otherSummary: WorkflowSummary = { name: "other", title: "Other", description: "" };
+    const otherDetail: WorkflowDetail = {
+      ...otherSummary,
+      definition: { ...definition, name: "other", title: "Other" },
+      // A fresh object (not the same reference as `detail.topology`) so the
+      // panel's `[topology]`-keyed layout effect actually re-runs on switch.
+      topology: JSON.parse(JSON.stringify(detail.topology)),
+    };
+    renderPanel(fake({
+      workflowsList: async () => [summary, otherSummary],
+      workflowsShow: async (name: string) => (name === "other" ? otherDetail : detail),
+      workflowsPalette: async () => [
+        { kind: "market", label: "Market", role: "Analyst", singleton: false, prompts: ["market"], reads: [], writes: [] },
+      ],
+    }));
+
+    // Add a palette node — this marks graphDirty=true without ever opening
+    // the prompt drawer (dirty stays false).
+    fireEvent.click(await screen.findByRole("button", { name: /Market/ }));
+    const marketNode = () => document.querySelector('[data-testid="rf__node-market"]');
+    await waitFor(() => expect(marketNode()).toBeTruthy());
+
+    fireEvent.click(await screen.findByText("Other"));
+    expect((await screen.findAllByText(/discard unsaved canvas changes/i)).length).toBeGreaterThan(0);
+
+    // Cancel: stay on the current workflow, canvas edit preserved.
+    fireEvent.click(screen.getByRole("button", { name: /keep editing/i }));
+    await waitFor(() => expect(screen.queryAllByText(/discard unsaved canvas changes/i)).toHaveLength(0));
+    expect(marketNode()).toBeTruthy();
+
+    // Confirm: proceeds to switch — the other workflow's graph (no Market node) loads.
+    fireEvent.click(screen.getByText("Other"));
+    fireEvent.click(await screen.findByRole("button", { name: /discard/i }));
+    await waitFor(() => expect(marketNode()).toBeFalsy());
+  });
+
   it("surfaces a server-side save error instead of failing silently", async () => {
     renderPanel(fake({
       workflowsPalette: async () => [

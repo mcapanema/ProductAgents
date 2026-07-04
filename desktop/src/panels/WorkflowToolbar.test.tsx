@@ -6,7 +6,7 @@ import type { WorkflowSummary } from "../ipc/types";
 const alpha: WorkflowSummary = { name: "alpha", title: "Alpha", description: "", is_default: true };
 const beta: WorkflowSummary = { name: "beta", title: "Beta", description: "", is_default: false };
 
-function noop() {}
+async function noop() {}
 
 describe("WorkflowToolbar", () => {
   it("marks the default workflow with a star and disables Delete/Rename for builtin", () => {
@@ -69,6 +69,31 @@ describe("WorkflowToolbar", () => {
     fireEvent.change(screen.getByPlaceholderText("title"), { target: { value: "Gamma" } });
     fireEvent.click(screen.getByRole("button", { name: /create/i }));
     expect(onCreate).toHaveBeenCalledWith("gamma", "Gamma");
+  });
+
+  it("keeps the Create modal open and shows the error when onCreate rejects", async () => {
+    const onCreate = vi.fn().mockRejectedValue(new Error("workflow 'gamma' already exists"));
+    render(
+      <WorkflowToolbar
+        workflows={[alpha, beta]}
+        current={{ ...alpha, builtin: true }}
+        dirty={false}
+        onSelect={noop}
+        onCreate={onCreate}
+        onClone={noop}
+        onRename={noop}
+        onDelete={noop}
+        onSetDefault={noop}
+        onSave={noop}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /new/i }));
+    fireEvent.change(await screen.findByPlaceholderText("name"), { target: { value: "gamma" } });
+    fireEvent.click(screen.getByRole("button", { name: /create/i }));
+
+    expect(await screen.findByText(/already exists/i)).toBeInTheDocument();
+    // Modal stayed open — the name field is still there, not silently closed.
+    expect(screen.getByPlaceholderText("name")).toBeInTheDocument();
   });
 
   it("disables Save when not dirty and Set default when already default", () => {

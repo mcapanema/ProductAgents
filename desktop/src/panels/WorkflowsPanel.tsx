@@ -70,6 +70,7 @@ export function WorkflowsPanel() {
   const [graphDirty, setGraphDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState("");
+  const [crudError, setCrudError] = useState("");
 
   const markGraphDirty = useCallback(() => {
     setGraphDirty(true);
@@ -103,38 +104,47 @@ export function WorkflowsPanel() {
     }
   }
 
-  // ponytail: these five degrade silently on failure (same "list loads
-  // .catch(() => ...)" convention as the fetches above) — no toast/error
-  // surface for CRUD actions yet. Add one if silent failures (e.g. a
-  // duplicate name on Create) prove confusing in practice.
+  // These five reject on failure (instead of swallowing) so both the
+  // toolbar's modal (which awaits them to decide whether to close) and this
+  // panel's own `crudError` Alert below can surface what went wrong — e.g. a
+  // duplicate name on Create — instead of failing silently.
+  function failCrud(err: unknown): never {
+    setCrudError(err instanceof Error ? err.message : String(err));
+    throw err;
+  }
   const onCreateWorkflow = useCallback(
     (name: string, title: string) => {
-      if (!ipc) return;
-      ipc.workflowsCreate(name, title).then(() => refreshList(name)).catch(() => {});
+      if (!ipc) return Promise.reject(new Error("Not connected."));
+      setCrudError("");
+      return ipc.workflowsCreate(name, title).then(() => refreshList(name)).catch(failCrud);
     },
     [ipc], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const onCloneWorkflow = useCallback(
     (newName: string, title: string) => {
-      if (!ipc || !detail) return;
-      ipc.workflowsClone(detail.name, newName, title || undefined).then(() => refreshList(newName)).catch(() => {});
+      if (!ipc || !detail) return Promise.reject(new Error("No workflow selected."));
+      setCrudError("");
+      return ipc.workflowsClone(detail.name, newName, title || undefined).then(() => refreshList(newName)).catch(failCrud);
     },
     [ipc, detail], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const onRenameWorkflow = useCallback(
     (newName: string) => {
-      if (!ipc || !detail) return;
-      ipc.workflowsRename(detail.name, newName).then(() => refreshList(newName)).catch(() => {});
+      if (!ipc || !detail) return Promise.reject(new Error("No workflow selected."));
+      setCrudError("");
+      return ipc.workflowsRename(detail.name, newName).then(() => refreshList(newName)).catch(failCrud);
     },
     [ipc, detail], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const onDeleteWorkflow = useCallback(() => {
-    if (!ipc || !detail) return;
-    ipc.workflowsDelete(detail.name).then(() => refreshList()).catch(() => {});
+    if (!ipc || !detail) return Promise.reject(new Error("No workflow selected."));
+    setCrudError("");
+    return ipc.workflowsDelete(detail.name).then(() => refreshList()).catch(failCrud);
   }, [ipc, detail]); // eslint-disable-line react-hooks/exhaustive-deps
   const onSetDefaultWorkflow = useCallback(() => {
-    if (!ipc || !detail) return;
-    ipc.workflowsSetDefault(detail.name).then(() => refreshList(detail.name)).catch(() => {});
+    if (!ipc || !detail) return Promise.reject(new Error("No workflow selected."));
+    setCrudError("");
+    return ipc.workflowsSetDefault(detail.name).then(() => refreshList(detail.name)).catch(failCrud);
   }, [ipc, detail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -263,18 +273,34 @@ export function WorkflowsPanel() {
     }
   }, [ipc, detail, flowNodes, flowEdges]);
 
-  // Guarded node open: if the drawer has unsaved edits, confirm before switching.
-  // `after` runs once the guard is satisfied — immediately if not dirty, or from
-  // the confirm dialog's onOk if the user chooses to discard.
-  function requestNode(next: WorkflowNode | null, after?: () => void) {
-    if (dirty && next?.id !== promptNode?.id) {
+  // Guarded node open: if the drawer has unsaved prompt edits, or (when
+  // `checkGraph` is set — i.e. a workflow switch, the only action that
+  // actually discards canvas state) the canvas has unsaved edits, confirm
+  // before proceeding. `after` runs once the guard is satisfied — immediately
+  // if nothing's dirty, or from the confirm dialog's onOk if the user chooses
+  // to discard.
+  function requestNode(next: WorkflowNode | null, after?: () => void, checkGraph = false) {
+    const promptDirty = dirty && next?.id !== promptNode?.id;
+    const canvasDirty = checkGraph && graphDirty;
+    if (promptDirty || canvasDirty) {
+      const title = promptDirty && canvasDirty
+        ? "Discard unsaved changes?"
+        : canvasDirty
+          ? "Discard unsaved canvas changes?"
+          : "Discard unsaved prompt edits?";
+      const content = promptDirty && canvasDirty
+        ? "You have unsaved prompt edits and unsaved canvas changes (added nodes, edges, or moved positions). Switching workflows will discard both."
+        : canvasDirty
+          ? "You have unsaved canvas changes (added nodes, edges, or moved positions) that will be lost if you switch workflows."
+          : "You have edits in the open prompt editor that haven't been saved as a new version.";
       Modal.confirm({
-        title: "Discard unsaved prompt edits?",
-        content: "You have edits in the open prompt editor that haven't been saved as a new version.",
+        title,
+        content,
         okText: "Discard",
         cancelText: "Keep editing",
         onOk: () => {
           setDirty(false);
+          if (canvasDirty) setGraphDirty(false);
           setPromptNode(next);
           after?.();
         },
@@ -327,7 +353,7 @@ export function WorkflowsPanel() {
         workflows={list}
         current={detail ? { ...detail, builtin: detail.definition.builtin } : null}
         dirty={graphDirty && !!ipc}
-        onSelect={(name) => requestNode(null, () => void open(name))}
+        onSelect={(name) => requestNode(null, () => void open(name), true)}
         onCreate={onCreateWorkflow}
         onClone={onCloneWorkflow}
         onRename={onRenameWorkflow}
@@ -340,6 +366,16 @@ export function WorkflowsPanel() {
       )}
       {saveState === "error" && (
         <Alert type="error" showIcon message={saveError || "Couldn't save — try again."} style={{ padding: "2px 8px" }} />
+      )}
+      {crudError && (
+        <Alert
+          type="error"
+          showIcon
+          closable
+          onClose={() => setCrudError("")}
+          message={crudError}
+          style={{ padding: "2px 8px" }}
+        />
       )}
 
       {list.length === 0 && (

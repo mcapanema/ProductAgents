@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Modal, Segmented, Space } from "antd";
+import { Alert, Button, Input, Modal, Segmented, Space } from "antd";
 import type { WorkflowSummary } from "../ipc/types";
 import "./WorkflowToolbar.css";
 
@@ -29,30 +29,44 @@ export function WorkflowToolbar({
   current: CurrentWorkflow | null;
   dirty: boolean;
   onSelect: (name: string) => void;
-  onCreate: (name: string, title: string) => void;
-  onClone: (newName: string, title: string) => void;
-  onRename: (newName: string) => void;
-  onDelete: () => void;
-  onSetDefault: () => void;
+  onCreate: (name: string, title: string) => Promise<void>;
+  onClone: (newName: string, title: string) => Promise<void>;
+  onRename: (newName: string) => Promise<void>;
+  onDelete: () => Promise<void>;
+  onSetDefault: () => Promise<void>;
   onSave: () => void;
 }) {
   const [modal, setModal] = useState<ModalKind>(null);
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   function openModal(kind: Exclude<ModalKind, null>) {
     setName(kind === "rename" ? (current?.name ?? "") : "");
     setTitle(kind === "rename" ? (current?.title ?? "") : "");
+    setModalError("");
     setModal(kind);
   }
 
-  function submit() {
+  // Only close the modal once the mutation actually succeeds — a rejection
+  // (e.g. a duplicate-name collision) keeps it open with the error visible,
+  // instead of closing as if nothing went wrong.
+  async function submit() {
     const trimmedName = name.trim();
     if (!trimmedName) return;
-    if (modal === "new") onCreate(trimmedName, title.trim());
-    if (modal === "clone") onClone(trimmedName, title.trim());
-    if (modal === "rename") onRename(trimmedName);
-    setModal(null);
+    setSubmitting(true);
+    try {
+      if (modal === "new") await onCreate(trimmedName, title.trim());
+      if (modal === "clone") await onClone(trimmedName, title.trim());
+      if (modal === "rename") await onRename(trimmedName);
+      setModal(null);
+      setModalError("");
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function confirmDelete() {
@@ -63,6 +77,8 @@ export function WorkflowToolbar({
       okText: "Delete",
       okButtonProps: { danger: true },
       cancelText: "Cancel",
+      // A rejected onDelete keeps this confirm dialog open (antd's built-in
+      // behavior for a promise-returning onOk) instead of closing silently.
       onOk: onDelete,
     });
   }
@@ -86,7 +102,7 @@ export function WorkflowToolbar({
         <Button onClick={() => openModal("clone")} disabled={!current}>Clone</Button>
         <Button onClick={() => openModal("rename")} disabled={!current || builtin}>Rename</Button>
         <Button onClick={confirmDelete} disabled={!current || builtin}>Delete</Button>
-        <Button onClick={onSetDefault} disabled={!current || isDefault}>Set default</Button>
+        <Button onClick={() => void onSetDefault().catch(() => {})} disabled={!current || isDefault}>Set default</Button>
         <Button type="primary" onClick={onSave} disabled={!dirty}>Save</Button>
       </Space>
       <Modal
@@ -94,9 +110,13 @@ export function WorkflowToolbar({
         open={modal !== null}
         onOk={submit}
         okText={modal === "rename" ? "Rename" : "Create"}
+        confirmLoading={submitting}
         onCancel={() => setModal(null)}
         destroyOnHidden
       >
+        {modalError && (
+          <Alert type="error" showIcon message={modalError} style={{ marginBottom: 8 }} />
+        )}
         <Input
           placeholder="name"
           value={name}
