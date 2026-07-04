@@ -70,8 +70,11 @@ def build_evaluate_initiative(
         name="evaluate_initiative",
         title="Evaluate Initiative",
         description=(
-            "Advisory pipeline: evidence → analysts → debate → "
-            "strategist → judge → risk → governance."
+            "Weighs a product initiative through five analyst perspectives at once — "
+            "customer, analytics, market, business and technical — then has an "
+            "advocate and skeptic debate it, synthesizes a recommendation, and "
+            "stress-tests it through judge, risk and governance review before "
+            "advising a decision."
         ),
         start=service.start_session,
         cancel=service.cancel,
