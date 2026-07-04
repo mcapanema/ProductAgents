@@ -2,12 +2,12 @@
  * Tokens only. The node is a compact chip: accent rail (kind hue) + icon +
  * label/role, with a status ring driven by inline CSS vars from AgentNode.tsx. */
 .agent-node {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  position: relative;
+  display: flex;
   align-items: center;
   gap: var(--gap-inline);
   min-width: 168px;
-  padding: var(--space-8) var(--space-12);
+  padding: var(--space-8) calc(var(--space-12) + var(--icon-sm) + var(--gap-inline)) var(--space-8) var(--space-12);
   background: var(--surface-raised);
   border: var(--border-width-default) solid var(--node-border, var(--ai-node-border));
   border-radius: var(--radius-card);
@@ -36,13 +36,18 @@
   border-radius: var(--radius-pill);
   background: var(--node-accent, var(--accent));
 }
+/* Always top-right of the card, regardless of rail/role layout below it. */
 .agent-node__icon {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-12);
   display: grid;
   place-items: center;
+  line-height: 1;
   color: var(--node-accent, var(--accent));
   font-size: var(--icon-sm);
 }
-.agent-node__body { min-width: 0; }
+.agent-node__body { min-width: 0; flex: 1; }
 .agent-node__role {
   font: var(--text-label);
   letter-spacing: var(--text-label-tracking);
