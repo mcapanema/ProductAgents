@@ -22,6 +22,7 @@ from productagents.memory.embedding import HashingEmbedder
 from productagents.memory.event_store import EventStore
 from productagents.memory.service import LearningService
 from productagents.memory.store import DecisionStore
+from productagents.memory.workspace_state import WorkflowDefinitionStore
 
 # ponytail: one process-wide engine over the local SQLite file. Pool/replace per
 # request if this ever serves concurrent decision runs.
@@ -71,6 +72,16 @@ async def open_event_store(
     maker = make_sessionmaker(engine or get_engine())
     async with maker() as session:
         yield EventStore(session, workspace)
+
+
+@asynccontextmanager
+async def open_workflow_store(
+    *, workspace: str = "default", engine=None
+) -> AsyncIterator[WorkflowDefinitionStore]:
+    """Yield a WorkflowDefinitionStore over one session (mirrors open_event_store)."""
+    maker = make_sessionmaker(engine or get_engine())
+    async with maker() as session:
+        yield WorkflowDefinitionStore(session, workspace)
 
 
 @asynccontextmanager
