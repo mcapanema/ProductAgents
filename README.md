@@ -273,6 +273,7 @@ Switch from the desktop app's top bar, or from the CLI:
 uv run productagents workspace list            # active workspace marked with *
 uv run productagents workspace create acme
 uv run productagents workspace use acme        # persist as the active workspace
+uv run productagents workspace rename old new
 uv run productagents --workspace acme run evaluate_initiative "..."   # one-off
 ```
 
