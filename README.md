@@ -114,6 +114,7 @@ Framework-first and organization-agnostic by default · configurable agent ecosy
 - **Connectors:** httpx-based sync from external systems (GitHub, Jira) into the canonical store
 - **Organizational memory:** DB-backed decision/outcome store with hybrid (lexical + semantic) lesson retrieval
 - **Observability:** structured span-style logs for decision runs and connector syncs
+- **Desktop app:** Tauri 2 + React (Ant Design), talking JSON-over-stdio to a PyInstaller-frozen Python sidecar
 
 ## Future Roadmap
 
