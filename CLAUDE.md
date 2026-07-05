@@ -230,7 +230,9 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 
 ## Adding a stage
 
-To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.models`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in the CLI and desktop GUI. Plans for upcoming work live in `docs/superpowers/plans/`.
+To extend toward the README's full architecture (e.g. the planned Risk Evaluation layer): add the schema(s) to `productagents.core.models`, add a node in `productagents.agents.*` using `get_writer()` and structured output, wire it into `productagents.agents.graph` (and `GraphState`), surface it through `productagents.agents.runner` as a new event, and render it in the CLI and desktop GUI. Plans for upcoming work live in `docs/superpowers/plans/` — **gitignored**: plan
+files do not travel with clones or `git worktree` checkouts; copy them in manually
+when executing a plan in a worktree.
 
 **Layer rules** (enforced by `uv run lint-imports`):
 - `pa-app` (presentation) imports only `pa-platform` and `pa-core` — never agents, memory, connectors, or their heavy deps (langgraph, langchain, sqlalchemy) directly.
@@ -239,3 +241,20 @@ To extend toward the README's full architecture (e.g. the planned Risk Evaluatio
 - `pa-memory` and `pa-knowledge` may import from `pa-core` — not from each other or above.
 - `pa-core` is dependency-light: no httpx, langchain, langgraph, sqlalchemy, textual.
 - `requests` is banned platform-wide (async-first, use httpx).
+
+## Harness map
+
+Agent-facing docs, one contract per directory — read the local file before working there:
+
+- `CLAUDE.md` (this file) — architecture, commands, layer rules.
+- `packages/pa-{core,agents,app,memory,knowledge,connectors}/src/productagents/*/CLAUDE.md` — the local contract per package.
+- `tests/CLAUDE.md` — offline testing conventions (FakeChatModel, degrade paths, 90% gate).
+- `desktop/CLAUDE.md` — the GUI presentation adapter; `desktop/src-tauri/CLAUDE.md` (Rust shell), `desktop/e2e/CLAUDE.md` (Playwright).
+- `desktop/PRODUCT.md` — who the users are and what the product is; `desktop/DESIGN.md` — pointer summary of the design system.
+- `design/DESIGN.md` — the canonical, living design system (tokens in `design/tokens/*.css`, phase detail in `design/docs/`). Edit the source in `design/`, never the pointer copy.
+
+Verification gates — `make check` runs the same set CI does: ruff check + format,
+the 7 import-linter contracts, bandit, ty, pytest (offline, ≥90% coverage), Vitest,
+and `design/contrast.py` (WCAG, exits 1 on any failure). CI adds pip-audit and
+gitleaks (network/docker, CI-only). `graphify-out/` holds a knowledge graph of this
+repo; session hooks may require `graphify query` before raw file exploration.
