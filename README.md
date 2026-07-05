@@ -183,12 +183,28 @@ export OPENROUTER_API_KEY="sk-or-..."
 
 ### Tuning (optional)
 
+Pipeline tunables are **workspace configuration** — stored per workspace in the
+database and edited from the desktop app (Settings › Workspace › Configuration)
+or from the CLI with a repeatable `--set` flag:
+
 ```bash
-export PRODUCTAGENTS_DEBATE_ROUNDS=2     # each round = one advocate argument + one skeptic rebuttal
-export PRODUCTAGENTS_JUDGE_THRESHOLD=0.7 # min score (0-1) for evidence grounding & rationale coherence
-export PRODUCTAGENTS_JUDGE_MAX_RETRIES=1 # times the judge can loop back to the strategist; 0 = score-only
-export PRODUCTAGENTS_MAX_RETRIES=6      # retry budget (with backoff) for transient provider errors
+uv run productagents --set debate_rounds=3 --set judge_threshold=0.8 run evaluate_initiative "..."
 ```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `model` | `anthropic:claude-sonnet-4-6` | provider-prefixed model id |
+| `model_provider` | — | only for providers that are not LangChain-native |
+| `debate_rounds` | 2 | each round = one advocate argument + one skeptic rebuttal |
+| `judge_threshold` | 0.7 | min score (0–1) for evidence grounding & rationale coherence |
+| `judge_max_retries` | 1 | times the judge can loop back to the strategist; 0 = score-only |
+| `max_retries` | 6 | retry budget (with backoff) for transient provider errors |
+
+Each key is backed by a `PRODUCTAGENTS_*` env var (e.g.
+`PRODUCTAGENTS_DEBATE_ROUNDS`). Precedence, highest wins: `--set` > exported
+env var > workspace DB > built-in default. The Settings panel shows an
+"Overridden by environment" hint when a higher tier is in play. API keys are
+secrets and stay in the `.env`, never the database.
 
 ### Connecting data sources
 
