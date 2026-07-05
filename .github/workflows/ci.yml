@@ -143,10 +143,13 @@ jobs:
         with:
           workspaces: "./desktop/src-tauri -> target"
 
-      # generate_context! embeds frontendDist ("../dist") at compile time;
-      # the dir must exist even though clippy never bundles it.
-      - name: Stub the frontend dist
-        run: mkdir -p desktop/dist
+      # generate_context! embeds frontendDist ("../dist") at compile time and
+      # tauri_build requires the externalBin sidecar file to exist per target
+      # triple, even though clippy never bundles either; content is irrelevant.
+      - name: Stub the frontend dist and IPC sidecar
+        run: |
+          mkdir -p desktop/dist desktop/src-tauri/binaries
+          touch desktop/src-tauri/binaries/productagents-ipc-x86_64-unknown-linux-gnu
 
       - name: Format check
         run: cargo fmt --check --manifest-path desktop/src-tauri/Cargo.toml
