@@ -20,7 +20,7 @@ jobs:
           - platform: windows-latest # x86_64 Windows
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-22.04'
