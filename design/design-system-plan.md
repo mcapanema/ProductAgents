@@ -1,6 +1,6 @@
 # ProductAgents Design System — Phased Build Plan
 
-> **For each session:** read [`design-system-context.md`](./design-system-context.md) **first**,
+> **For each session:** read [`DESIGN.md`](./DESIGN.md)'s *Direction* section **first**,
 > then the one phase you are executing below. Apply the `frontend-design`, `impeccable`, and
 > `ui-ux-pro-max` skills throughout. One phase (or sub-phase) per session — finish, verify, sign
 > off, then stop. This supersedes the brainstorm in `design-system-phases.md`.
@@ -34,7 +34,7 @@ gate). Target consumer: the Tauri + React desktop app.
 
 ## How to run a phase session (execution protocol)
 
-1. **Load context.** Read `design-system-context.md`, then this phase's section.
+1. **Load context.** Read `DESIGN.md`'s *Direction* section, then this phase's section.
 2. **Invoke the skills.** `frontend-design` + `impeccable` + `ui-ux-pro-max` (e.g. `ui-ux-pro-max`
    `--design-system`/`--domain` searches; `impeccable shape` to plan, then `critique`/`audit` to review).
 3. **Brainstorm before building** (especially Phase 0/1): propose, critique against the brief, take a
@@ -81,7 +81,7 @@ gate). Target consumer: the Tauri + React desktop app.
 
 ## Progress tracker
 
-- [x] **Phase 0** — Direction & setup (keystone; do first) — *"Instrument" direction signed off 2026-06-29; light default (owner override); styleguide harness at `design/styleguide/`; v0 archived to `design/_v0/`.*
+- [x] **Phase 0** — Direction & setup (keystone; do first) — *"Instrument" direction signed off 2026-06-29; light default (owner override); styleguide harness at `design/styleguide/`; v0 discarded.*
 - [x] **Phase 1** — Foundation primitives — *done 2026-06-29; `tokens/primitives.css` (7 OKLCH ramps + type/space/radius/elevation/motion/z/size scales) + `tokens/themes/{dark,light}.css` scaffold; IBM Plex Sans/Mono shipped local; Foundations gallery in styleguide; `contrast.py` rewired to Instrument palette → 0 failures. Adopted into the desktop app's stable public API (`desktop/src/ui/tokens.css` barrel + `tokens.ts`) 2026-07-01.*
 - [x] **Phase 2** — Token architecture (2A color · 2B type · 2C dimensional · 2D layout/interaction · 2E semantic+state · 2F AI-specific · 2G accessibility · 2H theme mapping) — *done 2026-06-29; `tokens/semantic.css` (non-color: type styles + dimensional + layout/interaction/focus + density + a11y) + `tokens/components.css` (component sets + 11-state matrix) + expanded `themes/{dark,light}.css` (all color roles + feedback + AI tokens, grounded in the real event vocabulary); icon set locked = **Phosphor**; `contrast.py` → 0 failures (210 pairs, both themes + CVD); token-reference gallery (by sub-phase) renders both themes/densities. Decision: color semantic tokens live in the theme files (the 2H "themes redefine only color" contract), non-color in semantic.css. Adopted into the desktop app's stable public API (`desktop/src/ui/tokens.css` barrel + `tokens.ts`) 2026-07-01.*
 - [x] **Phase 3** — Core components (3A layout · 3B navigation · 3C forms · 3D data display · 3E feedback · 3F overlays) — *done 2026-06-29; ~80 components across six self-contained styleguide modules (`src/phase3/Phase3*.tsx` + `phase3{a–f}-*.css`, prefixed `la-/nv-/fm-/dd-/fbk-/ov-`), each documented in `design/docs/phase-3*.md`. Built only from the Phase-2 token layer (no new colors → `contrast.py` still 0 failures, both themes + CVD); both themes + densities adapt with zero markup change; keyboard-operable; SVG-only icons; reduced-motion guards. Signature components: App Shell (3A), ⌘K Command Palette (3B), Stat Card + sortable Table (3D). Rendered + reviewed in the styleguide (light + dark). `App.tsx`/`main.tsx` wire the six modules; shared `sg.tsx` (Section + Specimen) + `.sg-subband`/`.sg-specimen` harness helpers.*
@@ -111,7 +111,7 @@ and confirm the artifact homes — so every later phase builds on a confirmed, r
    OSS fonts, add a dark/light theme toggle and a density toggle driven by `data-theme`/`data-density`.
 3. Confirm artifact homes (tokens dir, styleguide, components dir, docs) — adjust the *Artifact
    strategy* above if the user prefers different locations.
-4. Decide the fate of v0 artifacts (keep as reference / archive to `design/_v0/` / discard) — ask.
+4. Decide the fate of v0 artifacts — resolved: discarded (2026-07-05).
 
 **Deliverables:** chosen direction (1 paragraph + palette/type intent) recorded at the top of
 `design/DESIGN.md`; running `design/styleguide/` shell with theme + density toggles; confirmed homes.
@@ -358,5 +358,5 @@ From the owner's list — give these extra craft when their phase arrives:
 1. **Visual direction** — keep / adjust / replace v0 "The Record"? (User found the v0 *result* poor.) → explicit sign-off.
 2. **Artifact homes** — standalone `design/styleguide/` (recommended) vs an in-app `/styleguide` route; tokens in `design/tokens/` vs `desktop/src/styles/`.
 3. **High-contrast theme** — in scope now or later?
-4. **v0 artifacts** — keep as reference / archive to `design/_v0/` / discard?
+4. **v0 artifacts** — resolved: discarded (2026-07-05).
 5. **Pencil `.pen`** — maintain a `.pen` mirror, or rely solely on the rendered styleguide + docs? (Given the verification limits in context §7, the styleguide is primary regardless.)
