@@ -110,3 +110,35 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  desktop-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./desktop/src-tauri -> target"
+
+      # generate_context! embeds frontendDist ("../dist") at compile time;
+      # the dir must exist even though clippy never bundles it.
+      - name: Stub the frontend dist
+        run: mkdir -p desktop/dist
+
+      - name: Format check
+        run: cargo fmt --check --manifest-path desktop/src-tauri/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings

@@ -16,7 +16,9 @@ struct Sidecar {
 #[tauri::command]
 fn ipc_send(line: String, sidecar: State<'_, Sidecar>) -> Result<(), String> {
     let mut stdin = sidecar.stdin.lock().map_err(|e| e.to_string())?;
-    stdin.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+    stdin
+        .write_all(line.as_bytes())
+        .map_err(|e| e.to_string())?;
     stdin.write_all(b"\n").map_err(|e| e.to_string())?;
     stdin.flush().map_err(|e| e.to_string())?;
     Ok(())
