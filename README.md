@@ -261,6 +261,39 @@ The CLI streams events to stdout as the pipeline runs; the desktop GUI shows liv
 
 **Outcome learning.** After a decision, record what actually happened with `productagents reflect` (lists past decisions; `productagents reflect DECISION_ID "note"` runs the reflection agent) or via the desktop **Reflection** panel (`reflection.record` IPC method). An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
 
+### Workspaces
+
+All data lives in one shared home (`~/.productagents`, or `PRODUCTAGENTS_HOME`):
+one SQLite database, one `.env` for secrets, one log. A **workspace** is a
+logical scope inside that home — its own connector config, tunables, decisions,
+sessions, and prompt overrides — so you can keep, say, two products separate.
+Switch from the desktop app's top bar, or from the CLI:
+
+```bash
+uv run productagents workspace list            # active workspace marked with *
+uv run productagents workspace create acme
+uv run productagents workspace use acme        # persist as the active workspace
+uv run productagents --workspace acme run evaluate_initiative "..."   # one-off
+```
+
+### CLI reference
+
+Everything the desktop app does is also scriptable:
+
+```bash
+uv run productagents run evaluate_initiative "My initiative" --evidence sample
+uv run productagents sync                      # one-shot connector sync (cron-friendly)
+uv run productagents sessions list             # persisted runtime sessions
+uv run productagents sessions show <id>        # replay a session's event timeline
+uv run productagents reflect [<decision-id> "<note>"]   # record an outcome
+uv run productagents prompts list|show|diff|save|rollback   # versioned agent prompts
+uv run productagents decisions export <dir>    # JSONL export of the decision log
+```
+
+Agent prompts are **registry assets**: bundled defaults plus per-workspace
+versioned overrides, editable from the CLI above or the desktop **Prompts**
+panel (and inline from the **Workflows** graph — click an agent node).
+
 ### Desktop GUI (Tauri + React)
 
 The V3 desktop app lives in `desktop/`. It is a presentation adapter only — it
