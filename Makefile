@@ -66,9 +66,11 @@ e2e: ## Run the Playwright browser e2e suite (boots Vite + the WS bridge)
 	cd $(DESKTOP) && npm run e2e
 
 .PHONY: lint
-lint: ## Lint Python (ruff) + verify the import-layer contracts
-	uv run ruff check packages tests
+lint: ## Lint + format-check (ruff), import-layer contracts, bandit — mirrors CI
+	uv run ruff check .
+	uv run ruff format --check .
 	uv run lint-imports
+	uv run bandit -c pyproject.toml -r packages -q
 
 .PHONY: typecheck
 typecheck: ## Type-check Python (ty)
