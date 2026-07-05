@@ -1,13 +1,14 @@
 /* desktop/src/panels/AgentNode.css
- * Tokens only. The node is a compact chip: accent rail (kind hue) + icon +
- * label/role, with a status ring driven by inline CSS vars from AgentNode.tsx. */
+ * Tokens only. The node is a small instrument tile: a kind-accent top bar +
+ * a top-right kind icon (always fixed corners, independent of content), and
+ * a body of step + role (one tight row) above the label — a status ring is
+ * driven by inline CSS vars from AgentNode.tsx. */
 .agent-node {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: var(--gap-inline);
-  min-width: 168px;
-  padding: var(--space-8) var(--space-12);
+  min-width: 220px;
+  padding: var(--space-12) calc(var(--space-12) + var(--icon-md) + var(--gap-inline)) var(--space-12) var(--space-12);
   background: var(--surface-raised);
   border: var(--border-width-default) solid var(--node-border, var(--ai-node-border));
   border-radius: var(--radius-card);
@@ -29,20 +30,45 @@
   outline: var(--focus-ring-width) solid var(--border-focus);
   outline-offset: var(--focus-ring-offset);
 }
-/* Kind accent rail (left edge), colored by the kind hue passed as --node-accent. */
+/* Kind accent — a top bar, independent of the status border below so a
+ * specialist stays color-identifiable even mid-run when the border switches
+ * to the status color. */
 .agent-node__rail {
-  width: 3px;
-  align-self: stretch;
+  position: absolute;
+  top: 0;
+  left: var(--space-12);
+  right: var(--space-12);
+  height: 3px;
   border-radius: var(--radius-pill);
   background: var(--node-accent, var(--accent));
 }
+/* Always top-right of the card, regardless of the body layout below it. */
 .agent-node__icon {
+  position: absolute;
+  top: var(--space-12);
+  right: var(--space-12);
   display: grid;
   place-items: center;
+  line-height: 1;
   color: var(--node-accent, var(--accent));
-  font-size: var(--icon-sm);
+  font-size: var(--icon-md);
 }
-.agent-node__body { min-width: 0; }
+.agent-node__body { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; flex: 1; }
+/* Step number + role: one tight row — order and group read together. */
+.agent-node__meta { display: flex; align-items: center; gap: var(--space-6); }
+.agent-node__step {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  font: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
 .agent-node__role {
   font: var(--text-label);
   letter-spacing: var(--text-label-tracking);

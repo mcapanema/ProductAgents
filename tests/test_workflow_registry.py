@@ -51,3 +51,15 @@ def test_build_evaluate_initiative_returns_named_workflow():
 def test_discover_finds_real_evaluate_initiative():
     found = reg.discover()
     assert found.get("evaluate_initiative") is build_evaluate_initiative
+
+
+def test_evaluate_initiative_description_is_explanatory():
+    wf = build_evaluate_initiative(FakeChatModel({}), persist_events=False)
+    desc = wf.description.lower()
+    # Names the shape of the pipeline in plain language, not just an arrow-string.
+    assert "analyst" in desc
+    assert "debate" in desc
+    assert len(wf.description) > 80
+    # Identity is contract — do not let the copy edit rename the workflow.
+    assert wf.name == "evaluate_initiative"
+    assert wf.title == "Evaluate Initiative"

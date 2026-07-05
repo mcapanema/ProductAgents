@@ -11,6 +11,7 @@ function renderNode(data: Partial<AgentNodeData> = {}) {
     status: "idle",
     editable: true,
     selected: false,
+    step: 1,
     ...data,
   };
   render(
@@ -50,5 +51,30 @@ describe("AgentNode", () => {
     const el = document.querySelector(".agent-node") as HTMLElement;
     expect(el).toHaveAttribute("data-editable", "false");
     expect(el).not.toHaveAttribute("role");
+  });
+
+  it("shows its pipeline step number and includes it in the accessible name", () => {
+    renderNode({ step: 3 });
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByRole("button").getAttribute("aria-label")).toMatch(/^Step 3,/);
+  });
+
+  it("hides the step number and role eyebrow for terminal nodes", () => {
+    renderNode({ id: "__start__", kind: "terminal", editable: false, step: 0 });
+    expect(document.querySelector(".agent-node__step")).not.toBeInTheDocument();
+    const el = document.querySelector(".agent-node") as HTMLElement;
+    expect(el.getAttribute("aria-label")).not.toMatch(/^Step/);
+  });
+
+  it("labels the two terminal nodes distinctly by id, not a shared 'Terminal'", () => {
+    renderNode({ id: "__start__", kind: "terminal", editable: false, step: 0 });
+    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.queryByText("Terminal")).not.toBeInTheDocument();
+  });
+
+  it("labels the end terminal node distinctly too", () => {
+    renderNode({ id: "__end__", kind: "terminal", editable: false, step: 0 });
+    expect(screen.getByText("End")).toBeInTheDocument();
+    expect(screen.queryByText("Terminal")).not.toBeInTheDocument();
   });
 });

@@ -5,12 +5,13 @@ import {
   BackgroundVariant,
   Controls,
   ReactFlow,
+  type Edge,
   type Node,
   type NodeChange,
   type OnSelectionChangeFunc,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Typography, Segmented, Modal } from "antd";
+import { Typography, Modal } from "antd";
 import { useIpc } from "../app/IpcProvider";
 import type { WorkflowDetail, WorkflowNode, WorkflowSummary } from "../ipc/types";
 import {
@@ -23,6 +24,7 @@ import {
 } from "./workflowView";
 import AgentNode, { type AgentNodeData } from "./AgentNode";
 import { WorkflowLegend } from "./WorkflowLegend";
+import { WorkflowSelect } from "./WorkflowSelect";
 import { NodePromptDrawer } from "./NodePromptDrawer";
 import { EmptyState } from "../ui/EmptyState";
 import { EmptyStateIcon } from "../ui/emptyStateIcons";
@@ -56,6 +58,7 @@ export function WorkflowsPanel() {
   const [promptNode, setPromptNode] = useState<WorkflowNode | null>(null);
   const [dirty, setDirty] = useState(false);
   const [flowNodes, setFlowNodes] = useState<Node<AgentNodeData>[]>([]);
+  const [flowEdges, setFlowEdges] = useState<Edge[]>([]);
 
   async function open(name: string) {
     setPromptNode(null);
@@ -87,13 +90,23 @@ export function WorkflowsPanel() {
   // (e.g. after navigating to another sidebar panel and back). A different
   // graph gets a fresh computed layout; the *same* graph gets any positions
   // the user previously dragged, restored from positionCache.
+  //
+  // Nodes and edges are set together, in this one effect, on purpose: edges
+  // used to be recomputed inline on every render directly from `topology`,
+  // while nodes only updated one render later via this effect. That gap
+  // let React Flow briefly (or, under some interleavings, indefinitely) see
+  // edges pointing at node ids that didn't exist yet in `flowNodes`, which
+  // it silently drops. Keeping both in the same state update removes any
+  // render where they can disagree.
   useEffect(() => {
     if (!topology || !detail) {
       setFlowNodes([]);
+      setFlowEdges([]);
       return;
     }
     const built = withSizeHint(buildFlowNodes(topology, { selectedId: promptNode?.id ?? null }));
     setFlowNodes(withCachedPositions(built, positionCache, detail.name));
+    setFlowEdges(buildFlowEdges(topology));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topology]);
 
@@ -102,8 +115,6 @@ export function WorkflowsPanel() {
   useEffect(() => {
     setFlowNodes((nodes) => withSelection(nodes, promptNode?.id ?? null));
   }, [promptNode?.id]);
-
-  const flowEdges = topology ? buildFlowEdges(topology) : [];
 
   const onNodesChange = useCallback(
     (changes: NodeChange<Node<AgentNodeData>>[]) => {
@@ -176,12 +187,11 @@ export function WorkflowsPanel() {
               "Registered decision pipelines. Select a workflow to inspect its reasoning graph; click an agent to edit the prompts that steer it."}
           </Typography.Paragraph>
         </div>
-        {list.length > 1 && (
-          <Segmented
-            className="wf-panel__switcher"
+        {list.length > 0 && (
+          <WorkflowSelect
+            workflows={list}
             value={detail?.name}
-            onChange={(v) => requestNode(null, () => void open(String(v)))}
-            options={list.map((w) => ({ label: w.title, value: w.name }))}
+            onChange={(name) => requestNode(null, () => void open(name))}
           />
         )}
       </div>
@@ -212,7 +222,7 @@ export function WorkflowsPanel() {
               proOptions={{ hideAttribution: true }}
             >
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color={tokenVar("--border-subtle")} />
-              <Controls showInteractive={false} />
+              <Controls showInteractive={false} position="bottom-right" />
             </ReactFlow>
             <div className="wf-panel__legend"><WorkflowLegend /></div>
           </div>

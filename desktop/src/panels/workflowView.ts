@@ -7,9 +7,11 @@ import { tokenVar } from "../ui/tokens";
 export interface PositionedNode extends WorkflowNode {
   x: number;
   y: number;
+  rank: number;
 }
 
-const X_STEP = 190;
+// Matches AgentNode.css's card min-width (220px) plus a ~20px gap between siblings.
+const X_STEP = 240;
 const Y_STEP = 110;
 
 /** "customer_research" → "Customer Research", "__start__" → "Start". */
@@ -63,7 +65,7 @@ export function layoutTopology(topology: WorkflowTopology): PositionedNode[] {
     const col = placed.get(r) ?? 0;
     placed.set(r, col + 1);
     const offset = ((widest - (widths.get(r) ?? 1)) * X_STEP) / 2;
-    return { ...n, x: offset + col * X_STEP, y: r * Y_STEP };
+    return { ...n, x: offset + col * X_STEP, y: r * Y_STEP, rank: r };
   });
 }
 
@@ -88,6 +90,7 @@ export function buildFlowNodes(
         status: statuses[n.id] ?? "idle",
         editable: n.prompts.length > 0,
         selected,
+        step: n.rank,
       },
     };
   });

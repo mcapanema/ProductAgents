@@ -76,6 +76,15 @@ describe("layoutTopology", () => {
     expect(byId.debate.y).toBeGreaterThan(byId.customer_research.y);
     expect(byId.__end__.y).toBeGreaterThan(byId.judge.y);
   });
+
+  it("carries each node's rank alongside its position", () => {
+    const byId = Object.fromEntries(
+      layoutTopology(topo).map((n) => [n.id, n]),
+    );
+    expect(byId.customer_research.rank).toBe(1);
+    expect(byId.technical.rank).toBe(1); // same rank as its parallel sibling
+    expect(byId.debate.rank).toBe(2);
+  });
 });
 
 const topoSmall: WorkflowTopology = {
@@ -102,6 +111,14 @@ describe("buildFlowNodes", () => {
     expect(byId.customer_research.data.editable).toBe(true); // has prompts
     expect(byId.recall.data.editable).toBe(false); // no prompts
     expect(byId.__start__.data.kind).toBe("terminal");
+  });
+
+  it("carries each node's rank onto its data as `step`", () => {
+    const nodes = buildFlowNodes(topoSmall, {});
+    const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    expect(byId.__start__.data.step).toBe(0);
+    expect(byId.customer_research.data.step).toBe(1);
+    expect(byId.strategist.data.step).toBe(2);
   });
 
   it("marks the selected node and applies statuses", () => {

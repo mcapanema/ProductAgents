@@ -1,9 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
 import type { WorkflowDetail, WorkflowSummary } from "../ipc/types";
+
+// Regression: `flowNodes` used to be set one render behind `flowEdges` (nodes
+// via a useEffect, edges computed inline every render), so React Flow could
+// receive a real `edges` array pointing at node ids that weren't in `nodes`
+// yet and silently drop them. Spy on every prop set `<ReactFlow>` receives
+// and assert edges never appear before their nodes do.
+const { reactFlowCalls } = vi.hoisted(() => ({
+  reactFlowCalls: [] as { nodes: number; edges: number }[],
+}));
+vi.mock("@xyflow/react", async () => {
+  const actual = await vi.importActual<typeof import("@xyflow/react")>("@xyflow/react");
+  return {
+    ...actual,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ReactFlow: (props: any) => {
+      reactFlowCalls.push({ nodes: props.nodes.length, edges: props.edges.length });
+      return <actual.ReactFlow {...props} />;
+    },
+  };
+});
 
 const summary: WorkflowSummary = {
   name: "evaluate_initiative",
@@ -39,10 +59,23 @@ function renderPanel(client: IpcClient) {
 }
 
 describe("WorkflowsPanel", () => {
+  it("never passes ReactFlow edges before their nodes exist", async () => {
+    reactFlowCalls.length = 0;
+    renderPanel(fake());
+    await screen.findByRole("button", { name: /Strategist/ });
+    expect(reactFlowCalls.length).toBeGreaterThan(0);
+    for (const call of reactFlowCalls) {
+      if (call.edges > 0) expect(call.nodes).toBeGreaterThan(0);
+    }
+    // Sanity: the settled state actually has both, not just "never disagreed
+    // because neither ever loaded."
+    expect(reactFlowCalls[reactFlowCalls.length - 1]).toEqual({ nodes: 3, edges: 2 });
+  });
+
   it("renders the selected workflow's graph as themed agent nodes", async () => {
     renderPanel(fake());
     expect(await screen.findByRole("button", { name: /Strategist/ })).toBeInTheDocument();
-    expect(screen.getByText("Evaluate Initiative")).toBeInTheDocument();
+    expect(screen.getByText("Evaluate Initiative", { selector: "strong" })).toBeInTheDocument();
   });
 
   it("shows an empty state when there are no workflows", async () => {
@@ -118,5 +151,18 @@ describe("WorkflowsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /keep editing/i }));
     expect(await screen.findByDisplayValue("Decide boldly.")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Score it.")).not.toBeInTheDocument();
+  });
+
+  it("switches the inspected workflow via the selector", async () => {
+    const second: WorkflowSummary = { name: "roadmap", title: "Roadmap Prioritization", description: "b" };
+    const show = vi.fn(async (name: string) =>
+      name === "roadmap" ? { ...second, topology: null } : detail,
+    );
+    renderPanel(fake({ workflowsList: async () => [summary, second], workflowsShow: show }));
+    // First workflow's graph renders on load.
+    await screen.findByRole("button", { name: /Strategist/ });
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "workflow" }));
+    fireEvent.click(await screen.findByTitle("Roadmap Prioritization"));
+    await waitFor(() => expect(show).toHaveBeenCalledWith("roadmap"));
   });
 });

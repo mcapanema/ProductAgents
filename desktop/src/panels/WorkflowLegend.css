@@ -16,3 +16,32 @@
   width: 12px; height: 12px; border-radius: var(--radius-sm);
   border: var(--border-width-strong) solid var(--ai-node-active-border);
 }
+.wf-legend__head {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.wf-legend__title {
+  font: var(--text-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.wf-legend__toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: var(--cursor-interactive);
+}
+.wf-legend__toggle:hover { background: var(--surface-hover); color: var(--text-primary); }
+.wf-legend__toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--border-focus);
+  outline-offset: var(--focus-ring-offset);
+}

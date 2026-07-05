@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import { RunPanel } from "./RunPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { RunHandlers, RunParams, IpcEvent } from "../ipc/types";
+import type { RunHandlers, RunParams, IpcEvent, WorkflowSummary } from "../ipc/types";
 
 describe("RunPanel idle state", () => {
   it("shows a first-run hint before any run has started", () => {
@@ -122,6 +122,45 @@ describe("RunPanel stage timeline", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
     expect(await screen.findByText("Market")).toBeInTheDocument();
     expect(screen.getByText("demand up")).toBeInTheDocument();
+  });
+});
+
+describe("RunPanel workflow selection", () => {
+  const wfs: WorkflowSummary[] = [
+    { name: "evaluate_initiative", title: "Evaluate Initiative", description: "eval it" },
+    { name: "roadmap", title: "Roadmap Prioritization", description: "rank it" },
+  ];
+
+  it("defaults to the first workflow and passes it to run", async () => {
+    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    const workflowsList = vi.fn(async () => wfs);
+    render(
+      <IpcProvider client={{ run, workflowsList } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    await screen.findByTitle("Evaluate Initiative"); // list loaded into the select
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(run).toHaveBeenCalled());
+    expect(run.mock.calls[0][0]).toMatchObject({ workflow: "evaluate_initiative", title: "X" });
+  });
+
+  it("runs the workflow the user selects", async () => {
+    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    const workflowsList = vi.fn(async () => wfs);
+    render(
+      <IpcProvider client={{ run, workflowsList } as unknown as IpcClient}>
+        <RunPanel />
+      </IpcProvider>,
+    );
+    await screen.findByTitle("Evaluate Initiative");
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "workflow" }));
+    fireEvent.click(await screen.findByTitle("Roadmap Prioritization"));
+    fireEvent.change(screen.getByLabelText("initiative"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(run).toHaveBeenCalled());
+    expect(run.mock.calls[0][0]).toMatchObject({ workflow: "roadmap" });
   });
 });
 
