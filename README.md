@@ -241,8 +241,8 @@ connectors:
 ```
 
 Each connector's config is validated against its typed schema; a missing
-referenced env var or an unknown connector is reported at startup (fail-fast)
-rather than at sync time. Per-connector cursors are persisted so each run only
+referenced env var or an unknown connector is reported up front (fail-fast)
+before any sync begins. Per-connector cursors are persisted so each run only
 pulls records changed since the last sync.
 
 You can also sync headlessly: `uv run productagents sync` runs a one-shot
@@ -275,6 +275,7 @@ uv run productagents workspace list            # active workspace marked with *
 uv run productagents workspace create acme
 uv run productagents workspace use acme        # persist as the active workspace
 uv run productagents workspace rename old new
+uv run productagents workspace show               # print a workspace's paths
 uv run productagents --workspace acme run evaluate_initiative "..."   # one-off
 ```
 
