@@ -138,6 +138,8 @@ describe("SettingsPanel", () => {
   });
 
   it("saves the four tunables and model via config.set", async () => {
+    // _params is unused at runtime; its type drives `configSet.mock.calls[0][0]`'s type below.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const configSet = vi.fn(async (_params: ConfigSetParams) => status);
     renderPanel(client({ configSet } as Partial<IpcClient>));
     await screen.findByDisplayValue("anthropic:claude-sonnet-4-6");

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, within, act, waitFor } from "@testing-library/react";
 import { App } from "./App";
 import type { IpcClient } from "../ipc/client";
-import type { RunParams, RunHandlers, RunResult } from "../ipc/types";
+import type { RunResult } from "../ipc/types";
 
 // A fake client good enough for the shell test: empty lists, no runs.
 function fakeClient(): IpcClient {
@@ -149,7 +149,7 @@ describe("App shell", () => {
   it("shows a live-run dot on the Run nav item while a run is in flight, and clears it when the run settles", async () => {
     let resolveRun!: (value: RunResult) => void;
     const client = fakeClient();
-    client.run = (_params: RunParams, _handlers: RunHandlers) =>
+    client.run = () =>
       new Promise<RunResult>((resolve) => {
         resolveRun = resolve;
       });

@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -26,6 +33,9 @@ jobs:
       - name: Format check
         run: uv run --frozen ruff format --check .
 
+      - name: Import-layer contracts
+        run: uv run --frozen lint-imports
+
       - name: Test
         run: uv run --frozen pytest
 
@@ -44,7 +54,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Type check
-        run: uv run --frozen ty check packages
+        run: uv run --frozen ty check
 
   security:
     runs-on: ubuntu-latest
@@ -72,3 +82,122 @@ jobs:
         run: |
           docker run --rm -v "${{ github.workspace }}:/repo" \
             ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --no-banner
+
+      - name: npm dependency audit
+        run: npm audit --prefix desktop --omit=dev --audit-level=high
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Rust dependency audit (cargo-audit)
+        run: cargo audit --file desktop/src-tauri/Cargo.lock
+
+  desktop-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + production build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+  desktop-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./desktop/src-tauri -> target"
+
+      # generate_context! embeds frontendDist ("../dist") at compile time and
+      # tauri_build requires the externalBin sidecar file to exist per target
+      # triple, even though clippy never bundles either; content is irrelevant.
+      - name: Stub the frontend dist and IPC sidecar
+        run: |
+          mkdir -p desktop/dist desktop/src-tauri/binaries
+          touch desktop/src-tauri/binaries/productagents-ipc-x86_64-unknown-linux-gnu
+
+      - name: Format check
+        run: cargo fmt --check --manifest-path desktop/src-tauri/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+
+  desktop-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # The Playwright webServer starts `uv run productagents serve-ws`,
+      # so the Python workspace must be synced too.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: desktop
+
+      - name: E2E tests
+        run: npm run e2e
+        working-directory: desktop
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            desktop/playwright-report/
+            desktop/test-results/
+          retention-days: 7
