@@ -18,7 +18,9 @@ describe("RunPanel idle state", () => {
 
 describe("RunPanel approval flow", () => {
   it("passes approval=true when the checkbox is checked", async () => {
-    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    // _p is unused at runtime; its type drives `run.mock.calls[0][0]`'s type below.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const run = vi.fn(async (_p: RunParams) => ({ status: "finished" as const, session_id: "s" }));
     render(
       <IpcProvider client={{ run } as unknown as IpcClient}>
         <RunPanel />
@@ -132,7 +134,9 @@ describe("RunPanel workflow selection", () => {
   ];
 
   it("defaults to the first workflow and passes it to run", async () => {
-    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    // _p is unused at runtime; its type drives `run.mock.calls[0][0]`'s type below.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const run = vi.fn(async (_p: RunParams) => ({ status: "finished" as const, session_id: "s" }));
     const workflowsList = vi.fn(async () => wfs);
     render(
       <IpcProvider client={{ run, workflowsList } as unknown as IpcClient}>
@@ -147,7 +151,9 @@ describe("RunPanel workflow selection", () => {
   });
 
   it("runs the workflow the user selects", async () => {
-    const run = vi.fn(async (_p: RunParams, _h: RunHandlers) => ({ status: "finished" as const, session_id: "s" }));
+    // _p is unused at runtime; its type drives `run.mock.calls[0][0]`'s type below.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const run = vi.fn(async (_p: RunParams) => ({ status: "finished" as const, session_id: "s" }));
     const workflowsList = vi.fn(async () => wfs);
     render(
       <IpcProvider client={{ run, workflowsList } as unknown as IpcClient}>

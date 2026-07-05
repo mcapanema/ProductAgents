@@ -40,3 +40,38 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # Desktop frontend (package.json + package-lock.json).
+  - package-ecosystem: "npm"
+    directory: "/desktop"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build"
+      prefix-development: "build"
+    groups:
+      npm-production:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-development:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Tauri shell (Cargo.toml + Cargo.lock).
+  - package-ecosystem: "cargo"
+    directory: "/desktop/src-tauri"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build"
+    groups:
+      cargo-all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

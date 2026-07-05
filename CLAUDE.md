@@ -253,9 +253,11 @@ Agent-facing docs, one contract per directory — read the local file before wor
 - `desktop/PRODUCT.md` — who the users are and what the product is; `desktop/DESIGN.md` — pointer summary of the design system.
 - `design/DESIGN.md` — the canonical, living design system (tokens in `design/tokens/*.css`, phase detail in `design/docs/`). Edit the source in `design/`, never the pointer copy.
 
-Verification gates — `make check` runs the same set CI does: ruff check + format,
+Verification gates — `make check` runs the core gate: ruff check + format,
 the 7 import-linter contracts, bandit, ty, pytest (offline, ≥90% coverage), Vitest,
 the desktop tsc/Vite build, and `design/contrast.py` (WCAG, exits 1 on any failure).
-CI adds pip-audit and gitleaks (network/docker, CI-only). `graphify-out/` (gitignored;
-present only where graphify has run) holds a knowledge graph of this repo; session
-hooks may require `graphify query` before raw file exploration.
+CI runs the same set plus ESLint (`npm run lint`), rust fmt/clippy, the Playwright
+e2e job, dependency audits (pip-audit, npm audit, cargo-audit), and gitleaks.
+`graphify-out/` (gitignored; present only where graphify has run) holds a knowledge
+graph of this repo; session hooks may require `graphify query` before raw file
+exploration.
