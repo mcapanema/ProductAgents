@@ -116,7 +116,7 @@ Each key sub-directory has its own `CLAUDE.md` with the local contract.
 
 ## Commands
 
-This project uses **uv** (not Conda, despite the README's "Technology Stack" note). Requires Python ≥ 3.14.
+This project uses **uv**. Requires Python ≥ 3.14.
 
 A root **`Makefile`** wraps the common workflows behind one entrypoint — run `make help` to list targets (`make setup` for first-time install, `make check` for the full lint+type+test gate, `make gui` to launch, `make clean`/`make clean-all` to tidy). The raw commands it wraps are below.
 

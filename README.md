@@ -114,6 +114,7 @@ Framework-first and organization-agnostic by default · configurable agent ecosy
 - **Connectors:** httpx-based sync from external systems (GitHub, Jira) into the canonical store
 - **Organizational memory:** DB-backed decision/outcome store with hybrid (lexical + semantic) lesson retrieval
 - **Observability:** structured span-style logs for decision runs and connector syncs
+- **Desktop app:** Tauri 2 + React (Ant Design), talking JSON-over-stdio to a PyInstaller-frozen Python sidecar
 
 ## Future Roadmap
 
@@ -183,19 +184,46 @@ export OPENROUTER_API_KEY="sk-or-..."
 
 ### Tuning (optional)
 
+Pipeline tunables are **workspace configuration** — stored per workspace in the
+database and edited from the desktop app (Settings › Workspace › Configuration)
+or from the CLI with a repeatable `--set` flag:
+
 ```bash
-export PRODUCTAGENTS_DEBATE_ROUNDS=2     # each round = one advocate argument + one skeptic rebuttal
-export PRODUCTAGENTS_JUDGE_THRESHOLD=0.7 # min score (0-1) for evidence grounding & rationale coherence
-export PRODUCTAGENTS_JUDGE_MAX_RETRIES=1 # times the judge can loop back to the strategist; 0 = score-only
-export PRODUCTAGENTS_MAX_RETRIES=6      # retry budget (with backoff) for transient provider errors
+uv run productagents --set debate_rounds=3 --set judge_threshold=0.8 run evaluate_initiative "..."
 ```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `model` | `anthropic:claude-sonnet-4-6` | provider-prefixed model id |
+| `model_provider` | — | only for providers that are not LangChain-native |
+| `debate_rounds` | 2 | each round = one advocate argument + one skeptic rebuttal |
+| `judge_threshold` | 0.7 | min score (0–1) for evidence grounding & rationale coherence |
+| `judge_max_retries` | 1 | times the judge can loop back to the strategist; 0 = score-only |
+| `max_retries` | 6 | retry budget (with backoff) for transient provider errors |
+
+Each key is backed by a `PRODUCTAGENTS_*` env var (e.g.
+`PRODUCTAGENTS_DEBATE_ROUNDS`). Precedence, highest wins: `--set` > exported
+env var > workspace DB > built-in default. The Settings panel shows an
+"Overridden by environment" hint when a higher tier is in play. API keys are
+secrets and stay in the `.env`, never the database.
 
 ### Connecting data sources
 
 ProductAgents syncs external systems into its local canonical store *before* a
-decision runs (no network calls happen during agent execution). Connectors are
-configured in a YAML file — `connectors.yaml` by default, or the path in
-`PRODUCTAGENTS_CONNECTORS_FILE`. Copy `connectors.yaml.example` to start:
+decision runs (no network calls happen during agent execution). Today's
+connectors: **GitHub** (issues → customer feedback) and **Jira**.
+
+Connector configuration lives in the workspace database and is edited from the
+desktop app's **Connectors** panel — enable a connector, fill in its fields, and
+run **Sync now** or **Check health** per connector. Secrets are never stored in
+the database: secret fields take the *name* of an environment variable (e.g.
+`token_env: GITHUB_TOKEN`), and the value stays in the workspace `.env`.
+
+For headless or first-time setup you can seed the config from YAML instead:
+copy `connectors.yaml.example` to `connectors.yaml` (or the path in
+`PRODUCTAGENTS_CONNECTORS_FILE`). On the next launch it is imported into the
+database **once** and renamed `connectors.yaml.imported` — after that, the
+Connectors panel is the editing surface.
 
 ```yaml
 connectors:
@@ -212,14 +240,13 @@ connectors:
     project: PROJ              # optional: limit to one project key
 ```
 
-Each connector block is validated against that connector's typed schema at
-startup; a missing referenced env var or an unknown connector is reported at
-startup (fail-fast) rather than at sync time. The desktop app's **Connectors**
-panel lets you run a sync or check health; per-connector cursors are persisted
-so each run only pulls records changed since the last sync.
+Each connector's config is validated against its typed schema; a missing
+referenced env var or an unknown connector is reported up front (fail-fast)
+before any sync begins. Per-connector cursors are persisted so each run only
+pulls records changed since the last sync.
 
 You can also sync headlessly: `uv run productagents sync` runs a one-shot
-headless sync (for cron/launchd; it exits non-zero on failure).
+sync (for cron/launchd; it exits non-zero on failure).
 
 ### Run
 
@@ -234,6 +261,41 @@ The CLI streams events to stdout as the pipeline runs; the desktop GUI shows liv
 **Evidence is pluggable.** Use `--evidence <name-or-path>` with the CLI, or the evidence picker in the desktop Run panel. Each piece of evidence records its provenance, shown in the desktop app and saved on the decision record. The default is the bundled `sample` scenario.
 
 **Outcome learning.** After a decision, record what actually happened with `productagents reflect` (lists past decisions; `productagents reflect DECISION_ID "note"` runs the reflection agent) or via the desktop **Reflection** panel (`reflection.record` IPC method). An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
+
+### Workspaces
+
+All data lives in one shared home (`~/.productagents`, or `PRODUCTAGENTS_HOME`):
+one SQLite database, one `.env` for secrets, one log. A **workspace** is a
+logical scope inside that home — its own connector config, tunables, decisions,
+sessions, and prompt overrides — so you can keep, say, two products separate.
+Switch from the desktop app's top bar, or from the CLI:
+
+```bash
+uv run productagents workspace list            # active workspace marked with *
+uv run productagents workspace create acme
+uv run productagents workspace use acme        # persist as the active workspace
+uv run productagents workspace rename old new
+uv run productagents workspace show               # print a workspace's paths
+uv run productagents --workspace acme run evaluate_initiative "..."   # one-off
+```
+
+### CLI reference
+
+Everything the desktop app does is also scriptable:
+
+```bash
+uv run productagents run evaluate_initiative "My initiative" --evidence sample
+uv run productagents sync                      # one-shot connector sync (cron-friendly)
+uv run productagents sessions list             # persisted runtime sessions
+uv run productagents sessions show <id>        # replay a session's event timeline
+uv run productagents reflect [<decision-id> "<note>"]   # record an outcome
+uv run productagents prompts list|show|diff|save|rollback   # versioned agent prompts
+uv run productagents decisions export <dir>    # JSONL export of the decision log
+```
+
+Agent prompts are **registry assets**: bundled defaults plus per-workspace
+versioned overrides, editable from the CLI above or the desktop **Prompts**
+panel (and inline from the **Workflows** graph — click an agent node).
 
 ### Desktop GUI (Tauri + React)
 
@@ -267,9 +329,15 @@ npm test               # frontend unit tests (Vitest)
 > The first `npm run tauri dev` compiles the whole Rust dependency tree — a few
 > minutes, one time (cached afterward).
 
-Panels: **Run** (start a workflow, watch events stream live), **Sessions**
-(replay a past run's event timeline), **Decisions** (the Decision Explorer:
-browse past decisions with predicted-vs-actual outcomes and lessons learned).
+Panels: **Run** (start a workflow, watch events stream live, approve/reject
+when human-in-the-loop is on, cancel mid-run), **Sessions** (replay a past
+run's event timeline), **Decisions** (browse past decisions with
+predicted-vs-actual outcomes), **Connectors** (enable, configure, sync, and
+health-check data sources), **Prompts** (browse, diff, and edit versioned
+agent prompts), **Workflows** (an interactive graph of the pipeline; click an
+agent node to edit its prompts), **Organizational Memory** (the cross-decision
+lesson corpus), **Reflection** (record what actually happened), and
+**Settings** (workspace config, theme, updates).
 
 #### Browser-based testing (Playwright + WS bridge)
 
@@ -308,10 +376,12 @@ make build-sidecar    # just freeze the sidecar binary
 
 The sidecar is the existing `productagents ipc` server (`_sidecar_main.py` entry).
 In development the Tauri shell still spawns `uv run productagents ipc`; in a
-packaged build it runs the bundled binary and kills it on quit. Builds are
-host-platform only for now (the build host's OS/arch); a cross-platform CI matrix
-is a follow-up. Keep `tauri.conf.json` `version` in sync with `pyproject.toml`
-(a test enforces it).
+packaged build it runs the bundled binary and kills it on quit. Releases are
+built by CI on a `v*` tag: a native matrix (macOS arm64 + Intel, Ubuntu,
+Windows) freezes each platform's sidecar, runs `tauri build`, and publishes
+installers plus a signed update feed the app checks from **Settings → Check
+for updates** — see [docs/RELEASE.md](docs/RELEASE.md). Keep `tauri.conf.json`
+`version` in sync with `pyproject.toml` (a test enforces it).
 
 ### Test
 
