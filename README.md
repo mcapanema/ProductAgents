@@ -327,9 +327,15 @@ npm test               # frontend unit tests (Vitest)
 > The first `npm run tauri dev` compiles the whole Rust dependency tree — a few
 > minutes, one time (cached afterward).
 
-Panels: **Run** (start a workflow, watch events stream live), **Sessions**
-(replay a past run's event timeline), **Decisions** (the Decision Explorer:
-browse past decisions with predicted-vs-actual outcomes and lessons learned).
+Panels: **Run** (start a workflow, watch events stream live, approve/reject
+when human-in-the-loop is on, cancel mid-run), **Sessions** (replay a past
+run's event timeline), **Decisions** (browse past decisions with
+predicted-vs-actual outcomes), **Connectors** (enable, configure, sync, and
+health-check data sources), **Prompts** (browse, diff, and edit versioned
+agent prompts), **Workflows** (an interactive graph of the pipeline; click an
+agent node to edit its prompts), **Organizational Memory** (the cross-decision
+lesson corpus), **Reflection** (record what actually happened), and
+**Settings** (workspace config, theme, updates).
 
 #### Browser-based testing (Playwright + WS bridge)
 
@@ -368,10 +374,12 @@ make build-sidecar    # just freeze the sidecar binary
 
 The sidecar is the existing `productagents ipc` server (`_sidecar_main.py` entry).
 In development the Tauri shell still spawns `uv run productagents ipc`; in a
-packaged build it runs the bundled binary and kills it on quit. Builds are
-host-platform only for now (the build host's OS/arch); a cross-platform CI matrix
-is a follow-up. Keep `tauri.conf.json` `version` in sync with `pyproject.toml`
-(a test enforces it).
+packaged build it runs the bundled binary and kills it on quit. Releases are
+built by CI on a `v*` tag: a native matrix (macOS arm64 + Intel, Ubuntu,
+Windows) freezes each platform's sidecar, runs `tauri build`, and publishes
+installers plus a signed update feed the app checks from **Settings → Check
+for updates** — see [docs/RELEASE.md](docs/RELEASE.md). Keep `tauri.conf.json`
+`version` in sync with `pyproject.toml` (a test enforces it).
 
 ### Test
 
