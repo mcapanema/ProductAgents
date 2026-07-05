@@ -26,6 +26,9 @@ jobs:
       - name: Format check
         run: uv run --frozen ruff format --check .
 
+      - name: Import-layer contracts
+        run: uv run --frozen lint-imports
+
       - name: Test
         run: uv run --frozen pytest
 
@@ -44,7 +47,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Type check
-        run: uv run --frozen ty check packages
+        run: uv run --frozen ty check
 
   security:
     runs-on: ubuntu-latest
