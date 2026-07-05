@@ -105,5 +105,8 @@ jobs:
       - name: Typecheck + production build
         run: npm run build
 
+      - name: Lint
+        run: npm run lint
+
       - name: Unit tests
         run: npm test
