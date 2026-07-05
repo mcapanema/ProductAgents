@@ -193,9 +193,20 @@ export PRODUCTAGENTS_MAX_RETRIES=6      # retry budget (with backoff) for transi
 ### Connecting data sources
 
 ProductAgents syncs external systems into its local canonical store *before* a
-decision runs (no network calls happen during agent execution). Connectors are
-configured in a YAML file — `connectors.yaml` by default, or the path in
-`PRODUCTAGENTS_CONNECTORS_FILE`. Copy `connectors.yaml.example` to start:
+decision runs (no network calls happen during agent execution). Today's
+connectors: **GitHub** (issues → customer feedback) and **Jira**.
+
+Connector configuration lives in the workspace database and is edited from the
+desktop app's **Connectors** panel — enable a connector, fill in its fields, and
+run **Sync now** or **Check health** per connector. Secrets are never stored in
+the database: secret fields take the *name* of an environment variable (e.g.
+`token_env: GITHUB_TOKEN`), and the value stays in the workspace `.env`.
+
+For headless or first-time setup you can seed the config from YAML instead:
+copy `connectors.yaml.example` to `connectors.yaml` (or the path in
+`PRODUCTAGENTS_CONNECTORS_FILE`). On the next launch it is imported into the
+database **once** and renamed `connectors.yaml.imported` — after that, the
+Connectors panel is the editing surface.
 
 ```yaml
 connectors:
@@ -212,14 +223,13 @@ connectors:
     project: PROJ              # optional: limit to one project key
 ```
 
-Each connector block is validated against that connector's typed schema at
-startup; a missing referenced env var or an unknown connector is reported at
-startup (fail-fast) rather than at sync time. The desktop app's **Connectors**
-panel lets you run a sync or check health; per-connector cursors are persisted
-so each run only pulls records changed since the last sync.
+Each connector's config is validated against its typed schema; a missing
+referenced env var or an unknown connector is reported at startup (fail-fast)
+rather than at sync time. Per-connector cursors are persisted so each run only
+pulls records changed since the last sync.
 
 You can also sync headlessly: `uv run productagents sync` runs a one-shot
-headless sync (for cron/launchd; it exits non-zero on failure).
+sync (for cron/launchd; it exits non-zero on failure).
 
 ### Run
 
