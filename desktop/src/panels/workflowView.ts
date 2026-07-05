@@ -10,7 +10,8 @@ export interface PositionedNode extends WorkflowNode {
   rank: number;
 }
 
-const X_STEP = 190;
+// Matches AgentNode.css's card min-width (220px) plus a ~20px gap between siblings.
+const X_STEP = 240;
 const Y_STEP = 110;
 
 /** "customer_research" → "Customer Research", "__start__" → "Start". */

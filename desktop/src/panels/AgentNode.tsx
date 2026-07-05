@@ -45,10 +45,14 @@ export default function AgentNode({ data }: NodeProps) {
     >
       <Handle type="target" position={Position.Top} isConnectable={false} />
       {!isTerminal && <span className="agent-node__rail" aria-hidden />}
-      {!isTerminal && <span className="agent-node__step" aria-hidden>{d.step}</span>}
       <span className="agent-node__icon" aria-hidden><Icon /></span>
       <span className="agent-node__body">
-        {!isTerminal && <div className="agent-node__role">{meta.role}</div>}
+        {!isTerminal && (
+          <span className="agent-node__meta">
+            <span className="agent-node__step" aria-hidden>{d.step}</span>
+            <span className="agent-node__role">{meta.role}</span>
+          </span>
+        )}
         <div className="agent-node__label">{label}</div>
       </span>
       <Handle type="source" position={Position.Bottom} isConnectable={false} />
