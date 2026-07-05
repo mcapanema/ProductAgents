@@ -28,8 +28,9 @@ the only place that knows a vendor exists.
 - `runtime.py` — `run_sync()`: runs enabled connectors concurrently under a
   `TaskGroup`, catching each failure into a degraded `SyncResult` (never aborts
   the batch). Each sync runs in a `connector.sync` span and a raised failure is
-  classified for a friendly `SyncResult.error`. Cursors are threaded;
-  `app/sync.py` persists them.
+  classified for a friendly `SyncResult.error`. Cursors are threaded; the
+  platform composition root (`productagents.platform.connectors`) persists
+  them via `SyncStateStore`.
 - `github/` — the first connector: `connector.py` (`GitHubConfig` +
   `GitHubConnector`), `client.py` (paginated issue fetch, `since` cursor),
   `mappers.py` (`issue_to_feedback`).
@@ -54,10 +55,12 @@ the only place that knows a vendor exists.
 
 ## Deferred (YAGNI, named upgrade paths)
 
-- **YAML** connector config — SHIPPED in Phase 7a (`pa-app/sync.py` loads
-  `connectors.yaml`; each connector declares `config_cls` and the app validates
-  blocks generically). Cursor **persistence** (`sync_state` table +
-  `SyncStateStore`) also shipped in Phase 7a.
+- **Connector config** — SHIPPED, now DB-backed (`connector_config` table,
+  edited via the desktop Connectors panel; a legacy `connectors.yaml` is
+  one-time imported and renamed `.imported` — see root CLAUDE.md). Each
+  connector declares `config_cls`; the platform composition root
+  (`productagents.platform.connectors`) validates blocks generically. Cursor
+  **persistence** (`sync_state` table + `SyncStateStore`) shipped in Phase 7a.
 - **`connector_errors.py` category classifier** — SHIPPED in Phase 7c
   (`classify_connector_error`, `ErrorCategory`, `TRANSIENT_STATUSES`; consumed
   by `http.py` and connector degrade-paths).
