@@ -65,4 +65,16 @@ describe("AgentNode", () => {
     const el = document.querySelector(".agent-node") as HTMLElement;
     expect(el.getAttribute("aria-label")).not.toMatch(/^Step/);
   });
+
+  it("labels the two terminal nodes distinctly by id, not a shared 'Terminal'", () => {
+    renderNode({ id: "__start__", kind: "terminal", editable: false, step: 0 });
+    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.queryByText("Terminal")).not.toBeInTheDocument();
+  });
+
+  it("labels the end terminal node distinctly too", () => {
+    renderNode({ id: "__end__", kind: "terminal", editable: false, step: 0 });
+    expect(screen.getByText("End")).toBeInTheDocument();
+    expect(screen.queryByText("Terminal")).not.toBeInTheDocument();
+  });
 });

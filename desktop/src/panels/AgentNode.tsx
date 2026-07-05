@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { KIND_META, type NodeKind } from "./workflowNodeKinds";
+import { nodeLabel } from "./workflowView";
 import { statusStyle } from "./nodeStatus";
 import { tokenVar } from "../ui/tokens";
 import type { NodeStatus } from "../ipc/types";
@@ -21,7 +22,9 @@ export default function AgentNode({ data }: NodeProps) {
   const st = statusStyle(d.status);
   const Icon = meta.icon;
   const isTerminal = d.kind === "terminal";
-  const label = meta.label;
+  // Both pipeline boundaries share the "terminal" kind (quiet pill, no role/step),
+  // but __start__ and __end__ need distinct labels — meta.label alone can't tell them apart.
+  const label = isTerminal ? nodeLabel(d.id) : meta.label;
 
   const style = {
     "--node-accent": tokenVar(meta.colorToken as `--${string}`),
