@@ -23,7 +23,7 @@ from productagents.core.models import CustomerFeedback
 
 def iter_notes(vault: Path):
     """Yield ``.md`` files from a vault, skipping dot directories."""
-    for note_path in vault.rglob("*.md"):
+    for note_path in sorted(vault.rglob("*.md")):
         # Skip any note under a dot directory.
         if any(part.startswith(".") for part in note_path.relative_to(vault).parts):
             continue
@@ -47,12 +47,16 @@ class ObsidianConnector(Connector):
     title: ClassVar[str] = "Obsidian"
     description: ClassVar[str] = "Read notes from a local Obsidian vault"
 
+    def _vault(self) -> Path:
+        """Normalize vault path: expand user (~) and resolve to absolute."""
+        config = cast(ObsidianConfig, self.config)
+        return Path(config.vault).expanduser().resolve()
+
     async def health_check(self) -> HealthStatus:
         """Check that the vault directory exists and is readable."""
-        config = cast(ObsidianConfig, self.config)
-        vault = Path(config.vault)
+        vault = self._vault()
         if not vault.is_dir():
-            return HealthStatus(ok=False, detail="Vault path not found")
+            return HealthStatus(ok=False, detail=f"vault directory not found: {vault}")
         return HealthStatus(ok=True)
 
     async def sync(self, cursor: SyncCursor | None) -> SyncResult:
@@ -64,8 +68,7 @@ class ObsidianConnector(Connector):
         On any error, degrade gracefully (don't crash) and report it.
         """
         try:
-            config = cast(ObsidianConfig, self.config)
-            vault = Path(config.vault)
+            vault = self._vault()
             cursor_dt = None
             if cursor and cursor.value:
                 cursor_dt = datetime.fromisoformat(cursor.value)
@@ -103,8 +106,8 @@ class ObsidianConnector(Connector):
                 ok=True,
             )
 
-        except (UnicodeDecodeError, OSError, ValueError) as e:
-            err = classify_connector_error(e)
+        except Exception as exc:  # noqa: BLE001 — degrade-don't-crash
+            err = classify_connector_error(exc)
             return SyncResult(
                 connector=self.key,
                 written=0,
