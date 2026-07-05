@@ -83,6 +83,17 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/repo" \
             ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --no-banner
 
+      - name: npm dependency audit
+        run: npm audit --prefix desktop --omit=dev --audit-level=high
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Rust dependency audit (cargo-audit)
+        run: cargo audit --file desktop/src-tauri/Cargo.lock
+
   desktop-web:
     runs-on: ubuntu-latest
     defaults:
