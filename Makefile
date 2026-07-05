@@ -93,7 +93,7 @@ package: build-sidecar ## Build the installable desktop app (bundles the sidecar
 	cd desktop && npm run tauri build
 
 .PHONY: check
-check: lint typecheck test-py test-web contrast ## Full gate: lint + types + unit tests + contrast
+check: lint typecheck test-py test-web build-web contrast ## Full gate: lint + types + unit tests + frontend build + contrast
 
 # ---- clean --------------------------------------------------------------
 

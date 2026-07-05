@@ -7,11 +7,12 @@ line, one or more response objects per output line, each echoing the request
 ``app`` modules and drives the same Application Services — proving the
 Application Layer is sufficient to run the platform across a process boundary.
 
-ponytail: NDJSON over stdio, not HTTP. The vision is local-first with no remote
-APIs (v3-concepts.md), and Tauri launches the Python backend as a child process
-it talks to over stdio. The product client/server split stays deferred; the only
-non-stdio transport is ``devbridge.py``, a dev-only localhost WebSocket that
-reuses ``handle`` + ``build_services`` for browser/Playwright UI testing.
+ponytail: NDJSON over stdio, not HTTP. The vision is local-first with no
+remote APIs (docs/notes/v3-concepts.md), and Tauri launches the Python
+backend as a child process it talks to over stdio. The product client/server
+split stays deferred; the only non-stdio transport is ``devbridge.py``, a
+dev-only localhost WebSocket that reuses ``handle`` + ``build_services`` for
+browser/Playwright UI testing.
 """
 
 from __future__ import annotations

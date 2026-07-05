@@ -148,7 +148,7 @@ uv run pytest           # full suite — runs offline with a fake model, no API 
 uv run pytest tests/test_debate.py                         # one file
 uv run pytest tests/test_debate.py::test_name -x           # one test
 uv run lint-imports     # verify 7 import-linter layer contracts (layers + forbidden)
-uv run ruff check packages tests  # lint all source and test trees
+uv run ruff check .     # lint all source and test trees (same scope as make lint / CI)
 uv run ty check         # type check (pyright-based)
 cd desktop && npm run tauri dev   # launch the V3 desktop GUI (dev; spawns the ipc sidecar)
 ```
@@ -255,6 +255,7 @@ Agent-facing docs, one contract per directory — read the local file before wor
 
 Verification gates — `make check` runs the same set CI does: ruff check + format,
 the 7 import-linter contracts, bandit, ty, pytest (offline, ≥90% coverage), Vitest,
-and `design/contrast.py` (WCAG, exits 1 on any failure). CI adds pip-audit and
-gitleaks (network/docker, CI-only). `graphify-out/` holds a knowledge graph of this
-repo; session hooks may require `graphify query` before raw file exploration.
+the desktop tsc/Vite build, and `design/contrast.py` (WCAG, exits 1 on any failure).
+CI adds pip-audit and gitleaks (network/docker, CI-only). `graphify-out/` (gitignored;
+present only where graphify has run) holds a knowledge graph of this repo; session
+hooks may require `graphify query` before raw file exploration.
