@@ -38,6 +38,7 @@ packages/
 │       ├── _analyst.py     #   shared run_analyst() executor for the 5 analysts
 │       ├── _format.py      #   shared prompt formatters
 │       ├── _stream.py      #   get_writer() progress-event helper
+│       ├── stream_events.py #  emit_* helpers — single source of truth for the progress wire keys
 │       ├── _llm_call.py    #   invoke_structured() chokepoint (logging + retry)
 │       ├── context.py      #   AgentContext DI container (model + knowledge service slices)
 │       ├── llm.py          #   get_model() — the only provider-agnostic factory
@@ -48,6 +49,7 @@ packages/
 │       ├── runner.py       #   graph→UI boundary: normalizes stream into events
 │       ├── customer_research.py · product_analytics.py · market.py
 │       ├── business.py · technical.py            # the five parallel analysts
+│       ├── debate.py       #   advocate vs skeptic rounds (alternating personas, full transcript)
 │       ├── recall.py · strategist.py · judge.py · risk.py · governance.py
 │       ├── human_approval.py # HITL interrupt node (added only when enabled)
 │       ├── reflection.py   #   OUT OF GRAPH: post-hoc outcome reflection
@@ -57,7 +59,9 @@ packages/
 ├── pa-app/                 # productagents.app.*  — CLI + IPC edges; console entry point: productagents.app.cli:main
 │   └── src/productagents/app/
 │       ├── cli.py          #   CLI client + console entry point (main); no subcommand → prints help
-│       └── setup.py        #   check_config + write_env (used by ipc.py)
+│       ├── ipc.py          #   NDJSON-over-stdio adapter (`productagents ipc`) — the GUI sidecar surface
+│       ├── devbridge.py    #   dev-only WebSocket bridge (`productagents serve-ws`) for browser/Playwright
+│       └── _sidecar_main.py #  entry shim for the frozen (PyInstaller) sidecar binary
 ├── pa-memory/              # productagents.memory  — organizational-memory subsystem (DB store + hybrid retrieval + LearningService) + event_store.py (append-only runtime_session/runtime_event log)
 │   └── src/productagents/memory/     # store.py · tables.py · retrieval.py · service.py · embedding.py · jsonl.py (export/audit) · event_store.py
 ├── pa-knowledge/           # productagents.knowledge.*  — storage spine + knowledge services
@@ -106,7 +110,7 @@ from productagents.platform import PromptService
 from productagents.platform.events import SessionFinished, SessionFailed
 from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.platform.serialization import serialize_event, deserialize_event
-from productagents.app.setup import check_config
+from productagents.app.ipc import serve  # NDJSON sidecar loop (see app/CLAUDE.md)
 from productagents.app.cli import main  # console entry point (no subcommand → prints help)
 import productagents.memory as memory
 from productagents.memory.event_store import EventStore
@@ -116,7 +120,7 @@ Each key sub-directory has its own `CLAUDE.md` with the local contract.
 
 ## Commands
 
-This project uses **uv** (not Conda, despite the README's "Technology Stack" note). Requires Python ≥ 3.14.
+This project uses **uv**. Requires Python ≥ 3.14.
 
 A root **`Makefile`** wraps the common workflows behind one entrypoint — run `make help` to list targets (`make setup` for first-time install, `make check` for the full lint+type+test gate, `make gui` to launch, `make clean`/`make clean-all` to tidy). The raw commands it wraps are below.
 
@@ -133,6 +137,11 @@ uv run productagents workspace rename <old> <new>  # rename a workspace (moves a
 uv run productagents sessions list           # list persisted runtime sessions
 uv run productagents sessions show <id>      # replay a session's event timeline
 uv run productagents reflect [<decision-id> "<note>"]   # list past decisions / record an outcome
+uv run productagents prompts list            # list prompt names + active version (v0 = bundled default)
+uv run productagents prompts show NAME [--version N]   # print one version's template (also: diff / save NAME FILE / rollback NAME)
+uv run productagents decisions export        # export the decision log (JSONL audit copy)
+uv run productagents ipc                     # NDJSON-over-stdio server (spawned by the desktop shell — not for humans)
+uv run productagents serve-ws [--port 7420]  # dev-only WebSocket bridge (browser/Playwright UI testing)
 uv run productagents --workspace <name> ...  # run any of the above against a named workspace
 uv run productagents --set debate_rounds=3 --set judge_threshold=0.8 <command>  # override workspace config (repeatable; friendly keys; see Workspace configuration)
 uv run pytest           # full suite — runs offline with a fake model, no API key
