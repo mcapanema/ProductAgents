@@ -66,13 +66,19 @@ e2e: ## Run the Playwright browser e2e suite (boots Vite + the WS bridge)
 	cd $(DESKTOP) && npm run e2e
 
 .PHONY: lint
-lint: ## Lint Python (ruff) + verify the import-layer contracts
-	uv run ruff check packages tests
+lint: ## Lint + format-check (ruff), import-layer contracts, bandit — mirrors CI
+	uv run ruff check .
+	uv run ruff format --check .
 	uv run lint-imports
+	uv run bandit -c pyproject.toml -r packages -q
 
 .PHONY: typecheck
 typecheck: ## Type-check Python (ty)
 	uv run ty check
+
+.PHONY: contrast
+contrast: ## Verify WCAG contrast of the design tokens (design/contrast.py; exits 1 on failures)
+	python3 design/contrast.py
 
 .PHONY: build-web
 build-web: ## Type-check + production-build the frontend
@@ -87,7 +93,7 @@ package: build-sidecar ## Build the installable desktop app (bundles the sidecar
 	cd desktop && npm run tauri build
 
 .PHONY: check
-check: lint typecheck test-py test-web ## Full gate: lint + types + all unit tests
+check: lint typecheck test-py test-web build-web contrast ## Full gate: lint + types + unit tests + frontend build + contrast
 
 # ---- clean --------------------------------------------------------------
 

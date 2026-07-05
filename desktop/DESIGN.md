@@ -1,8 +1,7 @@
 # Design
 
 > **Pointer file.** The canonical, living design system is
-> [`../design/DESIGN.md`](../design/DESIGN.md) (with the durable brief in
-> [`../design/design-system-context.md`](../design/design-system-context.md) and the phased
+> [`../design/DESIGN.md`](../design/DESIGN.md) (with the phased
 > component/pattern detail under [`../design/docs/`](../design/docs/)). This file is a summary so
 > impeccable commands run from `desktop/` can find the visual system; **edit the source in
 > `design/`, not here.**

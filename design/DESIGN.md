@@ -1,8 +1,7 @@
 # ProductAgents Design System
 
-> Living reference. Built phase by phase (see [`design-system-plan.md`](./design-system-plan.md));
-> the durable brief is [`design-system-context.md`](./design-system-context.md). The v0 attempt is
-> archived in [`_v0/`](./_v0/) as reference, not spec. This file carries the direction and the
+> Living reference. Built phase by phase (see [`design-system-plan.md`](./design-system-plan.md)).
+> This file carries the direction and the
 > Phase 0–2 token foundations in full, then indexes the Phase 3–10 component/pattern detail, which
 > lives in [`design/docs/`](./docs/) (one file per phase or sub-phase) — see the *Component &
 > pattern reference* section below.
@@ -60,7 +59,7 @@ Final faces are confirmed in Phase 1 (primitives) / Phase 2B (type styles) and d
   fully-designed theme; light is primary/default. Never pure `#000` in dark. High-contrast theme: later.
 - **Review surface:** the browser styleguide is the *sole* review surface. The Pencil `.pen` mirror is
   dropped (its screenshots are unreliable here — context §7).
-- **v0 artifacts archived** to [`_v0/`](./_v0/) (`DESIGN.md`, `design-system.pen`,
+- **v0 artifacts discarded** (`DESIGN.md`, `design-system.pen`,
   `design-system-phases.md`). `contrast.py` kept and reused as the CI gate.
 
 ### Artifact homes (confirmed)

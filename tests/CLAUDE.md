@@ -32,9 +32,14 @@ model = FakeChatModel({AnalystFindings: RuntimeError("LLM down")})  # degrade pa
   `get_writer()` no-op makes this work outside a graph run.
 - **The graph:** `build_graph(FakeChatModel({...}))`, then drive it through
   `run_decision` (`tests/test_runner.py`, `tests/test_graph.py`).
-- **The TUI:** Textual `run_test()` pilot with fakes injected for every
-  `ProductAgentsApp` seam (`tests/test_tui.py`, `test_approval_tui.py`,
-  `test_reflection_tui.py`).
+- **The presentation edges:** call the handlers directly with fake services
+  injected by keyword — CLI (`tests/test_cli.py`), NDJSON IPC
+  (`tests/test_ipc.py`), dev WebSocket bridge (`tests/test_devbridge.py`).
+  No real model, stdin, or socket.
+- **Connectors:** mock httpx with `respx`; write to
+  `tests/connector_fakes.py::FakeSink`, never a real store.
+- **The desktop GUI** has its own runners (Vitest unit + Playwright e2e) —
+  see `desktop/CLAUDE.md` and `desktop/e2e/CLAUDE.md`.
 - **Pure helpers** (`_format`, `memory.select_relevant_lessons`, `evidence`):
   call directly, no model needed.
 
