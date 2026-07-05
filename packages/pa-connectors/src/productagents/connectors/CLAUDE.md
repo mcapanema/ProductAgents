@@ -41,7 +41,11 @@ the only place that knows a vendor exists.
 - `obsidian/` — the third connector and the first **filesystem** one (no
   `client.py`, no httpx): `connector.py` (`ObsidianConfig` + `ObsidianConnector`,
   walks `<vault>/**/*.md`, skips dot-directories, mtime cursor), `mappers.py`
-  (`note_to_feedback`, naive frontmatter/tag extraction — no YAML dep).
+  (`note_to_feedback`, naive frontmatter/tag extraction — no YAML dep),
+  `evidence.py` (`ObsidianVaultSource` + `resolve_vault`, an
+  `productagents.evidence_sources` plugin: `--evidence obsidian:<vault>` routes
+  `#customer-feedback`/`#product-analytics`/`#market`/`#business`/`#technical`
+  tagged notes into the five per-run `Evidence` fields).
 
 ## Rules that matter
 
