@@ -170,6 +170,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("title", help="initiative title / description")
     p_run.add_argument("--evidence", default="", help="scenario name or directory path")
 
+    p_wf = sub.add_parser("workflows", help="list registered workflows")
+    wf_sub = p_wf.add_subparsers(dest="wf_command")
+    wf_sub.add_parser("list", help="list workflows")
+    p_wf_show = wf_sub.add_parser("show", help="show one workflow + its topology")
+    p_wf_show.add_argument("name")
+
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
     ws_sub.add_parser("list", help="list workspaces")
@@ -284,6 +290,34 @@ async def workspace_rename(old: str, new: str, *, service: WorkspaceService) -> 
         print(str(exc))
         return 1
     print(f"renamed workspace {old} → {new}")
+    return 0
+
+
+def workflows_list(*, service: WorkflowService) -> int:
+    """Print one registered workflow per line (name + title)."""
+    for w in service.list():
+        print(f"{w.name}  {w.title}")
+    return 0
+
+
+def workflows_show(name: str, *, service: WorkflowService) -> int:
+    """Print one workflow's metadata and, when exposed, its graph topology."""
+    w = service.get(name)
+    if w is None:
+        print(f"no such workflow: {name}")
+        return 1
+    print(f"name:        {w.name}")
+    print(f"title:       {w.title}")
+    print(f"description: {w.description}")
+    topo = w.topology() if w.topology is not None else None
+    if topo:
+        print("nodes:")
+        for node in topo["nodes"]:
+            print(f"  {node['id']}")
+        print("edges:")
+        for edge in topo["edges"]:
+            arrow = "-?->" if edge.get("conditional") else "--->"
+            print(f"  {edge['source']} {arrow} {edge['target']}")
     return 0
 
 
@@ -478,6 +512,11 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(  # bare `workspace` or `workspace list`
             asyncio.run(workspace_list(service=workspaces, active_name=active))
         )
+    if args.command == "workflows":
+        service = WorkflowService.for_model(None, workspace=active)
+        if args.wf_command == "show":
+            raise SystemExit(workflows_show(args.name, service=service))
+        raise SystemExit(workflows_list(service=service))  # bare `workflows` or `list`
     if args.command == "run":
         try:
             service = _build_run_service(workspace=active)
