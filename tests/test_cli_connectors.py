@@ -134,8 +134,40 @@ async def test_connectors_config_save_keeps_secret_values_verbatim():
     assert secrets == {"GITHUB_TOKEN": "true", "OTHER": "a=b"}
 
 
+async def test_connectors_config_save_secrets_only_keeps_stored_base():
+    service = _FakeConnectorConfig(entries=[_ENTRY])
+    code = await cli.connectors_config_save(
+        "github", [], ["GITHUB_TOKEN=abc"], service=service
+    )
+    assert code == 0
+    assert service.saved is not None
+    _connector, config, secrets = service.saved
+    assert config == _ENTRY["config"]
+    assert secrets == {"GITHUB_TOKEN": "abc"}
+
+
+async def test_connectors_config_save_merges_onto_stored_block():
+    service = _FakeConnectorConfig(entries=[_ENTRY])
+    code = await cli.connectors_config_save(
+        "github", ["enabled=false"], [], service=service
+    )
+    assert code == 0
+    assert service.saved is not None
+    _connector, config, _secrets = service.saved
+    assert config == {"repo": "org/repo", "enabled": False}
+
+
+async def test_connectors_config_save_nothing_to_save_returns_one(capsys):
+    service = _FakeConnectorConfig(entries=[_ENTRY])
+    code = await cli.connectors_config_save("github", [], [], service=service)
+    assert code == 1
+    assert service.saved is None
+    out = capsys.readouterr().out
+    assert "nothing to save" in out
+
+
 async def test_connectors_config_save_rejection_returns_one(capsys):
     service = _FakeConnectorConfig(error="connector 'github': repo is required")
-    code = await cli.connectors_config_save("github", [], [], service=service)
+    code = await cli.connectors_config_save("github", ["repo=bad"], [], service=service)
     assert code == 1
     assert "repo is required" in capsys.readouterr().out

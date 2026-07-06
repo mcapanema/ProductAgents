@@ -60,7 +60,9 @@ EXEMPT = {
 def _ipc_methods() -> set[str]:
     # ponytail: regex over the dispatch-table source (keys are dotted strings
     # mapped to _-prefixed closures); hoist a module-level method registry in
-    # ipc.py if the table ever stops being a dict literal inside handle().
+    # ipc.py if the table ever stops being a dict literal inside handle(). The
+    # regex only matches dotted method names, so "run" is added by hand below —
+    # any future undotted IPC method must be added the same way.
     source = inspect.getsource(ipc.handle)
     methods = set(re.findall(r'"([a-z_]+(?:\.[a-z_]+)+)":\s*_', source))
     methods.add("run")  # the explicit streaming branch above the table

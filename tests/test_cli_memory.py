@@ -35,6 +35,8 @@ async def test_memory_lessons_prints_corpus(capsys):
     assert "validate demand earlier" in out
     assert "40%" in out
     assert "dec-2" in out
+    assert "✓ [dec-1]" in out
+    assert "· [dec-2]" in out
 
 
 async def test_memory_lessons_handles_empty(capsys):

@@ -99,6 +99,7 @@ def _prompt_approval(request) -> HumanDecision:
     print("⏸ approval requested — verdict? [approve/reject/request_analysis]")
     verdict = input("> ").strip() or "approve"
     if verdict not in ("approve", "reject", "request_analysis"):
+        print(f"unrecognized verdict {verdict!r} — defaulting to approve")
         verdict = "approve"
     rationale = input("rationale (optional)> ").strip()
     return HumanDecision(verdict=verdict, rationale=rationale)  # ty: ignore[invalid-argument-type]
@@ -214,7 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_co_health.add_argument("name", nargs="?", default=None, help="one connector key")
     p_co_cfg = co_sub.add_parser(
         "config",
-        help="show connector config blocks, or save one: config NAME KEY=VALUE...",
+        help="show config blocks, or merge fields into one: config NAME KEY=VALUE...",
     )
     p_co_cfg.add_argument("connector", nargs="?", default=None)
     p_co_cfg.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
@@ -577,8 +578,16 @@ async def connectors_config_list(*, service) -> int:
 async def connectors_config_save(
     connector: str, pairs: list[str], secret_pairs: list[str], *, service
 ) -> int:
-    """Validate-then-write one connector's config block; secrets go to .env."""
-    config = _parse_typed_pairs(pairs)
+    """Merge typed KEY=VALUE fields onto the stored config block; secrets go to .env."""
+    if not pairs and not secret_pairs:
+        print("nothing to save — pass KEY=VALUE fields and/or --secret VAR=VALUE")
+        return 1
+    entries = await service.config_list()
+    base = next(
+        (dict(entry["config"]) for entry in entries if entry["connector"] == connector),
+        {},
+    )
+    config = {**base, **_parse_typed_pairs(pairs)}
     secrets: dict[str, str] = {}
     for pair in secret_pairs:
         key, sep, value = pair.partition("=")

@@ -633,9 +633,11 @@ def test_prompt_approval_reads_verdict_and_rationale(monkeypatch):
     assert decision.rationale == "too risky"
 
 
-def test_prompt_approval_defaults_and_sanitizes(monkeypatch):
+def test_prompt_approval_defaults_and_sanitizes(monkeypatch, capsys):
     answers = iter(["bogus-verdict", ""])
     monkeypatch.setattr("builtins.input", lambda *_: next(answers))
     decision = cli_module._prompt_approval(None)
     assert decision.verdict == "approve"
     assert decision.rationale == ""
+    out = capsys.readouterr().out
+    assert "unrecognized verdict 'bogus-verdict' — defaulting to approve" in out
