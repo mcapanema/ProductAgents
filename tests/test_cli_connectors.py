@@ -69,3 +69,62 @@ def test_sync_command_passes_only_through():
 
     cli.sync_command(only="github", syncer=syncer)
     assert seen["only"] == "github"
+
+
+class _FakeConnectorConfig:
+    def __init__(self, entries=(), error=None):
+        self._entries = list(entries)
+        self._error = error
+        self.saved = None
+
+    async def config_list(self):
+        return self._entries
+
+    async def config_save(self, connector, config, *, secrets=None):
+        if self._error is not None:
+            raise ValueError(self._error)
+        self.saved = (connector, config, secrets)
+        return {"connector": connector, "config": config, "problems": []}
+
+
+_ENTRY = {
+    "connector": "github",
+    "installed": True,
+    "title": "GitHub",
+    "description": "",
+    "config": {"repo": "org/repo", "enabled": True},
+    "schema": {},
+    "problems": [],
+}
+
+
+async def test_connectors_config_list_prints_blocks(capsys):
+    service = _FakeConnectorConfig(entries=[_ENTRY])
+    assert await cli.connectors_config_list(service=service) == 0
+    out = capsys.readouterr().out
+    assert "github" in out
+    assert "repo: org/repo" in out
+
+
+async def test_connectors_config_save_parses_typed_pairs(capsys):
+    service = _FakeConnectorConfig()
+    code = await cli.connectors_config_save(
+        "github",
+        ["repo=org/repo", "enabled=true", "limit=5"],
+        ["GITHUB_TOKEN=abc"],
+        service=service,
+    )
+    assert code == 0
+    assert service.saved is not None
+    connector, config, secrets = service.saved
+    assert connector == "github"
+    assert config == {"repo": "org/repo", "enabled": True, "limit": 5}
+    assert secrets == {"GITHUB_TOKEN": "abc"}
+    assert "saved github" in capsys.readouterr().out
+
+
+async def test_connectors_config_save_rejection_returns_one(capsys):
+    service = _FakeConnectorConfig(error="connector 'github': repo is required")
+    code = await cli.connectors_config_save("github", [], [], service=service)
+    assert code == 1
+    assert "repo is required" in capsys.readouterr().out

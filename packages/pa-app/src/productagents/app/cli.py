@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 
 from productagents.core.config import load_env
@@ -187,6 +188,19 @@ def build_parser() -> argparse.ArgumentParser:
         "health", help="readiness probe (exit 1 on failure)"
     )
     p_co_health.add_argument("name", nargs="?", default=None, help="one connector key")
+    p_co_cfg = co_sub.add_parser(
+        "config",
+        help="show connector config blocks, or save one: config NAME KEY=VALUE...",
+    )
+    p_co_cfg.add_argument("connector", nargs="?", default=None)
+    p_co_cfg.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
+    p_co_cfg.add_argument(
+        "--secret",
+        action="append",
+        default=[],
+        metavar="VAR=VALUE",
+        help="secret env var referenced by a *_env field (written to .env, repeatable)",
+    )
 
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
@@ -476,6 +490,49 @@ async def connectors_health(name: str | None, *, service) -> int:
     return 1 if failed else 0
 
 
+def _parse_typed_pairs(pairs: list[str]) -> dict:
+    """Parse KEY=VALUE pairs; values JSON-decode when possible (true, 5, 1.5)."""
+    out: dict = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"expected KEY=VALUE, got {pair!r}")
+        try:
+            out[key] = json.loads(value)
+        except json.JSONDecodeError:
+            out[key] = value  # bare strings stay strings
+    return out
+
+
+async def connectors_config_list(*, service) -> int:
+    """Print every connector's DB-backed config block (secrets are env names only)."""
+    for entry in await service.config_list():
+        state = "installed" if entry["installed"] else "not installed"
+        print(f"{entry['connector']}  ({state})")
+        for key, value in entry["config"].items():
+            print(f"  {key}: {value}")
+        for problem in entry["problems"]:
+            print(f"  ⚠ {problem}")
+    return 0
+
+
+async def connectors_config_save(
+    connector: str, pairs: list[str], secret_pairs: list[str], *, service
+) -> int:
+    """Validate-then-write one connector's config block; secrets go to .env."""
+    config = _parse_typed_pairs(pairs)
+    secrets = {k: str(v) for k, v in _parse_typed_pairs(secret_pairs).items()} or None
+    try:
+        entry = await service.config_save(connector, config, secrets=secrets)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+    print(f"saved {entry['connector']}")
+    for problem in entry["problems"]:
+        print(f"⚠ {problem}")
+    return 1 if entry["problems"] else 0
+
+
 def sync_command(*, only: str | None = None, syncer=run_connector_sync) -> int:
     """Run one connector sync headlessly, print the report, return an exit code.
 
@@ -588,6 +645,16 @@ def main(argv: list[str] | None = None) -> None:
         service = ConnectorService(workspace=active)
         if args.co_command == "health":
             code = asyncio.run(connectors_health(args.name, service=service))
+            raise SystemExit(code)
+        if args.co_command == "config":
+            if args.connector is None:
+                code = asyncio.run(connectors_config_list(service=service))
+                raise SystemExit(code)
+            code = asyncio.run(
+                connectors_config_save(
+                    args.connector, args.pairs, args.secret, service=service
+                )
+            )
             raise SystemExit(code)
         raise SystemExit(  # bare `connectors` or `connectors list`
             asyncio.run(connectors_list(service=service))
