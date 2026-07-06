@@ -589,3 +589,53 @@ async def test_workspace_rename_success_and_errors(tmp_path, capsys):
     assert "renamed workspace old → new" in capsys.readouterr().out
     assert await cli_module.workspace_rename("missing", "x", service=svc) == 1
     assert "no such workspace" in capsys.readouterr().out
+
+
+class _ApproverCapturingService:
+    def __init__(self):
+        self.kwargs = None
+
+    def run(self, name, initiative, evidence, **kwargs):
+        self.kwargs = kwargs
+
+        async def _stream():
+            if False:  # pragma: no cover — deliberately empty stream
+                yield
+
+        return object(), _stream()
+
+
+async def test_run_workflow_forwards_approver():
+    service = _ApproverCapturingService()
+
+    async def approver(request):  # pragma: no cover — never invoked here
+        raise AssertionError("stream is empty; approver must not run")
+
+    code = await cli_module.run_workflow(
+        "wf", "t", "", service=service, approver=approver
+    )
+    assert code == 0
+    assert service.kwargs == {"approver": approver}
+
+
+async def test_run_workflow_omits_approver_when_none():
+    service = _ApproverCapturingService()
+    code = await cli_module.run_workflow("wf", "t", "", service=service)
+    assert code == 0
+    assert service.kwargs == {}
+
+
+def test_prompt_approval_reads_verdict_and_rationale(monkeypatch):
+    answers = iter(["reject", "too risky"])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    decision = cli_module._prompt_approval(None)
+    assert decision.verdict == "reject"
+    assert decision.rationale == "too risky"
+
+
+def test_prompt_approval_defaults_and_sanitizes(monkeypatch):
+    answers = iter(["bogus-verdict", ""])
+    monkeypatch.setattr("builtins.input", lambda *_: next(answers))
+    decision = cli_module._prompt_approval(None)
+    assert decision.verdict == "approve"
+    assert decision.rationale == ""

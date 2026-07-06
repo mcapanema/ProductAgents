@@ -16,7 +16,7 @@ import logging
 
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
-from productagents.core.models import Initiative
+from productagents.core.models import HumanDecision, Initiative
 from productagents.platform import events as ev
 from productagents.platform.bootstrap import bootstrap_home
 from productagents.platform.configuration import ConfigurationService
@@ -76,12 +76,14 @@ def render_event(event: ev.Event) -> str | None:
 
 
 async def run_workflow(
-    workflow_name: str, title: str, evidence_spec: str, *, service
+    workflow_name: str, title: str, evidence_spec: str, *, service, approver=None
 ) -> int:
     """Run a workflow and stream its events to stdout. Returns 1 if the run
-    aborted (a SessionFailed event), else 0."""
+    aborted (a SessionFailed event), else 0. ``approver`` (from ``--approve``)
+    makes the run human-in-the-loop, mirroring the GUI's approval seam."""
     initiative = Initiative(title=title, description=title)
-    _session, stream = service.run(workflow_name, initiative, evidence_spec)
+    kwargs = {"approver": approver} if approver is not None else {}
+    _session, stream = service.run(workflow_name, initiative, evidence_spec, **kwargs)
     failed = False
     async for event in stream:
         if isinstance(event, ev.SessionFailed):
@@ -90,6 +92,22 @@ async def run_workflow(
         if line is not None:
             print(line)
     return 1 if failed else 0
+
+
+def _prompt_approval(request) -> HumanDecision:
+    """Read a HITL decision from the terminal; invalid input degrades to approve."""
+    print("⏸ approval requested — verdict? [approve/reject/request_analysis]")
+    verdict = input("> ").strip() or "approve"
+    if verdict not in ("approve", "reject", "request_analysis"):
+        verdict = "approve"
+    rationale = input("rationale (optional)> ").strip()
+    return HumanDecision(verdict=verdict, rationale=rationale)  # ty: ignore[invalid-argument-type]
+
+
+async def _cli_approver(request) -> HumanDecision:
+    # ponytail: input() blocks the event loop — fine for the single-run CLI;
+    # switch to asyncio.to_thread if the CLI ever streams while prompting.
+    return _prompt_approval(request)
 
 
 async def sessions_list(*, service) -> int:
@@ -175,6 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("workflow", help="workflow name, e.g. evaluate_initiative")
     p_run.add_argument("title", help="initiative title / description")
     p_run.add_argument("--evidence", default="", help="scenario name or directory path")
+    p_run.add_argument(
+        "--approve",
+        action="store_true",
+        help="pause at governance for interactive human approval",
+    )
 
     p_wf = sub.add_parser("workflows", help="list registered workflows")
     wf_sub = p_wf.add_subparsers(dest="wf_command")
@@ -742,13 +765,22 @@ def main(argv: list[str] | None = None) -> None:
         )
     if args.command == "run":
         try:
-            service = _build_run_service(workspace=active)
+            service = _build_run_service(
+                workspace=active, human_in_the_loop=args.approve
+            )
         except Exception as exc:
             raise SystemExit(f"cannot start run: {exc}") from exc
         if service.get(args.workflow) is None:
             raise SystemExit(f"unknown workflow: {args.workflow!r}")
+        approver = _cli_approver if args.approve else None
         code = asyncio.run(
-            run_workflow(args.workflow, args.title, args.evidence, service=service)
+            run_workflow(
+                args.workflow,
+                args.title,
+                args.evidence,
+                service=service,
+                approver=approver,
+            )
         )
         raise SystemExit(code)
     if args.command == "sessions":
