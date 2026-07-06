@@ -129,6 +129,17 @@ uv sync                 # install deps + all workspace members (incl. dev group)
 uv run productagents    # print CLI help
 uv run productagents sync   # headless one-shot connector sync (for cron/launchd); exits non-zero on failure
 uv run productagents run evaluate_initiative "My initiative" --evidence sample  # headless decision run, streams events
+uv run productagents run evaluate_initiative "My initiative" --approve  # pause at governance for interactive approval
+uv run productagents workflows list          # list registered workflows
+uv run productagents workflows show NAME     # one workflow + its graph topology
+uv run productagents decisions list          # list recorded decisions (also: decisions show ID)
+uv run productagents connectors list         # configured connectors + last-synced times
+uv run productagents connectors health [NAME]  # connector readiness probe (exit 1 on failure)
+uv run productagents connectors config [NAME KEY=VALUE... [--secret VAR=VALUE]]  # show / save connector config
+uv run productagents sync --connector NAME   # scope a sync pass to one connector
+uv run productagents config show             # model/provider/key status + tunables with origins
+uv run productagents config set --model M [--provider P] [--api-key K] [KEY=VALUE...]  # persist workspace config
+uv run productagents memory lessons          # organizational-memory lesson corpus
 uv run productagents workspace list          # list workspaces (active marked with *)
 uv run productagents workspace show [name]   # show a workspace's on-disk paths (defaults to active)
 uv run productagents workspace create <name>  # create a new workspace
@@ -227,6 +238,16 @@ The orchestration is a **LangGraph `StateGraph`** assembled in `graph.py`. `Grap
 - **Streaming from nodes** goes through `agents/_stream.get_writer()`, not `langgraph.config.get_stream_writer()` directly. The latter raises `RuntimeError` when called outside an active graph run (e.g. a unit test invoking a node directly), so the helper returns a no-op writer in that case. Use `get_writer()` in any new node. The progress dict itself is built via `agents/stream_events.py` helpers (`emit_status`, `emit_error`, `emit_payload`, `emit_fatal`), the single source of truth for the wire keys the runner parses.
 - **Testing is fully offline.** `tests/fakes.py::FakeChatModel` maps a schema class → the instance (or `Exception`) its `with_structured_output(schema).ainvoke()` should return. Test nodes by calling them directly with a `FakeChatModel`; test the graph by building it with one.
 - **Nodes receive an `AgentContext`, not just a model.** `build_graph(context)` injects `ctx` into the analysts (so any analyst may reach a Knowledge Service) and `ctx.model` into the LLM-only nodes. The Customer Research analyst reads synced `CustomerFeedback` from the local store via `ctx.feedback`, degrading to the scenario evidence text when the store is empty/unavailable. The per-run DB session is opened at the platform boundary (`platform/context.py`), keeping nodes engine-free — the same pattern `recall` uses for the decision log.
+- **GUI–CLI parity.** The desktop GUI (via `app/ipc.py`) and the CLI
+  (`app/cli.py`) are two thin presentation adapters over the same Application
+  Layer, and **every operation the GUI can perform must be performable from the
+  CLI**. This is enforced offline by `tests/test_cli_ipc_parity.py`, which maps
+  each method in the IPC dispatch table to a CLI invocation (or a documented
+  exemption — today only `preferences.*`, pure GUI presentation state, and
+  `run.cancel`, which is Ctrl-C in a terminal). When you add an IPC method, add
+  the CLI subcommand/flag and its `PARITY` entry **in the same change** — new
+  capability lands in a platform Application Service first, then in both
+  adapters. Never add a GUI-only platform operation.
 
 ## Adding a stage
 
