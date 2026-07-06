@@ -256,6 +256,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rf.add_argument("note", nargs="?", default=None, help="what actually happened")
 
+    p_cf = sub.add_parser("config", help="show or persist workspace configuration")
+    cf_sub = p_cf.add_subparsers(dest="cf_command")
+    cf_sub.add_parser("show", help="model/provider/key status + tunables with origins")
+    p_cf_set = cf_sub.add_parser(
+        "set", help="persist model/provider/api-key/tunables (unlike --set)"
+    )
+    p_cf_set.add_argument("--model", default=None, help="provider-prefixed model id")
+    p_cf_set.add_argument("--provider", default=None)
+    p_cf_set.add_argument(
+        "--api-key", dest="api_key", default=None, help="written to the workspace .env"
+    )
+    p_cf_set.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
+
     return parser
 
 
@@ -551,6 +564,47 @@ def sync_command(*, only: str | None = None, syncer=run_connector_sync) -> int:
     return 1 if failed else 0
 
 
+def config_show(*, service) -> int:
+    """Print model/provider/key readiness plus each tunable with its origin."""
+    status = service.status()
+    print(f"model:     {status.model or '(not set)'}")
+    print(f"provider:  {status.provider or '(auto)'}")
+    key_state = "present" if status.key_present else "MISSING"
+    print(f"api key:   {status.key_var or '(none)'} [{key_state}]")
+    origins = service.settings_origins()
+    for key, value in service.settings().items():
+        print(f"{key}: {value}  ({origins.get(key, 'default')})")
+    for problem in status.problems:
+        print(f"⚠ {problem}")
+    return 0
+
+
+async def config_set_cmd(
+    model: str | None,
+    provider: str | None,
+    api_key: str | None,
+    pairs: list[str],
+    *,
+    service,
+) -> int:
+    """Persist workspace config (model/provider to DB, api key to .env).
+
+    The persisted counterpart of the per-invocation ``--set`` flag. KEY names are
+    validated against the service's tunables so a typo can't silently no-op.
+    """
+    settings = parse_set_overrides(pairs)
+    unknown = set(settings) - set(service.settings())
+    if unknown:
+        print(f"unknown setting(s): {', '.join(sorted(unknown))}")
+        return 1
+    model = model or service.status().model
+    if not model:
+        print("no model configured yet — pass --model")
+        return 1
+    await service.set(model, provider=provider, api_key=api_key, settings=settings)
+    return config_show(service=service)
+
+
 def parse_set_overrides(pairs: list[str]) -> dict[str, str]:
     """Parse repeated ``--set KEY=VALUE`` pairs; exit with a friendly message."""
     overrides: dict[str, str] = {}
@@ -706,6 +760,15 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(  # bare `decisions` or `decisions list`
             asyncio.run(decisions_list(service=service))
         )
+    if args.command == "config":
+        if args.cf_command == "set":
+            code = asyncio.run(
+                config_set_cmd(
+                    args.model, args.provider, args.api_key, args.pairs, service=config
+                )
+            )
+            raise SystemExit(code)
+        raise SystemExit(config_show(service=config))  # bare `config` or `show`
     if args.command == "reflect":
         if args.decision_id is None:  # list mode needs no model
             code = asyncio.run(
