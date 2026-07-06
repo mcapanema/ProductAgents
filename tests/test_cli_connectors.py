@@ -123,6 +123,17 @@ async def test_connectors_config_save_parses_typed_pairs(capsys):
     assert "saved github" in capsys.readouterr().out
 
 
+async def test_connectors_config_save_keeps_secret_values_verbatim():
+    service = _FakeConnectorConfig()
+    code = await cli.connectors_config_save(
+        "github", [], ["GITHUB_TOKEN=true", "OTHER=a=b"], service=service
+    )
+    assert code == 0
+    assert service.saved is not None
+    _connector, _config, secrets = service.saved
+    assert secrets == {"GITHUB_TOKEN": "true", "OTHER": "a=b"}
+
+
 async def test_connectors_config_save_rejection_returns_one(capsys):
     service = _FakeConnectorConfig(error="connector 'github': repo is required")
     code = await cli.connectors_config_save("github", [], [], service=service)

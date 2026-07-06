@@ -521,9 +521,14 @@ async def connectors_config_save(
 ) -> int:
     """Validate-then-write one connector's config block; secrets go to .env."""
     config = _parse_typed_pairs(pairs)
-    secrets = {k: str(v) for k, v in _parse_typed_pairs(secret_pairs).items()} or None
+    secrets: dict[str, str] = {}
+    for pair in secret_pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"expected VAR=VALUE, got {pair!r}")
+        secrets[key] = value  # verbatim — a secret is never JSON-coerced
     try:
-        entry = await service.config_save(connector, config, secrets=secrets)
+        entry = await service.config_save(connector, config, secrets=secrets or None)
     except ValueError as exc:
         print(str(exc))
         return 1
