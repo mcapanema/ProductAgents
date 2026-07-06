@@ -214,8 +214,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_pr_rb.add_argument("name")
     p_pr_rb.add_argument("version", type=int)
 
-    p_de = sub.add_parser("decisions", help="export recorded decisions")
+    p_de = sub.add_parser("decisions", help="list, show, or export recorded decisions")
     de_sub = p_de.add_subparsers(dest="de_command")
+    de_sub.add_parser("list", help="list recorded decisions")
+    p_de_show = de_sub.add_parser("show", help="dump one decision + outcomes as JSON")
+    p_de_show.add_argument("decision_id")
     p_de_export = de_sub.add_parser(
         "export", help="write decisions.jsonl + outcomes.jsonl to DIR"
     )
@@ -376,6 +379,33 @@ async def decisions_export(directory: str, *, service) -> int:
     print(
         f"exported {n_decisions} decision(s) and {n_outcomes} outcome(s) to {directory}"
     )
+    return 0
+
+
+async def decisions_list(*, service) -> int:
+    """Print one recorded decision per line (id, title, recommendation)."""
+    rows = await service.list()
+    if not rows:
+        print("no decisions yet — run one first with `productagents run`")
+        return 0
+    for d in rows:
+        rec = d.recommendation
+        print(
+            f"{d.decision_id}  {d.initiative.title} — "
+            f"{rec.recommendation} ({rec.confidence:.0%})"
+        )
+    return 0
+
+
+async def decisions_show(decision_id: str, *, service) -> int:
+    """Dump one decision record + its reflected outcomes as JSON."""
+    record, outcomes = await service.get(decision_id)
+    if record is None:
+        print(f"no such decision: {decision_id}")
+        return 1
+    print(record.model_dump_json(indent=2))
+    for o in outcomes:
+        print(o.model_dump_json(indent=2))
     return 0
 
 
@@ -549,14 +579,16 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(prompts_rollback(args.name, args.version, service=service))
         raise SystemExit(prompts_list(service=service))  # bare `prompts` or `list`
     if args.command == "decisions":
+        service = DecisionReadService.create(active)
         if args.de_command == "export":
-            code = asyncio.run(
-                decisions_export(
-                    args.directory, service=DecisionReadService.create(active)
-                )
-            )
+            code = asyncio.run(decisions_export(args.directory, service=service))
             raise SystemExit(code)
-        raise SystemExit("usage: productagents decisions export DIR")
+        if args.de_command == "show":
+            code = asyncio.run(decisions_show(args.decision_id, service=service))
+            raise SystemExit(code)
+        raise SystemExit(  # bare `decisions` or `decisions list`
+            asyncio.run(decisions_list(service=service))
+        )
     if args.command == "reflect":
         if args.decision_id is None:  # list mode needs no model
             code = asyncio.run(
