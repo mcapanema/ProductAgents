@@ -25,6 +25,7 @@ from productagents.platform.connectors import describe_report, run_connector_syn
 from productagents.platform.context import make_recorder
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.llm import get_model
+from productagents.platform.memory_service import MemoryService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
@@ -256,6 +257,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rf.add_argument("note", nargs="?", default=None, help="what actually happened")
 
+    p_me = sub.add_parser("memory", help="browse organizational memory")
+    me_sub = p_me.add_subparsers(dest="me_command")
+    me_sub.add_parser("lessons", help="list the lesson corpus (newest first)")
+
     p_cf = sub.add_parser("config", help="show or persist workspace configuration")
     cf_sub = p_cf.add_subparsers(dest="cf_command")
     cf_sub.add_parser("show", help="model/provider/key status + tunables with origins")
@@ -476,6 +481,23 @@ async def reflect_record(decision_id: str, note: str, *, service) -> int:
     for lesson in outcome.lessons_learned or ["(none)"]:
         print(f"  • {lesson}")
     return 1 if outcome.failed else 0
+
+
+async def memory_lessons(*, service) -> int:
+    """Print the organizational-memory lesson corpus (✓ = validated by reflection)."""
+    lessons = await service.lessons()
+    if not lessons:
+        print("no lessons yet — run and reflect on a decision first")
+        return 0
+    for lesson in lessons:
+        mark = "✓" if lesson.validated else "·"
+        accuracy = (
+            f" ({lesson.prediction_accuracy:.0%})"
+            if lesson.prediction_accuracy is not None
+            else ""
+        )
+        print(f"{mark} [{lesson.decision_id}] {lesson.title}{accuracy}: {lesson.text}")
+    return 0
 
 
 async def connectors_list(*, service) -> int:
@@ -787,4 +809,7 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(f"cannot reflect: {exc}") from exc
         code = asyncio.run(reflect_record(args.decision_id, args.note, service=service))
         raise SystemExit(code)
+    if args.command == "memory":
+        service = MemoryService.create(active)
+        raise SystemExit(asyncio.run(memory_lessons(service=service)))
     raise SystemExit(f"unknown command: {args.command}")  # pragma: no cover
