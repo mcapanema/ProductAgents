@@ -26,13 +26,13 @@ async def workspace_service(tmp_path):
     return WorkspaceService(home=SharedHome(root=tmp_path), engine=engine)
 
 
-async def _ok_syncer():
+async def _ok_syncer(*, only=None):
     return SyncReport(
         results=[SyncResult(connector="github", ok=True, written=3)], problems=[]
     )
 
 
-async def _bad_syncer():
+async def _bad_syncer(*, only=None):
     return SyncReport(
         results=[SyncResult(connector="github", ok=False, error="auth: 401")],
         problems=[],
@@ -185,7 +185,7 @@ def test_main_workspace_flag_threads_into_resolve(monkeypatch):
 def test_main_sync_dispatches_to_sync_command(monkeypatch):
     calls = []
     _patch_bootstrap(monkeypatch, calls)
-    monkeypatch.setattr(cli_module, "sync_command", lambda: 0)
+    monkeypatch.setattr(cli_module, "sync_command", lambda **_kw: 0)
 
     with pytest.raises(SystemExit) as exc_info:
         cli_module.main(["sync"])

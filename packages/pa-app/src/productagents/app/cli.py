@@ -19,6 +19,7 @@ from productagents.core.models import Initiative
 from productagents.platform import events as ev
 from productagents.platform.bootstrap import bootstrap_home
 from productagents.platform.configuration import ConfigurationService
+from productagents.platform.connector_service import ConnectorService
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
 from productagents.platform.decision_read_service import DecisionReadService
@@ -155,7 +156,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("sync", help="run one connector sync and exit")
+    p_sync = sub.add_parser("sync", help="run one connector sync and exit")
+    p_sync.add_argument(
+        "--connector", default=None, help="scope the sync to one connector"
+    )
     sub.add_parser("ipc", help="serve the JSON-over-stdio IPC protocol (for the GUI)")
     p_swb = sub.add_parser(
         "serve-ws",
@@ -175,6 +179,14 @@ def build_parser() -> argparse.ArgumentParser:
     wf_sub.add_parser("list", help="list workflows")
     p_wf_show = wf_sub.add_parser("show", help="show one workflow + its topology")
     p_wf_show.add_argument("name")
+
+    p_co = sub.add_parser("connectors", help="list, probe, or configure connectors")
+    co_sub = p_co.add_subparsers(dest="co_command")
+    co_sub.add_parser("list", help="configured connectors + last-synced times")
+    p_co_health = co_sub.add_parser(
+        "health", help="readiness probe (exit 1 on failure)"
+    )
+    p_co_health.add_argument("name", nargs="?", default=None, help="one connector key")
 
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
@@ -439,14 +451,39 @@ async def reflect_record(decision_id: str, note: str, *, service) -> int:
     return 1 if outcome.failed else 0
 
 
-def sync_command(*, syncer=run_connector_sync) -> int:
+async def connectors_list(*, service) -> int:
+    """Print each configured connector with its last successful-sync time."""
+    plan = await service.plan()
+    last = await service.last_synced()
+    if not plan.configs:
+        print("no connectors configured")
+    for name in sorted(plan.configs):
+        print(f"{name}  last synced: {last.get(name, 'never')}")
+    for problem in plan.problems:
+        print(f"⚠ {problem}")
+    return 0
+
+
+async def connectors_health(name: str | None, *, service) -> int:
+    """Probe connector readiness (all, or just NAME). Exit 1 on any failure."""
+    report = await service.health(connector=name)
+    for key, status in report.statuses.items():
+        mark = "✓" if status.ok else "✗"
+        print(f"{mark} {key}: {status.detail}")
+    for problem in report.problems:
+        print(f"⚠ {problem}")
+    failed = any(not s.ok for s in report.statuses.values()) or bool(report.problems)
+    return 1 if failed else 0
+
+
+def sync_command(*, only: str | None = None, syncer=run_connector_sync) -> int:
     """Run one connector sync headlessly, print the report, return an exit code.
 
-    For cron/launchd: ``productagents sync``. Returns 1 if any connector failed
-    or the config had problems so the scheduler/CI surfaces it; 0 otherwise.
+    For cron/launchd: ``productagents sync [--connector NAME]``. Returns 1 if any
+    connector failed or the config had problems so the scheduler/CI surfaces it.
     ponytail: print (not the file logger) because no TUI owns the terminal here.
     """
-    report = asyncio.run(syncer())
+    report = asyncio.run(syncer(only=only))
     print(describe_report(report))
     failed = any(not r.ok for r in report.results) or bool(report.problems)
     return 1 if failed else 0
@@ -511,7 +548,7 @@ def main(argv: list[str] | None = None) -> None:
         build_parser().print_help()
         return
     if args.command == "sync":
-        raise SystemExit(sync_command())
+        raise SystemExit(sync_command(only=args.connector))
     if args.command == "ipc":
         from productagents.app import ipc
 
@@ -547,6 +584,14 @@ def main(argv: list[str] | None = None) -> None:
         if args.wf_command == "show":
             raise SystemExit(workflows_show(args.name, service=service))
         raise SystemExit(workflows_list(service=service))  # bare `workflows` or `list`
+    if args.command == "connectors":
+        service = ConnectorService(workspace=active)
+        if args.co_command == "health":
+            code = asyncio.run(connectors_health(args.name, service=service))
+            raise SystemExit(code)
+        raise SystemExit(  # bare `connectors` or `connectors list`
+            asyncio.run(connectors_list(service=service))
+        )
     if args.command == "run":
         try:
             service = _build_run_service(workspace=active)
