@@ -11,18 +11,21 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 
 from productagents.core.config import load_env
 from productagents.core.logging_config import configure_logging
-from productagents.core.models import Initiative
+from productagents.core.models import HumanDecision, Initiative
 from productagents.platform import events as ev
 from productagents.platform.bootstrap import bootstrap_home
 from productagents.platform.configuration import ConfigurationService
+from productagents.platform.connector_service import ConnectorService
 from productagents.platform.connectors import describe_report, run_connector_sync
 from productagents.platform.context import make_recorder
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.llm import get_model
+from productagents.platform.memory_service import MemoryService
 from productagents.platform.prompt_service import PromptService
 from productagents.platform.reflection_service import ReflectionService
 from productagents.platform.session_service import SessionService
@@ -73,12 +76,14 @@ def render_event(event: ev.Event) -> str | None:
 
 
 async def run_workflow(
-    workflow_name: str, title: str, evidence_spec: str, *, service
+    workflow_name: str, title: str, evidence_spec: str, *, service, approver=None
 ) -> int:
     """Run a workflow and stream its events to stdout. Returns 1 if the run
-    aborted (a SessionFailed event), else 0."""
+    aborted (a SessionFailed event), else 0. ``approver`` (from ``--approve``)
+    makes the run human-in-the-loop, mirroring the GUI's approval seam."""
     initiative = Initiative(title=title, description=title)
-    _session, stream = service.run(workflow_name, initiative, evidence_spec)
+    kwargs = {"approver": approver} if approver is not None else {}
+    _session, stream = service.run(workflow_name, initiative, evidence_spec, **kwargs)
     failed = False
     async for event in stream:
         if isinstance(event, ev.SessionFailed):
@@ -87,6 +92,23 @@ async def run_workflow(
         if line is not None:
             print(line)
     return 1 if failed else 0
+
+
+def _prompt_approval(request) -> HumanDecision:
+    """Read a HITL decision from the terminal; invalid input degrades to approve."""
+    print("⏸ approval requested — verdict? [approve/reject/request_analysis]")
+    verdict = input("> ").strip() or "approve"
+    if verdict not in ("approve", "reject", "request_analysis"):
+        print(f"unrecognized verdict {verdict!r} — defaulting to approve")
+        verdict = "approve"
+    rationale = input("rationale (optional)> ").strip()
+    return HumanDecision(verdict=verdict, rationale=rationale)  # ty: ignore[invalid-argument-type]
+
+
+async def _cli_approver(request) -> HumanDecision:
+    # ponytail: input() blocks the event loop — fine for the single-run CLI;
+    # switch to asyncio.to_thread if the CLI ever streams while prompting.
+    return _prompt_approval(request)
 
 
 async def sessions_list(*, service) -> int:
@@ -155,7 +177,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("sync", help="run one connector sync and exit")
+    p_sync = sub.add_parser("sync", help="run one connector sync and exit")
+    p_sync.add_argument(
+        "--connector", default=None, help="scope the sync to one connector"
+    )
     sub.add_parser("ipc", help="serve the JSON-over-stdio IPC protocol (for the GUI)")
     p_swb = sub.add_parser(
         "serve-ws",
@@ -169,6 +194,38 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("workflow", help="workflow name, e.g. evaluate_initiative")
     p_run.add_argument("title", help="initiative title / description")
     p_run.add_argument("--evidence", default="", help="scenario name or directory path")
+    p_run.add_argument(
+        "--approve",
+        action="store_true",
+        help="pause at governance for interactive human approval",
+    )
+
+    p_wf = sub.add_parser("workflows", help="list registered workflows")
+    wf_sub = p_wf.add_subparsers(dest="wf_command")
+    wf_sub.add_parser("list", help="list workflows")
+    p_wf_show = wf_sub.add_parser("show", help="show one workflow + its topology")
+    p_wf_show.add_argument("name")
+
+    p_co = sub.add_parser("connectors", help="list, probe, or configure connectors")
+    co_sub = p_co.add_subparsers(dest="co_command")
+    co_sub.add_parser("list", help="configured connectors + last-synced times")
+    p_co_health = co_sub.add_parser(
+        "health", help="readiness probe (exit 1 on failure)"
+    )
+    p_co_health.add_argument("name", nargs="?", default=None, help="one connector key")
+    p_co_cfg = co_sub.add_parser(
+        "config",
+        help="show config blocks, or merge fields into one: config NAME KEY=VALUE...",
+    )
+    p_co_cfg.add_argument("connector", nargs="?", default=None)
+    p_co_cfg.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
+    p_co_cfg.add_argument(
+        "--secret",
+        action="append",
+        default=[],
+        metavar="VAR=VALUE",
+        help="secret env var referenced by a *_env field (written to .env, repeatable)",
+    )
 
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
@@ -208,8 +265,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_pr_rb.add_argument("name")
     p_pr_rb.add_argument("version", type=int)
 
-    p_de = sub.add_parser("decisions", help="export recorded decisions")
+    p_de = sub.add_parser("decisions", help="list, show, or export recorded decisions")
     de_sub = p_de.add_subparsers(dest="de_command")
+    de_sub.add_parser("list", help="list recorded decisions")
+    p_de_show = de_sub.add_parser("show", help="dump one decision + outcomes as JSON")
+    p_de_show.add_argument("decision_id")
     p_de_export = de_sub.add_parser(
         "export", help="write decisions.jsonl + outcomes.jsonl to DIR"
     )
@@ -220,6 +280,23 @@ def build_parser() -> argparse.ArgumentParser:
         "decision_id", nargs="?", default=None, help="omit to list past decisions"
     )
     p_rf.add_argument("note", nargs="?", default=None, help="what actually happened")
+
+    p_me = sub.add_parser("memory", help="browse organizational memory")
+    me_sub = p_me.add_subparsers(dest="me_command")
+    me_sub.add_parser("lessons", help="list the lesson corpus (newest first)")
+
+    p_cf = sub.add_parser("config", help="show or persist workspace configuration")
+    cf_sub = p_cf.add_subparsers(dest="cf_command")
+    cf_sub.add_parser("show", help="model/provider/key status + tunables with origins")
+    p_cf_set = cf_sub.add_parser(
+        "set", help="persist model/provider/api-key/tunables (unlike --set)"
+    )
+    p_cf_set.add_argument("--model", default=None, help="provider-prefixed model id")
+    p_cf_set.add_argument("--provider", default=None)
+    p_cf_set.add_argument(
+        "--api-key", dest="api_key", default=None, help="written to the workspace .env"
+    )
+    p_cf_set.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
 
     return parser
 
@@ -287,6 +364,34 @@ async def workspace_rename(old: str, new: str, *, service: WorkspaceService) -> 
     return 0
 
 
+def workflows_list(*, service: WorkflowService) -> int:
+    """Print one registered workflow per line (name + title)."""
+    for w in service.list():
+        print(f"{w.name}  {w.title}")
+    return 0
+
+
+def workflows_show(name: str, *, service: WorkflowService) -> int:
+    """Print one workflow's metadata and, when exposed, its graph topology."""
+    w = service.get(name)
+    if w is None:
+        print(f"no such workflow: {name}")
+        return 1
+    print(f"name:        {w.name}")
+    print(f"title:       {w.title}")
+    print(f"description: {w.description}")
+    topo = w.topology() if w.topology is not None else None
+    if topo:
+        print("nodes:")
+        for node in topo["nodes"]:
+            print(f"  {node['id']}")
+        print("edges:")
+        for edge in topo["edges"]:
+            arrow = "-?->" if edge.get("conditional") else "--->"
+            print(f"  {edge['source']} {arrow} {edge['target']}")
+    return 0
+
+
 def prompts_list(*, service: PromptService) -> int:
     """Print one prompt name per line, with its active version."""
     for name in service.names():
@@ -345,6 +450,33 @@ async def decisions_export(directory: str, *, service) -> int:
     return 0
 
 
+async def decisions_list(*, service) -> int:
+    """Print one recorded decision per line (id, title, recommendation)."""
+    rows = await service.list()
+    if not rows:
+        print("no decisions yet — run one first with `productagents run`")
+        return 0
+    for d in rows:
+        rec = d.recommendation
+        print(
+            f"{d.decision_id}  {d.initiative.title} — "
+            f"{rec.recommendation} ({rec.confidence:.0%})"
+        )
+    return 0
+
+
+async def decisions_show(decision_id: str, *, service) -> int:
+    """Dump one decision record + its reflected outcomes as JSON."""
+    record, outcomes = await service.get(decision_id)
+    if record is None:
+        print(f"no such decision: {decision_id}")
+        return 1
+    print(record.model_dump_json(indent=2))
+    for o in outcomes:
+        print(o.model_dump_json(indent=2))
+    return 0
+
+
 async def reflect_list(*, service) -> int:
     """List past decisions (id + title + recommendation) for the reflect picker."""
     decisions = await service.decisions()
@@ -375,17 +507,156 @@ async def reflect_record(decision_id: str, note: str, *, service) -> int:
     return 1 if outcome.failed else 0
 
 
-def sync_command(*, syncer=run_connector_sync) -> int:
+async def memory_lessons(*, service) -> int:
+    """Print the organizational-memory lesson corpus (✓ = validated by reflection)."""
+    lessons = await service.lessons()
+    if not lessons:
+        print("no lessons yet — run and reflect on a decision first")
+        return 0
+    for lesson in lessons:
+        mark = "✓" if lesson.validated else "·"
+        accuracy = (
+            f" ({lesson.prediction_accuracy:.0%})"
+            if lesson.prediction_accuracy is not None
+            else ""
+        )
+        print(f"{mark} [{lesson.decision_id}] {lesson.title}{accuracy}: {lesson.text}")
+    return 0
+
+
+async def connectors_list(*, service) -> int:
+    """Print each configured connector with its last successful-sync time."""
+    plan = await service.plan()
+    last = await service.last_synced()
+    if not plan.configs:
+        print("no connectors configured")
+    for name in sorted(plan.configs):
+        print(f"{name}  last synced: {last.get(name, 'never')}")
+    for problem in plan.problems:
+        print(f"⚠ {problem}")
+    return 0
+
+
+async def connectors_health(name: str | None, *, service) -> int:
+    """Probe connector readiness (all, or just NAME). Exit 1 on any failure."""
+    report = await service.health(connector=name)
+    for key, status in report.statuses.items():
+        mark = "✓" if status.ok else "✗"
+        print(f"{mark} {key}: {status.detail}")
+    for problem in report.problems:
+        print(f"⚠ {problem}")
+    failed = any(not s.ok for s in report.statuses.values()) or bool(report.problems)
+    return 1 if failed else 0
+
+
+def _parse_typed_pairs(pairs: list[str]) -> dict:
+    """Parse KEY=VALUE pairs; values JSON-decode when possible (true, 5, 1.5)."""
+    out: dict = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"expected KEY=VALUE, got {pair!r}")
+        try:
+            out[key] = json.loads(value)
+        except json.JSONDecodeError:
+            out[key] = value  # bare strings stay strings
+    return out
+
+
+async def connectors_config_list(*, service) -> int:
+    """Print every connector's DB-backed config block (secrets are env names only)."""
+    for entry in await service.config_list():
+        state = "installed" if entry["installed"] else "not installed"
+        print(f"{entry['connector']}  ({state})")
+        for key, value in entry["config"].items():
+            print(f"  {key}: {value}")
+        for problem in entry["problems"]:
+            print(f"  ⚠ {problem}")
+    return 0
+
+
+async def connectors_config_save(
+    connector: str, pairs: list[str], secret_pairs: list[str], *, service
+) -> int:
+    """Merge typed KEY=VALUE fields onto the stored config block; secrets go to .env."""
+    if not pairs and not secret_pairs:
+        print("nothing to save — pass KEY=VALUE fields and/or --secret VAR=VALUE")
+        return 1
+    entries = await service.config_list()
+    base = next(
+        (dict(entry["config"]) for entry in entries if entry["connector"] == connector),
+        {},
+    )
+    config = {**base, **_parse_typed_pairs(pairs)}
+    secrets: dict[str, str] = {}
+    for pair in secret_pairs:
+        key, sep, value = pair.partition("=")
+        if not sep or not key:
+            raise SystemExit(f"expected VAR=VALUE, got {pair!r}")
+        secrets[key] = value  # verbatim — a secret is never JSON-coerced
+    try:
+        entry = await service.config_save(connector, config, secrets=secrets or None)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+    print(f"saved {entry['connector']}")
+    for problem in entry["problems"]:
+        print(f"⚠ {problem}")
+    return 1 if entry["problems"] else 0
+
+
+def sync_command(*, only: str | None = None, syncer=run_connector_sync) -> int:
     """Run one connector sync headlessly, print the report, return an exit code.
 
-    For cron/launchd: ``productagents sync``. Returns 1 if any connector failed
-    or the config had problems so the scheduler/CI surfaces it; 0 otherwise.
+    For cron/launchd: ``productagents sync [--connector NAME]``. Returns 1 if any
+    connector failed or the config had problems so the scheduler/CI surfaces it.
     ponytail: print (not the file logger) because no TUI owns the terminal here.
     """
-    report = asyncio.run(syncer())
+    report = asyncio.run(syncer(only=only))
     print(describe_report(report))
     failed = any(not r.ok for r in report.results) or bool(report.problems)
     return 1 if failed else 0
+
+
+def config_show(*, service) -> int:
+    """Print model/provider/key readiness plus each tunable with its origin."""
+    status = service.status()
+    print(f"model:     {status.model or '(not set)'}")
+    print(f"provider:  {status.provider or '(auto)'}")
+    key_state = "present" if status.key_present else "MISSING"
+    print(f"api key:   {status.key_var or '(none)'} [{key_state}]")
+    origins = service.settings_origins()
+    for key, value in service.settings().items():
+        print(f"{key}: {value}  ({origins.get(key, 'default')})")
+    for problem in status.problems:
+        print(f"⚠ {problem}")
+    return 0
+
+
+async def config_set_cmd(
+    model: str | None,
+    provider: str | None,
+    api_key: str | None,
+    pairs: list[str],
+    *,
+    service,
+) -> int:
+    """Persist workspace config (model/provider to DB, api key to .env).
+
+    The persisted counterpart of the per-invocation ``--set`` flag. KEY names are
+    validated against the service's tunables so a typo can't silently no-op.
+    """
+    settings = parse_set_overrides(pairs)
+    unknown = set(settings) - set(service.settings())
+    if unknown:
+        print(f"unknown setting(s): {', '.join(sorted(unknown))}")
+        return 1
+    model = model or service.status().model
+    if not model:
+        print("no model configured yet — pass --model")
+        return 1
+    await service.set(model, provider=provider, api_key=api_key, settings=settings)
+    return config_show(service=service)
 
 
 def parse_set_overrides(pairs: list[str]) -> dict[str, str]:
@@ -447,7 +718,7 @@ def main(argv: list[str] | None = None) -> None:
         build_parser().print_help()
         return
     if args.command == "sync":
-        raise SystemExit(sync_command())
+        raise SystemExit(sync_command(only=args.connector))
     if args.command == "ipc":
         from productagents.app import ipc
 
@@ -478,15 +749,47 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(  # bare `workspace` or `workspace list`
             asyncio.run(workspace_list(service=workspaces, active_name=active))
         )
+    if args.command == "workflows":
+        service = WorkflowService.for_model(None, workspace=active)
+        if args.wf_command == "show":
+            raise SystemExit(workflows_show(args.name, service=service))
+        raise SystemExit(workflows_list(service=service))  # bare `workflows` or `list`
+    if args.command == "connectors":
+        service = ConnectorService(workspace=active)
+        if args.co_command == "health":
+            code = asyncio.run(connectors_health(args.name, service=service))
+            raise SystemExit(code)
+        if args.co_command == "config":
+            if args.connector is None:
+                code = asyncio.run(connectors_config_list(service=service))
+                raise SystemExit(code)
+            code = asyncio.run(
+                connectors_config_save(
+                    args.connector, args.pairs, args.secret, service=service
+                )
+            )
+            raise SystemExit(code)
+        raise SystemExit(  # bare `connectors` or `connectors list`
+            asyncio.run(connectors_list(service=service))
+        )
     if args.command == "run":
         try:
-            service = _build_run_service(workspace=active)
+            service = _build_run_service(
+                workspace=active, human_in_the_loop=args.approve
+            )
         except Exception as exc:
             raise SystemExit(f"cannot start run: {exc}") from exc
         if service.get(args.workflow) is None:
             raise SystemExit(f"unknown workflow: {args.workflow!r}")
+        approver = _cli_approver if args.approve else None
         code = asyncio.run(
-            run_workflow(args.workflow, args.title, args.evidence, service=service)
+            run_workflow(
+                args.workflow,
+                args.title,
+                args.evidence,
+                service=service,
+                approver=approver,
+            )
         )
         raise SystemExit(code)
     if args.command == "sessions":
@@ -510,14 +813,25 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(prompts_rollback(args.name, args.version, service=service))
         raise SystemExit(prompts_list(service=service))  # bare `prompts` or `list`
     if args.command == "decisions":
+        service = DecisionReadService.create(active)
         if args.de_command == "export":
+            code = asyncio.run(decisions_export(args.directory, service=service))
+            raise SystemExit(code)
+        if args.de_command == "show":
+            code = asyncio.run(decisions_show(args.decision_id, service=service))
+            raise SystemExit(code)
+        raise SystemExit(  # bare `decisions` or `decisions list`
+            asyncio.run(decisions_list(service=service))
+        )
+    if args.command == "config":
+        if args.cf_command == "set":
             code = asyncio.run(
-                decisions_export(
-                    args.directory, service=DecisionReadService.create(active)
+                config_set_cmd(
+                    args.model, args.provider, args.api_key, args.pairs, service=config
                 )
             )
             raise SystemExit(code)
-        raise SystemExit("usage: productagents decisions export DIR")
+        raise SystemExit(config_show(service=config))  # bare `config` or `show`
     if args.command == "reflect":
         if args.decision_id is None:  # list mode needs no model
             code = asyncio.run(
@@ -536,4 +850,7 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(f"cannot reflect: {exc}") from exc
         code = asyncio.run(reflect_record(args.decision_id, args.note, service=service))
         raise SystemExit(code)
+    if args.command == "memory":
+        service = MemoryService.create(active)
+        raise SystemExit(asyncio.run(memory_lessons(service=service)))
     raise SystemExit(f"unknown command: {args.command}")  # pragma: no cover

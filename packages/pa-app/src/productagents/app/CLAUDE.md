@@ -9,7 +9,7 @@ or `connectors`.
 
 | Module | Role |
 | --- | --- |
-| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run`, `sync`, `workspace list/show/create/use`, `sessions list/show`, `decisions export`, `prompts list/show/diff/save/rollback`, `reflect`. |
+| `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run [--approve]`, `sync [--connector]`, `workflows list/show`, `workspace list/show/create/use/rename`, `sessions list/show`, `decisions list/show/export`, `connectors list/health/config`, `prompts list/show/diff/save/rollback`, `config show/set`, `memory lessons`, `reflect`. |
 | `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list/show`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
@@ -25,9 +25,12 @@ returns an `int` exit code; `main` raises `SystemExit(code)`. Handlers take thei
 collaborating service via a keyword arg so they test headless (see
 `tests/test_cli.py`) — no command builds a real model or hits the network in tests.
 
-- `run WORKFLOW TITLE [--evidence SPEC]` builds a real `WorkflowService`
-  (`human_in_the_loop=False`) and streams events through `render_event`. Exit 1
-  on a `SessionFailed`.
+- `run WORKFLOW TITLE [--evidence SPEC] [--approve]` builds a real `WorkflowService`
+  (`human_in_the_loop=False` by default) and streams events through `render_event`.
+  Exit 1 on a `SessionFailed`. `--approve` builds `human_in_the_loop=True`
+  instead; when the graph pauses at governance, the CLI prompts interactively on
+  stdin for a verdict (`approve`/`reject`/`request_analysis` — invalid input
+  degrades to `approve`) before resuming the run.
 - `render_event(event)` is the CLI's per-event text renderer — one line per event, `None` to skip.
 - `workspace`/`sessions`/`prompts` with no sub-action default to `list`.
 - `prompts list` lists all prompt names with their active version (`(v0)` = bundled
@@ -188,3 +191,14 @@ a live (non-approval) `run` call, the serve loop reads control lines concurrentl
 `SessionCancelled` and the terminal `{status:"cancelled", session_id}`. If sent as a
 standalone request (no run in flight or wrong session_id), returns `{ok: false}` via the
 dispatch table. HITL runs are excluded — the approver already owns the control line.
+
+## GUI–CLI parity
+
+The two adapters expose the same Application Layer, and the CLI must be able
+to express every GUI operation. `tests/test_cli_ipc_parity.py` extracts the
+IPC dispatch table from `ipc.handle` and asserts every method has a `PARITY`
+CLI invocation (validated against `cli.build_parser()`) or an `EXEMPT` reason
+(`preferences.*` — GUI theme, presentation-only; `run.cancel` — Ctrl-C).
+Adding an IPC method therefore fails CI until the matching CLI subcommand and
+`PARITY` entry ship in the same change. Keep the direction platform-first:
+new operations go into an Application Service, then into both adapters.
