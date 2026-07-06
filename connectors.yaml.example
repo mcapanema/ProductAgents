@@ -13,3 +13,5 @@ connectors:
     email: you@your-org.com
     token_env: JIRA_API_TOKEN  # reads $JIRA_API_TOKEN at sync time
     project: PROJ              # optional: limit to one project key
+  obsidian:
+    vault: ~/Documents/MyVault

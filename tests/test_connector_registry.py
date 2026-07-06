@@ -55,3 +55,11 @@ def test_discover_finds_real_jira_connector():
     found = registry.discover()
 
     assert found.get("jira") is JiraConnector
+
+
+def test_discover_finds_real_obsidian_connector():
+    from productagents.connectors.obsidian.connector import ObsidianConnector
+
+    found = registry.discover()
+
+    assert found.get("obsidian") is ObsidianConnector

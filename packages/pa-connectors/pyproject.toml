@@ -8,6 +8,10 @@ dependencies = ["productagents-core", "httpx>=0.27"]
 [project.entry-points."productagents.connectors"]
 github = "productagents.connectors.github.connector:GitHubConnector"
 jira = "productagents.connectors.jira.connector:JiraConnector"
+obsidian = "productagents.connectors.obsidian.connector:ObsidianConnector"
+
+[project.entry-points."productagents.evidence_sources"]
+obsidian = "productagents.connectors.obsidian.evidence:resolve_vault"
 
 [build-system]
 requires = ["hatchling"]
