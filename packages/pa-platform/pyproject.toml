@@ -7,6 +7,7 @@ dependencies = [
     "productagents-core",
     "productagents-agents",
     "productagents-memory",
+    "productagents-knowledge",
     "productagents-connectors",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
