@@ -131,3 +131,22 @@ async def test_rename_workspace_moves_canonical_and_cursor_rows():
             "github": "cur"
         }
         assert await SyncStateStore(session, workspace="old").cursors() == {}
+
+
+async def test_canonical_record_updated_at_round_trips_timezone_aware():
+    # ingested_at/updated_at are tz-aware by default (CanonicalModel._utcnow());
+    # the column must preserve that, not silently drop the offset (regression
+    # guard for the naive-DateTime bug fixed by migration 0004). Fetch through a
+    # fresh session (same engine) so this reads back the actual stored column,
+    # not the identity-mapped Python object.
+    async with memory_store() as (sessionmaker, _engine):
+        async with sessionmaker() as session:
+            created = await CanonicalRepository(session, CustomerFeedback).upsert(
+                CustomerFeedback(body="hello")
+            )
+        async with sessionmaker() as session:
+            fetched = await CanonicalRepository(session, CustomerFeedback).get(
+                str(created.id)
+            )
+    assert fetched is not None
+    assert fetched.updated_at.tzinfo is not None

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -32,8 +32,8 @@ class CanonicalRecord(SQLModel, table=True):
     vendor_type: str
     vendor_id: str | None = Field(default=None, index=True)  # None for manual records
     raw_fingerprint: str | None = Field(default=None)
-    ingested_at: datetime
-    updated_at: datetime
+    ingested_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     payload: dict = Field(sa_column=Column(JSON))  # model_dump(mode="json")
 
 
@@ -50,4 +50,4 @@ class SyncStateRecord(SQLModel, table=True):
     workspace: str = Field(default="default", primary_key=True)
     connector_key: str = Field(primary_key=True)
     cursor_value: str | None = Field(default=None)
-    updated_at: datetime
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))

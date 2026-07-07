@@ -67,7 +67,8 @@ test the container against the real in-memory store.
 - **Schema changes go through Alembic** (`uv run alembic revision --autogenerate`
   from `packages/pa-knowledge`, review, commit). `create_all` is test-only (and
   the one-time shared-home bootstrap, see root CLAUDE.md's ponytail note on
-  `bootstrap.py`). Head is now `0003_workspace_scope` (`0001_canonical_record` →
+  `bootstrap.py`). Head is now `0004_tz_aware_datetimes` (`0001_canonical_record` →
   `0002_sync_state` adds the `sync_state` table → `0003_workspace_scope` adds a
   `workspace` column to `canonical_record`/`sync_state`, widening their unique
-  key / primary key to include it).
+  key / primary key to include it → `0004_tz_aware_datetimes` makes
+  `ingested_at`/`updated_at` timezone-aware `DateTime` columns).
