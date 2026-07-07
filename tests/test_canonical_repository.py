@@ -1,5 +1,7 @@
 """Repository contract: every canonical type persists, reads back, and dedups."""
 
+from datetime import UTC, datetime, timedelta, timezone
+
 import pytest
 
 from productagents.core.models import CustomerFeedback, Initiative, SourceRef
@@ -152,3 +154,24 @@ async def test_canonical_record_ingested_and_updated_at_are_tz_aware():
     assert row is not None
     assert row.ingested_at.tzinfo is not None
     assert row.updated_at.tzinfo is not None
+
+
+async def test_utc_datetime_normalizes_non_utc_offset_before_storage():
+    # A non-UTC-aware datetime (+05:00) must be converted to the equivalent UTC
+    # instant before SQLite stores it, not just tagged with +00:00 in place —
+    # SQLite keeps only the wall-clock digits, so tagging-without-converting
+    # would silently round-trip the wrong instant (regression guard for the
+    # bug in UTCDateTime.process_bind_param).
+    offset_dt = datetime(2026, 1, 1, 10, 0, tzinfo=timezone(timedelta(hours=5)))
+    async with memory_store() as (sessionmaker, _engine):
+        async with sessionmaker() as session:
+            created = await CanonicalRepository(session, CustomerFeedback).upsert(
+                CustomerFeedback(body="hello")
+            )
+            row = await session.get(CanonicalRecord, str(created.id))
+            row.ingested_at = offset_dt
+            await session.commit()
+        async with sessionmaker() as session:
+            row = await session.get(CanonicalRecord, str(created.id))
+    assert row is not None
+    assert row.ingested_at == datetime(2026, 1, 1, 5, 0, tzinfo=UTC)
