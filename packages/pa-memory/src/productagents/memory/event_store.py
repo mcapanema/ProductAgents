@@ -15,6 +15,7 @@ ever emits enough events that per-event commits show up in a profile.
 """
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from productagents.memory._tx import commit
@@ -76,7 +77,12 @@ class EventStore:
                 payload=payload,
             )
         )
-        await self._session.commit()
+        try:  # noqa: SIM105 - not contextlib.suppress: keep the why-comment
+            await commit(self._session)
+        except IntegrityError:
+            # A retried append hit the (session_id, seq) unique key — the event
+            # is already recorded, so this is a no-op (commit already rolled back).
+            pass
 
     async def sessions(self) -> list[dict]:
         """All sessions, newest first."""

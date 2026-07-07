@@ -7,7 +7,7 @@ round-trip, like the canonical store); the decision row also carries the
 initiative embedding so retrieval needs no re-embedding of history.
 """
 
-from sqlalchemy import JSON, Integer, String
+from sqlalchemy import JSON, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -60,6 +60,9 @@ class RuntimeEventRow(Base):
     """Append-only event log for a session (the execution timeline)."""
 
     __tablename__ = "runtime_event"
+    __table_args__ = (
+        UniqueConstraint("session_id", "seq", name="uq_runtime_event_session_seq"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String, index=True)
