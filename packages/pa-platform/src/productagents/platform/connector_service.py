@@ -38,7 +38,9 @@ class ConnectorService:
         engine = self._engine or get_engine()
         await memory_create_all(engine)
         maker = make_sessionmaker(engine)
-        return maker, await load_db_config(maker, workspace=self._workspace)
+        return maker, await load_db_config(
+            maker, workspace=self._workspace, env_path=self._resolved_env_path()
+        )
 
     def _entry(self, key, registry, blocks, problems):
         cls = registry.get(key)

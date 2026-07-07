@@ -5,7 +5,10 @@ DateTime columns even though every value written into them is tz-aware
 (datetime.now(UTC)) — SQLite silently truncated the offset, so a read-back
 .isoformat() looked indistinguishable from local time. Existing values are
 UTC already; SQLite has no real column-type migration, so this is a
-schema-only change (batch recreate), not a data rewrite.
+schema-only change (batch recreate), not a data rewrite. Runtime UTC
+normalization on bind/read lives in tables.py's UTCDateTime TypeDecorator,
+not here — this migration's declared sa.DateTime(timezone=True) doesn't
+change that behavior on its own.
 
 Revision ID: 0004_tz_aware_datetimes
 Revises: 0003_workspace_scope
