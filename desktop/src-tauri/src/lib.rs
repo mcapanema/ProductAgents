@@ -82,10 +82,26 @@ fn spawn_sidecar(handle: &tauri::AppHandle) -> Result<(Child, ChildStdin), Strin
     let mut child = sidecar_command()
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("failed to spawn the IPC sidecar: {e}"))?;
     let stdout = child.stdout.take().ok_or("sidecar stdout missing")?;
+    let stderr = child.stderr.take().ok_or("sidecar stderr missing")?;
     let stdin = child.stdin.take().ok_or("sidecar stdin missing")?;
+
+    // Drain stderr so a packaged-app traceback reaches the terminal/log instead
+    // of vanishing (a lost traceback already cost one debugging cycle — the
+    // PyInstaller entry-point incident).
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            match line {
+                Ok(text) => eprintln!("[sidecar] {text}"),
+                Err(_) => break,
+            }
+        }
+    });
+
     let handle = handle.clone();
     std::thread::spawn(move || {
         let reader = BufReader::new(stdout);
@@ -97,6 +113,9 @@ fn spawn_sidecar(handle: &tauri::AppHandle) -> Result<(Child, ChildStdin), Strin
                 Err(_) => break,
             }
         }
+        // stdout closed → the sidecar is gone. Tell the webview so the client
+        // rejects every in-flight request instead of showing "running" forever.
+        let _ = handle.emit("ipc://closed", ());
     });
     Ok((child, stdin))
 }
@@ -124,6 +143,7 @@ pub fn run() {
                 if let Ok(mut guard) = sidecar.child.lock() {
                     if let Some(mut child) = guard.take() {
                         let _ = child.kill();
+                        let _ = child.wait(); // reap so the child never zombies
                     }
                 }
             }
