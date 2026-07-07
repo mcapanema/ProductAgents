@@ -222,55 +222,21 @@ async def test_run_decision_human_override_becomes_final_verdict(monkeypatch):
     assert finished.governance.advisory_verdict == "approve"
 
 
-async def test_run_decision_without_approver_auto_accepts_advisory(monkeypatch):
+async def test_run_decision_without_approver_aborts(monkeypatch):
+    from productagents.agents.runner import RunAbortedEvent
+
     monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
     graph = _hitl_graph()
     initiative, evidence = _inputs()
 
     events = [e async for e in run_decision(graph, initiative, evidence)]
 
-    finished = next(e for e in events if isinstance(e, FinishedEvent))
-    assert finished.governance is not None
-    assert finished.governance.verdict == "approve"
-
-
-def _hitl_graph_degraded_governance():
-    model = FakeChatModel(
-        {
-            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
-            DebateArgument: DebateArgument(argument="an argument"),
-            Recommendation: Recommendation(
-                recommendation="Build it",
-                confidence=0.7,
-                rationale="r",
-                expected_outcomes=["o"],
-            ),
-            JudgeFinding: JudgeFinding(
-                evidence_grounding_score=0.9,
-                rationale_coherence_score=0.9,
-                critique="ok",
-            ),
-            RiskFinding: RiskFinding(level="low", rationale="cheap"),
-            GovernanceFinding: RuntimeError("governance LLM down"),
-        }
-    )
-    return build_graph(model, human_in_the_loop=True)
-
-
-async def test_run_decision_without_approver_coerces_degraded_advisory_to_approve(
-    monkeypatch,
-):
-    monkeypatch.setenv("PRODUCTAGENTS_DEBATE_ROUNDS", "1")
-    graph = _hitl_graph_degraded_governance()
-    initiative, evidence = _inputs()
-
-    events = [e async for e in run_decision(graph, initiative, evidence)]
-
-    finished = next(e for e in events if isinstance(e, FinishedEvent))
-    assert finished.governance is not None
-    # Governance degraded to verdict="error"; the no-approver fallback must coerce it.
-    assert finished.governance.verdict == "approve"
-    assert finished.governance.decided_by == "human"
+    aborted = [e for e in events if isinstance(e, RunAbortedEvent)]
+    assert len(aborted) == 1
+    assert aborted[0].category == "missing_approver"
+    assert aborted[0].node == "human_approval"
+    # Fail-fast: no FinishedEvent — the run must not silently complete.
+    assert not any(isinstance(e, FinishedEvent) for e in events)
 
 
 async def test_runner_emits_node_error_when_analyst_degrades(monkeypatch):
