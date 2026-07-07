@@ -595,3 +595,90 @@ async def test_run_decision_still_emits_progress_for_status_chunks():
         p.node == "customer_research" and p.message == "working…" for p in progress
     )
     assert any(isinstance(e, FinishedEvent) for e in events)
+
+
+async def test_run_decision_aborts_when_all_analysts_fail():
+    # Every analyst degrades with a NON-fatal error (UNKNOWN → no fatal marker),
+    # so only the circuit breaker can stop the run before an all-placeholder
+    # DecisionRecord is produced.
+    from productagents.agents.graph import build_graph
+    from productagents.agents.runner import (
+        FinishedEvent,
+        RunAbortedEvent,
+        run_decision,
+    )
+    from productagents.core.models import AnalystFindings, Evidence, Initiative
+    from tests.fakes import FakeChatModel
+
+    model = FakeChatModel(
+        {AnalystFindings: RuntimeError("Provider returned error")}  # UNKNOWN, non-fatal
+    )
+    graph = build_graph(model)
+
+    events = [
+        e
+        async for e in run_decision(
+            graph,
+            Initiative(title="t", description="d"),
+            Evidence(scenario="s", customer_feedback="d", product_analytics={}),
+        )
+    ]
+
+    aborted = [e for e in events if isinstance(e, RunAbortedEvent)]
+    assert len(aborted) == 1
+    assert aborted[0].category == "all_analysts_failed"
+    # Fail-fast: no decision was assembled.
+    assert not any(isinstance(e, FinishedEvent) for e in events)
+
+
+async def test_run_decision_does_not_abort_when_one_analyst_survives():
+    # A partial outage (some analysts fail, one succeeds) must NOT trip the
+    # breaker — partial evidence is still evidence.
+    from productagents.agents.graph import build_graph
+    from productagents.agents.runner import FinishedEvent, RunAbortedEvent, run_decision
+    from productagents.core.models import (
+        AnalystFindings,
+        DebateArgument,
+        Evidence,
+        GovernanceFinding,
+        Initiative,
+        JudgeFinding,
+        Recommendation,
+        RiskFinding,
+    )
+    from tests.fakes import FakeChatModel
+
+    # Analysts all return the same good findings here (every analyst succeeds),
+    # proving the breaker stays silent whenever any analyst produced a report.
+    model = FakeChatModel(
+        {
+            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            DebateArgument: DebateArgument(argument="a"),
+            Recommendation: Recommendation(
+                recommendation="Build it",
+                confidence=0.7,
+                rationale="r",
+                expected_outcomes=["o"],
+            ),
+            JudgeFinding: JudgeFinding(
+                evidence_grounding_score=0.9,
+                rationale_coherence_score=0.9,
+                critique="ok",
+            ),
+            RiskFinding: RiskFinding(level="low", rationale="cheap"),
+            GovernanceFinding: GovernanceFinding(verdict="approve", rationale="fine"),
+        }
+    )
+    graph = build_graph(model)
+
+    events = [
+        e
+        async for e in run_decision(
+            graph,
+            Initiative(title="t", description="d"),
+            Evidence(scenario="s", customer_feedback="d", product_analytics={}),
+        )
+    ]
+
+    assert not any(isinstance(e, RunAbortedEvent) for e in events)
+    assert any(isinstance(e, FinishedEvent) for e in events)
