@@ -6,6 +6,7 @@ from productagents.core.models import CustomerFeedback, Initiative, SourceRef
 from productagents.knowledge.repositories.sqlmodel.canonical_repository import (
     CanonicalRepository,
 )
+from productagents.knowledge.repositories.sqlmodel.tables import CanonicalRecord
 from tests.storage_fixtures import memory_store, sample_models
 
 
@@ -133,20 +134,21 @@ async def test_rename_workspace_moves_canonical_and_cursor_rows():
         assert await SyncStateStore(session, workspace="old").cursors() == {}
 
 
-async def test_canonical_record_updated_at_round_trips_timezone_aware():
+async def test_canonical_record_ingested_and_updated_at_are_tz_aware():
     # ingested_at/updated_at are tz-aware by default (CanonicalModel._utcnow());
     # the column must preserve that, not silently drop the offset (regression
-    # guard for the naive-DateTime bug fixed by migration 0004). Fetch through a
-    # fresh session (same engine) so this reads back the actual stored column,
-    # not the identity-mapped Python object.
+    # guard for the naive-DateTime bug fixed by migration 0004). Read the raw
+    # CanonicalRecord row directly — CanonicalRepository.get()/from_row() only
+    # ever validates the JSON `payload` blob and never touches these two SQL
+    # columns, so round-tripping through the repository proves nothing about
+    # them (that was the vacuous version of this test).
     async with memory_store() as (sessionmaker, _engine):
         async with sessionmaker() as session:
             created = await CanonicalRepository(session, CustomerFeedback).upsert(
                 CustomerFeedback(body="hello")
             )
         async with sessionmaker() as session:
-            fetched = await CanonicalRepository(session, CustomerFeedback).get(
-                str(created.id)
-            )
-    assert fetched is not None
-    assert fetched.updated_at.tzinfo is not None
+            row = await session.get(CanonicalRecord, str(created.id))
+    assert row is not None
+    assert row.ingested_at.tzinfo is not None
+    assert row.updated_at.tzinfo is not None
