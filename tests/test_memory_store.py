@@ -120,3 +120,33 @@ async def test_decisions_are_isolated_per_workspace(session):
         )
     )
     assert [o.decision_id for o in await a.outcomes()] == ["da"]
+
+
+async def test_commit_rolls_back_so_the_session_stays_usable(monkeypatch):
+    # A failed commit must roll the session back, not poison it — the next write
+    # on the same session must still succeed (no PendingRollbackError).
+    from productagents.memory._tx import commit
+    from tests.storage_fixtures import memory_store
+
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        from sqlalchemy import text
+
+        await session.execute(text("CREATE TABLE probe (x INTEGER PRIMARY KEY)"))  # ty: ignore[deprecated]  # raw-sql-test
+        await session.execute(text("INSERT INTO probe VALUES (1)"))  # ty: ignore[deprecated]  # raw-sql-test
+        await commit(session)
+
+        real_commit = session.commit
+
+        async def boom():
+            raise RuntimeError("commit failed")
+
+        monkeypatch.setattr(session, "commit", boom)
+        with pytest.raises(RuntimeError):
+            await commit(session)
+        monkeypatch.setattr(session, "commit", real_commit)
+
+        # Session recovered: a fresh insert commits fine.
+        await session.execute(text("INSERT INTO probe VALUES (2)"))  # ty: ignore[deprecated]  # raw-sql-test
+        await commit(session)
+        rows = (await session.execute(text("SELECT x FROM probe ORDER BY x"))).all()  # ty: ignore[deprecated]  # raw-sql-test
+    assert rows == [(1,), (2,)]

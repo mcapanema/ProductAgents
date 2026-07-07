@@ -104,3 +104,22 @@ async def test_sessions_are_isolated_per_workspace():
             }
         ]
     await engine.dispose()
+
+
+async def test_start_session_commit_is_rollback_guarded(store, monkeypatch):
+    # If the commit fails, EventStore must roll back rather than leave the shared
+    # session poisoned for the rest of the run.
+    boom_count = {"n": 0}
+    real_commit = store._session.commit
+
+    async def boom():
+        boom_count["n"] += 1
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(store._session, "commit", boom)
+    with pytest.raises(RuntimeError):
+        await store.start_session("s1", "wf", "running", "2026-01-01T00:00:00+00:00")
+    monkeypatch.setattr(store._session, "commit", real_commit)
+    # Session is usable again: a real start_session now succeeds.
+    await store.start_session("s2", "wf", "running", "2026-01-02T00:00:00+00:00")
+    assert {s["id"] for s in await store.sessions()} == {"s2"}

@@ -6,9 +6,11 @@ keeping the ``knowledge | memory`` sibling-layer boundary intact.
 """
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from productagents.core.models import DecisionRecord, OutcomeRecord
+from productagents.memory._tx import commit
 from productagents.memory.tables import Base, DecisionRow, OutcomeRow
 
 
@@ -23,8 +25,8 @@ class DecisionStore:
         self._workspace = workspace
 
     async def record(self, decision: DecisionRecord, embedding: list[float]) -> None:
-        await self._session.merge(
-            DecisionRow(
+        def _row() -> DecisionRow:
+            return DecisionRow(
                 decision_id=decision.decision_id,
                 workspace=self._workspace,
                 initiative_title=decision.initiative.title,
@@ -32,8 +34,15 @@ class DecisionStore:
                 embedding=embedding,
                 created_at=decision.timestamp,
             )
-        )
-        await self._session.commit()
+
+        await self._session.merge(_row())
+        try:
+            await commit(self._session)
+        except IntegrityError:
+            # A racing writer recorded the same decision_id first; merge again
+            # (now an update) and commit.
+            await self._session.merge(_row())
+            await commit(self._session)
 
     async def record_outcome(self, outcome: OutcomeRecord) -> None:
         self._session.add(
@@ -44,7 +53,7 @@ class DecisionStore:
                 reflected_at=outcome.reflected_at,
             )
         )
-        await self._session.commit()
+        await commit(self._session)
 
     async def decisions(self) -> list[DecisionRecord]:
         """All decisions, oldest first (dedup's 'keep most recent' relies on this)."""

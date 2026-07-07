@@ -17,6 +17,7 @@ ever emits enough events that per-event commits show up in a profile.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from productagents.memory._tx import commit
 from productagents.memory.tables import RuntimeEventRow, RuntimeSessionRow
 
 
@@ -55,13 +56,13 @@ class EventStore:
                 created_at=created_at,
             )
         )
-        await self._session.commit()
+        await commit(self._session)
 
     async def update_status(self, session_id: str, status: str) -> None:
         row = await self._session.get(RuntimeSessionRow, session_id)
         if row is not None:
             row.status = status
-            await self._session.commit()
+            await commit(self._session)
 
     async def append(
         self, session_id: str, seq: int, event_type: str, ts: str, payload: dict
