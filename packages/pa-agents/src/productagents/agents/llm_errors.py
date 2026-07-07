@@ -94,14 +94,29 @@ def _status_code(exc: BaseException) -> int | None:
 
 
 def classify_category(exc: BaseException) -> ErrorCategory:
-    """Map any exception to an `ErrorCategory` using status, class name, and text."""
+    """Map any exception to an `ErrorCategory`, with status code as the primary signal.
+
+    If an HTTP status code is present and recognized, it decides the category.
+    Otherwise, fall back to text patterns from exception name and message.
+    """
     status = _status_code(exc)
+
+    # Status code is authoritative when present and recognized.
+    if status == 429:
+        return ErrorCategory.RATE_LIMIT
+    if status in (401, 403):
+        return ErrorCategory.AUTH
+    if status is not None and 500 <= status < 600:
+        return ErrorCategory.UPSTREAM
+    if status in (400, 404):
+        return ErrorCategory.UNKNOWN
+
+    # For unknown/missing status codes, fall back to text patterns.
     name = type(exc).__name__.lower()
     text = str(exc).lower()
 
     if (
-        status == 429
-        or "ratelimit" in name
+        "ratelimit" in name
         or "toomanyrequests" in name
         or "rate limit" in text
         or "quota" in text
@@ -110,8 +125,7 @@ def classify_category(exc: BaseException) -> ErrorCategory:
         return ErrorCategory.RATE_LIMIT
 
     if (
-        status in (401, 403)
-        or any(
+        any(
             k in name
             for k in (
                 "authentication",
@@ -126,8 +140,7 @@ def classify_category(exc: BaseException) -> ErrorCategory:
         return ErrorCategory.AUTH
 
     if (
-        (status is not None and 500 <= status < 600)
-        or any(
+        any(
             k in name
             for k in (
                 "internalserver",

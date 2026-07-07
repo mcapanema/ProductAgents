@@ -68,3 +68,19 @@ def test_structured_output_error_is_fatal_tool_calling():
     assert err.category == ErrorCategory.TOOL_CALLING_UNSUPPORTED.value
     assert err.fatal is True
     assert "tool/function calling" in str(err)
+
+
+def test_status_429_outranks_auth_text():
+    """Status 429 should override auth-like text patterns."""
+    # Message contains "unauthorized" keyword but status says rate limit.
+    exc = _StatusExc("429: Your session is unauthorized to use the API", 429)
+    assert classify_category(exc) is ErrorCategory.RATE_LIMIT
+
+
+def test_status_400_404_becomes_unknown():
+    """Status 400/404 should map to UNKNOWN, not to AUTH or other categories."""
+    # Even with auth-like text, 400/404 status should give UNKNOWN.
+    exc_400 = _StatusExc("Invalid API key provided", 400)
+    exc_404 = _StatusExc("Invalid API key provided", 404)
+    assert classify_category(exc_400) is ErrorCategory.UNKNOWN
+    assert classify_category(exc_404) is ErrorCategory.UNKNOWN
