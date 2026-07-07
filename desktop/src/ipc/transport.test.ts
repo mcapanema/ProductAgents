@@ -23,6 +23,7 @@ class FakeWebSocket {
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
   sent: string[] = [];
 
   constructor(public url: string) {
@@ -36,6 +37,10 @@ class FakeWebSocket {
 
   receive(message: unknown): void {
     this.onmessage?.({ data: JSON.stringify(message) });
+  }
+
+  close(): void {
+    this.onclose?.();
   }
 }
 
@@ -68,5 +73,16 @@ describe("createWsClient", () => {
     socket.onmessage?.({ data: "not json" }); // must not throw
     socket.receive({ id: 1, result: [] });
     expect(await pending).toEqual([]);
+  });
+
+  it("rejects pending requests when the socket closes", async () => {
+    const client = await createWsClient(
+      "ws://test",
+      FakeWebSocket as unknown as typeof WebSocket,
+    );
+    const socket = FakeWebSocket.last;
+    const pending = client.workflowsList();
+    socket.close();
+    await expect(pending).rejects.toThrow("backend disconnected");
   });
 });

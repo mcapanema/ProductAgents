@@ -163,4 +163,39 @@ describe("App shell", () => {
     });
     await waitFor(() => expect(screen.queryByLabelText("run in progress")).toBeNull());
   });
+
+  it("preserves the run timeline and running state across navigation", async () => {
+    let resolveRun!: (value: RunResult) => void;
+    const client = fakeClient();
+    client.run = ((_p, handlers) => {
+      handlers.onEvent({
+        type: "AnalystCompleted",
+        payload: { node: "market", report: { analyst: "market", role: "M", findings: ["demand up"], signals: [], failed: false } },
+      });
+      return new Promise<RunResult>((resolve) => {
+        resolveRun = resolve;
+      });
+    }) as IpcClient["run"];
+    render(<App client={client} />);
+
+    const main = screen.getByRole("main");
+    fireEvent.change(within(main).getByLabelText("initiative"), { target: { value: "T" } });
+    fireEvent.click(within(main).getByRole("button", { name: /^run$/i }));
+    expect(await screen.findByText("demand up")).toBeInTheDocument();
+
+    // Navigate away: the run keeps going and the live-run dot must persist.
+    const nav = screen.getByRole("navigation", { name: "Sidebar" });
+    fireEvent.click(within(nav).getByRole("button", { name: "Decisions" }));
+    expect(screen.getByLabelText("run in progress")).toBeInTheDocument();
+
+    // Navigate back: the streamed timeline must still be there.
+    fireEvent.click(within(nav).getByRole("button", { name: "Run" }));
+    expect(await screen.findByText("demand up")).toBeInTheDocument();
+
+    // Terminal result clears running even though it arrived off-panel earlier.
+    await act(async () => {
+      resolveRun({ status: "finished", session_id: "s" });
+    });
+    await waitFor(() => expect(screen.queryByLabelText("run in progress")).toBeNull());
+  });
 });
