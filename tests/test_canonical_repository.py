@@ -1,11 +1,14 @@
 """Repository contract: every canonical type persists, reads back, and dedups."""
 
+from datetime import UTC, datetime, timedelta, timezone
+
 import pytest
 
 from productagents.core.models import CustomerFeedback, Initiative, SourceRef
 from productagents.knowledge.repositories.sqlmodel.canonical_repository import (
     CanonicalRepository,
 )
+from productagents.knowledge.repositories.sqlmodel.tables import CanonicalRecord
 from tests.storage_fixtures import memory_store, sample_models
 
 
@@ -131,3 +134,44 @@ async def test_rename_workspace_moves_canonical_and_cursor_rows():
             "github": "cur"
         }
         assert await SyncStateStore(session, workspace="old").cursors() == {}
+
+
+async def test_canonical_record_ingested_and_updated_at_are_tz_aware():
+    # ingested_at/updated_at are tz-aware by default (CanonicalModel._utcnow());
+    # the column must preserve that, not silently drop the offset (regression
+    # guard for the naive-DateTime bug fixed by migration 0004). Read the raw
+    # CanonicalRecord row directly — CanonicalRepository.get()/from_row() only
+    # ever validates the JSON `payload` blob and never touches these two SQL
+    # columns, so round-tripping through the repository proves nothing about
+    # them (that was the vacuous version of this test).
+    async with memory_store() as (sessionmaker, _engine):
+        async with sessionmaker() as session:
+            created = await CanonicalRepository(session, CustomerFeedback).upsert(
+                CustomerFeedback(body="hello")
+            )
+        async with sessionmaker() as session:
+            row = await session.get(CanonicalRecord, str(created.id))
+    assert row is not None
+    assert row.ingested_at.tzinfo is not None
+    assert row.updated_at.tzinfo is not None
+
+
+async def test_utc_datetime_normalizes_non_utc_offset_before_storage():
+    # A non-UTC-aware datetime (+05:00) must be converted to the equivalent UTC
+    # instant before SQLite stores it, not just tagged with +00:00 in place —
+    # SQLite keeps only the wall-clock digits, so tagging-without-converting
+    # would silently round-trip the wrong instant (regression guard for the
+    # bug in UTCDateTime.process_bind_param).
+    offset_dt = datetime(2026, 1, 1, 10, 0, tzinfo=timezone(timedelta(hours=5)))
+    async with memory_store() as (sessionmaker, _engine):
+        async with sessionmaker() as session:
+            created = await CanonicalRepository(session, CustomerFeedback).upsert(
+                CustomerFeedback(body="hello")
+            )
+            row = await session.get(CanonicalRecord, str(created.id))
+            row.ingested_at = offset_dt
+            await session.commit()
+        async with sessionmaker() as session:
+            row = await session.get(CanonicalRecord, str(created.id))
+    assert row is not None
+    assert row.ingested_at == datetime(2026, 1, 1, 5, 0, tzinfo=UTC)

@@ -66,3 +66,21 @@ async def test_cursors_isolated_per_workspace():
         await b.save("github", "cursor-b")
         assert await a.cursors() == {"github": "cursor-a"}
         assert list((await a.last_synced()).keys()) == ["github"]
+
+
+async def test_sync_state_updated_at_is_tz_aware():
+    from productagents.knowledge.repositories.sqlmodel.tables import SyncStateRecord
+    from productagents.knowledge.sync_state import SyncStateStore
+
+    # updated_at is written as datetime.now(UTC); the column must preserve the
+    # offset, not silently drop it (regression guard for the naive-DateTime bug
+    # fixed by migration 0004). Read the raw SyncStateRecord row directly — this
+    # is exactly the column last_synced() calls .isoformat() on, no JSON-payload
+    # indirection to hide behind.
+    async with memory_store() as (sessionmaker, _engine):
+        async with sessionmaker() as session:
+            await SyncStateStore(session).save("github", "cursor-1")
+        async with sessionmaker() as session:
+            row = await session.get(SyncStateRecord, ("default", "github"))
+    assert row is not None
+    assert row.updated_at.tzinfo is not None

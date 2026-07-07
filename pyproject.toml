@@ -109,6 +109,8 @@ type = "forbidden"
 source_modules = [
     "productagents.app",
     "productagents.agents",
+    "productagents.memory",
+    "productagents.core",
     "productagents.knowledge",
 ]
 forbidden_modules = ["productagents.connectors"]

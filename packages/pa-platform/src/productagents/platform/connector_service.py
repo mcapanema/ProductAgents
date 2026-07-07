@@ -12,20 +12,11 @@ from productagents.platform.connectors import (
     ConnectorPlan,
     HealthReport,
     SyncReport,
+    is_secret_shaped,
     load_db_config,
     plan_connectors,
 )
 from productagents.platform.workspace import WorkspaceService
-
-# Field names that look like a secret value by convention — never allowed as a
-# raw value in a saved config block. Mirrors the GUI's secret-shape detection
-# (desktop/src/panels/connectorConfigView.ts::isSecretShaped).
-_SECRET_NAMES = {"token", "password", "secret"}
-_SECRET_SUFFIXES = ("_token", "_key", "_secret")
-
-
-def _is_secret_shaped(name: str) -> bool:
-    return name in _SECRET_NAMES or name.endswith(_SECRET_SUFFIXES)
 
 
 class ConnectorService:
@@ -47,7 +38,9 @@ class ConnectorService:
         engine = self._engine or get_engine()
         await memory_create_all(engine)
         maker = make_sessionmaker(engine)
-        return maker, await load_db_config(maker, workspace=self._workspace)
+        return maker, await load_db_config(
+            maker, workspace=self._workspace, env_path=self._resolved_env_path()
+        )
 
     def _entry(self, key, registry, blocks, problems):
         cls = registry.get(key)
@@ -105,7 +98,7 @@ class ConnectorService:
         """
         registry = registry if registry is not None else discover()
         for key, value in config.items():
-            if _is_secret_shaped(key) and isinstance(value, str) and value.strip():
+            if is_secret_shaped(key) and isinstance(value, str) and value.strip():
                 raise ValueError(
                     f"connector '{connector}': field {key!r} looks like a secret "
                     f"value — use '{key}_env' plus a secret instead of submitting "

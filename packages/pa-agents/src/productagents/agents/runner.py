@@ -13,7 +13,6 @@ from productagents.core.models import (
     DebateTurn,
     Evidence,
     GovernanceVerdict,
-    HumanDecision,
     Initiative,
     JudgeVerdict,
     Recommendation,
@@ -208,7 +207,9 @@ async def run_decision(
     the partial state it returned. Lessons from past decisions are retrieved inside the
     graph by the recall node via the LearningService wired into the AgentContext. An
     `__interrupt__` update pauses the run until the injected `approver` returns a
-    `HumanDecision`, which resumes the graph via `Command(resume=...)`.
+    `HumanDecision`, which resumes the graph via `Command(resume=...)`. If no
+    `approver` was configured, the run aborts with a `RunAbortedEvent` instead
+    of silently auto-approving.
     """
     initial_state = {
         "initiative": initiative,
@@ -284,18 +285,18 @@ async def run_decision(
 
             advisory_dump = pending_interrupt.get("advisory")
             advisory = GovernanceVerdict(**advisory_dump) if advisory_dump else None
-            if approver is not None:
-                decision = await approver(advisory)
-            else:
-                advisory_verdict = (
-                    advisory.verdict
-                    if advisory and advisory.verdict != "error"
-                    else "approve"
+            if approver is None:
+                trace["aborted"] = True
+                yield RunAbortedEvent(
+                    node="human_approval",
+                    category="missing_approver",
+                    message=(
+                        "run paused for human approval but no approver was "
+                        "configured — aborting rather than auto-approving"
+                    ),
                 )
-                decision = HumanDecision(
-                    verdict=advisory_verdict,
-                    rationale=advisory.rationale if advisory else "",
-                )
+                return
+            decision = await approver(advisory)
             stream_input = Command(resume=decision.model_dump())
 
         trace["reports"] = len(collected_reports)

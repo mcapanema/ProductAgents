@@ -210,6 +210,48 @@ async def test_load_db_config_malformed_yaml_degrades(tmp_path):
     assert await load_db_config(maker, config_path=str(yaml_path)) == {}
 
 
+async def test_load_db_config_sanitizes_secret_shaped_legacy_value(tmp_path):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.memory.workspace_state import ConnectorConfigStore
+    from productagents.platform.connectors import load_db_config
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    yaml_path = tmp_path / "connectors.yaml"
+    yaml_path.write_text(
+        "connectors:\n"
+        "  github:\n"
+        "    owner: acme\n"
+        "    repo: w\n"
+        "    token: ghp_rawsecret\n"
+    )
+    env_path = tmp_path / ".env"
+
+    blocks = await load_db_config(
+        maker, config_path=str(yaml_path), env_path=str(env_path)
+    )
+
+    # The raw secret never reached the DB — it was replaced by a *_env reference.
+    assert "token" not in blocks["github"]
+    assert blocks["github"]["token_env"] == "GITHUB_TOKEN"
+    assert blocks["github"]["owner"] == "acme"
+
+    async with maker() as session:
+        stored = await ConnectorConfigStore(session).all()
+    assert "token" not in stored["github"]
+
+    # The raw value landed in .env instead.
+    from dotenv import dotenv_values
+
+    assert env_path.exists()
+    assert dotenv_values(env_path)["GITHUB_TOKEN"] == "ghp_rawsecret"
+
+
 async def test_connector_plan_reads_db(tmp_path, monkeypatch):
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from sqlalchemy.pool import StaticPool

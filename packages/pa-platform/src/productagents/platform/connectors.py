@@ -36,10 +36,22 @@ from productagents.knowledge.repositories.sqlmodel.engine import (
 )
 from productagents.memory.store import create_all as memory_create_all
 from productagents.memory.workspace_state import ConnectorConfigStore
+from productagents.platform.configuration import write_env
+from productagents.platform.workspace import WorkspaceService
 
 DEFAULT_CONNECTORS_FILE = "connectors.yaml"
 
 logger = logging.getLogger(__name__)
+
+# Field names that look like a secret value by convention — never allowed as a
+# raw value in a saved config block. Mirrors the GUI's secret-shape detection
+# (desktop/src/panels/connectorConfigView.ts::isSecretShaped).
+_SECRET_NAMES = {"token", "password", "secret"}
+_SECRET_SUFFIXES = ("_token", "_key", "_secret")
+
+
+def is_secret_shaped(name: str) -> bool:
+    return name in _SECRET_NAMES or name.endswith(_SECRET_SUFFIXES)
 
 
 def connectors_file() -> str:
@@ -57,7 +69,11 @@ def load_raw_config(path: str) -> dict[str, dict]:
 
 
 async def load_db_config(
-    sessionmaker, *, workspace: str = "default", config_path: str | None = None
+    sessionmaker,
+    *,
+    workspace: str = "default",
+    config_path: str | None = None,
+    env_path: str | None = None,
 ) -> dict[str, dict]:
     """Raw connector blocks from the DB, importing a legacy YAML file once.
 
@@ -67,7 +83,10 @@ async def load_db_config(
     it is logged, renamed to ``<path>.invalid`` (so the import is never
     re-attempted), and the (empty) DB view is returned. A non-empty table
     ignores the YAML entirely. Secret *references* (``*_env`` keys) are
-    imported as-is; secret values never enter the database.
+    imported as-is; a secret-shaped raw value (see ``is_secret_shaped``) is
+    never written to the DB — it is moved to ``env_path`` (default: the
+    active workspace's ``.env``) under a generated ``<CONNECTOR>_<FIELD>``
+    variable, and the block instead stores ``<field>_env`` referencing it.
     """
     async with sessionmaker() as session:
         store = ConnectorConfigStore(session, workspace)
@@ -86,10 +105,32 @@ async def load_db_config(
             return {}
         if not raw:
             return {}
+        resolved_env_path = env_path or str(WorkspaceService().home().env_file)
         for key, block in raw.items():
-            await store.set(key, dict(block or {}))
+            await store.set(
+                key, _sanitize_legacy_block(key, dict(block or {}), resolved_env_path)
+            )
         os.replace(path, path + ".imported")
         return await store.all()
+
+
+def _sanitize_legacy_block(connector_key: str, block: dict, env_path: str) -> dict:
+    """Move any secret-shaped raw value in a legacy YAML block to ``.env``.
+
+    Mirrors ``ConnectorService.config_save``'s guard so the one-time YAML
+    import can never write a raw secret to the DB.
+    """
+    secrets: dict[str, str] = {}
+    sanitized = dict(block)
+    for field_name, value in block.items():
+        if is_secret_shaped(field_name) and isinstance(value, str) and value.strip():
+            env_var = f"{connector_key.upper()}_{field_name.upper()}"
+            secrets[env_var] = value
+            del sanitized[field_name]
+            sanitized[f"{field_name}_env"] = env_var
+    if secrets:
+        write_env(secrets, dotenv_path=env_path)
+    return sanitized
 
 
 @dataclass(frozen=True)
