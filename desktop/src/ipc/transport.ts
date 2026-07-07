@@ -25,12 +25,19 @@ export async function createTauriClient(): Promise<IpcClient> {
     for (const sub of subscribers) sub(msg);
   });
 
-  return new IpcClient(
+  const client = new IpcClient(
     (line) => invoke<void>("ipc_send", { line }),
     (cb) => {
       subscribers.push(cb);
     },
   );
+
+  // The Rust shell emits this once when the sidecar's stdout closes (the
+  // backend crashed or exited). Reject every in-flight request so the UI leaves
+  // its "running" state instead of hanging forever.
+  await listen("ipc://closed", () => client.disconnect());
+
+  return client;
 }
 
 /**
@@ -61,7 +68,7 @@ export async function createWsClient(
     for (const sub of subscribers) sub(msg);
   };
 
-  return new IpcClient(
+  const client = new IpcClient(
     (line) => {
       ws.send(line);
       return Promise.resolve();
@@ -70,6 +77,8 @@ export async function createWsClient(
       subscribers.push(cb);
     },
   );
+  ws.onclose = () => client.disconnect();
+  return client;
 }
 
 /**
