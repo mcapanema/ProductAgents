@@ -8,6 +8,7 @@ other stores; this module never builds an engine.
 
 from datetime import UTC, datetime
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -39,12 +40,21 @@ class SyncStateStore:
 
     async def save(self, connector_key: str, cursor_value: str | None) -> None:
         """Upsert one connector's cursor (keyed on ``connector_key``)."""
-        await self._session.merge(
-            SyncStateRecord(
+
+        def _row() -> SyncStateRecord:
+            return SyncStateRecord(
                 workspace=self._workspace,
                 connector_key=connector_key,
                 cursor_value=cursor_value,
                 updated_at=datetime.now(UTC),
             )
-        )
-        await self._session.commit()
+
+        await self._session.merge(_row())
+        try:
+            await self._session.commit()
+        except IntegrityError:
+            # Another writer inserted this key first; roll back and merge again,
+            # which now finds the row and updates it.
+            await self._session.rollback()
+            await self._session.merge(_row())
+            await self._session.commit()

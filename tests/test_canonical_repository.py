@@ -156,6 +156,37 @@ async def test_canonical_record_ingested_and_updated_at_are_tz_aware():
     assert row.updated_at.tzinfo is not None
 
 
+async def test_upsert_retries_as_update_on_integrity_error(monkeypatch):
+    # Simulate the SELECT-then-INSERT race: _find_existing misses, another writer
+    # has already inserted the same vendor identity, so our INSERT hits the unique
+    # constraint. The upsert must roll back and resolve to an update, not abort.
+    from productagents.core.models import CustomerFeedback, SourceRef
+
+    src = SourceRef(connector="zendesk", vendor_type="ticket", vendor_id="RACE-1")
+    async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
+        repo = CanonicalRepository(session, CustomerFeedback)
+        await repo.upsert(
+            CustomerFeedback(body="winner", source=src)
+        )  # the racing insert
+
+        calls = {"n": 0}
+        real_find = repo._find_existing
+
+        async def flaky_find(incoming):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return None  # pretend we didn't see the existing row -> forces INSERT
+            return await real_find(incoming)
+
+        monkeypatch.setattr(repo, "_find_existing", flaky_find)
+        returned = await repo.upsert(CustomerFeedback(body="loser", source=src))
+        rows = await repo.list()
+
+    assert calls["n"] == 2  # missed, conflicted, re-found on retry
+    assert len(rows) == 1  # collapsed to one row, no duplicate
+    assert returned.body == "loser"  # newer payload applied via the update path
+
+
 async def test_utc_datetime_normalizes_non_utc_offset_before_storage():
     # A non-UTC-aware datetime (+05:00) must be converted to the equivalent UTC
     # instant before SQLite stores it, not just tagged with +00:00 in place —
