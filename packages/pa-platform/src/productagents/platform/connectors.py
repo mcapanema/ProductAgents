@@ -125,6 +125,13 @@ def _sanitize_legacy_block(connector_key: str, block: dict, env_path: str) -> di
     for field_name, value in block.items():
         if is_secret_shaped(field_name) and isinstance(value, str) and value.strip():
             env_var = f"{connector_key.upper()}_{field_name.upper()}"
+            logger.warning(
+                "relocated secret '%s.%s' to .env as %s; "
+                "remove the raw value from connectors.yaml",
+                connector_key,
+                field_name,
+                env_var,
+            )
             secrets[env_var] = value
             del sanitized[field_name]
             sanitized[f"{field_name}_env"] = env_var

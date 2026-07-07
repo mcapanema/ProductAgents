@@ -210,7 +210,9 @@ async def test_load_db_config_malformed_yaml_degrades(tmp_path):
     assert await load_db_config(maker, config_path=str(yaml_path)) == {}
 
 
-async def test_load_db_config_sanitizes_secret_shaped_legacy_value(tmp_path):
+async def test_load_db_config_sanitizes_secret_shaped_legacy_value(tmp_path, caplog):
+    import logging
+
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from sqlalchemy.pool import StaticPool
 
@@ -232,9 +234,14 @@ async def test_load_db_config_sanitizes_secret_shaped_legacy_value(tmp_path):
     )
     env_path = tmp_path / ".env"
 
+    caplog.set_level(logging.WARNING)
     blocks = await load_db_config(
         maker, config_path=str(yaml_path), env_path=str(env_path)
     )
+
+    # The diversion is logged so it's visible to a human, not silent.
+    warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("github" in m and "token" in m and "GITHUB_TOKEN" in m for m in warnings)
 
     # The raw secret never reached the DB — it was replaced by a *_env reference.
     assert "token" not in blocks["github"]
