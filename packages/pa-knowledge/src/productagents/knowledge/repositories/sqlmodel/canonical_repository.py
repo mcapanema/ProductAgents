@@ -11,6 +11,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from productagents.core.models import CanonicalModel
+from productagents.knowledge._tx import commit as _commit
 from productagents.knowledge.repositories.sqlmodel.mapping import from_row, to_row
 from productagents.knowledge.repositories.sqlmodel.tables import CanonicalRecord
 
@@ -55,17 +56,17 @@ class CanonicalRepository[T: CanonicalModel]:
         if existing is None:
             self._session.add(incoming)
             try:
-                await self._session.commit()
+                await _commit(self._session)
                 return model
             except IntegrityError:
                 # A concurrent writer inserted the same identity between our
-                # find and commit. Roll back and resolve as an update.
-                await self._session.rollback()
+                # find and commit. _commit already rolled back; resolve as an
+                # update.
                 existing = await self._find_existing(incoming)
                 if existing is None:
                     raise  # genuine constraint violation, not the upsert race
         result = self._apply_update(existing, incoming)
-        await self._session.commit()
+        await _commit(self._session)
         return result
 
     def _apply_update(self, existing: CanonicalRecord, incoming: CanonicalRecord) -> T:

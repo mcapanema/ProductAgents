@@ -116,6 +116,12 @@ async def test_append_tolerates_duplicate_seq(store):
     events = await store.events("s1")
     assert len(events) == 1  # deduped by the unique constraint, run still alive
 
+    # The session must stay usable afterward for a genuinely new event.
+    await store.append("s1", 1, "NodeComplete", "2026-01-01T00:00:01+00:00", {})
+    events = await store.events("s1")
+    assert len(events) == 2
+    assert {e["seq"] for e in events} == {0, 1}
+
 
 async def test_start_session_commit_is_rollback_guarded(store, monkeypatch):
     # If the commit fails, EventStore must roll back rather than leave the shared

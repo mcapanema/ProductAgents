@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from productagents.knowledge._tx import commit as _commit
 from productagents.knowledge.repositories.sqlmodel.tables import SyncStateRecord
 
 
@@ -51,10 +52,9 @@ class SyncStateStore:
 
         await self._session.merge(_row())
         try:
-            await self._session.commit()
+            await _commit(self._session)
         except IntegrityError:
-            # Another writer inserted this key first; roll back and merge again,
-            # which now finds the row and updates it.
-            await self._session.rollback()
+            # Another writer inserted this key first; _commit already rolled
+            # back. Merge again, which now finds the row and updates it.
             await self._session.merge(_row())
-            await self._session.commit()
+            await _commit(self._session)

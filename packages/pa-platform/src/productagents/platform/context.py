@@ -1,9 +1,10 @@
 """The graph↔store boundary: open a per-run session, wire services, run.
 
-Keeps graph nodes engine-free (like `recall` keeps them log-free). The engine is
-process-wide; each decision run gets its own short-lived session whose lifetime
-spans the event stream, so the Knowledge Services read a consistent local
-snapshot of the canonical store the connectors populated out of band.
+Keeps graph nodes engine-free (like `recall` keeps them log-free). The async
+engine is cached per running event loop; each decision run gets its own
+short-lived session whose lifetime spans the event stream, so the Knowledge
+Services read a consistent local snapshot of the canonical store the
+connectors populated out of band.
 """
 
 import asyncio
