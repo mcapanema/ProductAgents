@@ -55,10 +55,12 @@ Phase 6; JSONL demoted to export/audit.
 - **Schema changes go through pa-memory's own Alembic** (`uv run alembic upgrade
   head` from `packages/pa-memory`; `version_table="alembic_version_memory"` so
   it shares the DB file with pa-knowledge without clobbering its history).
-  Alembic head is now `0004_workspace_scope` (`0001_memory_tables` →
+  Alembic head is now `0005_event_seq_unique` (`0001_memory_tables` →
   `0002_event_store` adds `runtime_session`/`runtime_event` →
   `0003_workspace_state` adds `workspace_config`/`connector_config`/
   `preference` → `0004_workspace_scope` creates the `workspace` registry
   table, adds a `workspace` column to `memory_decision`/`memory_outcome`/
   `runtime_session`, and widens `workspace_config`/`connector_config`'s
-  primary key to `(workspace, key)`/`(workspace, connector)`).
+  primary key to `(workspace, key)`/`(workspace, connector)` →
+  `0005_event_seq_unique` adds a `(session_id, seq)` unique constraint to
+  `runtime_event`).

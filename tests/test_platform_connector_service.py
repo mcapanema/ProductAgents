@@ -252,3 +252,44 @@ async def test_connector_service_sync_forwards_connector(monkeypatch):
     await ConnectorService(workspace="acme").sync(connector="github")
     assert seen["only"] == "github"
     assert seen["workspace"] == "acme"
+
+
+async def test_config_save_builds_one_sessionmaker(tmp_path, monkeypatch):
+    # M5: config_save must not "open the world twice" — one sessionmaker per save.
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    import productagents.platform.connector_service as cs
+    from productagents.connectors.github.connector import GitHubConnector
+    from productagents.memory.store import create_all as memory_create_all
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    svc = cs.ConnectorService(engine=engine, env_path=str(tmp_path / ".env"))
+    registry = {"github": GitHubConnector}
+
+    calls = {"n": 0}
+    real = cs.make_sessionmaker
+
+    def counting(bound_engine):
+        calls["n"] += 1
+        return real(bound_engine)
+
+    monkeypatch.setattr(cs, "make_sessionmaker", counting)
+    block = {
+        "owner": "acme",
+        "repo": "widgets",
+        "token_env": "GH_TOKEN",
+        "enabled": True,
+    }
+    await svc.config_save("github", block, secrets={"GH_TOKEN": "x"}, registry=registry)
+    assert calls["n"] == 1
+
+
+def test_connector_service_no_longer_runs_ddl_per_call():
+    # M5: bootstrap owns the schema; the per-call create_all import is gone.
+    import productagents.platform.connector_service as cs
+
+    assert not hasattr(cs, "memory_create_all")

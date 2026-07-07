@@ -104,3 +104,39 @@ async def test_sessions_are_isolated_per_workspace():
             }
         ]
     await engine.dispose()
+
+
+async def test_append_tolerates_duplicate_seq(store):
+    # A retried append at the same (session_id, seq) must be a no-op, not a dup
+    # row and not an aborted run — the unique constraint + IntegrityError
+    # tolerance make appends idempotent.
+    await store.start_session("s1", "wf", "running", "2026-01-01T00:00:00+00:00")
+    await store.append("s1", 0, "Started", "2026-01-01T00:00:00+00:00", {})
+    await store.append("s1", 0, "Started", "2026-01-01T00:00:00+00:00", {})  # retry
+    events = await store.events("s1")
+    assert len(events) == 1  # deduped by the unique constraint, run still alive
+
+    # The session must stay usable afterward for a genuinely new event.
+    await store.append("s1", 1, "NodeComplete", "2026-01-01T00:00:01+00:00", {})
+    events = await store.events("s1")
+    assert len(events) == 2
+    assert {e["seq"] for e in events} == {0, 1}
+
+
+async def test_start_session_commit_is_rollback_guarded(store, monkeypatch):
+    # If the commit fails, EventStore must roll back rather than leave the shared
+    # session poisoned for the rest of the run.
+    boom_count = {"n": 0}
+    real_commit = store._session.commit
+
+    async def boom():
+        boom_count["n"] += 1
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(store._session, "commit", boom)
+    with pytest.raises(RuntimeError):
+        await store.start_session("s1", "wf", "running", "2026-01-01T00:00:00+00:00")
+    monkeypatch.setattr(store._session, "commit", real_commit)
+    # Session is usable again: a real start_session now succeeds.
+    await store.start_session("s2", "wf", "running", "2026-01-02T00:00:00+00:00")
+    assert {s["id"] for s in await store.sessions()} == {"s2"}

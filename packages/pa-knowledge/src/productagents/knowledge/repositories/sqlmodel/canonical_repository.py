@@ -6,10 +6,12 @@ records and on the platform id for manual records. A matched vendor record keeps
 its original platform id across re-syncs (the id is platform-owned and stable).
 """
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from productagents.core.models import CanonicalModel
+from productagents.knowledge._tx import commit as _commit
 from productagents.knowledge.repositories.sqlmodel.mapping import from_row, to_row
 from productagents.knowledge.repositories.sqlmodel.tables import CanonicalRecord
 
@@ -53,8 +55,21 @@ class CanonicalRepository[T: CanonicalModel]:
         existing = await self._find_existing(incoming)
         if existing is None:
             self._session.add(incoming)
-            await self._session.commit()
-            return model
+            try:
+                await _commit(self._session)
+                return model
+            except IntegrityError:
+                # A concurrent writer inserted the same identity between our
+                # find and commit. _commit already rolled back; resolve as an
+                # update.
+                existing = await self._find_existing(incoming)
+                if existing is None:
+                    raise  # genuine constraint violation, not the upsert race
+        result = self._apply_update(existing, incoming)
+        await _commit(self._session)
+        return result
+
+    def _apply_update(self, existing: CanonicalRecord, incoming: CanonicalRecord) -> T:
         # Preserve the stable platform id of the pre-existing record; refresh the
         # rest of the row from the newer payload.
         stable_id = existing.pk
@@ -67,7 +82,6 @@ class CanonicalRepository[T: CanonicalModel]:
             "ingested_at": existing.payload["ingested_at"],  # first-seen time is stable
         }
         self._session.add(existing)
-        await self._session.commit()
         return from_row(existing, self._model_type)
 
     async def _find_existing(self, incoming: CanonicalRecord) -> CanonicalRecord | None:

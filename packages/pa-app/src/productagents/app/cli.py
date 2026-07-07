@@ -688,12 +688,10 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(str(exc)) from exc
 
     async def _startup() -> None:
-        # bootstrap_home and config.load() share this one run because the
-        # process-wide engine is loop-bound once created (its asyncpg/aiosqlite
-        # objects can't cross asyncio.run() calls). That alone does NOT satisfy
-        # the single-loop constraint for the whole process — every command below
-        # calls asyncio.run() again in its own fresh loop and may reuse the same
-        # cached engine. The dispose() below is what makes that safe.
+        # bootstrap_home + config.load run in this loop. The process-wide engine
+        # cache is keyed by the running loop (platform.context.get_engine), so
+        # every later asyncio.run() gets its own engine — no cross-loop reuse,
+        # so no dispose() dance is needed here.
         await bootstrap_home(workspaces.home())
         try:
             await config.load()  # workspace DB -> env (precedence: see the service)
@@ -702,13 +700,6 @@ def main(argv: list[str] | None = None) -> None:
             logger.error(
                 "workspace config load failed; continuing without it", exc_info=True
             )
-        from productagents.platform.context import get_engine
-
-        # ponytail: dispose empties the loop-bound connection pool so later
-        # asyncio.run() loops start clean — required for asyncpg (loop-bound
-        # connections), harmless for aiosqlite. dispose() does not destroy the
-        # engine object; a later command re-creates pooled connections lazily.
-        await get_engine().dispose()
 
     # env vars it reads are set by activate() above, not by _startup
     configure_logging()

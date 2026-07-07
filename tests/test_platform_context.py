@@ -1,5 +1,7 @@
 """Workspace threading through the platform context openers."""
 
+import asyncio
+
 from productagents.knowledge.repositories.sqlmodel.engine import (
     make_engine,
     make_sessionmaker,
@@ -50,3 +52,34 @@ async def test_agent_context_prompts_are_workspace_scoped(monkeypatch, tmp_path)
         None, workspace="team-b", session_factory=maker
     ) as ctx:
         assert ctx.prompts.active_version("customer_research") == 0
+
+
+async def test_get_engine_is_cached_within_one_loop(monkeypatch):
+    from productagents.platform import context
+
+    monkeypatch.setattr(context, "make_engine", lambda: object())
+    context._engines.clear()
+    try:
+        assert context.get_engine() is context.get_engine()
+    finally:
+        context._engines.clear()
+
+
+def test_get_engine_differs_across_loops(monkeypatch):
+    # The engine's aiosqlite/asyncpg connections are loop-bound, so a fresh
+    # asyncio.run() loop must get its own engine (this is what makes deleting
+    # the CLI dispose() dance safe).
+    from productagents.platform import context
+
+    monkeypatch.setattr(context, "make_engine", lambda: object())
+    context._engines.clear()
+
+    async def grab():
+        return context.get_engine()
+
+    try:
+        first = asyncio.run(grab())
+        second = asyncio.run(grab())
+        assert first is not second
+    finally:
+        context._engines.clear()

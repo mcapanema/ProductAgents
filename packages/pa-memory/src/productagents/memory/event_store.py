@@ -15,8 +15,10 @@ ever emits enough events that per-event commits show up in a profile.
 """
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from productagents.memory._tx import commit
 from productagents.memory.tables import RuntimeEventRow, RuntimeSessionRow
 
 
@@ -55,13 +57,13 @@ class EventStore:
                 created_at=created_at,
             )
         )
-        await self._session.commit()
+        await commit(self._session)
 
     async def update_status(self, session_id: str, status: str) -> None:
         row = await self._session.get(RuntimeSessionRow, session_id)
         if row is not None:
             row.status = status
-            await self._session.commit()
+            await commit(self._session)
 
     async def append(
         self, session_id: str, seq: int, event_type: str, ts: str, payload: dict
@@ -75,7 +77,12 @@ class EventStore:
                 payload=payload,
             )
         )
-        await self._session.commit()
+        try:  # noqa: SIM105 - not contextlib.suppress: keep the why-comment
+            await commit(self._session)
+        except IntegrityError:
+            # A retried append hit the (session_id, seq) unique key — the event
+            # is already recorded, so this is a no-op (commit already rolled back).
+            pass
 
     async def sessions(self) -> list[dict]:
         """All sessions, newest first."""

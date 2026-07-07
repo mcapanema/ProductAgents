@@ -1,11 +1,13 @@
 """The graph↔store boundary: open a per-run session, wire services, run.
 
-Keeps graph nodes engine-free (like `recall` keeps them log-free). The engine is
-process-wide; each decision run gets its own short-lived session whose lifetime
-spans the event stream, so the Knowledge Services read a consistent local
-snapshot of the canonical store the connectors populated out of band.
+Keeps graph nodes engine-free (like `recall` keeps them log-free). The async
+engine is cached per running event loop; each decision run gets its own
+short-lived session whose lifetime spans the event stream, so the Knowledge
+Services read a consistent local snapshot of the canonical store the
+connectors populated out of band.
 """
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -15,6 +17,7 @@ from productagents.agents.context import AgentContext
 from productagents.agents.prompts import PromptStore
 from productagents.knowledge import build_services
 from productagents.knowledge.repositories.sqlmodel.engine import (
+    AsyncEngine,
     make_engine,
     make_sessionmaker,
 )
@@ -23,21 +26,31 @@ from productagents.memory.event_store import EventStore
 from productagents.memory.service import LearningService
 from productagents.memory.store import DecisionStore
 
-# ponytail: one process-wide engine over the local SQLite file. Pool/replace per
-# request if this ever serves concurrent decision runs.
-_engine = None
+# ponytail: one async engine per running event loop. The engine's
+# aiosqlite/asyncpg connections are loop-bound and can't cross an
+# asyncio.run() boundary, so the cache is keyed by loop: every fresh CLI
+# asyncio.run() gets its own engine; the long-lived sidecar loop reuses one.
+# Keys are loop objects (dead loops linger harmlessly for the process life —
+# a handful for the CLI, exactly one for the sidecar). Switch to a
+# WeakValueDictionary + explicit dispose only if a process ever churns loops.
+_engines: dict[object, AsyncEngine] = {}
 
 # ponytail: one process-wide placeholder embedder. Swap for a real model behind
 # the Embedder protocol in Phase 7; no caller changes.
 _EMBEDDER = HashingEmbedder()
 
 
-def get_engine():
-    """Lazily build and cache the process-wide async engine."""
-    global _engine
-    if _engine is None:
-        _engine = make_engine()
-    return _engine
+def get_engine() -> AsyncEngine:
+    """Build (once per running event loop) and cache the async engine."""
+    try:
+        loop: object = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    engine = _engines.get(loop)
+    if engine is None:
+        engine = make_engine()
+        _engines[loop] = engine
+    return engine
 
 
 @asynccontextmanager
