@@ -4,7 +4,6 @@ import os
 
 from productagents.connectors import discover
 from productagents.knowledge.repositories.sqlmodel.engine import make_sessionmaker
-from productagents.memory.store import create_all as memory_create_all
 from productagents.memory.workspace_state import ConnectorConfigStore
 from productagents.platform import connectors
 from productagents.platform.configuration import write_env
@@ -32,12 +31,13 @@ class ConnectorService:
             return self._env_path
         return str(WorkspaceService().home().env_file)
 
-    async def _blocks(self):
+    def _maker(self):
         from productagents.platform.context import get_engine
 
-        engine = self._engine or get_engine()
-        await memory_create_all(engine)
-        maker = make_sessionmaker(engine)
+        return make_sessionmaker(self._engine or get_engine())
+
+    async def _blocks(self, maker=None):
+        maker = maker or self._maker()
         return maker, await load_db_config(
             maker, workspace=self._workspace, env_path=self._resolved_env_path()
         )
@@ -125,11 +125,11 @@ class ConnectorService:
             raise ValueError("; ".join(plan.problems))
         if secrets:
             write_env(secrets, dotenv_path=self._resolved_env_path())
-        maker, _ = await self._blocks()
+        maker = self._maker()
         async with maker() as session:
             await ConnectorConfigStore(session, self._workspace).set(
                 connector, dict(config)
             )
-        _maker, blocks = await self._blocks()
+        _maker, blocks = await self._blocks(maker)
         check = plan_connectors(blocks, registry, dict(os.environ))
         return self._entry(connector, registry, blocks, check.problems)
