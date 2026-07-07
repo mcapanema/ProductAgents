@@ -77,10 +77,8 @@ def test_status_429_outranks_auth_text():
     assert classify_category(exc) is ErrorCategory.RATE_LIMIT
 
 
-def test_status_400_404_becomes_unknown():
-    """Status 400/404 should map to UNKNOWN, not to AUTH or other categories."""
-    # Even with auth-like text, 400/404 status should give UNKNOWN.
-    exc_400 = _StatusExc("Invalid API key provided", 400)
-    exc_404 = _StatusExc("Invalid API key provided", 404)
-    assert classify_category(exc_400) is ErrorCategory.UNKNOWN
-    assert classify_category(exc_404) is ErrorCategory.UNKNOWN
+def test_status_5xx_outranks_api_key_text():
+    # A transient upstream error whose body mentions an API key must classify as
+    # UPSTREAM (transient), not AUTH (fatal) — status wins over text.
+    exc = _StatusExc("upstream failure: check your api key later", 503)
+    assert classify_category(exc) is ErrorCategory.UPSTREAM

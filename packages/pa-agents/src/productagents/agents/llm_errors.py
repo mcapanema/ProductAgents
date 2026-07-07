@@ -94,24 +94,23 @@ def _status_code(exc: BaseException) -> int | None:
 
 
 def classify_category(exc: BaseException) -> ErrorCategory:
-    """Map any exception to an `ErrorCategory`, with status code as the primary signal.
+    """Map any exception to an `ErrorCategory`.
 
-    If an HTTP status code is present and recognized, it decides the category.
-    Otherwise, fall back to text patterns from exception name and message.
+    When the SDK attached an HTTP status code it is authoritative: decide by
+    status first, so a transient 5xx whose body happens to mention "api key" is
+    not misread as a fatal auth failure. Only when there is no status (or one we
+    don't special-case, e.g. 400/404) do we fall back to sniffing the class name
+    and message text.
     """
     status = _status_code(exc)
+    if status is not None:
+        if status == 429:
+            return ErrorCategory.RATE_LIMIT
+        if status in (401, 403):
+            return ErrorCategory.AUTH
+        if 500 <= status < 600:
+            return ErrorCategory.UPSTREAM
 
-    # Status code is authoritative when present and recognized.
-    if status == 429:
-        return ErrorCategory.RATE_LIMIT
-    if status in (401, 403):
-        return ErrorCategory.AUTH
-    if status is not None and 500 <= status < 600:
-        return ErrorCategory.UPSTREAM
-    if status in (400, 404):
-        return ErrorCategory.UNKNOWN
-
-    # For unknown/missing status codes, fall back to text patterns.
     name = type(exc).__name__.lower()
     text = str(exc).lower()
 
