@@ -28,13 +28,38 @@ class ErrorCategory(StrEnum):
     UNKNOWN = "unknown"
 
 
+# Categories that are *always* fatal regardless of message text.
 FATAL_CATEGORIES: frozenset[ErrorCategory] = frozenset(
-    {
-        ErrorCategory.RATE_LIMIT,
-        ErrorCategory.AUTH,
-        ErrorCategory.TOOL_CALLING_UNSUPPORTED,
-    }
+    {ErrorCategory.AUTH, ErrorCategory.TOOL_CALLING_UNSUPPORTED}
 )
+
+# Rate-limit phrases that mean the budget is *exhausted* — retrying is pointless
+# (fatal). A burst 429 from the analyst fan-out carries none of these and is
+# transient: the client's retry/backoff (`PRODUCTAGENTS_MAX_RETRIES`) absorbs it.
+_QUOTA_MARKERS: tuple[str, ...] = (
+    "quota",
+    "free-models-per-day",
+    "daily limit",
+    "credit",
+    "insufficient",
+    "billing",
+)
+
+
+def _is_fatal(category: ErrorCategory, text: str) -> bool:
+    """Whether a failure of this category should stop the whole run.
+
+    AUTH and TOOL_CALLING_UNSUPPORTED are systemic — always fatal. RATE_LIMIT is
+    fatal only when the (lower-cased) message shows the budget is exhausted; a
+    transient burst 429 is left to the client's retry budget. Everything else
+    (UPSTREAM, UNKNOWN) degrades per-node.
+    """
+    if category in FATAL_CATEGORIES:
+        return True
+    if category is ErrorCategory.RATE_LIMIT:
+        return any(marker in text for marker in _QUOTA_MARKERS)
+    return False
+
 
 _FRIENDLY: dict[ErrorCategory, str] = {
     ErrorCategory.RATE_LIMIT: (
@@ -173,5 +198,7 @@ def classify_provider_error(exc: BaseException) -> ProviderError:
     detail = _detail(exc)
     message = f"{base} (provider said: {detail})" if detail else base
     return ProviderError(
-        message, category=category.value, fatal=category in FATAL_CATEGORIES
+        message,
+        category=category.value,
+        fatal=_is_fatal(category, str(exc).lower()),
     )

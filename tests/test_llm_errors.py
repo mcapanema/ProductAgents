@@ -82,3 +82,29 @@ def test_status_5xx_outranks_api_key_text():
     # UPSTREAM (transient), not AUTH (fatal) — status wins over text.
     exc = _StatusExc("upstream failure: check your api key later", 503)
     assert classify_category(exc) is ErrorCategory.UPSTREAM
+
+
+def test_burst_429_is_not_fatal():
+    # A plain burst 429 (no quota/credit text) is transient — the client's
+    # retry budget should absorb it, so it must NOT abort the run.
+    err = classify_provider_error(_StatusExc("Too many requests, slow down", 429))
+    assert err.category == ErrorCategory.RATE_LIMIT.value
+    assert err.fatal is False
+
+
+def test_quota_429_is_fatal():
+    err = classify_provider_error(RuntimeError("You exceeded your monthly quota"))
+    assert err.category == ErrorCategory.RATE_LIMIT.value
+    assert err.fatal is True
+
+
+def test_auth_is_fatal():
+    err = classify_provider_error(_StatusExc("nope", 401))
+    assert err.category == ErrorCategory.AUTH.value
+    assert err.fatal is True
+
+
+def test_unknown_is_not_fatal():
+    err = classify_provider_error(RuntimeError("Provider returned error"))
+    assert err.category == ErrorCategory.UNKNOWN.value
+    assert err.fatal is False
