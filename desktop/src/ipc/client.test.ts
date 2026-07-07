@@ -309,3 +309,34 @@ describe("workflowsShow", () => {
     });
   });
 });
+
+describe("IpcClient disconnect", () => {
+  it("rejects every in-flight request when the transport disconnects", async () => {
+    const client = new IpcClient(
+      async () => {},
+      () => {},
+    );
+    const pending = client.workflowsList();
+    client.disconnect();
+    await expect(pending).rejects.toThrow("backend disconnected");
+  });
+
+  it("rejects new calls made after a disconnect", async () => {
+    const client = new IpcClient(
+      async () => {},
+      () => {},
+    );
+    client.disconnect();
+    await expect(client.workflowsList()).rejects.toThrow("backend disconnected");
+  });
+
+  it("uses the supplied reason string", async () => {
+    const client = new IpcClient(
+      async () => {},
+      () => {},
+    );
+    const pending = client.decisionsList();
+    client.disconnect("sidecar exited");
+    await expect(pending).rejects.toThrow("sidecar exited");
+  });
+});

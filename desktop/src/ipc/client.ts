@@ -43,6 +43,7 @@ export class IpcClient {
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
   private readonly runs = new Map<number, RunHandlers>();
+  private closed = false;
 
   constructor(
     private readonly send: (line: string) => Promise<void>,
@@ -66,6 +67,19 @@ export class IpcClient {
     else waiter.resolve(msg.result);
   }
 
+  /**
+   * The transport reported the backend went away: reject every in-flight
+   * request so callers leave their pending/"running" states instead of hanging
+   * forever. Idempotent; after this, new calls reject at once.
+   */
+  disconnect(reason = "backend disconnected"): void {
+    this.closed = true;
+    const err = new Error(reason);
+    for (const waiter of this.pending.values()) waiter.reject(err);
+    this.pending.clear();
+    this.runs.clear();
+  }
+
   // ponytail: Promise<unknown> internally; R asserted at return — dispatch map must stay unknown-typed
   private call<R = unknown>(
     method: string,
@@ -74,6 +88,10 @@ export class IpcClient {
   ): Promise<R> {
     const id = this.nextId++;
     return new Promise<unknown>((resolve, reject) => {
+      if (this.closed) {
+        reject(new Error("backend disconnected"));
+        return;
+      }
       this.pending.set(id, { resolve, reject });
       if (handlers) this.runs.set(id, handlers);
       const line = JSON.stringify(
