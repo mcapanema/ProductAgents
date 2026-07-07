@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { IpcClient } from "../ipc/client";
 import { IpcProvider, useIpc } from "./IpcProvider";
+import { RunProvider, useRun } from "./RunContext";
 import { ThemeShell } from "../ui/ThemeShell";
 import type { Density } from "../ui/theme";
 import { useThemePreference } from "../ui/useThemePreference";
@@ -22,7 +23,9 @@ const DENSITY: Density = "comfortable";
 export function App({ client }: { client?: IpcClient }) {
   return (
     <IpcProvider client={client}>
-      <AppShell />
+      <RunProvider>
+        <AppShell />
+      </RunProvider>
     </IpcProvider>
   );
 }
@@ -31,7 +34,7 @@ function AppShell() {
   const ipc = useIpc();
   const [view, setView] = useState<View>("run");
   const { pref, setPref, resolved } = useThemePreference(ipc);
-  const [running, setRunning] = useState(false);
+  const running = useRun().state.status === "running";
 
   return (
     <ThemeShell theme={resolved} density={DENSITY}>
@@ -44,7 +47,7 @@ function AppShell() {
         <div className="main">
           <TopBar view={view} onNavigate={setView} running={running} />
           <main className="content">
-            {view === "run" && <RunPanel onRunningChange={setRunning} />}
+            {view === "run" && <RunPanel />}
             {view === "sessions" && <SessionsPanel />}
             {view === "decisions" && <DecisionsPanel />}
             {view === "memory" && <OrgMemoryPanel />}

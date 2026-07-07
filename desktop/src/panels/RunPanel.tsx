@@ -1,7 +1,7 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Button, Checkbox, Input } from "antd";
 import { useIpc } from "../app/IpcProvider";
-import { runReducer, initialRunState } from "./runReducer";
+import { useRun } from "../app/RunContext";
 import { deriveStages } from "./runTimeline";
 import { StageTimeline } from "./StageTimeline";
 import { RawEvents } from "./RawEvents";
@@ -17,12 +17,12 @@ const VERDICTS: { verdict: string; label: string }[] = [
   { verdict: "request_analysis", label: "Request analysis" },
 ];
 
-export function RunPanel({ onRunningChange }: { onRunningChange?: (running: boolean) => void }) {
+export function RunPanel() {
   const ipc = useIpc();
+  const { state, start: startRun, decide, cancel } = useRun();
   const [title, setTitle] = useState("");
   const [evidence, setEvidence] = useState("sample");
   const [approval, setApproval] = useState(false);
-  const [state, dispatch] = useReducer(runReducer, initialRunState);
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [workflow, setWorkflow] = useState("evaluate_initiative");
 
@@ -39,44 +39,12 @@ export function RunPanel({ onRunningChange }: { onRunningChange?: (running: bool
       .catch(() => setWorkflows([]));
   }, [ipc]);
 
-  async function start() {
-    if (!ipc || !title.trim()) return;
-    dispatch({ kind: "start" });
-    try {
-      const result = await ipc.run(
-        { workflow, title, evidence, approval },
-        { onEvent: (event) => dispatch({ kind: "event", event }) },
-      );
-      dispatch({ kind: "done", result });
-    } catch (err) {
-      dispatch({ kind: "error", message: err instanceof Error ? err.message : String(err) });
-    }
-  }
-
-  async function decide(verdict: string) {
-    if (!ipc) return;
-    dispatch({ kind: "approved" });
-    try {
-      await ipc.approve(verdict, "");
-    } catch {
-      // the run will surface failure via its terminal result/error
-    }
-  }
-
-  async function cancel() {
-    if (!ipc || !state.sessionId) return;
-    dispatch({ kind: "cancel" });
-    try {
-      await ipc.runCancel(state.sessionId);
-    } catch {
-      // terminal result/error will surface the outcome
-    }
+  function start() {
+    if (!title.trim()) return;
+    startRun({ workflow, title, evidence, approval });
   }
 
   const running = state.status === "running";
-  useEffect(() => {
-    onRunningChange?.(running);
-  }, [running, onRunningChange]);
   return (
     <div>
       <h1>Run a decision</h1>
