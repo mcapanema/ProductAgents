@@ -45,6 +45,34 @@ async def test_file_engine_and_drop_all(tmp_path):
     await engine.dispose()
 
 
+async def test_file_engine_enables_wal_and_busy_timeout(tmp_path):
+    # The shared-home file engine must open in WAL with a busy_timeout so a
+    # concurrent writer waits instead of raising `database is locked`.
+    from sqlalchemy import text
+
+    url = f"sqlite+aiosqlite:///{tmp_path}/wal.db"
+    engine = make_engine(url)
+    async with make_sessionmaker(engine)() as session:
+        mode = (await session.execute(text("PRAGMA journal_mode"))).scalar()  # ty: ignore[deprecated]  # raw-sql-test
+        timeout = (await session.execute(text("PRAGMA busy_timeout"))).scalar()  # ty: ignore[deprecated]  # raw-sql-test
+    await engine.dispose()
+    assert mode == "wal"
+    assert timeout == 5000
+
+
+async def test_memory_engine_is_untouched_by_wal_listener():
+    # In-memory engines keep StaticPool and are not switched to WAL (journal_mode
+    # for :memory: is "memory"); the listener must not touch them.
+    from sqlalchemy import text
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await create_all(engine)
+    async with make_sessionmaker(engine)() as session:
+        mode = (await session.execute(text("PRAGMA journal_mode"))).scalar()  # ty: ignore[deprecated]  # raw-sql-test
+    await engine.dispose()
+    assert mode == "memory"
+
+
 def test_public_surface_is_importable():
     from productagents.knowledge import (
         CanonicalSink,
