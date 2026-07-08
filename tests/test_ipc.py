@@ -802,15 +802,14 @@ async def test_serve_skips_blank_lines():
 def test_serve_stdio_builds_services_and_serves(monkeypatch):
     captured = {}
 
-    def fake_build_run_service(*, human_in_the_loop=False, workspace="default"):
-        return _workflows()
-
     async def fake_serve(services, **kwargs):
         captured.update(services)
         captured.update(kwargs)
 
     monkeypatch.setattr(
-        "productagents.app.cli._build_run_service", fake_build_run_service
+        ipc.WorkflowService,
+        "production",
+        classmethod(lambda cls, **_kw: _workflows()),
     )
     monkeypatch.setattr(ipc, "serve", fake_serve)
     monkeypatch.setattr(

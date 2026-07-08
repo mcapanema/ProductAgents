@@ -54,10 +54,10 @@ def _build_workflows(active_name: str, *, human_in_the_loop: bool) -> WorkflowSe
     Workflows panel renders); a ``run`` then degrades to a ``SessionFailed`` event
     until a key is configured and the app restarted.
     """
-    from productagents.app.cli import _build_run_service, make_recorder
+    from productagents.platform.context import make_recorder
 
     try:
-        return _build_run_service(
+        return WorkflowService.production(
             human_in_the_loop=human_in_the_loop, workspace=active_name
         )
     except Exception:  # noqa: BLE001 — degraded mode; any failure (missing key, bad config) must not crash the sidecar

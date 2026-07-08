@@ -65,3 +65,32 @@ def test_evaluate_initiative_topology_tracks_human_in_the_loop():
     )
     assert wf.topology is not None
     assert "human_approval" in [n["id"] for n in wf.topology()["nodes"]]
+
+
+def test_production_threads_model_and_recorder_into_for_model(monkeypatch):
+    import productagents.platform.context as context
+    import productagents.platform.llm as llm
+
+    captured = {}
+    model = FakeChatModel({})
+    recorder = object()
+    monkeypatch.setattr(llm, "get_model", lambda: model)
+    monkeypatch.setattr(
+        context, "make_recorder", lambda *, workspace="default": recorder
+    )
+    # Capture what production() hands to for_model without building real workflows.
+    monkeypatch.setattr(
+        WorkflowService,
+        "for_model",
+        classmethod(
+            lambda cls, model, **kw: captured.update({"model": model, **kw}) or "SVC"
+        ),
+    )
+
+    result = WorkflowService.production(human_in_the_loop=True, workspace="acme")
+
+    assert result == "SVC"
+    assert captured["model"] is model
+    assert captured["recorder"] is recorder
+    assert captured["human_in_the_loop"] is True
+    assert captured["workspace"] == "acme"
