@@ -648,11 +648,19 @@ async def test_run_decision_does_not_abort_when_one_analyst_survives():
     )
     from tests.fakes import FakeChatModel
 
-    # Analysts all return the same good findings here (every analyst succeeds),
-    # proving the breaker stays silent whenever any analyst produced a report.
+    # 4 of the 5 concurrent AnalystFindings calls fail, 1 succeeds (the fake's
+    # call order across parallel analysts isn't tied to a specific analyst id,
+    # but exactly one report must come back healthy) — a genuine partial
+    # outage, proving the breaker only trips on a *total* wipe-out.
     model = FakeChatModel(
         {
-            AnalystFindings: AnalystFindings(findings=["f"], signals=["s"]),
+            AnalystFindings: [
+                RuntimeError("Provider returned error"),
+                RuntimeError("Provider returned error"),
+                RuntimeError("Provider returned error"),
+                RuntimeError("Provider returned error"),
+                AnalystFindings(findings=["f"], signals=["s"]),
+            ],
             DebateArgument: DebateArgument(argument="a"),
             Recommendation: Recommendation(
                 recommendation="Build it",
@@ -681,4 +689,8 @@ async def test_run_decision_does_not_abort_when_one_analyst_survives():
     ]
 
     assert not any(isinstance(e, RunAbortedEvent) for e in events)
-    assert any(isinstance(e, FinishedEvent) for e in events)
+    finished = [e for e in events if isinstance(e, FinishedEvent)]
+    assert len(finished) == 1
+    # Confirm this actually was a partial failure, not an accidental full success.
+    failed_reports = [r for r in finished[0].reports if r.failed]
+    assert len(failed_reports) == 4
