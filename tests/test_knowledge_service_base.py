@@ -24,3 +24,14 @@ async def test_search_with_default_query_returns_all_matches_paginated():
     assert len(page.items) == 2
     assert page.total == 5
     assert page.has_more is True
+
+
+async def test_search_logs_warning_when_scan_limit_is_hit(caplog, monkeypatch):
+    import productagents.knowledge.services._service as svc_mod
+
+    items = [CustomerFeedback(body=f"f{i}") for i in range(2)]
+    monkeypatch.setattr(svc_mod, "_SCAN_LIMIT", 2)
+    svc = CanonicalQueryService(FakeRepository(items))
+    with caplog.at_level("WARNING", logger="productagents.knowledge.services._service"):
+        await svc.search(Query())
+    assert any("scan limit" in record.message.lower() for record in caplog.records)

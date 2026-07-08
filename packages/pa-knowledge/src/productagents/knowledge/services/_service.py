@@ -4,10 +4,14 @@ One implementation serves all services; concrete services are thin named
 subclasses parametrized by canonical type.
 """
 
+import logging
+
 from productagents.core.models import CanonicalModel
 from productagents.knowledge.repositories._base import Repository
 from productagents.knowledge.services._page import Page
 from productagents.knowledge.services._query import Query
+
+logger = logging.getLogger(__name__)
 
 # ponytail: search scans the full type partition then filters/paginates in
 # Python. Correct and cheap at local-first SQLite scale (no connectors yet,
@@ -28,5 +32,7 @@ class CanonicalQueryService[T: CanonicalModel]:
 
     async def search(self, query: Query[T]) -> Page[T]:
         rows = await self._repo.list(limit=_SCAN_LIMIT, offset=0)
+        if len(rows) == _SCAN_LIMIT:
+            logger.warning("scan limit of %d reached", _SCAN_LIMIT)
         matched = [row for row in rows if query.matches(row)]
         return Page.paginate(matched, limit=query.limit, offset=query.offset)
