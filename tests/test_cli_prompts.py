@@ -63,3 +63,15 @@ def test_prompts_diff(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "-a" in out
     assert "+b" in out
+
+
+def test_prompts_save_invalid_template_returns_1(tmp_path, capsys):
+    service = _service(tmp_path)
+    body = tmp_path / "bad.txt"
+    body.write_text("uses $nonsense", encoding="utf-8")
+    code = cli.prompts_save("market", str(body), service=service)
+    assert code == 1
+    out = capsys.readouterr().out
+    assert "$nonsense" in out
+    # nothing was written
+    assert service.versions("market") == [0]

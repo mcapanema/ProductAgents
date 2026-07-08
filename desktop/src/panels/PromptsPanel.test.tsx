@@ -1,29 +1,26 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PromptsPanel } from "./PromptsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
-import type { PromptSummary, PromptVersion } from "../ipc/types";
 
-const list: PromptSummary[] = [
-  { name: "strategist", versions: [0, 1, 2], active: 2 },
-  { name: "judge", versions: [0], active: 0 },
-];
-
-function fake(): IpcClient {
+function fake(overrides: Record<string, unknown> = {}): IpcClient {
   return {
-    promptsList: async () => list,
+    promptsList: async () => [
+      { name: "market", versions: [0], active: 0 },
+      { name: "strategist", versions: [0], active: 0 },
+      // has an override (active !== 0) so it exercises the diff button + version switching
+      { name: "judge", versions: [0, 1], active: 1 },
+    ],
     promptsShow: async (name: string, version: number) => ({
       name,
       version,
-      text: `text of ${name}@${version}`,
+      text: `${name} body v${version} $evidence`,
     }),
-    promptsDiff: async (name: string, old: number, next: number) => ({
-      name,
-      old,
-      new: next,
-      diff: `diff ${name} ${old}->${next}`,
-    }),
+    promptsSave: async (name: string) => ({ name, versions: [0, 1], active: 1 }),
+    promptsRollback: async (name: string) => ({ name, versions: [0, 1], active: 1 }),
+    promptsDiff: async () => ({ name: "judge", old: 0, new: 1, diff: "- old body\n+ new body" }),
+    ...overrides,
   } as unknown as IpcClient;
 }
 
@@ -36,69 +33,90 @@ function renderPanel(client: IpcClient) {
 }
 
 describe("PromptsPanel", () => {
-  it("lists prompt names on load", async () => {
+  it("disables Save until the draft is edited, then enables it", async () => {
     renderPanel(fake());
-    expect(await screen.findByText("strategist")).toBeInTheDocument();
-    expect(screen.getByText("judge")).toBeInTheDocument();
+    fireEvent.click(await screen.findByText("market"));
+    const save = await screen.findByRole("button", { name: /save as new version/i });
+    expect(save).toBeDisabled();
+    fireEvent.change(await screen.findByDisplayValue(/market body/), {
+      target: { value: "edited $evidence" },
+    });
+    expect(save).toBeEnabled();
   });
 
-  it("shows the active version's text after selecting a prompt", async () => {
+  it("shows a success alert after a save", async () => {
     renderPanel(fake());
-    fireEvent.click(await screen.findByText("strategist"));
+    fireEvent.click(await screen.findByText("market"));
+    fireEvent.change(await screen.findByDisplayValue(/market body/), {
+      target: { value: "edited $evidence" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save as new version/i }));
+    expect(await screen.findByText(/saved a new version/i)).toBeInTheDocument();
+  });
+
+  it("surfaces a save error instead of failing silently", async () => {
+    renderPanel(fake({ promptsSave: async () => { throw new Error("ValueError: bad $placeholder"); } }));
+    fireEvent.click(await screen.findByText("market"));
+    fireEvent.change(await screen.findByDisplayValue(/market body/), {
+      target: { value: "broken $nonsense" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save as new version/i }));
+    expect(await screen.findByText(/couldn't save/i)).toBeInTheDocument();
+  });
+
+  it("guards unsaved edits when switching prompts", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByText("market"));
+    fireEvent.change(await screen.findByDisplayValue(/market body/), {
+      target: { value: "unsaved $evidence" },
+    });
+    // clicking another prompt must NOT silently discard the edit
+    fireEvent.click(screen.getByText("strategist"));
+    expect(await screen.findByText(/unsaved changes/i)).toBeInTheDocument();
+    // the edited draft is still on screen (switch was blocked)
+    expect(screen.getByDisplayValue("unsaved $evidence")).toBeInTheDocument();
+    // discarding proceeds to the new prompt
+    fireEvent.click(screen.getByRole("button", { name: /discard/i }));
     await waitFor(() =>
-      expect(screen.getByDisplayValue(/text of strategist@2/)).toBeInTheDocument(),
+      expect(screen.getByDisplayValue(/strategist body/)).toBeInTheDocument(),
     );
   });
 
-  it("shows a diff vs default when the prompt has overrides", async () => {
+  it("hides the Diff vs default button for a prompt with no overrides", async () => {
     renderPanel(fake());
-    fireEvent.click(await screen.findByText("strategist"));
-    await screen.findByText(/text of strategist@2/);
-    fireEvent.click(screen.getByRole("button", { name: /diff vs default/i }));
-    await waitFor(() =>
-      expect(screen.getByText(/diff strategist 0->2/)).toBeInTheDocument(),
-    );
+    fireEvent.click(await screen.findByText("market"));
+    await screen.findByRole("button", { name: /save as new version/i });
+    expect(screen.queryByRole("button", { name: /diff vs default/i })).not.toBeInTheDocument();
   });
 
-  it("offers no diff button for a default-only prompt", async () => {
+  it("renders the diff against default when Diff vs default is clicked", async () => {
     renderPanel(fake());
     fireEvent.click(await screen.findByText("judge"));
-    await waitFor(() =>
-      expect(screen.getByDisplayValue(/text of judge@0/)).toBeInTheDocument(),
-    );
-    expect(screen.queryByRole("button", { name: /diff vs default/i })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /diff vs default/i }));
+    expect(await screen.findByText(/- old body/)).toBeInTheDocument();
   });
-});
 
-const editorSummary: PromptSummary = { name: "market", versions: [0], active: 0 };
+  it("switches versions when a version button is clicked", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByText("judge"));
+    expect(await screen.findByDisplayValue(/judge body v1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /v0 . default/i }));
+    expect(await screen.findByDisplayValue(/judge body v0/)).toBeInTheDocument();
+  });
 
-function fakeEditor(saved: { name?: string; text?: string }): IpcClient {
-  return {
-    promptsList: async () => [editorSummary],
-    promptsShow: async (_n: string, v: number): Promise<PromptVersion> => ({
-      name: "market", version: v, text: "default body",
-    }),
-    promptsSave: async (name: string, text: string) => {
-      saved.name = name;
-      saved.text = text;
-      return { name: "market", versions: [0, 1], active: 1 };
-    },
-  } as unknown as IpcClient;
-}
-
-describe("PromptsPanel editor", () => {
-  it("saves an edited prompt as a new version", async () => {
-    const saved: { name?: string; text?: string } = {};
-    render(
-      <IpcProvider client={fakeEditor(saved)}>
-        <PromptsPanel />
-      </IpcProvider>,
-    );
+  it("calls promptsSave with the prompt name and edited text", async () => {
+    const promptsSave = vi.fn(async (name: string) => ({
+      name,
+      versions: [0, 1],
+      active: 1,
+    }));
+    renderPanel(fake({ promptsSave }));
     fireEvent.click(await screen.findByText("market"));
-    const box = await screen.findByRole("textbox");
-    fireEvent.change(box, { target: { value: "new body" } });
+    fireEvent.change(await screen.findByDisplayValue(/market body/), {
+      target: { value: "edited $evidence" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /save as new version/i }));
-    await waitFor(() => expect(saved.text).toBe("new body"));
-    expect(saved.name).toBe("market");
+    await screen.findByText(/saved a new version/i);
+    expect(promptsSave).toHaveBeenCalledWith("market", "edited $evidence");
   });
 });

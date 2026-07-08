@@ -80,14 +80,51 @@ class PromptStore:
         except FileNotFoundError as exc:
             raise KeyError(f"no version {version} for {name!r}") from exc
 
+    def _validate_template(self, name: str, text: str) -> None:
+        """Reject a template that would fail at render time.
+
+        Two failure modes bite mid-run otherwise: a bare ``$`` (e.g. ``$5``)
+        makes ``Template.substitute`` raise ``ValueError``, and an unknown
+        ``$placeholder`` makes it raise ``KeyError``. We catch both here so a
+        bad override never reaches disk (and never breaks an analyst).
+        """
+        tpl = Template(text)
+        if not tpl.is_valid():
+            raise ValueError(
+                f"prompt {name!r} has an invalid $placeholder — "
+                "use $$ for a literal dollar sign"
+            )
+        try:
+            allowed = set(Template(self._bundled(name)).get_identifiers())
+        except KeyError:
+            return  # custom prompt with no bundled default: nothing to check against
+        unknown = sorted(set(tpl.get_identifiers()) - allowed)
+        if unknown:
+            allowed_str = ", ".join(f"${a}" for a in sorted(allowed)) or "(none)"
+            raise ValueError(
+                f"prompt {name!r} uses unknown placeholder(s) "
+                f"{', '.join(f'${u}' for u in unknown)}; allowed: {allowed_str}"
+            )
+
     def save_version(self, name: str, text: str) -> int:
         if self._dir is None:
             raise RuntimeError("PromptStore has no writable prompts_dir")
+        self._validate_template(name, text)
         d = self._dir / name
         d.mkdir(parents=True, exist_ok=True)
-        version = self.active_version(name) + 1
-        (d / f"{version:04d}.txt").write_text(text, encoding="utf-8")
-        return version
+        # ponytail: exclusive create ("x") means a racing writer (GUI + CLI, or
+        # two GUI windows) can never clobber a version file. On collision we
+        # recompute the next number and retry — guaranteed to terminate because
+        # active_version() strictly increases once the taken file exists.
+        while True:
+            version = self.active_version(name) + 1
+            path = d / f"{version:04d}.txt"
+            try:
+                with open(path, "x", encoding="utf-8") as fh:
+                    fh.write(text)
+                return version
+            except FileExistsError:
+                continue
 
     def rollback(self, name: str, version: int) -> int:
         return self.save_version(name, self.read_version(name, version))
