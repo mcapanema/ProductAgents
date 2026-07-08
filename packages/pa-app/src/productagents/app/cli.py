@@ -453,7 +453,11 @@ def prompts_save(name: str, file: str, *, service: PromptService) -> int:
     from pathlib import Path
 
     text = Path(file).read_text(encoding="utf-8")
-    version = service.save(name, text)
+    try:
+        version = service.save(name, text)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
     print(f"saved {name} v{version}")
     return 0
 
@@ -464,6 +468,9 @@ def prompts_rollback(name: str, version: int, *, service: PromptService) -> int:
         new = service.rollback(name, version)
     except KeyError:
         print(f"no version {version} for {name}")
+        return 1
+    except ValueError as exc:
+        print(str(exc))
         return 1
     print(f"rolled back {name} to v{version} (now v{new})")
     return 0
