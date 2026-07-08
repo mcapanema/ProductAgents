@@ -58,6 +58,10 @@ test: test-py test-web ## Run all unit tests (Python + frontend)
 test-py: ## Run the Python test suite (pytest + coverage)
 	uv run pytest
 
+.PHONY: coverage-floor
+coverage-floor: ## Fail if any single package is below the per-package coverage floor
+	python3 scripts/coverage_floor.py
+
 .PHONY: test-web
 test-web: ## Run the frontend unit tests (Vitest)
 	cd $(DESKTOP) && npm test
@@ -104,13 +108,13 @@ package: build-sidecar ## Build the installable desktop app (bundles the sidecar
 	cd desktop && npm run tauri build
 
 .PHONY: check
-check: lint lint-web typecheck test-py test-web build-web contrast ## Full gate: lint (py+web) + types + unit tests + frontend build + contrast
+check: lint lint-web typecheck test-py coverage-floor test-web build-web contrast ## Full gate: lint (py+web) + types + unit tests + per-package coverage floor + frontend build + contrast
 
 # ---- clean --------------------------------------------------------------
 
 .PHONY: clean
 clean: ## Remove build & test artifacts (keeps installed deps)
-	rm -rf htmlcov .coverage .pytest_cache .ruff_cache .ty_cache
+	rm -rf htmlcov .coverage coverage.json .pytest_cache .ruff_cache .ty_cache
 	find . -type d -name __pycache__ -not -path './.venv/*' -not -path '*/node_modules/*' -exec rm -rf {} + 2>/dev/null || true
 	rm -rf $(DESKTOP)/dist $(DESKTOP)/playwright-report $(DESKTOP)/test-results $(DESKTOP)/src-tauri/gen/schemas
 	@echo "Cleaned build & test artifacts."
