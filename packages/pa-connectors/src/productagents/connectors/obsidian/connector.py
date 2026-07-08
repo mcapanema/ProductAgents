@@ -74,34 +74,23 @@ class ObsidianConnector(Connector):
                 cursor_dt = datetime.fromisoformat(cursor.value)
 
             max_mtime = cursor_dt
-            notes_to_write: list[CustomerFeedback] = []
+            written = 0
 
             for note_path in iter_notes(vault):
                 mtime = datetime.fromtimestamp(note_path.stat().st_mtime, tz=UTC)
-
-                # Skip notes at or before the cursor.
                 if cursor_dt is not None and mtime <= cursor_dt:
                     continue
-
                 text = note_path.read_text(encoding="utf-8")
                 feedback = note_to_feedback(note_path, vault, text, mtime)
-                notes_to_write.append(feedback)
-
+                await self.sink.write_many([feedback])  # stream: write per note
+                written += 1
                 if max_mtime is None or mtime > max_mtime:
                     max_mtime = mtime
 
-            # Write all collected notes.
-            if notes_to_write:
-                await self.sink.write_many(notes_to_write)
-
-            # Return the new cursor, or keep the incoming one if no progress.
-            new_cursor_value = None
-            if max_mtime is not None:
-                new_cursor_value = max_mtime.isoformat()
-
+            new_cursor_value = max_mtime.isoformat() if max_mtime is not None else None
             return SyncResult(
                 connector=self.key,
-                written=len(notes_to_write),
+                written=written,
                 cursor=SyncCursor(value=new_cursor_value),
                 ok=True,
             )
