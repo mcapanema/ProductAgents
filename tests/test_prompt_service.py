@@ -30,3 +30,16 @@ def test_diff_between_versions(tmp_path):
     d = service.diff("market", 1, 2)
     assert "-alpha" in d
     assert "+beta" in d
+
+
+def test_create_falls_back_to_workspace_prompts_dir(monkeypatch, tmp_path):
+    """Fallback uses WorkspaceService home when PRODUCTAGENTS_PROMPTS_DIR unset."""
+
+    monkeypatch.delenv("PRODUCTAGENTS_PROMPTS_DIR", raising=False)
+    monkeypatch.setenv("PRODUCTAGENTS_HOME", str(tmp_path))
+
+    service = PromptService.create("acme")
+
+    # The prompts directory should be under the home directory, not relative to cwd
+    expected_root = tmp_path / "prompts"
+    assert service._store._dir == expected_root / "acme"
