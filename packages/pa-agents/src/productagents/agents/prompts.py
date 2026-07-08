@@ -112,9 +112,19 @@ class PromptStore:
         self._validate_template(name, text)
         d = self._dir / name
         d.mkdir(parents=True, exist_ok=True)
-        version = self.active_version(name) + 1
-        (d / f"{version:04d}.txt").write_text(text, encoding="utf-8")
-        return version
+        # ponytail: exclusive create ("x") means a racing writer (GUI + CLI, or
+        # two GUI windows) can never clobber a version file. On collision we
+        # recompute the next number and retry — guaranteed to terminate because
+        # active_version() strictly increases once the taken file exists.
+        while True:
+            version = self.active_version(name) + 1
+            path = d / f"{version:04d}.txt"
+            try:
+                with open(path, "x", encoding="utf-8") as fh:
+                    fh.write(text)
+                return version
+            except FileExistsError:
+                continue
 
     def rollback(self, name: str, version: int) -> int:
         return self.save_version(name, self.read_version(name, version))

@@ -200,3 +200,27 @@ def test_save_version_skips_identifier_check_for_custom_prompt(tmp_path):
     assert v == 1
     with pytest.raises(ValueError, match=r"invalid \$placeholder"):
         store.save_version("my_custom_prompt", "bad $")
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 (Task 2): concurrent-write safety
+# ---------------------------------------------------------------------------
+
+
+def test_save_version_does_not_clobber_a_concurrently_written_file(
+    tmp_path, monkeypatch
+):
+    # Simulate a lost-update race: a second writer grabbed the next number
+    # between our active_version() read and our write.
+    store = PromptStore(tmp_path)
+    store.save_version("market", "existing $evidence")  # 0001.txt, active == 1
+
+    # First active_version() read is stale (returns 0 → targets the taken 0001),
+    # the retry sees the real state (returns 1 → targets a free 0002).
+    seq = iter([0, 1])
+    monkeypatch.setattr(store, "active_version", lambda name: next(seq))
+
+    v = store.save_version("market", "new $evidence")
+    assert v == 2
+    assert store.read_version("market", 1) == "existing $evidence"  # NOT clobbered
+    assert store.read_version("market", 2) == "new $evidence"
