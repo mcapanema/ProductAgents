@@ -154,3 +154,49 @@ def test_override_versions_ignores_non_numeric_stems(tmp_path):
     (tmp_path / "market" / "1note.txt").write_text("junk", encoding="utf-8")
     assert store.versions("market") == [0, 1]
     assert store.active_version("market") == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 (H3): save-time template validation
+# ---------------------------------------------------------------------------
+
+
+def test_save_version_rejects_unknown_placeholder(tmp_path):
+    store = PromptStore(tmp_path)
+    # market's bundled default only offers $initiative and $evidence
+    with pytest.raises(ValueError, match=r"\$typo"):
+        store.save_version("market", "OVERRIDDEN $typo")
+    # nothing was written — active version stays at the bundled default
+    assert store.active_version("market") == 0
+
+
+def test_save_version_rejects_bare_dollar_sign(tmp_path):
+    store = PromptStore(tmp_path)
+    # a literal "$5" is an invalid placeholder; $$ is the escape
+    with pytest.raises(ValueError, match=r"\$\$"):
+        store.save_version("market", "costs $5 for $evidence")
+    assert store.active_version("market") == 0
+
+
+def test_save_version_accepts_a_subset_of_known_placeholders(tmp_path):
+    store = PromptStore(tmp_path)
+    v = store.save_version("market", "just $initiative, no evidence")
+    assert v == 1
+    assert store.get("market") == "just $initiative, no evidence"
+
+
+def test_save_version_accepts_escaped_dollar(tmp_path):
+    store = PromptStore(tmp_path)
+    v = store.save_version("market", "price is $$5 for $evidence")
+    assert v == 1
+    # $$ collapses to a single literal $ at render, $evidence is substituted
+    assert store.render("market", initiative="i", evidence="e") == "price is $5 for e"
+
+
+def test_save_version_skips_identifier_check_for_custom_prompt(tmp_path):
+    # a name with no bundled default has no reference set — only syntax is enforced
+    store = PromptStore(tmp_path)
+    v = store.save_version("my_custom_prompt", "anything with $whatever")
+    assert v == 1
+    with pytest.raises(ValueError, match=r"invalid \$placeholder"):
+        store.save_version("my_custom_prompt", "bad $")
