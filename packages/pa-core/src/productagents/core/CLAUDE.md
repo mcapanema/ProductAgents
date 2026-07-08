@@ -36,7 +36,7 @@
 - **Synced models subclass `CanonicalModel`; decision/LLM-output models don't.**
   Provenance belongs to things connectors ingest, not to things agents emit.
 - **Agents reason over domain fields only** — never `source`, `extensions`, or the
-  sync metadata. Mappers (Phase 4) must keep vendor terms out of domain fields;
+  sync metadata. Mappers must keep vendor terms out of domain fields;
   `tests/canonical_harness.py` enforces this.
 - **All `CanonicalModel` fields are defaulted**, so `Initiative(title=...,
   description=...)` works for manual creation and gets `SourceRef.manual()`.

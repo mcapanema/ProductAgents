@@ -10,7 +10,7 @@ or `connectors`.
 | Module | Role |
 | --- | --- |
 | `cli.py` | The command-line client and the `productagents` console entry point (`main`). Parses args with stdlib `argparse` and dispatches to platform services. No subcommand → prints help. Subcommands: `run [--approve]`, `sync [--connector]`, `workflows list/show`, `workspace list/show/create/use/rename`, `sessions list/show`, `decisions list/show/export`, `connectors list/health/config`, `prompts list/show/diff/save/rollback`, `config show/set`, `memory lessons`, `reflect`. |
-| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (Phase 8 Tauri sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list/show`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
+| `ipc.py` | JSON-over-stdio client for out-of-process GUIs (the Tauri desktop sidecar). `productagents ipc` serves newline-delimited JSON: one request per stdin line → one or more response lines, each echoing the request `id`. Methods mirror the CLI surface (`workflows.list/show`, `workspaces.list/show/create/use`, `sessions.list/show`, `decisions.list/show`, `connectors.list/health/sync`, `prompts.list/show/diff/save/rollback`, `config.get/set`, `run`). `run` streams `{event:{type,payload}}` lines then a terminal `{result:{status,session_id}}`. Imports only platform/core/sibling-app, same contract as `cli.py`. |
 | `devbridge.py` | **Dev-only** WebSocket bridge over the *same* Application Layer as `ipc.py`. `productagents serve-ws [--port 7420]` serves `ipc.handle` to a browser at `ws://127.0.0.1:<port>` so the React frontend (Vite dev server, outside the Tauri shell) and Playwright can exercise the full UI with live data. Reuses `ipc.handle` + `ipc.build_services` verbatim — only the transport (one WS text message per request line) differs. Localhost-bound; never bundled into the shipped app. |
 
 ## CLI contract
@@ -45,7 +45,7 @@ collaborating service via a keyword arg so they test headless (see
   (`platform.reflect`) against the named decision and persists the `OutcomeRecord`.
   Handlers take `service: ReflectionService` by keyword for offline testing.
 
-## IPC protocol (Phase 6)
+## IPC protocol
 
 `ipc.serve(...)` is the stdin→`handle`→stdout loop; `ipc.handle(request, *, …, emit)`
 dispatches one request. Both take their collaborating services by keyword so they
@@ -55,7 +55,7 @@ request `{id, method, params?}`; responses `{id, event:{type,payload}}` (run onl
 so a new platform event needs no IPC change. The loop is sequential and degrades on
 bad input — only EOF ends it.
 
-The `error` values in `{id, error}` responses are human-facing strings (not a machine-parseable taxonomy); a Phase 8 GUI should match on the envelope shape (`event`/`result`/`error` keys), not parse error text.
+The `error` values in `{id, error}` responses are human-facing strings (not a machine-parseable taxonomy); the GUI matches on the envelope shape (`event`/`result`/`error` keys), not parse error text.
 
 Human-in-the-loop approval now works over the wire. `run {…, approval: true}`
 builds a HITL workflow service; when the graph pauses at governance the platform

@@ -3,6 +3,12 @@
 **Date:** 2026-06-23
 **Status:** Accepted
 
+> This ADR records the decision and the codebase shape *as of its date*
+> (e.g. "six member packages" below) — it is not kept in sync as the
+> workspace grows. For the current, enforced set of layer contracts, run
+> `uv run lint-imports` (the contracts live in `pyproject.toml`); for the
+> current package list, see the root `CLAUDE.md` directory structure.
+
 ## Context
 
 ProductAgents v2 targets a six-layer product-decision OS. Phase 0 must enforce

@@ -68,7 +68,7 @@ the only place that knows a vendor exists.
   one-time imported and renamed `.imported` — see root CLAUDE.md). Each
   connector declares `config_cls`; the platform composition root
   (`productagents.platform.connectors`) validates blocks generically. Cursor
-  **persistence** (`sync_state` table + `SyncStateStore`) shipped in Phase 7a.
-- **`connector_errors.py` category classifier** — SHIPPED in Phase 7c
+  **persistence** (`sync_state` table + `SyncStateStore`) has shipped.
+- **`connector_errors.py` category classifier** — SHIPPED
   (`classify_connector_error`, `ErrorCategory`, `TRANSIENT_STATUSES`; consumed
   by `http.py` and connector degrade-paths).

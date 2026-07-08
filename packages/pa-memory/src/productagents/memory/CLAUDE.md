@@ -1,8 +1,8 @@
 # productagents.memory — organizational memory subsystem
 
 Two halves the v1 code already names: **injection** (read lessons into a
-decision) and **capture** (record outcomes after the fact). DB-backed since
-Phase 6; JSONL demoted to export/audit.
+decision) and **capture** (record outcomes after the fact). DB-backed;
+JSONL demoted to export/audit.
 
 ## Layout
 - `__init__.py` — re-exports ONLY the lightweight pure API (`jsonl` +
