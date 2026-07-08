@@ -24,8 +24,9 @@ doctor: ## Check required tools (uv, node, cargo) are installed
 # ---- setup --------------------------------------------------------------
 
 .PHONY: setup
-setup: ## Full setup: Python deps + frontend deps + Playwright browser
+setup: ## Full setup: Python deps + frontend deps + Playwright browser + git hooks
 	uv sync
+	uv run pre-commit install
 	cd $(DESKTOP) && npm install
 	cd $(DESKTOP) && npx playwright install chromium
 	@echo "Setup complete. 'make gui' also needs a Rust toolchain (run 'make doctor')."
