@@ -63,3 +63,30 @@ def test_discover_finds_real_obsidian_connector():
     found = registry.discover()
 
     assert found.get("obsidian") is ObsidianConnector
+
+
+def test_discover_skips_a_broken_entry_point(monkeypatch, caplog):
+    from importlib.metadata import EntryPoint
+
+    from productagents.connectors import registry
+    from productagents.connectors.base import Connector
+
+    class _Good(Connector):
+        key = "good"
+
+    good = EntryPoint(name="good", value="x:_Good", group=registry._GROUP)
+    bad = EntryPoint(name="bad", value="x:Missing", group=registry._GROUP)
+
+    def _load(self):
+        if self.name == "good":
+            return _Good
+        raise ImportError("boom")
+
+    monkeypatch.setattr(EntryPoint, "load", _load)
+    monkeypatch.setattr(registry, "entry_points", lambda group: [good, bad])
+
+    with caplog.at_level("WARNING", logger="productagents.connectors"):
+        found = registry.discover()
+
+    assert set(found) == {"good"}  # the broken one is skipped, not fatal
+    assert "bad" in caplog.text
