@@ -20,6 +20,17 @@ _SEARCH_PATH = "/rest/api/3/search/jql"
 _FIELDS = "summary,description,reporter,created,updated,labels"
 
 
+def _jql_quote(value: str) -> str:
+    """Escape a value for safe interpolation into a JQL string literal.
+
+    JQL string literals use backslash escaping: \\ is a literal backslash,
+    \" is a literal quote. Escape backslashes first, then quotes, to prevent
+    injection of JQL operators or clauses.
+    """
+    # Escape backslashes first, then quotes.
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def _jql_since(since: str) -> str:
     """Format an ISO8601 cursor as JQL's ``yyyy-MM-dd HH:mm`` minute precision.
 
@@ -35,7 +46,7 @@ def build_jql(*, project: str | None, since: str | None) -> str:
     """Assemble the JQL query: optional project + optional ``updated >=`` filter."""
     clauses: list[str] = []
     if project:
-        clauses.append(f'project = "{project}"')
+        clauses.append(f'project = "{_jql_quote(project)}"')
     if since:
         clauses.append(f'updated >= "{_jql_since(since)}"')
     where = " AND ".join(clauses)
