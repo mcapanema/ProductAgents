@@ -32,6 +32,13 @@ from productagents.core.models import (
 )
 from productagents.core.observability import span
 
+# The five parallel analyst node ids. The runner uses this set to detect a total
+# analyst wipe-out (every analyst degraded) and abort the run rather than persist
+# an all-placeholder decision. Keep in sync with the analyst nodes wired below.
+ANALYST_IDS: frozenset[str] = frozenset(
+    {"customer_research", "product_analytics", "market", "business", "technical"}
+)
+
 
 def _traced(name: str, fn):
     """Wrap a node callable so each invocation logs a ``decision.<name>`` span.

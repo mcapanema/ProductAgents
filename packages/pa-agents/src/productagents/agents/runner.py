@@ -8,6 +8,7 @@ from uuid import uuid4
 from langgraph.types import Command
 
 from productagents.agents import stream_events as ev
+from productagents.agents.graph import ANALYST_IDS
 from productagents.core.models import (
     AnalystReport,
     DebateTurn,
@@ -178,6 +179,18 @@ def _event_from_custom(chunk: dict):
     return None
 
 
+def _all_analysts_failed(reports: list[AnalystReport]) -> bool:
+    """True once every analyst has reported and all of them degraded.
+
+    Guards against persisting an all-placeholder DecisionRecord when the whole
+    provider is down but each failure was non-fatal (per-node UPSTREAM/UNKNOWN),
+    so no `emit_fatal` marker ever fired. Only analyst nodes contribute to
+    `reports`, so `recall`/`governance` failures never trip this.
+    """
+    reported = {r.analyst for r in reports}
+    return reported == ANALYST_IDS and all(r.failed for r in reports)
+
+
 async def run_decision(
     graph,
     initiative: Initiative,
@@ -265,6 +278,18 @@ async def run_decision(
                         for report in node_state.get("reports", []) or []:
                             collected_reports.append(report)
                             yield NodeCompleteEvent(node=node_name, report=report)
+                            if _all_analysts_failed(collected_reports):
+                                trace["aborted"] = True
+                                yield RunAbortedEvent(
+                                    node=node_name,
+                                    category="all_analysts_failed",
+                                    message=(
+                                        "every analyst failed to produce findings — "
+                                        "aborting rather than persisting an "
+                                        "all-placeholder decision"
+                                    ),
+                                )
+                                return
                         if node_state.get("debate"):
                             collected_debate = node_state["debate"]
                         if node_state.get("risks"):
