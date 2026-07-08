@@ -85,6 +85,12 @@ typecheck: ## Type-check Python (ty)
 contrast: ## Verify WCAG contrast of the design tokens (design/contrast.py; exits 1 on failures)
 	python3 design/contrast.py
 
+.PHONY: audit
+audit: ## Dependency vulnerability audits (pip-audit + npm). CI also runs gitleaks + cargo-audit.
+	uv export --frozen --no-dev --no-emit-project --no-hashes -o "$${TMPDIR:-/tmp}/pa-requirements-prod.txt"
+	uvx pip-audit@2.10.1 --no-deps -r "$${TMPDIR:-/tmp}/pa-requirements-prod.txt"
+	cd $(DESKTOP) && npm audit --omit=dev --audit-level=high
+
 .PHONY: build-web
 build-web: ## Type-check + production-build the frontend
 	cd $(DESKTOP) && npm run build
