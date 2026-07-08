@@ -54,10 +54,10 @@ def _build_workflows(active_name: str, *, human_in_the_loop: bool) -> WorkflowSe
     Workflows panel renders); a ``run`` then degrades to a ``SessionFailed`` event
     until a key is configured and the app restarted.
     """
-    from productagents.app.cli import _build_run_service, make_recorder
+    from productagents.platform.context import make_recorder
 
     try:
-        return _build_run_service(
+        return WorkflowService.production(
             human_in_the_loop=human_in_the_loop, workspace=active_name
         )
     except Exception:  # noqa: BLE001 — degraded mode; any failure (missing key, bad config) must not crash the sidecar
@@ -360,6 +360,382 @@ def _config_dict(config) -> dict:
     }
 
 
+def _apply_switch(services: dict, name: str, config: Any) -> None:
+    """Rebuild every scoped service for ``name`` in place — the shared tail of
+    ``workspaces.use`` and ``workspaces.rename``.
+
+    Re-materializes the scoped services via the ``rebuild`` seam (literally
+    ``build_services`` again, preserving the possibly-faked ``workspaces``
+    instance) and flips ``active_name``. Marker persistence and the
+    ``config.switch`` ordering differ between the two callers and stay with them.
+    """
+    rebuild = services.get("rebuild")
+    if rebuild is not None:
+        fresh = rebuild(name, config=config)
+        fresh.pop("workspaces", None)  # keep the (possibly faked) instance
+        services.update(fresh)
+    services["active_name"] = name
+
+
+# ── Dispatch handlers ────────────────────────────────────────────────────────
+# Each takes (params, services, rid, emit) and emits its own response(s). Hoisted
+# to module level (not closures in handle) so DISPATCH is a module constant the
+# parity gate reads directly. Exceptions bubble to handle()'s outer try/except,
+# so one bad request never kills the serve loop.
+
+
+async def _workflows_list(params: dict, services: dict, rid, emit: Emit) -> None:
+    workflows: WorkflowService = services["workflows"]
+    wfs = [_workflow_dict(w) for w in workflows.list()]
+    await emit({"id": rid, "result": wfs})
+
+
+async def _workflows_show(params: dict, services: dict, rid, emit: Emit) -> None:
+    workflows: WorkflowService = services["workflows"]
+    name = params.get("name", "")
+    w = workflows.get(name)
+    if w is None:
+        await emit({"id": rid, "error": f"no such workflow: {name!r}"})
+        return
+    detail = _workflow_dict(w)
+    detail["topology"] = w.topology() if w.topology is not None else None
+    await emit({"id": rid, "result": detail})
+
+
+async def _workspaces_list(params: dict, services: dict, rid, emit: Emit) -> None:
+    workspaces: WorkspaceService | None = services.get("workspaces")
+    active_name: str = services["active_name"]
+    if workspaces is None:
+        raise RuntimeError("workspaces service not available")
+    rows = await workspaces.list()
+    await emit(
+        {
+            "id": rid,
+            "result": [{**r, "active": r["name"] == active_name} for r in rows],
+        }
+    )
+
+
+async def _workspaces_show(params: dict, services: dict, rid, emit: Emit) -> None:
+    workspaces: WorkspaceService | None = services.get("workspaces")
+    active_name: str = services["active_name"]
+    if workspaces is None:
+        raise RuntimeError("workspaces service not available")
+    name = params.get("name") or active_name
+    row = await workspaces.get(name)
+    if row is None:
+        await emit({"id": rid, "error": f"no such workspace: {name}"})
+        return
+    home = workspaces.home()
+    await emit(
+        {
+            "id": rid,
+            "result": {
+                **row,
+                "active": name == active_name,
+                "prompts_dir": str(workspaces.prompts_dir(name)),
+                "root": str(home.root),
+                "db_url": home.db_url,
+                "env_file": str(home.env_file),
+                "log_file": str(home.log_file),
+                "connectors_file": str(home.connectors_file),
+            },
+        }
+    )
+
+
+async def _workspaces_create(params: dict, services: dict, rid, emit: Emit) -> None:
+    workspaces: WorkspaceService | None = services.get("workspaces")
+    if workspaces is None:
+        raise RuntimeError("workspaces service not available")
+    row = await workspaces.create(params["name"])
+    await emit({"id": rid, "result": {**row, "active": False}})
+
+
+async def _workspaces_use(params: dict, services: dict, rid, emit: Emit) -> None:
+    workspaces: WorkspaceService | None = services.get("workspaces")
+    config: Any = services.get("config")
+    if workspaces is None:
+        raise RuntimeError("workspaces service not available")
+    name = params["name"]
+    if await workspaces.get(name) is None:
+        await emit({"id": rid, "error": f"no such workspace: {name}"})
+        return
+    old = services["active_name"]
+    if config is not None:
+        await config.switch(name)
+    try:
+        _apply_switch(services, name, config)
+        # Marker persists only after the in-process switch succeeded — a
+        # mid-switch failure must never leave the marker pointing at a
+        # workspace this process never actually switched to.
+        await workspaces.set_active(name)
+    except Exception:
+        if config is not None:
+            # ponytail: switch-back keeps config/env symmetric with services on
+            # a mid-switch failure; the marker only ever moves last, so a crash
+            # self-heals on restart.
+            await config.switch(old)
+        raise
+    await emit({"id": rid, "result": {"name": name, "active": True}})
+
+
+async def _workspaces_rename(params: dict, services: dict, rid, emit: Emit) -> None:
+    workspaces: WorkspaceService | None = services.get("workspaces")
+    config: Any = services.get("config")
+    if workspaces is None:
+        raise RuntimeError("workspaces service not available")
+    name = params["name"]
+    new_name = params["new_name"]
+    renaming_active = name == services["active_name"]
+    row = await workspaces.rename(name, new_name)
+    if not renaming_active:
+        await emit({"id": rid, "result": {**row, "active": False}})
+        return
+    # The rename already moved the marker (unlike `use`, where it moves last) — a
+    # failure below leaves the rename durable, which is correct: the rename
+    # itself succeeded. The client sees {id, error} and re-selecting the
+    # workspace retries the switch tail.
+    if config is not None:
+        await config.switch(new_name)
+    _apply_switch(services, new_name, config)
+    await emit({"id": rid, "result": {**row, "active": True}})
+
+
+async def _sessions_list(params: dict, services: dict, rid, emit: Emit) -> None:
+    sessions = services["sessions"]
+    rows = await sessions.list()
+    await emit({"id": rid, "result": [_session_dict(s) for s in rows]})
+
+
+async def _sessions_show(params: dict, services: dict, rid, emit: Emit) -> None:
+    sessions = services["sessions"]
+    sid = params["session_id"]
+    session = await sessions.get(sid)
+    if session is None:
+        await emit({"id": rid, "error": f"no such session: {sid}"})
+        return
+    event_list = await sessions.events(sid)
+    events = [
+        {"type": etype, "payload": payload}
+        for etype, payload in (serialize_event(e) for e in event_list)
+    ]
+    await emit(
+        {"id": rid, "result": {"session": _session_dict(session), "events": events}}
+    )
+
+
+async def _decisions_list(params: dict, services: dict, rid, emit: Emit) -> None:
+    decisions: Any = services.get("decisions")
+    if decisions is None:
+        raise RuntimeError("decisions service not available")
+    rows = await decisions.list()
+    await emit({"id": rid, "result": [_decision_summary(d) for d in rows]})
+
+
+async def _decisions_show(params: dict, services: dict, rid, emit: Emit) -> None:
+    decisions: Any = services.get("decisions")
+    if decisions is None:
+        raise RuntimeError("decisions service not available")
+    did = params["decision_id"]
+    record, outcomes = await decisions.get(did)
+    if record is None:
+        await emit({"id": rid, "error": f"no such decision: {did}"})
+        return
+    await emit({"id": rid, "result": _decision_detail(record, outcomes)})
+
+
+async def _connectors_list(params: dict, services: dict, rid, emit: Emit) -> None:
+    connectors: Any = services.get("connectors")
+    if connectors is None:
+        raise RuntimeError("connectors service not available")
+    result = _connector_plan_dict(await connectors.plan())
+    result["last_synced"] = await connectors.last_synced()
+    await emit({"id": rid, "result": result})
+
+
+async def _connectors_health(params: dict, services: dict, rid, emit: Emit) -> None:
+    connectors: Any = services.get("connectors")
+    if connectors is None:
+        raise RuntimeError("connectors service not available")
+    report = await connectors.health(connector=params.get("connector"))
+    await emit({"id": rid, "result": _health_dict(report)})
+
+
+async def _connectors_sync(params: dict, services: dict, rid, emit: Emit) -> None:
+    connectors: Any = services.get("connectors")
+    if connectors is None:
+        raise RuntimeError("connectors service not available")
+    report = await connectors.sync(connector=params.get("connector"))
+    await emit({"id": rid, "result": _sync_dict(report)})
+
+
+async def _prompts_list(params: dict, services: dict, rid, emit: Emit) -> None:
+    prompts: Any = services.get("prompts")
+    if prompts is None:
+        raise RuntimeError("prompts service not available")
+    summaries = [_prompt_summary(prompts, n) for n in prompts.names()]
+    await emit({"id": rid, "result": summaries})
+
+
+async def _prompts_show(params: dict, services: dict, rid, emit: Emit) -> None:
+    prompts: Any = services.get("prompts")
+    if prompts is None:
+        raise RuntimeError("prompts service not available")
+    name = params["name"]
+    version = params["version"]
+    text = prompts.read(name, version)
+    await emit({"id": rid, "result": {"name": name, "version": version, "text": text}})
+
+
+async def _prompts_diff(params: dict, services: dict, rid, emit: Emit) -> None:
+    prompts: Any = services.get("prompts")
+    if prompts is None:
+        raise RuntimeError("prompts service not available")
+    name = params["name"]
+    old = params["old"]
+    new = params["new"]
+    diff = prompts.diff(name, old, new)
+    await emit(
+        {"id": rid, "result": {"name": name, "old": old, "new": new, "diff": diff}}
+    )
+
+
+async def _prompts_save(params: dict, services: dict, rid, emit: Emit) -> None:
+    prompts: Any = services.get("prompts")
+    if prompts is None:
+        raise RuntimeError("prompts service not available")
+    name = params["name"]
+    prompts.save(name, params["text"])
+    await emit({"id": rid, "result": _prompt_summary(prompts, name)})
+
+
+async def _prompts_rollback(params: dict, services: dict, rid, emit: Emit) -> None:
+    prompts: Any = services.get("prompts")
+    if prompts is None:
+        raise RuntimeError("prompts service not available")
+    name = params["name"]
+    prompts.rollback(name, params["version"])
+    await emit({"id": rid, "result": _prompt_summary(prompts, name)})
+
+
+async def _config_get(params: dict, services: dict, rid, emit: Emit) -> None:
+    config: Any = services.get("config")
+    if config is None:
+        raise RuntimeError("config service not available")
+    await emit({"id": rid, "result": _config_dict(config)})
+
+
+async def _config_set(params: dict, services: dict, rid, emit: Emit) -> None:
+    config: Any = services.get("config")
+    if config is None:
+        raise RuntimeError("config service not available")
+    await config.set(
+        params["model"],
+        provider=params.get("provider"),
+        api_key=params.get("api_key"),
+        settings=params.get("settings"),
+    )
+    await emit({"id": rid, "result": _config_dict(config)})
+
+
+async def _preferences_get(params: dict, services: dict, rid, emit: Emit) -> None:
+    preferences: Any = services.get("preferences")
+    if preferences is None:
+        raise RuntimeError("preferences service not available")
+    prefs = await preferences.all()
+    await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
+
+
+async def _preferences_set(params: dict, services: dict, rid, emit: Emit) -> None:
+    preferences: Any = services.get("preferences")
+    if preferences is None:
+        raise RuntimeError("preferences service not available")
+    prefs = await preferences.set("theme", params["theme"])
+    await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
+
+
+async def _connectors_config_list(
+    params: dict, services: dict, rid, emit: Emit
+) -> None:
+    connectors: Any = services.get("connectors")
+    if connectors is None:
+        raise RuntimeError("connectors service not available")
+    await emit({"id": rid, "result": await connectors.config_list()})
+
+
+async def _connectors_config_save(
+    params: dict, services: dict, rid, emit: Emit
+) -> None:
+    connectors: Any = services.get("connectors")
+    if connectors is None:
+        raise RuntimeError("connectors service not available")
+    entry = await connectors.config_save(
+        params["connector"], params.get("config") or {}, secrets=params.get("secrets")
+    )
+    await emit({"id": rid, "result": entry})
+
+
+async def _reflection_record(params: dict, services: dict, rid, emit: Emit) -> None:
+    reflection: Any = services.get("reflection")
+    if reflection is None:
+        raise RuntimeError("reflection service not available")
+    did = params["decision_id"]
+    note = params.get("note", "")
+    try:
+        outcome = await reflection.reflect_on(did, note)
+    except LookupError:
+        await emit({"id": rid, "error": f"no such decision: {did}"})
+        return
+    await emit({"id": rid, "result": outcome.model_dump(mode="json")})
+
+
+async def _memory_lessons(params: dict, services: dict, rid, emit: Emit) -> None:
+    memory: Any = services.get("memory")
+    if memory is None:
+        raise RuntimeError("memory service not available")
+    rows = await memory.lessons()
+    await emit({"id": rid, "result": [_lesson_dict(x) for x in rows]})
+
+
+async def _run_cancel(params: dict, services: dict, rid, emit: Emit) -> None:
+    workflows: WorkflowService = services["workflows"]
+    ok = workflows.cancel(params.get("session_id", ""))
+    await emit({"id": rid, "result": {"ok": ok}})
+
+
+DISPATCH: dict[str, Callable[[dict, dict, Any, Emit], Awaitable[None]]] = {
+    "workflows.list": _workflows_list,
+    "workflows.show": _workflows_show,
+    "workspaces.list": _workspaces_list,
+    "workspaces.show": _workspaces_show,
+    "workspaces.create": _workspaces_create,
+    "workspaces.use": _workspaces_use,
+    "workspaces.rename": _workspaces_rename,
+    "sessions.list": _sessions_list,
+    "sessions.show": _sessions_show,
+    "decisions.list": _decisions_list,
+    "decisions.show": _decisions_show,
+    "connectors.list": _connectors_list,
+    "connectors.health": _connectors_health,
+    "connectors.sync": _connectors_sync,
+    "prompts.list": _prompts_list,
+    "prompts.show": _prompts_show,
+    "prompts.diff": _prompts_diff,
+    "prompts.save": _prompts_save,
+    "prompts.rollback": _prompts_rollback,
+    "config.get": _config_get,
+    "config.set": _config_set,
+    "preferences.get": _preferences_get,
+    "preferences.set": _preferences_set,
+    "connectors.config.list": _connectors_config_list,
+    "connectors.config.save": _connectors_config_save,
+    "reflection.record": _reflection_record,
+    "memory.lessons": _memory_lessons,
+    "run.cancel": _run_cancel,
+}
+
+
 async def handle(
     request: dict,
     services: dict,
@@ -370,349 +746,31 @@ async def handle(
     """Dispatch one request, emitting one or more response messages.
 
     ``services`` is a mutable dict (see ``build_services``) read at dispatch
-    time — ``workspaces.use`` mutates it in place, so the very next request
-    sees the freshly rebuilt scope.
-
-    Every emitted message echoes ``request['id']``. Every method except ``run``
-    emits a single ``result``; any failure becomes one ``error`` message so the
-    serve loop never dies on a single bad request.
+    time — ``workspaces.use`` mutates it in place, so the very next request sees
+    the freshly rebuilt scope. Every emitted message echoes ``request['id']``.
+    Every method except ``run`` emits a single ``result``; any handler failure
+    becomes one ``error`` message so the serve loop never dies on a bad request.
     """
     rid = request.get("id")
     method = request.get("method")
     params = request.get("params") or {}
-    workflows: WorkflowService = services["workflows"]
-    workspaces: WorkspaceService | None = services.get("workspaces")
-    active_name: str = services["active_name"]
-    sessions = services["sessions"]
-    decisions: Any = services.get("decisions")
-    connectors: Any = services.get("connectors")
-    prompts: Any = services.get("prompts")
-    config: Any = services.get("config")
-    preferences: Any = services.get("preferences")
-    reflection: Any = services.get("reflection")
-    memory: Any = services.get("memory")
     try:
         # ``run`` streams multiple events before its terminal result — kept as an
-        # explicit branch rather than forced into the uniform request/response table.
+        # explicit branch (it needs ``read_line``) rather than in the table.
         if method == "run":
-            await _run(rid, params, workflows=workflows, read_line=read_line, emit=emit)
+            await _run(
+                rid,
+                params,
+                workflows=services["workflows"],
+                read_line=read_line,
+                emit=emit,
+            )
             return
-
-        # Dispatch table: each handler is a closure capturing the outer service vars
-        # and (rid, emit) so it can emit directly. Exceptions bubble to the outer
-        # except so one bad request never kills the loop.
-
-        async def _workflows_list(_p: dict) -> None:
-            wfs = [_workflow_dict(w) for w in workflows.list()]
-            await emit({"id": rid, "result": wfs})
-
-        async def _workflows_show(p: dict) -> None:
-            name = p.get("name", "")
-            w = workflows.get(name)
-            if w is None:
-                await emit({"id": rid, "error": f"no such workflow: {name!r}"})
-                return
-            detail = _workflow_dict(w)
-            detail["topology"] = w.topology() if w.topology is not None else None
-            await emit({"id": rid, "result": detail})
-
-        async def _workspaces_list(_p: dict) -> None:
-            if workspaces is None:
-                raise RuntimeError("workspaces service not available")
-            rows = await workspaces.list()
-            await emit(
-                {
-                    "id": rid,
-                    "result": [{**r, "active": r["name"] == active_name} for r in rows],
-                }
-            )
-
-        async def _workspaces_show(p: dict) -> None:
-            if workspaces is None:
-                raise RuntimeError("workspaces service not available")
-            name = p.get("name") or active_name
-            row = await workspaces.get(name)
-            if row is None:
-                await emit({"id": rid, "error": f"no such workspace: {name}"})
-                return
-            home = workspaces.home()
-            await emit(
-                {
-                    "id": rid,
-                    "result": {
-                        **row,
-                        "active": name == active_name,
-                        "prompts_dir": str(workspaces.prompts_dir(name)),
-                        "root": str(home.root),
-                        "db_url": home.db_url,
-                        "env_file": str(home.env_file),
-                        "log_file": str(home.log_file),
-                        "connectors_file": str(home.connectors_file),
-                    },
-                }
-            )
-
-        async def _workspaces_create(p: dict) -> None:
-            if workspaces is None:
-                raise RuntimeError("workspaces service not available")
-            row = await workspaces.create(p["name"])
-            await emit({"id": rid, "result": {**row, "active": False}})
-
-        async def _workspaces_use(p: dict) -> None:
-            if workspaces is None:
-                raise RuntimeError("workspaces service not available")
-            name = p["name"]
-            if await workspaces.get(name) is None:
-                await emit({"id": rid, "error": f"no such workspace: {name}"})
-                return
-            old = services["active_name"]
-            if config is not None:
-                await config.switch(name)
-            try:
-                rebuild = services.get("rebuild")
-                if rebuild is not None:
-                    fresh = rebuild(name, config=config)
-                    fresh.pop("workspaces", None)  # keep the (possibly faked) instance
-                    services.update(fresh)
-                services["active_name"] = name
-                # Marker persists only after the in-process switch succeeded — a
-                # mid-switch failure must never leave the marker pointing at a
-                # workspace this process never actually switched to.
-                await workspaces.set_active(name)
-            except Exception:
-                if config is not None:
-                    # ponytail: switch-back keeps config/env symmetric with
-                    # services on a mid-switch failure; the marker only ever
-                    # moves last, so a crash self-heals on restart.
-                    await config.switch(old)
-                raise
-            await emit({"id": rid, "result": {"name": name, "active": True}})
-
-        async def _workspaces_rename(p: dict) -> None:
-            if workspaces is None:
-                raise RuntimeError("workspaces service not available")
-            name = p["name"]
-            new_name = p["new_name"]
-            renaming_active = name == services["active_name"]
-            row = await workspaces.rename(name, new_name)
-            if not renaming_active:
-                await emit({"id": rid, "result": {**row, "active": False}})
-                return
-            # The rename already moved the marker (unlike `use`, where it moves
-            # last) — a failure below leaves the rename durable, which is
-            # correct: the rename itself succeeded. The client sees {id, error}
-            # and re-selecting the workspace retries the switch tail.
-            if config is not None:
-                await config.switch(new_name)
-            rebuild = services.get("rebuild")
-            if rebuild is not None:
-                fresh = rebuild(new_name, config=config)
-                fresh.pop("workspaces", None)  # keep the (possibly faked) instance
-                services.update(fresh)
-            services["active_name"] = new_name
-            await emit({"id": rid, "result": {**row, "active": True}})
-
-        async def _sessions_list(_p: dict) -> None:
-            rows = await sessions.list()
-            await emit({"id": rid, "result": [_session_dict(s) for s in rows]})
-
-        async def _sessions_show(p: dict) -> None:
-            sid = p["session_id"]
-            session = await sessions.get(sid)
-            if session is None:
-                await emit({"id": rid, "error": f"no such session: {sid}"})
-                return
-            event_list = await sessions.events(sid)
-            events = [
-                {"type": etype, "payload": payload}
-                for etype, payload in (serialize_event(e) for e in event_list)
-            ]
-            await emit(
-                {
-                    "id": rid,
-                    "result": {"session": _session_dict(session), "events": events},
-                }
-            )
-
-        async def _decisions_list(_p: dict) -> None:
-            if decisions is None:
-                raise RuntimeError("decisions service not available")
-            rows = await decisions.list()
-            await emit({"id": rid, "result": [_decision_summary(d) for d in rows]})
-
-        async def _decisions_show(p: dict) -> None:
-            if decisions is None:
-                raise RuntimeError("decisions service not available")
-            did = p["decision_id"]
-            record, outcomes = await decisions.get(did)
-            if record is None:
-                await emit({"id": rid, "error": f"no such decision: {did}"})
-                return
-            await emit({"id": rid, "result": _decision_detail(record, outcomes)})
-
-        async def _connectors_list(_p: dict) -> None:
-            if connectors is None:
-                raise RuntimeError("connectors service not available")
-            result = _connector_plan_dict(await connectors.plan())
-            result["last_synced"] = await connectors.last_synced()
-            await emit({"id": rid, "result": result})
-
-        async def _connectors_health(p: dict) -> None:
-            if connectors is None:
-                raise RuntimeError("connectors service not available")
-            report = await connectors.health(connector=p.get("connector"))
-            await emit({"id": rid, "result": _health_dict(report)})
-
-        async def _connectors_sync(p: dict) -> None:
-            if connectors is None:
-                raise RuntimeError("connectors service not available")
-            report = await connectors.sync(connector=p.get("connector"))
-            await emit({"id": rid, "result": _sync_dict(report)})
-
-        async def _prompts_list(_p: dict) -> None:
-            if prompts is None:
-                raise RuntimeError("prompts service not available")
-            summaries = [_prompt_summary(prompts, n) for n in prompts.names()]
-            await emit({"id": rid, "result": summaries})
-
-        async def _prompts_show(p: dict) -> None:
-            if prompts is None:
-                raise RuntimeError("prompts service not available")
-            name = p["name"]
-            version = p["version"]
-            text = prompts.read(name, version)
-            await emit(
-                {"id": rid, "result": {"name": name, "version": version, "text": text}}
-            )
-
-        async def _prompts_diff(p: dict) -> None:
-            if prompts is None:
-                raise RuntimeError("prompts service not available")
-            name = p["name"]
-            old = p["old"]
-            new = p["new"]
-            diff = prompts.diff(name, old, new)
-            await emit(
-                {
-                    "id": rid,
-                    "result": {"name": name, "old": old, "new": new, "diff": diff},
-                }
-            )
-
-        async def _prompts_save(p: dict) -> None:
-            if prompts is None:
-                raise RuntimeError("prompts service not available")
-            name = p["name"]
-            prompts.save(name, p["text"])
-            await emit({"id": rid, "result": _prompt_summary(prompts, name)})
-
-        async def _prompts_rollback(p: dict) -> None:
-            if prompts is None:
-                raise RuntimeError("prompts service not available")
-            name = p["name"]
-            prompts.rollback(name, p["version"])
-            await emit({"id": rid, "result": _prompt_summary(prompts, name)})
-
-        async def _config_get(_p: dict) -> None:
-            if config is None:
-                raise RuntimeError("config service not available")
-            await emit({"id": rid, "result": _config_dict(config)})
-
-        async def _reflection_record(p: dict) -> None:
-            if reflection is None:
-                raise RuntimeError("reflection service not available")
-            did = p["decision_id"]
-            note = p.get("note", "")
-            try:
-                outcome = await reflection.reflect_on(did, note)
-            except LookupError:
-                await emit({"id": rid, "error": f"no such decision: {did}"})
-                return
-            await emit({"id": rid, "result": outcome.model_dump(mode="json")})
-
-        async def _config_set(p: dict) -> None:
-            if config is None:
-                raise RuntimeError("config service not available")
-            await config.set(
-                p["model"],
-                provider=p.get("provider"),
-                api_key=p.get("api_key"),
-                settings=p.get("settings"),
-            )
-            await emit({"id": rid, "result": _config_dict(config)})
-
-        async def _preferences_get(_p: dict) -> None:
-            if preferences is None:
-                raise RuntimeError("preferences service not available")
-            prefs = await preferences.all()
-            await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
-
-        async def _preferences_set(p: dict) -> None:
-            if preferences is None:
-                raise RuntimeError("preferences service not available")
-            prefs = await preferences.set("theme", p["theme"])
-            await emit({"id": rid, "result": {"theme": prefs.get("theme")}})
-
-        async def _connectors_config_list(_p: dict) -> None:
-            if connectors is None:
-                raise RuntimeError("connectors service not available")
-            await emit({"id": rid, "result": await connectors.config_list()})
-
-        async def _connectors_config_save(p: dict) -> None:
-            if connectors is None:
-                raise RuntimeError("connectors service not available")
-            entry = await connectors.config_save(
-                p["connector"], p.get("config") or {}, secrets=p.get("secrets")
-            )
-            await emit({"id": rid, "result": entry})
-
-        async def _memory_lessons(_p: dict) -> None:
-            if memory is None:
-                raise RuntimeError("memory service not available")
-            rows = await memory.lessons()
-            await emit({"id": rid, "result": [_lesson_dict(x) for x in rows]})
-
-        async def _run_cancel(p: dict) -> None:
-            ok = workflows.cancel(p.get("session_id", ""))
-            await emit({"id": rid, "result": {"ok": ok}})
-
-        table: dict[str, Callable[[dict], Awaitable[None]]] = {
-            "workflows.list": _workflows_list,
-            "workflows.show": _workflows_show,
-            "workspaces.list": _workspaces_list,
-            "workspaces.show": _workspaces_show,
-            "workspaces.create": _workspaces_create,
-            "workspaces.use": _workspaces_use,
-            "workspaces.rename": _workspaces_rename,
-            "sessions.list": _sessions_list,
-            "sessions.show": _sessions_show,
-            "decisions.list": _decisions_list,
-            "decisions.show": _decisions_show,
-            "connectors.list": _connectors_list,
-            "connectors.health": _connectors_health,
-            "connectors.sync": _connectors_sync,
-            "prompts.list": _prompts_list,
-            "prompts.show": _prompts_show,
-            "prompts.diff": _prompts_diff,
-            "prompts.save": _prompts_save,
-            "prompts.rollback": _prompts_rollback,
-            "config.get": _config_get,
-            "config.set": _config_set,
-            "preferences.get": _preferences_get,
-            "preferences.set": _preferences_set,
-            "connectors.config.list": _connectors_config_list,
-            "connectors.config.save": _connectors_config_save,
-            "reflection.record": _reflection_record,
-            "memory.lessons": _memory_lessons,
-            "run.cancel": _run_cancel,
-        }
-
-        handler = table.get(method)
+        handler = DISPATCH.get(method)
         if handler is None:
             await emit({"id": rid, "error": f"unknown method: {method!r}"})
             return
-        await handler(params)
-
+        await handler(params, services, rid, emit)
     except Exception as exc:  # noqa: BLE001 — one bad request must not kill the loop
         await emit({"id": rid, "error": f"{type(exc).__name__}: {exc}"})
 

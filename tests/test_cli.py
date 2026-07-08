@@ -464,7 +464,11 @@ def test_main_run_unknown_workflow_exits_friendly(monkeypatch):
         def run(self, *a, **k):  # must NOT be reached
             raise AssertionError("run() should not be called for unknown workflow")
 
-    monkeypatch.setattr(cli_module, "_build_run_service", lambda **_kw: _Svc())
+    monkeypatch.setattr(
+        cli_module.WorkflowService,
+        "production",
+        classmethod(lambda cls, **_kw: _Svc()),
+    )
 
     with pytest.raises(SystemExit) as exc:
         cli_module.main(["run", "bogus_workflow", "Some title"])

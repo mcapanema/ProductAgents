@@ -196,8 +196,8 @@ dispatch table. HITL runs are excluded — the approver already owns the control
 ## GUI–CLI parity
 
 The two adapters expose the same Application Layer, and the CLI must be able
-to express every GUI operation. `tests/test_cli_ipc_parity.py` extracts the
-IPC dispatch table from `ipc.handle` and asserts every method has a `PARITY`
+to express every GUI operation. `tests/test_cli_ipc_parity.py` reads the
+`ipc.DISPATCH` table directly and asserts every method has a `PARITY`
 CLI invocation (validated against `cli.build_parser()`) or an `EXEMPT` reason
 (`preferences.*` — GUI theme, presentation-only; `run.cancel` — Ctrl-C).
 Adding an IPC method therefore fails CI until the matching CLI subcommand and
