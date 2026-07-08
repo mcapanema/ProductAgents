@@ -16,6 +16,24 @@ from productagents.connectors.connector_errors import is_transient_status
 
 logger = logging.getLogger("productagents.connectors")
 
+_MAX_RETRY_AFTER = 60.0  # cap an absurd Retry-After so a run can't hang for minutes
+
+
+def _retry_after_seconds(response: httpx.Response) -> float | None:
+    """Parse a ``Retry-After`` header in delta-seconds form → seconds, or None.
+
+    Only the integer-seconds form is honored (what GitHub/Jira send). The rarer
+    HTTP-date form is not parsed here — it falls through to exponential backoff.
+    """
+    value = response.headers.get("Retry-After")
+    if value is None:
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        return None
+    return seconds if seconds >= 0 else None
+
 
 def make_client(
     *,
@@ -55,14 +73,21 @@ async def request_with_retry(
                 raise
         else:
             if is_transient_status(response.status_code) and not last:
+                retry_after = _retry_after_seconds(response)
+                delay = (
+                    min(retry_after, _MAX_RETRY_AFTER)
+                    if retry_after is not None
+                    else base_delay * (2**attempt)
+                )
                 logger.warning(
-                    "http retry method=%s url=%s status=%d attempt=%d",
+                    "http retry method=%s url=%s status=%d attempt=%d delay=%.1f",
                     method,
                     url,
                     response.status_code,
                     attempt,
+                    delay,
                 )
-                await asyncio.sleep(base_delay * (2**attempt))
+                await asyncio.sleep(delay)
                 continue
             response.raise_for_status()
             return response

@@ -7,6 +7,11 @@ import respx
 from productagents.connectors.http import make_client, request_with_retry
 
 
+async def _noop() -> None:
+    """No-op coroutine helper for test patches."""
+    return None
+
+
 def test_make_client_sets_auth_and_headers():
     client = make_client(
         base_url="https://api.example.com",
@@ -83,3 +88,52 @@ async def test_retry_logs_a_warning_per_transient_attempt(caplog):
                     client, "GET", "/x", max_retries=3, base_delay=0
                 )
     assert any("retry" in r.getMessage() for r in caplog.records)
+
+
+@respx.mock
+async def test_retry_after_header_overrides_backoff(monkeypatch):
+    """Test that Retry-After header is honored instead of exponential backoff."""
+    import productagents.connectors.http as http_mod
+
+    delays: list[float] = []
+
+    async def _record(d: float) -> None:  # capture the sleep instead of really sleeping
+        delays.append(d)
+
+    monkeypatch.setattr(http_mod.asyncio, "sleep", _record)
+
+    respx.get("https://api.test/x").mock(
+        side_effect=[
+            httpx.Response(429, headers={"Retry-After": "7"}),
+            httpx.Response(200, json={"ok": True}),
+        ]
+    )
+    async with make_client(base_url="https://api.test") as client:
+        resp = await request_with_retry(client, "GET", "/x", base_delay=0.5)
+
+    assert resp.status_code == 200
+    assert delays == [7.0]  # honored the header, not base_delay*2**0 == 0.5
+
+
+@respx.mock
+async def test_retry_after_is_capped(monkeypatch):
+    """Test that absurdly large Retry-After values are capped."""
+    import productagents.connectors.http as http_mod
+
+    delays: list[float] = []
+
+    async def _record(d: float) -> None:
+        delays.append(d)
+
+    monkeypatch.setattr(http_mod.asyncio, "sleep", _record)
+
+    respx.get("https://api.test/y").mock(
+        side_effect=[
+            httpx.Response(503, headers={"Retry-After": "99999"}),
+            httpx.Response(200, json={}),
+        ]
+    )
+    async with make_client(base_url="https://api.test") as client:
+        await request_with_retry(client, "GET", "/y")
+
+    assert delays == [http_mod._MAX_RETRY_AFTER]
