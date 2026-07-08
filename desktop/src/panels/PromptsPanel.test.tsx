@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PromptsPanel } from "./PromptsPanel";
 import { IpcProvider } from "../app/IpcProvider";
@@ -9,15 +9,17 @@ function fake(overrides: Record<string, unknown> = {}): IpcClient {
     promptsList: async () => [
       { name: "market", versions: [0], active: 0 },
       { name: "strategist", versions: [0], active: 0 },
+      // has an override (active !== 0) so it exercises the diff button + version switching
+      { name: "judge", versions: [0, 1], active: 1 },
     ],
     promptsShow: async (name: string, version: number) => ({
       name,
       version,
-      text: `${name} body $evidence`,
+      text: `${name} body v${version} $evidence`,
     }),
     promptsSave: async (name: string) => ({ name, versions: [0, 1], active: 1 }),
     promptsRollback: async (name: string) => ({ name, versions: [0, 1], active: 1 }),
-    promptsDiff: async () => ({ name: "market", old: 0, new: 1, diff: "" }),
+    promptsDiff: async () => ({ name: "judge", old: 0, new: 1, diff: "- old body\n+ new body" }),
     ...overrides,
   } as unknown as IpcClient;
 }
@@ -78,5 +80,43 @@ describe("PromptsPanel", () => {
     await waitFor(() =>
       expect(screen.getByDisplayValue(/strategist body/)).toBeInTheDocument(),
     );
+  });
+
+  it("hides the Diff vs default button for a prompt with no overrides", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByText("market"));
+    await screen.findByRole("button", { name: /save as new version/i });
+    expect(screen.queryByRole("button", { name: /diff vs default/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the diff against default when Diff vs default is clicked", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByText("judge"));
+    fireEvent.click(await screen.findByRole("button", { name: /diff vs default/i }));
+    expect(await screen.findByText(/- old body/)).toBeInTheDocument();
+  });
+
+  it("switches versions when a version button is clicked", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByText("judge"));
+    expect(await screen.findByDisplayValue(/judge body v1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /v0 . default/i }));
+    expect(await screen.findByDisplayValue(/judge body v0/)).toBeInTheDocument();
+  });
+
+  it("calls promptsSave with the prompt name and edited text", async () => {
+    const promptsSave = vi.fn(async (name: string, _text: string) => ({
+      name,
+      versions: [0, 1],
+      active: 1,
+    }));
+    renderPanel(fake({ promptsSave }));
+    fireEvent.click(await screen.findByText("market"));
+    fireEvent.change(await screen.findByDisplayValue(/market body/), {
+      target: { value: "edited $evidence" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save as new version/i }));
+    await screen.findByText(/saved a new version/i);
+    expect(promptsSave).toHaveBeenCalledWith("market", "edited $evidence");
   });
 });
