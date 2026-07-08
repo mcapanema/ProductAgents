@@ -48,3 +48,24 @@ async def test_null_learning_default_returns_empty():
         {"initiative": Initiative(title="X", description="y")}, ctx
     )
     assert result["prior_lessons"] == []
+
+
+async def test_recall_emits_error_on_failure(monkeypatch):
+    # The degrade path must emit an ERROR chunk (→ NodeErrorEvent), not a plain
+    # status line, so a recall outage is visible in the error UI.
+    import productagents.agents.recall as recall_mod
+    from productagents.agents.stream_events import ERROR, NODE
+
+    emitted: list[dict] = []
+    monkeypatch.setattr(recall_mod, "get_writer", lambda: emitted.append)
+
+    ctx = _ctx(_FakeLearning([], raise_exc=True))
+    result = await recall_node(
+        {"initiative": Initiative(title="X", description="y")}, ctx
+    )
+
+    assert result["prior_lessons"] == []
+    assert any(chunk.get(ERROR) and chunk[NODE] == "recall" for chunk in emitted)
+    assert not any(
+        str(chunk.get("status", "")).startswith("failed:") for chunk in emitted
+    )
