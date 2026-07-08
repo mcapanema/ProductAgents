@@ -23,6 +23,13 @@
     `CanonicalModel`.
   - `__init__.py` — the public re-export surface. **Import from
     `productagents.core.models`, never from the submodules.**
+- `config.py` — `load_env()` (loads `.env` once at startup) + typed env-var
+  getters `env_int()` / `env_float()` (with optional min/max bounds) for
+  `PRODUCTAGENTS_*` vars.
+- `logging_config.py` — `configure_logging()`: installs one rotating
+  file-only handler on the `productagents` logger (idempotent; no
+  stdout/stderr, since the Textual TUI owns the terminal), sized via
+  `PRODUCTAGENTS_LOG_FILE` / `PRODUCTAGENTS_LOG_LEVEL`.
 
 ## Rules that matter
 
