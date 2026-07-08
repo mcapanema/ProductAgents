@@ -262,8 +262,13 @@ async def run_connector_sync(
             return SyncReport(problems=[f"connector '{only}': not configured"])
         raw = {only: raw[only]}
     plan = plan_connectors(raw, registry, env)
+    problems = list(plan.problems)
+    if only is not None and only not in plan.configs:
+        problem = f"connector '{only}': no enabled connector matched"
+        if problem not in problems:
+            problems.append(problem)
     if not plan.configs:
-        return SyncReport(results=[], problems=plan.problems)
+        return SyncReport(results=[], problems=problems)
 
     sink = DbCanonicalSink(sessionmaker, workspace)
     connectors = build_connectors(plan.configs, registry, sink)
@@ -283,7 +288,7 @@ async def run_connector_sync(
         for result in results:
             if result.ok and result.cursor is not None:
                 await store.save(result.connector, result.cursor.value)
-    return SyncReport(results=results, problems=plan.problems)
+    return SyncReport(results=results, problems=problems)
 
 
 async def last_sync_times(*, workspace: str = "default", engine=None) -> dict[str, str]:
@@ -396,8 +401,13 @@ async def check_connector_health(
             return HealthReport(problems=[f"connector '{only}': not configured"])
         raw = {only: raw[only]}
     plan = plan_connectors(raw, registry, env)
+    problems = list(plan.problems)
+    if only is not None and only not in plan.configs:
+        problem = f"connector '{only}': no enabled connector matched"
+        if problem not in problems:
+            problems.append(problem)
     if not plan.configs:
-        return HealthReport(problems=plan.problems)
+        return HealthReport(problems=problems)
 
     connectors = build_connectors(plan.configs, registry, _NullSink())
 
@@ -408,7 +418,7 @@ async def check_connector_health(
         return connector.key, status
 
     pairs = await asyncio.gather(*(_probe(c) for c in connectors))
-    return HealthReport(statuses=dict(pairs), problems=plan.problems)
+    return HealthReport(statuses=dict(pairs), problems=problems)
 
 
 def describe_health(report: HealthReport) -> str:

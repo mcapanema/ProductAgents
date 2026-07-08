@@ -124,3 +124,31 @@ async def test_check_connector_health_no_connectors_is_empty():
     )
     assert report.statuses == {}
     assert describe_health(report) == "No connectors configured"
+
+
+async def test_check_connector_health_only_disabled_connector_reports_problem():
+    from productagents.knowledge.repositories.sqlmodel.engine import (
+        create_all,
+        make_sessionmaker,
+    )
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.memory.workspace_state import ConnectorConfigStore
+    from productagents.platform.connectors import check_connector_health
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await create_all(engine)
+    await memory_create_all(engine)
+    sessionmaker = make_sessionmaker(engine)
+    async with sessionmaker() as session:
+        await ConnectorConfigStore(session).set("ok", {"enabled": False})
+
+    report = await check_connector_health(
+        registry={"ok": _HealthyConnector},
+        env={},
+        engine=engine,
+        only="ok",
+    )
+
+    assert report.statuses == {}
+    assert report.problems == ["connector 'ok': no enabled connector matched"]
+    await engine.dispose()

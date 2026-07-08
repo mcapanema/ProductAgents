@@ -173,3 +173,25 @@ async def test_run_connector_sync_only_unknown_connector_reports_problem():
     assert report.results == []
     assert report.problems == ["connector 'nope': not configured"]
     await engine.dispose()
+
+
+async def test_run_connector_sync_only_disabled_connector_reports_problem():
+    from productagents.platform.connectors import run_connector_sync
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await create_all(engine)
+    await memory_create_all(engine)
+    sessionmaker = make_sessionmaker(engine)
+    async with sessionmaker() as session:
+        await ConnectorConfigStore(session).set("rec", {"enabled": False})
+
+    report = await run_connector_sync(
+        registry={"rec": _RecordingConnector},
+        engine=engine,
+        env={},
+        only="rec",
+    )
+
+    assert report.results == []
+    assert report.problems == ["connector 'rec': no enabled connector matched"]
+    await engine.dispose()
