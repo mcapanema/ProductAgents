@@ -33,6 +33,11 @@ class CanonicalQueryService[T: CanonicalModel]:
     async def search(self, query: Query[T]) -> Page[T]:
         rows = await self._repo.list(limit=_SCAN_LIMIT, offset=0)
         if len(rows) == _SCAN_LIMIT:
-            logger.warning("scan limit of %d reached", _SCAN_LIMIT)
+            logger.warning(
+                "canonical search hit the %d-row scan limit; results may be "
+                "truncated — push a `find` predicate into the repository for "
+                "this type (see the module ponytail note)",
+                _SCAN_LIMIT,
+            )
         matched = [row for row in rows if query.matches(row)]
         return Page.paginate(matched, limit=query.limit, offset=query.offset)

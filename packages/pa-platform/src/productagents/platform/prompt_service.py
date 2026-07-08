@@ -25,11 +25,10 @@ class PromptService:
 
         prompts_dir = os.environ.get("PRODUCTAGENTS_PROMPTS_DIR")
         if prompts_dir:
-            root = Path(prompts_dir)
+            root = Path(prompts_dir) / workspace
         else:
-            # Delegate to WorkspaceService to get the home directory
-            root = WorkspaceService().home().prompts_root
-        return cls(PromptStore(prompts_dir=root / workspace))
+            root = WorkspaceService().prompts_dir(workspace)
+        return cls(PromptStore(prompts_dir=root))
 
     def names(self) -> list[str]:
         return self._store.names()

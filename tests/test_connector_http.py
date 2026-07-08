@@ -7,11 +7,6 @@ import respx
 from productagents.connectors.http import make_client, request_with_retry
 
 
-async def _noop() -> None:
-    """No-op coroutine helper for test patches."""
-    return None
-
-
 def test_make_client_sets_auth_and_headers():
     client = make_client(
         base_url="https://api.example.com",
