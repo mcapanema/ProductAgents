@@ -49,6 +49,38 @@ PARITY = {
     "memory.lessons": ["memory", "lessons"],
 }
 
+# Each PARITY method's argv must resolve to this CLI handler
+# (parse_args(argv).func.__name__). connectors.config.{list,save} share the
+# p_co_cfg subparser, so both resolve to the one connectors_config dispatcher.
+HANDLERS = {
+    "run": "run_workflow",
+    "workflows.list": "workflows_list",
+    "workflows.show": "workflows_show",
+    "workspaces.list": "workspace_list",
+    "workspaces.show": "workspace_show",
+    "workspaces.create": "workspace_create",
+    "workspaces.use": "workspace_use",
+    "workspaces.rename": "workspace_rename",
+    "sessions.list": "sessions_list",
+    "sessions.show": "sessions_show",
+    "decisions.list": "decisions_list",
+    "decisions.show": "decisions_show",
+    "connectors.list": "connectors_list",
+    "connectors.health": "connectors_health",
+    "connectors.sync": "sync_command",
+    "connectors.config.list": "connectors_config",
+    "connectors.config.save": "connectors_config",
+    "prompts.list": "prompts_list",
+    "prompts.show": "prompts_show",
+    "prompts.diff": "prompts_diff",
+    "prompts.save": "prompts_save",
+    "prompts.rollback": "prompts_rollback",
+    "config.get": "config_show",
+    "config.set": "config_set_cmd",
+    "reflection.record": "reflect_record",
+    "memory.lessons": "memory_lessons",
+}
+
 # GUI-only surface, deliberately not mirrored in the CLI — each needs a reason.
 EXEMPT = {
     "run.cancel": "Ctrl-C interrupts a streaming CLI run",
@@ -84,12 +116,31 @@ def test_no_method_is_both_mapped_and_exempt():
     assert not set(PARITY) & set(EXEMPT)
 
 
-def test_every_parity_argv_parses():
+def test_every_parity_argv_routes_to_its_handler():
     parser = cli.build_parser()
+    assert set(HANDLERS) == set(PARITY), (
+        "HANDLERS must stay 1:1 with PARITY: "
+        f"missing {sorted(set(PARITY) - set(HANDLERS))}, "
+        f"stale {sorted(set(HANDLERS) - set(PARITY))}"
+    )
+    main_src = inspect.getsource(cli.main)
     for method, argv in PARITY.items():
         try:
-            parser.parse_args(argv)
+            ns = parser.parse_args(argv)
         except SystemExit as exc:  # argparse exits on unknown args
             raise AssertionError(
                 f"CLI lost the command for ipc method {method!r}: {argv}"
             ) from exc
+        func = getattr(ns, "func", None)
+        assert func is not None, (
+            f"ipc method {method!r} argv {argv} parsed to a subparser with no "
+            f"handler (missing set_defaults(func=...) in build_parser)"
+        )
+        assert func.__name__ == HANDLERS[method], (
+            f"ipc method {method!r} argv {argv} routes to {func.__name__!r}, "
+            f"expected {HANDLERS[method]!r}"
+        )
+        assert HANDLERS[method] in main_src, (
+            f"handler {HANDLERS[method]!r} for {method!r} is not dispatched in "
+            f"main() — the func marker has drifted from real dispatch"
+        )
