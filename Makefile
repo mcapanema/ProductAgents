@@ -73,6 +73,10 @@ lint: ## Lint + format-check (ruff), import-layer contracts, bandit — mirrors 
 	uv run lint-imports
 	uv run bandit -c pyproject.toml -r packages -q
 
+.PHONY: lint-web
+lint-web: ## ESLint the desktop frontend (mirrors CI's desktop-web lint step)
+	cd $(DESKTOP) && npm run lint
+
 .PHONY: typecheck
 typecheck: ## Type-check Python (ty)
 	uv run ty check
@@ -94,7 +98,7 @@ package: build-sidecar ## Build the installable desktop app (bundles the sidecar
 	cd desktop && npm run tauri build
 
 .PHONY: check
-check: lint typecheck test-py test-web build-web contrast ## Full gate: lint + types + unit tests + frontend build + contrast
+check: lint lint-web typecheck test-py test-web build-web contrast ## Full gate: lint (py+web) + types + unit tests + frontend build + contrast
 
 # ---- clean --------------------------------------------------------------
 
