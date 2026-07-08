@@ -195,3 +195,51 @@ async def test_run_connector_sync_only_disabled_connector_reports_problem():
     assert report.results == []
     assert report.problems == ["connector 'rec': no enabled connector matched"]
     await engine.dispose()
+
+
+class _SecretRequiredConnector(Connector):
+    """A connector that requires a secret token."""
+
+    key: ClassVar[str] = "secret_req"
+    produces = frozenset({CustomerFeedback})
+
+    class Config(ConnectorConfig):
+        token: str
+
+    config_cls = Config
+
+    async def health_check(self) -> HealthStatus:
+        return HealthStatus(ok=True)
+
+    async def sync(self, cursor: SyncCursor | None) -> SyncResult:
+        return SyncResult(connector=self.key)
+
+
+async def test_run_connector_sync_missing_secret_no_spurious_problem():
+    """Regression: enabled connector with missing secret reports only that problem."""
+    from productagents.platform.connectors import run_connector_sync
+
+    engine = make_engine("sqlite+aiosqlite://")
+    await create_all(engine)
+    await memory_create_all(engine)
+    sessionmaker = make_sessionmaker(engine)
+    async with sessionmaker() as session:
+        # Connector is enabled but config requires token_env which is not set
+        await ConnectorConfigStore(session).set(
+            "secret_req", {"enabled": True, "token_env": "MISSING_TOKEN_VAR"}
+        )
+
+    report = await run_connector_sync(
+        registry={"secret_req": _SecretRequiredConnector},
+        engine=engine,
+        env={},  # Empty env, so MISSING_TOKEN_VAR is not set
+        only="secret_req",
+    )
+
+    assert report.results == []
+    # Should contain only ONE problem about the missing secret, not also the
+    # generic "no enabled connector matched"
+    assert len(report.problems) == 1
+    assert "MISSING_TOKEN_VAR" in report.problems[0]
+    assert "no enabled connector matched" not in report.problems[0]
+    await engine.dispose()

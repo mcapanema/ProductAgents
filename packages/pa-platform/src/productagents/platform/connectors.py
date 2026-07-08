@@ -265,7 +265,7 @@ async def run_connector_sync(
     problems = list(plan.problems)
     if only is not None and only not in plan.configs:
         problem = f"connector '{only}': no enabled connector matched"
-        if problem not in problems:
+        if not any(f"'{only}'" in p for p in problems):
             problems.append(problem)
     if not plan.configs:
         return SyncReport(results=[], problems=problems)
@@ -404,7 +404,7 @@ async def check_connector_health(
     problems = list(plan.problems)
     if only is not None and only not in plan.configs:
         problem = f"connector '{only}': no enabled connector matched"
-        if problem not in problems:
+        if not any(f"'{only}'" in p for p in problems):
             problems.append(problem)
     if not plan.configs:
         return HealthReport(problems=problems)
