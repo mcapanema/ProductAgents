@@ -72,7 +72,7 @@ React panels ── IpcClient ── transport ──┬─ Tauri shell (src-tau
   `DecisionsPanel.tsx`, `ConnectorsPanel.tsx` (master–detail connectors home —
   a Settings-style secondary nav grouping connectors into Enabled/Available
   via `connectorView.ts::splitEntries`, brand icons (`connectorIcons.tsx`),
-  Phase 4A status badges driven by `connectors.health`, per-connector Check
+  status badges driven by `connectors.health`, per-connector Check
   health / Sync now (scoped to the selected connector via the optional
   `connector` param on `connectors.health`/`connectors.sync`; responses are
   overlaid onto panel state with `connectorView.ts::mergeHealth`/`mergeSync`
@@ -175,7 +175,7 @@ make package           # build the installable desktop app (sidecar + Tauri bund
 # Releases: push a v* tag (e.g. git tag v0.1.1 && git push origin v0.1.1) — see docs/RELEASE.md
 ```
 
-**Packaging & distribution (Phase 9).** The shipped app bundles the Python
+**Packaging & distribution.** The shipped app bundles the Python
 backend as a frozen PyInstaller binary (`desktop/packaging/productagents-ipc.spec`,
 built via `make build-sidecar` → `desktop/src-tauri/binaries/productagents-ipc-<triple>[.exe]`)
 wired as a Tauri `externalBin`. No Python or uv is needed on the target machine.

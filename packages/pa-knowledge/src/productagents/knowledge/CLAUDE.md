@@ -1,7 +1,7 @@
-# productagents.knowledge — storage & (later) services
+# productagents.knowledge — storage & services
 
-Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services**
-(the platform API) on top.
+This package has two layers: the **storage spine** and, built on top of it,
+the **knowledge services** (the platform API).
 
 ## What's here
 
@@ -31,7 +31,7 @@ Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services*
 - `alembic/` — migrations (source of truth for the schema). `env.py` is async and
   reads the URL from `database_url()`.
 
-### Services (Phase 3)
+### Services
 
 - `services/_page.py` — `Page[T]`: typed pagination result (`items`/`total`/
   `limit`/`offset` + `has_more`).
@@ -47,8 +47,8 @@ Phase 2 implements the **storage spine**; Phase 3 adds the **knowledge services*
   until a consumer is concrete (YAGNI); they are the same two-class shape.
 - `container.py` — `KnowledgeServices` bundle + `build_services(session,
   workspace="default")`. This is the DI assembly (every repository it builds
-  is scoped to `workspace`); Phase 5 wraps it + the chat model into
-  `AgentContext`.
+  is scoped to `workspace`); `pa-platform`'s `context.py` (`open_agent_context()`)
+  wraps it + the chat model into `AgentContext`.
 
 **Service rules:** services depend on the `Repository[T]` *protocol*, never on a
 concrete repo, a session, or `CanonicalRecord` (only `container.py` constructs

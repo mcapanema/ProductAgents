@@ -23,13 +23,20 @@
     `CanonicalModel`.
   - `__init__.py` — the public re-export surface. **Import from
     `productagents.core.models`, never from the submodules.**
+- `config.py` — `load_env()` (loads `.env` once at startup) + typed env-var
+  getters `env_int()` / `env_float()` (with optional min/max bounds) for
+  `PRODUCTAGENTS_*` vars.
+- `logging_config.py` — `configure_logging()`: installs one rotating
+  file-only handler on the `productagents` logger (idempotent; no
+  stdout/stderr, since the Textual TUI owns the terminal), sized via
+  `PRODUCTAGENTS_LOG_FILE` / `PRODUCTAGENTS_LOG_LEVEL`.
 
 ## Rules that matter
 
 - **Synced models subclass `CanonicalModel`; decision/LLM-output models don't.**
   Provenance belongs to things connectors ingest, not to things agents emit.
 - **Agents reason over domain fields only** — never `source`, `extensions`, or the
-  sync metadata. Mappers (Phase 4) must keep vendor terms out of domain fields;
+  sync metadata. Mappers must keep vendor terms out of domain fields;
   `tests/canonical_harness.py` enforces this.
 - **All `CanonicalModel` fields are defaulted**, so `Initiative(title=...,
   description=...)` works for manual creation and gets `SourceRef.manual()`.

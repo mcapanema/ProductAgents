@@ -67,5 +67,7 @@ webview. No product logic lives here.
   (PyInstaller onefile) and wired via `bundle.externalBin` in `tauri.conf.json`.
   `tauri.conf.json` `version` must equal `pyproject.toml` `[project] version`
   (enforced by `tests/test_packaging.py`).
-- **Host-platform build only** for now; Windows `.exe` / Linux / x86_64 and a CI
-  build matrix are deferred.
+- **Not host-platform-only.** `.github/workflows/release.yml` runs a native
+  build matrix (macOS arm64 + Intel, Ubuntu, Windows) on a `v*` tag; see
+  `desktop/CLAUDE.md`'s Packaging & distribution section for the full release
+  flow.

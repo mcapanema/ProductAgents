@@ -111,7 +111,7 @@ Framework-first and organization-agnostic by default · configurable agent ecosy
 - **Models:** provider-agnostic (OpenAI, Anthropic, Google Gemini, OpenRouter, local models)
 - **Structured outputs:** strongly typed Pydantic schemas for critical decisions
 - **Persistence:** SQLite → Postgres via SQLAlchemy/SQLModel with Alembic migrations; a canonical record store is the system of record (JSONL is export/audit only)
-- **Connectors:** httpx-based sync from external systems (GitHub, Jira) into the canonical store
+- **Connectors:** sync from external systems (GitHub, Jira, Obsidian) into the canonical store
 - **Organizational memory:** DB-backed decision/outcome store with hybrid (lexical + semantic) lesson retrieval
 - **Observability:** structured span-style logs for decision runs and connector syncs
 - **Desktop app:** Tauri 2 + React (Ant Design), talking JSON-over-stdio to a PyInstaller-frozen Python sidecar
@@ -211,7 +211,9 @@ secrets and stay in the `.env`, never the database.
 
 ProductAgents syncs external systems into its local canonical store *before* a
 decision runs (no network calls happen during agent execution). Today's
-connectors: **GitHub** (issues → customer feedback) and **Jira**.
+connectors: **GitHub** (issues → customer feedback), **Jira**, and **Obsidian**
+(local vault notes → customer feedback; also usable as an evidence source, see
+below).
 
 Connector configuration lives in the workspace database and is edited from the
 desktop app's **Connectors** panel — enable a connector, fill in its fields, and
@@ -238,6 +240,9 @@ connectors:
     email: you@your-org.com
     token_env: JIRA_API_TOKEN  # Jira API token read from $JIRA_API_TOKEN
     project: PROJ              # optional: limit to one project key
+  obsidian:
+    enabled: true
+    vault: ~/Documents/MyVault
 ```
 
 Each connector's config is validated against its typed schema; a missing
@@ -258,7 +263,7 @@ uv run productagents run evaluate_initiative "Add enterprise SSO"
 
 The CLI streams events to stdout as the pipeline runs; the desktop GUI shows live panels. Each run appends a record to the organizational-memory DB.
 
-**Evidence is pluggable.** Use `--evidence <name-or-path>` with the CLI, or the evidence picker in the desktop Run panel. Each piece of evidence records its provenance, shown in the desktop app and saved on the decision record. The default is the bundled `sample` scenario.
+**Evidence is pluggable.** Use `--evidence <name-or-path>` with the CLI, or the evidence picker in the desktop Run panel. Connectors can register their own evidence spec too — e.g. `--evidence obsidian:<vault-path>` routes `#customer-feedback`/`#product-analytics`/`#market`/`#business`/`#technical` tagged vault notes into the five per-run evidence fields. Each piece of evidence records its provenance, shown in the desktop app and saved on the decision record. The default is the bundled `sample` scenario.
 
 **Outcome learning.** After a decision, record what actually happened with `productagents reflect` (lists past decisions; `productagents reflect DECISION_ID "note"` runs the reflection agent) or via the desktop **Reflection** panel (`reflection.record` IPC method). An Outcome Reflection Analyst compares predicted outcomes against reality and saves a prediction-accuracy score plus lessons to the DB (`DecisionStore`). Those reflections are automatically retrieved by hybrid (lexical + semantic) similarity and injected into the strategist's prompt on future decisions, closing the organizational-memory loop.
 
