@@ -6,6 +6,8 @@ records and on the platform id for manual records. A matched vendor record keeps
 its original platform id across re-syncs (the id is platform-owned and stable).
 """
 
+from datetime import UTC, datetime
+
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -79,7 +81,9 @@ class CanonicalRepository[T: CanonicalModel]:
         existing.payload = {
             **incoming.payload,
             "id": stable_id,
-            "ingested_at": existing.payload["ingested_at"],  # first-seen time is stable
+            "ingested_at": existing.payload.get(
+                "ingested_at", datetime.now(UTC).isoformat()
+            ),  # first-seen time is stable, fallback for legacy rows
         }
         self._session.add(existing)
         return from_row(existing, self._model_type)

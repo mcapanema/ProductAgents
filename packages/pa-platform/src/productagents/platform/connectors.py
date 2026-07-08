@@ -13,6 +13,7 @@ import asyncio
 import logging
 import os
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
 
 import yaml
@@ -110,7 +111,9 @@ async def load_db_config(
             await store.set(
                 key, _sanitize_legacy_block(key, dict(block or {}), resolved_env_path)
             )
-        os.replace(path, path + ".imported")
+        # Suppress FileNotFoundError in case a racing process already moved the file
+        with suppress(FileNotFoundError):
+            os.replace(path, path + ".imported")
         return await store.all()
 
 
