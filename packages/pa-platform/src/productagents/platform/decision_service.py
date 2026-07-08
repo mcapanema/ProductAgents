@@ -204,22 +204,20 @@ class DecisionService:
             session.status = "awaiting_approval"
             advisory_verdict = advisory.verdict if advisory else "approve"
             advisory_rationale = advisory.rationale if advisory else ""
-            emit(
-                lambda s: ev.ApprovalRequested(
+            request_box: list[ev.ApprovalRequested] = []
+
+            def _make(s: int) -> ev.ApprovalRequested:
+                request = ev.ApprovalRequested(
                     session_id=session.id,
                     seq=s,
                     advisory_verdict=advisory_verdict,
                     advisory_rationale=advisory_rationale,
                 )
-            )
-            decision = await approver(
-                ev.ApprovalRequested(
-                    session_id=session.id,
-                    seq=-1,
-                    advisory_verdict=advisory_verdict,
-                    advisory_rationale=advisory_rationale,
-                )
-            )
+                request_box.append(request)  # the published instance, real seq
+                return request
+
+            emit(_make)
+            decision = await approver(request_box[0])
             session.status = "running"
             return decision
 
