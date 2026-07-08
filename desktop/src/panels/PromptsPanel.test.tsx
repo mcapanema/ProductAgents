@@ -105,7 +105,7 @@ describe("PromptsPanel", () => {
   });
 
   it("calls promptsSave with the prompt name and edited text", async () => {
-    const promptsSave = vi.fn(async (name: string, _text: string) => ({
+    const promptsSave = vi.fn(async (name: string) => ({
       name,
       versions: [0, 1],
       active: 1,
