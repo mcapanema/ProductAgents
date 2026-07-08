@@ -1,3 +1,5 @@
+import logging
+
 from productagents.agents.context import AgentContext
 from productagents.agents.governance import _format_portfolio, governance_node
 from productagents.agents.governance import _prompt as governance_prompt
@@ -166,6 +168,35 @@ async def test_governance_degrades_portfolio_when_learning_raises():
     # Node must not crash and portfolio falls back to empty (no prior decisions).
     assert result["governance"].failed is False
     assert result["governance"].verdict == "reject"
+
+
+async def test_governance_logs_and_emits_when_portfolio_fetch_fails(
+    monkeypatch, caplog
+):
+    import productagents.agents.governance as gov_mod
+    from productagents.agents.stream_events import NODE, STATUS
+
+    emitted: list[dict] = []
+    monkeypatch.setattr(gov_mod, "get_writer", lambda: emitted.append)
+
+    model = FakeChatModel(
+        {GovernanceFinding: GovernanceFinding(verdict="reject", rationale="too risky")}
+    )
+    ctx = _ctx(model, raise_on_decisions=True)
+
+    with caplog.at_level(logging.WARNING):
+        result = await governance_node(_state(), model, ctx)
+
+    # Node still produces a verdict (portfolio fetch failing is a soft degrade).
+    assert result["governance"].failed is False
+    assert result["governance"].verdict == "reject"
+    # It is now observable: logged with a trace + a status line for the UI.
+    assert "portfolio" in caplog.text.lower()
+    assert any(
+        chunk.get(NODE) == "governance"
+        and "portfolio unavailable" in str(chunk.get(STATUS, ""))
+        for chunk in emitted
+    )
 
 
 async def test_null_learning_yields_no_prior_decisions():

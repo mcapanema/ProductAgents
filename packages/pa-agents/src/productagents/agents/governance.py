@@ -11,6 +11,8 @@ graph state. Prior decisions arrive via state (read at the UI boundary); the
 node never touches the filesystem.
 """
 
+import logging
+
 from productagents.agents._format import format_initiative, format_recommendation
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
@@ -29,6 +31,8 @@ from productagents.core.models import (
     Recommendation,
     RiskAssessment,
 )
+
+logger = logging.getLogger(__name__)
 
 NODE_ID = "governance"
 ROLE = "Product Portfolio Manager"
@@ -80,6 +84,11 @@ async def governance_node(state: dict, model, ctx) -> dict:
     try:
         portfolio = await ctx.learning.decisions()
     except Exception:  # noqa: BLE001 - degrade, never crash
+        logger.warning(
+            "governance: portfolio fetch failed; continuing without it",
+            exc_info=True,
+        )
+        writer(emit_status(NODE_ID, "portfolio unavailable; continuing without it"))
         portfolio = []
     try:
         finding = await invoke_structured(
