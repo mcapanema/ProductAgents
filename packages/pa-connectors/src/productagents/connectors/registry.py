@@ -1,3 +1,11 @@
+"""Connector discovery via Python entry points.
+
+Connectors register under the ``productagents.connectors`` group, so a
+third-party ``pip install productagents-connector-foo`` adds one with zero
+platform changes. Entry points are metadata-only: enumerating them does not
+import a connector's httpx/SDK deps until it is actually loaded.
+"""
+
 import logging
 from importlib.metadata import entry_points
 
