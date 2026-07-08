@@ -47,8 +47,8 @@ the **knowledge services** (the platform API).
   until a consumer is concrete (YAGNI); they are the same two-class shape.
 - `container.py` — `KnowledgeServices` bundle + `build_services(session,
   workspace="default")`. This is the DI assembly (every repository it builds
-  is scoped to `workspace`); `pa-agents`' `context.py` wraps it + the chat
-  model into `AgentContext`.
+  is scoped to `workspace`); `pa-platform`'s `context.py` (`open_agent_context()`)
+  wraps it + the chat model into `AgentContext`.
 
 **Service rules:** services depend on the `Repository[T]` *protocol*, never on a
 concrete repo, a session, or `CanonicalRecord` (only `container.py` constructs
