@@ -227,5 +227,14 @@ async def test_apply_update_legacy_row_without_ingested_at():
         async with sessionmaker() as session:
             repo = CanonicalRepository(session, CustomerFeedback)
             updated = await repo.upsert(second)
-    assert updated.id == created.id
-    assert updated.body == "v2"
+            second_ingested_at = second.ingested_at
+        # Verify the fallback used incoming.ingested_at, not a fresh timestamp
+        assert updated.id == created.id
+        assert updated.body == "v2"
+        assert updated.ingested_at == second_ingested_at
+        # Third upsert confirms the value is stable, not re-generated
+        third = CustomerFeedback(body="v3", source=src)
+        async with sessionmaker() as session:
+            repo = CanonicalRepository(session, CustomerFeedback)
+            updated_again = await repo.upsert(third)
+    assert updated_again.ingested_at == second_ingested_at
