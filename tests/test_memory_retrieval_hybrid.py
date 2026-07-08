@@ -33,6 +33,18 @@ def test_semantic_matches_picks_top_k_above_threshold():
     assert semantic_matches(query, embeddings, k=2, threshold=0.1) == {"a", "c"}
 
 
+def test_semantic_matches_default_threshold_excludes_weak_similarity():
+    import productagents.memory.retrieval as retrieval
+
+    assert retrieval._SEMANTIC_THRESHOLD == 0.35  # documents the chosen bar
+    query = [1.0, 0.0]
+    # cosine(query, weak) == 0.196..., between the old 0.1 and the new default.
+    weak = [0.2, 0.98]
+    strong = [0.95, 0.31]  # cosine == 0.95
+    out = retrieval.semantic_matches(query, {"weak": weak, "strong": strong})
+    assert out == {"strong"}  # weak match dropped at the default threshold
+
+
 def test_also_relevant_surfaces_zero_lexical_overlap_decision():
     # Initiative shares NO tokens with the past decision, so lexical alone finds
     # nothing; passing its id in also_relevant must surface it as derived.
