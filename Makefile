@@ -24,8 +24,9 @@ doctor: ## Check required tools (uv, node, cargo) are installed
 # ---- setup --------------------------------------------------------------
 
 .PHONY: setup
-setup: ## Full setup: Python deps + frontend deps + Playwright browser
+setup: ## Full setup: Python deps + frontend deps + Playwright browser + git hooks
 	uv sync
+	uv run pre-commit install
 	cd $(DESKTOP) && npm install
 	cd $(DESKTOP) && npx playwright install chromium
 	@echo "Setup complete. 'make gui' also needs a Rust toolchain (run 'make doctor')."
@@ -57,6 +58,10 @@ test: test-py test-web ## Run all unit tests (Python + frontend)
 test-py: ## Run the Python test suite (pytest + coverage)
 	uv run pytest
 
+.PHONY: coverage-floor
+coverage-floor: ## Fail if any single package is below the per-package coverage floor
+	python3 scripts/coverage_floor.py
+
 .PHONY: test-web
 test-web: ## Run the frontend unit tests (Vitest)
 	cd $(DESKTOP) && npm test
@@ -72,6 +77,10 @@ lint: ## Lint + format-check (ruff), import-layer contracts, bandit — mirrors 
 	uv run lint-imports
 	uv run bandit -c pyproject.toml -r packages -q
 
+.PHONY: lint-web
+lint-web: ## ESLint the desktop frontend (mirrors CI's desktop-web lint step)
+	cd $(DESKTOP) && npm run lint
+
 .PHONY: typecheck
 typecheck: ## Type-check Python (ty)
 	uv run ty check
@@ -79,6 +88,12 @@ typecheck: ## Type-check Python (ty)
 .PHONY: contrast
 contrast: ## Verify WCAG contrast of the design tokens (design/contrast.py; exits 1 on failures)
 	python3 design/contrast.py
+
+.PHONY: audit
+audit: ## Dependency vulnerability audits (pip-audit + npm). CI also runs gitleaks + cargo-audit.
+	uv export --frozen --no-dev --no-emit-project --no-hashes -o "$${TMPDIR:-/tmp}/pa-requirements-prod.txt"
+	uvx pip-audit@2.10.1 --no-deps -r "$${TMPDIR:-/tmp}/pa-requirements-prod.txt"
+	cd $(DESKTOP) && npm audit --omit=dev --audit-level=high
 
 .PHONY: build-web
 build-web: ## Type-check + production-build the frontend
@@ -93,13 +108,13 @@ package: build-sidecar ## Build the installable desktop app (bundles the sidecar
 	cd desktop && npm run tauri build
 
 .PHONY: check
-check: lint typecheck test-py test-web build-web contrast ## Full gate: lint + types + unit tests + frontend build + contrast
+check: lint lint-web typecheck test-py coverage-floor test-web build-web contrast ## Full gate: lint (py+web) + types + unit tests + per-package coverage floor + frontend build + contrast
 
 # ---- clean --------------------------------------------------------------
 
 .PHONY: clean
 clean: ## Remove build & test artifacts (keeps installed deps)
-	rm -rf htmlcov .coverage .pytest_cache .ruff_cache .ty_cache
+	rm -rf htmlcov .coverage coverage.json .pytest_cache .ruff_cache .ty_cache
 	find . -type d -name __pycache__ -not -path './.venv/*' -not -path '*/node_modules/*' -exec rm -rf {} + 2>/dev/null || true
 	rm -rf $(DESKTOP)/dist $(DESKTOP)/playwright-report $(DESKTOP)/test-results $(DESKTOP)/src-tauri/gen/schemas
 	@echo "Cleaned build & test artifacts."

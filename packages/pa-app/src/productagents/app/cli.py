@@ -181,6 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sync.add_argument(
         "--connector", default=None, help="scope the sync to one connector"
     )
+    p_sync.set_defaults(func=sync_command)
     sub.add_parser("ipc", help="serve the JSON-over-stdio IPC protocol (for the GUI)")
     p_swb = sub.add_parser(
         "serve-ws",
@@ -199,20 +200,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="pause at governance for interactive human approval",
     )
+    p_run.set_defaults(func=run_workflow)
 
     p_wf = sub.add_parser("workflows", help="list registered workflows")
     wf_sub = p_wf.add_subparsers(dest="wf_command")
-    wf_sub.add_parser("list", help="list workflows")
+    wf_sub.add_parser("list", help="list workflows").set_defaults(func=workflows_list)
     p_wf_show = wf_sub.add_parser("show", help="show one workflow + its topology")
     p_wf_show.add_argument("name")
+    p_wf_show.set_defaults(func=workflows_show)
 
     p_co = sub.add_parser("connectors", help="list, probe, or configure connectors")
     co_sub = p_co.add_subparsers(dest="co_command")
-    co_sub.add_parser("list", help="configured connectors + last-synced times")
+    co_sub.add_parser(
+        "list", help="configured connectors + last-synced times"
+    ).set_defaults(func=connectors_list)
     p_co_health = co_sub.add_parser(
         "health", help="readiness probe (exit 1 on failure)"
     )
     p_co_health.add_argument("name", nargs="?", default=None, help="one connector key")
+    p_co_health.set_defaults(func=connectors_health)
     p_co_cfg = co_sub.add_parser(
         "config",
         help="show config blocks, or merge fields into one: config NAME KEY=VALUE...",
@@ -226,68 +232,89 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="VAR=VALUE",
         help="secret env var referenced by a *_env field (written to .env, repeatable)",
     )
+    p_co_cfg.set_defaults(func=connectors_config)
 
     p_ws = sub.add_parser("workspace", help="list or show workspaces")
     ws_sub = p_ws.add_subparsers(dest="ws_command")
-    ws_sub.add_parser("list", help="list workspaces")
+    ws_sub.add_parser("list", help="list workspaces").set_defaults(func=workspace_list)
     p_ws_create = ws_sub.add_parser("create", help="create a new workspace")
     p_ws_create.add_argument("name")
+    p_ws_create.set_defaults(func=workspace_create)
     p_ws_use = ws_sub.add_parser("use", help="set the active workspace")
     p_ws_use.add_argument("name")
+    p_ws_use.set_defaults(func=workspace_use)
     p_ws_rename = ws_sub.add_parser(
         "rename", help="rename a workspace (moves all of its data)"
     )
     p_ws_rename.add_argument("old")
     p_ws_rename.add_argument("new")
+    p_ws_rename.set_defaults(func=workspace_rename)
     p_ws_show = ws_sub.add_parser("show", help="show a workspace's paths")
     p_ws_show.add_argument("name", nargs="?", default=None, help="defaults to active")
+    p_ws_show.set_defaults(func=workspace_show)
 
     p_se = sub.add_parser("sessions", help="list or replay runtime sessions")
     se_sub = p_se.add_subparsers(dest="se_command")
-    se_sub.add_parser("list", help="list persisted sessions")
+    se_sub.add_parser("list", help="list persisted sessions").set_defaults(
+        func=sessions_list
+    )
     p_se_show = se_sub.add_parser("show", help="replay a session's events")
     p_se_show.add_argument("session_id", help="session id to replay")
+    p_se_show.set_defaults(func=sessions_show)
 
     p_pr = sub.add_parser("prompts", help="browse, diff, edit, and roll back prompts")
     pr_sub = p_pr.add_subparsers(dest="pr_command")
-    pr_sub.add_parser("list", help="list prompt names")
+    pr_sub.add_parser("list", help="list prompt names").set_defaults(func=prompts_list)
     p_pr_show = pr_sub.add_parser("show", help="print a prompt's text")
     p_pr_show.add_argument("name")
     p_pr_show.add_argument("--version", type=int, default=None)
+    p_pr_show.set_defaults(func=prompts_show)
     p_pr_diff = pr_sub.add_parser("diff", help="unified diff between two versions")
     p_pr_diff.add_argument("name")
     p_pr_diff.add_argument("old", type=int)
     p_pr_diff.add_argument("new", type=int)
+    p_pr_diff.set_defaults(func=prompts_diff)
     p_pr_save = pr_sub.add_parser("save", help="save FILE as a new version of NAME")
     p_pr_save.add_argument("name")
     p_pr_save.add_argument("file")
+    p_pr_save.set_defaults(func=prompts_save)
     p_pr_rb = pr_sub.add_parser("rollback", help="re-activate an old version")
     p_pr_rb.add_argument("name")
     p_pr_rb.add_argument("version", type=int)
+    p_pr_rb.set_defaults(func=prompts_rollback)
 
     p_de = sub.add_parser("decisions", help="list, show, or export recorded decisions")
     de_sub = p_de.add_subparsers(dest="de_command")
-    de_sub.add_parser("list", help="list recorded decisions")
+    de_sub.add_parser("list", help="list recorded decisions").set_defaults(
+        func=decisions_list
+    )
     p_de_show = de_sub.add_parser("show", help="dump one decision + outcomes as JSON")
     p_de_show.add_argument("decision_id")
+    p_de_show.set_defaults(func=decisions_show)
     p_de_export = de_sub.add_parser(
         "export", help="write decisions.jsonl + outcomes.jsonl to DIR"
     )
     p_de_export.add_argument("directory", help="target directory")
+    p_de_export.set_defaults(func=decisions_export)
 
     p_rf = sub.add_parser("reflect", help="record the outcome of a past decision")
     p_rf.add_argument(
         "decision_id", nargs="?", default=None, help="omit to list past decisions"
     )
     p_rf.add_argument("note", nargs="?", default=None, help="what actually happened")
+    p_rf.set_defaults(func=reflect_record)
 
     p_me = sub.add_parser("memory", help="browse organizational memory")
     me_sub = p_me.add_subparsers(dest="me_command")
-    me_sub.add_parser("lessons", help="list the lesson corpus (newest first)")
+    me_sub.add_parser(
+        "lessons", help="list the lesson corpus (newest first)"
+    ).set_defaults(func=memory_lessons)
 
     p_cf = sub.add_parser("config", help="show or persist workspace configuration")
     cf_sub = p_cf.add_subparsers(dest="cf_command")
-    cf_sub.add_parser("show", help="model/provider/key status + tunables with origins")
+    cf_sub.add_parser(
+        "show", help="model/provider/key status + tunables with origins"
+    ).set_defaults(func=config_show)
     p_cf_set = cf_sub.add_parser(
         "set", help="persist model/provider/api-key/tunables (unlike --set)"
     )
@@ -297,6 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--api-key", dest="api_key", default=None, help="written to the workspace .env"
     )
     p_cf_set.add_argument("pairs", nargs="*", metavar="KEY=VALUE")
+    p_cf_set.set_defaults(func=config_set_cmd)
 
     return parser
 
@@ -612,6 +640,15 @@ async def connectors_config_save(
     return 1 if entry["problems"] else 0
 
 
+async def connectors_config(args, *, service) -> int:
+    """Dispatch `connectors config`: list all blocks, or save one connector's."""
+    if args.connector is None:
+        return await connectors_config_list(service=service)
+    return await connectors_config_save(
+        args.connector, args.pairs, args.secret, service=service
+    )
+
+
 def sync_command(*, only: str | None = None, syncer=run_connector_sync) -> int:
     """Run one connector sync headlessly, print the report, return an exit code.
 
@@ -758,15 +795,7 @@ def main(argv: list[str] | None = None) -> None:
             code = asyncio.run(connectors_health(args.name, service=service))
             raise SystemExit(code)
         if args.co_command == "config":
-            if args.connector is None:
-                code = asyncio.run(connectors_config_list(service=service))
-                raise SystemExit(code)
-            code = asyncio.run(
-                connectors_config_save(
-                    args.connector, args.pairs, args.secret, service=service
-                )
-            )
-            raise SystemExit(code)
+            raise SystemExit(asyncio.run(connectors_config(args, service=service)))
         raise SystemExit(  # bare `connectors` or `connectors list`
             asyncio.run(connectors_list(service=service))
         )
