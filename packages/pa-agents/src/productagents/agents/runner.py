@@ -191,6 +191,34 @@ def _all_analysts_failed(reports: list[AnalystReport]) -> bool:
     return reported == ANALYST_IDS and all(r.failed for r in reports)
 
 
+def _build_initial_state(
+    initiative: Initiative | None, evidence: Evidence | None
+) -> dict[str, object]:
+    """Build the graph's initial state dict.
+
+    Field set mirrors `GraphState` in `graph.py` — see `initial_state_keys()`
+    and `tests/test_graph_state_shape.py`, which guards against the two
+    silently drifting apart.
+    """
+    return {
+        "initiative": initiative,
+        "evidence": evidence,
+        "reports": [],
+        "debate": [],
+        "recommendation": None,
+        "risks": [],
+        "prior_lessons": [],
+        "governance": None,
+        "judgment": None,
+        "judge_attempts": 0,
+    }
+
+
+def initial_state_keys() -> frozenset[str]:
+    """Key set of the graph's initial state, importable without a graph run."""
+    return frozenset(_build_initial_state(None, None))
+
+
 async def run_decision(
     graph,
     initiative: Initiative,
@@ -224,18 +252,7 @@ async def run_decision(
     `approver` was configured, the run aborts with a `RunAbortedEvent` instead
     of silently auto-approving.
     """
-    initial_state = {
-        "initiative": initiative,
-        "evidence": evidence,
-        "reports": [],
-        "debate": [],
-        "recommendation": None,
-        "risks": [],
-        "prior_lessons": [],
-        "governance": None,
-        "judgment": None,
-        "judge_attempts": 0,
-    }
+    initial_state = _build_initial_state(initiative, evidence)
     collected_reports: list[AnalystReport] = []
     collected_debate: list[DebateTurn] = []
     collected_risks: list[RiskAssessment] = []
