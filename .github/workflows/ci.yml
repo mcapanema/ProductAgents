@@ -37,7 +37,7 @@ jobs:
         run: uv run --frozen lint-imports
 
       - name: Design contrast gate
-        run: python3 design/contrast.py
+        run: uv run python design/contrast.py
 
       - name: Test
         run: uv run --frozen pytest
