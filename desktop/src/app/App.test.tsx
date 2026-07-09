@@ -123,6 +123,13 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: /^workflows$/i })).toBeInTheDocument();
   });
 
+  it("loads the Workflows panel lazily", async () => {
+    render(<App client={fakeClient()} />);
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Sidebar" })).getByRole("button", { name: "Workflows" }));
+    // The lazy chunk resolves on a microtask; the real WorkflowsPanel appears after it.
+    expect(await screen.findByRole("heading", { name: /^workflows$/i })).toBeInTheDocument();
+  });
+
   it("switches to the Settings panel on click", async () => {
     render(<App client={fakeClient()} />);
     fireEvent.click(within(screen.getByRole("navigation", { name: "Sidebar" })).getByRole("button", { name: "Settings" }));

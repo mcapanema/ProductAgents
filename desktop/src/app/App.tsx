@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { IpcClient } from "../ipc/client";
 import { IpcProvider, useIpc } from "./IpcProvider";
 import { RunProvider, useRun } from "./RunContext";
@@ -12,11 +12,16 @@ import { SessionsPanel } from "../panels/SessionsPanel";
 import { DecisionsPanel } from "../panels/DecisionsPanel";
 import { ConnectorsPanel } from "../panels/ConnectorsPanel";
 import { PromptsPanel } from "../panels/PromptsPanel";
-import { WorkflowsPanel } from "../panels/WorkflowsPanel";
 import { SettingsPanel } from "../panels/SettingsPanel";
 import { ReflectionPanel } from "../panels/ReflectionPanel";
 import { OrgMemoryPanel } from "../panels/OrgMemoryPanel";
 import "./App.css";
+
+// Lazy: pulls in @xyflow/react, the heaviest dependency in the app, and only
+// mounts when the user navigates to Workflows — code-split out of the main bundle.
+const WorkflowsPanel = lazy(() =>
+  import("../panels/WorkflowsPanel").then((m) => ({ default: m.WorkflowsPanel })),
+);
 
 const DENSITY: Density = "comfortable";
 
@@ -53,7 +58,11 @@ function AppShell() {
             {view === "memory" && <OrgMemoryPanel />}
             {view === "connectors" && <ConnectorsPanel />}
             {view === "prompts" && <PromptsPanel />}
-            {view === "workflows" && <WorkflowsPanel />}
+            {view === "workflows" && (
+              <Suspense fallback={<div className="content-loading">Loading…</div>}>
+                <WorkflowsPanel />
+              </Suspense>
+            )}
             {view === "settings" && <SettingsPanel theme={pref} onThemeChange={setPref} running={running} />}
             {view === "reflection" && <ReflectionPanel />}
           </main>
