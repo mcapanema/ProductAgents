@@ -13,8 +13,17 @@ body { margin: 0; background: var(--bg-primary); color: var(--text-primary);
 
 .row { display: flex; gap: 8px; align-items: center; }
 .list-item {
+  /* .list-item is a <button> for keyboard access; strip native button chrome.
+     Declared first so the card's own border/background below still win the cascade. */
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   padding: var(--space-12); border: var(--border-width-default) solid var(--border-default);
-  border-radius: var(--radius-md); margin-bottom: var(--space-6); cursor: pointer;
+  border-radius: var(--radius-md); margin-bottom: var(--space-6);
   background: var(--surface-raised); transition: var(--transition-surface, border-color 120ms ease, background 120ms ease);
 }
 .list-item:hover { border-color: var(--accent); background: var(--surface-hover); }

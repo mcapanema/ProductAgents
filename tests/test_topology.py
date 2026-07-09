@@ -1,6 +1,11 @@
 """Tests for the serializable graph-topology accessor."""
 
-from productagents.agents.topology import graph_topology
+from productagents.agents.prompts import PromptStore
+from productagents.agents.topology import (
+    _NON_NODE_PROMPTS,
+    NODE_PROMPTS,
+    graph_topology,
+)
 
 
 def _node_ids(topo: dict) -> list[str]:
@@ -49,3 +54,16 @@ def test_topology_maps_nodes_to_their_prompts():
     assert prompts["debate"] == ["debate", "debate.advocate", "debate.skeptic"]
     assert prompts["recall"] == []
     assert prompts["__start__"] == []
+
+
+def test_every_bundled_prompt_is_mapped_in_topology():
+    """Guard against NODE_PROMPTS drifting from the real bundled prompt set.
+
+    NODE_PROMPTS is hand-maintained; PromptStore.names() is the source of
+    truth. Every bundled prompt must be either wired to a graph node here or
+    explicitly allow-listed in _NON_NODE_PROMPTS with a reason.
+    """
+    bundled = set(PromptStore().names())
+    mapped = {name for names in NODE_PROMPTS.values() for name in names}
+    unaccounted = bundled - mapped - _NON_NODE_PROMPTS
+    assert unaccounted == set()

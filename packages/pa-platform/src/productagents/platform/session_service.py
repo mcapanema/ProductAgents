@@ -14,11 +14,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from productagents.core._typing import List as _L
 from productagents.platform import events as ev
 from productagents.platform.serialization import deserialize_event
 from productagents.platform.session import Session
-
-_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 def _to_session(row: dict) -> Session:

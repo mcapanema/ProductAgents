@@ -9,6 +9,9 @@ dependencies = [
     "websockets>=15",
 ]
 
+[project.scripts]
+productagents = "productagents.app.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

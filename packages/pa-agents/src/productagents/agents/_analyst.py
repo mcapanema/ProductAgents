@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.context import AgentContext
 from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import emit_error, emit_status
 from productagents.core.models import (
@@ -23,7 +24,7 @@ from productagents.core.models import (
 
 async def run_analyst(
     state: dict,
-    ctx,
+    ctx: AgentContext,
     *,
     analyst_id: str,
     role: str,

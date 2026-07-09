@@ -38,4 +38,17 @@ describe("SessionsPanel", () => {
     expect(screen.getByText("demand up")).toBeInTheDocument();
     expect(screen.getByText(/raw events \(2\)/i)).toBeInTheDocument();
   });
+
+  it("session rows are keyboard-operable buttons", async () => {
+    render(
+      <IpcProvider client={fake()}>
+        <SessionsPanel />
+      </IpcProvider>,
+    );
+    const row = await screen.findByRole("button", { name: /evaluate_initiative/i });
+    row.focus();
+    fireEvent.keyDown(row, { key: "Enter" }); // native <button> activates on Enter
+    fireEvent.click(row); // native button: Enter/Space dispatch click
+    expect(await screen.findByText("Final Verdict")).toBeInTheDocument();
+  });
 });

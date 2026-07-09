@@ -53,8 +53,8 @@ async def test_recorded_decision_carries_its_session_id(decision_inputs):
     assert recorded[0].session_id == session.id
 
 
-async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
-    initiative, evidence_spec, context_opener = decision_inputs_hitl
+async def test_hitl_run_requests_approval_and_resumes(decision_inputs):
+    initiative, evidence_spec, context_opener = decision_inputs
     seen_request = {}
 
     async def approver(request):
@@ -75,10 +75,10 @@ async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
     assert seen_request  # approver was actually invoked
 
 
-async def test_approver_receives_the_published_seq_not_sentinel(decision_inputs_hitl):
+async def test_approver_receives_the_published_seq_not_sentinel(decision_inputs):
     """The approver callback must receive the ApprovalRequested event with the
     real seq (published via emit), not a sentinel seq=-1."""
-    initiative, evidence_spec, context_opener = decision_inputs_hitl
+    initiative, evidence_spec, context_opener = decision_inputs
     approver_received_request = {}
     approval_request_from_stream = None
 

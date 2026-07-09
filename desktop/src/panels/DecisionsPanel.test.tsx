@@ -45,4 +45,17 @@ describe("DecisionsPanel", () => {
     expect(screen.getByText("adoption flat")).toBeInTheDocument();
     expect(screen.getByText("scope smaller")).toBeInTheDocument();
   });
+
+  it("decision rows are keyboard-operable buttons", async () => {
+    render(
+      <IpcProvider client={fake()}>
+        <DecisionsPanel />
+      </IpcProvider>,
+    );
+    const row = await screen.findByRole("button", { name: /new api/i });
+    row.focus();
+    fireEvent.keyDown(row, { key: "Enter" }); // native <button> activates on Enter
+    fireEvent.click(row); // native button: Enter/Space dispatch click
+    expect(await screen.findByText("adoption up")).toBeInTheDocument();
+  });
 });

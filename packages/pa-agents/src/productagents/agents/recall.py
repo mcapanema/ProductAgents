@@ -7,12 +7,13 @@ the real decision store. Model-free; degrades to an empty list on any error.
 """
 
 from productagents.agents._stream import get_writer
+from productagents.agents.context import AgentContext
 from productagents.agents.stream_events import emit_error, emit_status
 
 NODE_ID = "recall"
 
 
-async def recall_node(state: dict, ctx) -> dict:
+async def recall_node(state: dict, ctx: AgentContext) -> dict:
     writer = get_writer()
     writer(emit_status(NODE_ID, "recalling lessons from past decisions…"))
     try:

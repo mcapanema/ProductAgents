@@ -42,14 +42,15 @@ export function SessionsPanel() {
         <div className="master-detail">
           <div className="master-detail__list">
             {list.map((s) => (
-              <div
+              <button
+                type="button"
                 className={`list-item${openId === s.id ? " is-selected" : ""}`}
                 key={s.id}
                 onClick={() => open(s.id)}
               >
                 <div>{s.workflow}</div>
                 <div className="muted">{s.status} · {s.created_at}</div>
-              </div>
+              </button>
             ))}
           </div>
           {events && (

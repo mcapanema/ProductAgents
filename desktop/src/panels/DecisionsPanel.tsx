@@ -40,7 +40,8 @@ export function DecisionsPanel() {
         <div className="master-detail">
           <div className="master-detail__list">
             {list.map((d) => (
-              <div
+              <button
+                type="button"
                 className={`list-item${openId === d.id ? " is-selected" : ""}`}
                 key={d.id}
                 onClick={() => open(d.id)}
@@ -49,7 +50,7 @@ export function DecisionsPanel() {
                 <div className="muted">
                   {d.recommendation} · {formatConfidence(d.confidence)} · {d.created_at}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
           {detail && <DecisionDetailView detail={detail} />}

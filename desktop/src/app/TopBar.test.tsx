@@ -127,4 +127,29 @@ describe("TopBar", () => {
     );
     expect(screen.getByRole("combobox", { name: "Global search" })).toBeDisabled();
   });
+
+  it("reloads the command corpus after a run finishes", async () => {
+    const client = fakeIpc();
+    const { rerender } = render(
+      <IpcProvider client={client}>
+        <TopBar view="run" onNavigate={() => {}} running={false} />
+      </IpcProvider>,
+    );
+    const search = screen.getByRole("combobox", { name: "Global search" });
+    fireEvent.focus(search);
+    await waitFor(() => expect(client.decisionsList).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <IpcProvider client={client}>
+        <TopBar view="run" onNavigate={() => {}} running={true} />
+      </IpcProvider>,
+    );
+    rerender(
+      <IpcProvider client={client}>
+        <TopBar view="run" onNavigate={() => {}} running={false} />
+      </IpcProvider>,
+    );
+    fireEvent.focus(search);
+    await waitFor(() => expect(client.decisionsList).toHaveBeenCalledTimes(2));
+  });
 });

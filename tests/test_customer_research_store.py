@@ -69,3 +69,12 @@ async def test_falls_back_to_scenario_when_store_errors():
     )
     assert "SCENARIO feedback text" in captured["prompt"]
     assert result["reports"][0].failed is False  # store error must NOT fail the report
+
+
+async def test_marks_evidence_truncated_when_store_has_more_than_one_page():
+    model, captured = _model()
+    feedback = FeedbackService(
+        FakeRepository([CustomerFeedback(body=f"STORE item {i}") for i in range(60)])
+    )
+    await customer_research_node(_state(), fake_context(model, feedback=feedback))
+    assert "showing 50 of 60 feedback items" in captured["prompt"]

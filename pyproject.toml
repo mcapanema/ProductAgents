@@ -13,9 +13,6 @@ dependencies = [
     "productagents-app",
 ]
 
-[project.scripts]
-productagents = "productagents.app.cli:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

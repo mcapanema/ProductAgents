@@ -87,7 +87,7 @@ typecheck: ## Type-check Python (ty)
 
 .PHONY: contrast
 contrast: ## Verify WCAG contrast of the design tokens (design/contrast.py; exits 1 on failures)
-	python3 design/contrast.py
+	uv run python design/contrast.py
 
 .PHONY: audit
 audit: ## Dependency vulnerability audits (pip-audit + npm). CI also runs gitleaks + cargo-audit.

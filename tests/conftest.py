@@ -1,11 +1,10 @@
 """Shared fixtures for the test suite.
 
-decision_inputs / decision_inputs_hitl: a standard (Initiative, evidence_spec,
-context_opener) triple backed by FakeChatModel so any graph run works offline.
-context_opener is a zero-arg callable returning an async CM that yields an
-AgentContext — matching DecisionService's constructor.
-Both fixtures use the same FakeChatModel mapping — the HITL distinction lives in
-DecisionService(human_in_the_loop=True), not in the model.
+decision_inputs: a standard (Initiative, evidence_spec, context_opener) triple
+backed by FakeChatModel so any graph run works offline — HITL and non-HITL
+alike. context_opener is a zero-arg callable returning an async CM that
+yields an AgentContext — matching DecisionService's constructor. The HITL
+distinction lives in DecisionService(human_in_the_loop=True), not in the model.
 """
 
 from contextlib import asynccontextmanager
@@ -83,16 +82,11 @@ def _opener_for(ctx: AgentContext):
 
 @pytest.fixture
 def decision_inputs():
-    """Standard (initiative, evidence_spec, context_opener) for a non-HITL graph run."""
-    initiative = Initiative(title="Add SSO", description="Enterprise SSO")
-    context = AgentContext(model=_standard_fake_model())
-    return initiative, "sample", _opener_for(context)
+    """Standard (initiative, evidence_spec, context_opener) for a graph run.
 
-
-@pytest.fixture
-def decision_inputs_hitl():
-    """Same triple for a HITL run — governance verdict is non-error so the
-    graph interrupts for human approval when human_in_the_loop=True."""
+    Also used for HITL runs — the governance verdict is non-error so the
+    graph interrupts for human approval when human_in_the_loop=True.
+    """
     initiative = Initiative(title="Add SSO", description="Enterprise SSO")
     context = AgentContext(model=_standard_fake_model())
     return initiative, "sample", _opener_for(context)

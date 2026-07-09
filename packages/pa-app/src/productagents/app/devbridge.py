@@ -25,8 +25,7 @@ import logging
 import websockets
 
 from productagents.app import ipc
-
-DEFAULT_PORT = 7420
+from productagents.app.cli import DEFAULT_WS_PORT as DEFAULT_PORT
 
 
 async def _handle_connection(websocket, *, services: dict) -> None:

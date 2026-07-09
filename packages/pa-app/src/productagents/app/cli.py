@@ -33,6 +33,8 @@ from productagents.platform.workspace import WorkspaceError, WorkspaceService
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_WS_PORT = 7420  # single owner; devbridge imports this rather than redefining it
+
 
 def render_event(event: ev.Event) -> str | None:
     """One display line for a platform event, or None to skip it.
@@ -169,7 +171,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve the IPC protocol over a localhost WebSocket (dev UI testing)",
     )
     p_swb.add_argument(
-        "--port", type=int, default=7420, help="localhost port (default 7420)"
+        "--port",
+        type=int,
+        default=DEFAULT_WS_PORT,
+        help=f"localhost port (default {DEFAULT_WS_PORT})",
     )
 
     p_run = sub.add_parser("run", help="run a workflow and stream its events")
