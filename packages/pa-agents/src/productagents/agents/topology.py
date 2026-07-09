@@ -24,6 +24,13 @@ NODE_PROMPTS: dict[str, list[str]] = {
     "governance": ["governance"],
 }
 
+# Bundled prompts that legitimately have no graph node: the reflect agent
+# (agents/reflection.py) renders "reflection" outside the graph (see
+# CLAUDE.md — "the one agent not wired into graph.py"). Checked against
+# PromptStore().names() by tests/test_topology.py so a real gap can't hide
+# here silently.
+_NON_NODE_PROMPTS: set[str] = {"reflection"}
+
 
 def graph_topology(*, human_in_the_loop: bool = False) -> dict:
     """Nodes + edges of the compiled decision graph as plain JSON-able dicts.
