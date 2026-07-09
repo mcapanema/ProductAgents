@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { PromptsPanel } from "./PromptsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -100,7 +100,13 @@ describe("PromptsPanel", () => {
     renderPanel(fake());
     fireEvent.click(await screen.findByText("judge"));
     expect(await screen.findByDisplayValue(/judge body v1/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /v0 . default/i }));
+    // scope to the detail pane and anchor the name: the list rows are buttons too
+    // now (M9) and the rollback button's label also contains "v0 · default", so an
+    // unscoped/unanchored query matches more than one.
+    const detailPane = (await screen.findByRole("heading", { name: "judge" })).closest(
+      ".master-detail__detail",
+    ) as HTMLElement;
+    fireEvent.click(within(detailPane).getByRole("button", { name: /^v0 . default$/i }));
     expect(await screen.findByDisplayValue(/judge body v0/)).toBeInTheDocument();
   });
 
@@ -118,5 +124,22 @@ describe("PromptsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /save as new version/i }));
     await screen.findByText(/saved a new version/i);
     expect(promptsSave).toHaveBeenCalledWith("market", "edited $evidence");
+  });
+
+  it("prompt rows are keyboard-operable buttons", async () => {
+    renderPanel(fake());
+    const row = await screen.findByRole("button", { name: /market/i });
+    row.focus();
+    fireEvent.keyDown(row, { key: "Enter" }); // native <button> activates on Enter
+    fireEvent.click(row); // native button: Enter/Space dispatch click
+    expect(await screen.findByRole("button", { name: /save as new version/i })).toBeInTheDocument();
+  });
+
+  it("labels the glyph-only rollback button for screen readers", async () => {
+    renderPanel(fake());
+    fireEvent.click(await screen.findByText("judge"));
+    expect(
+      await screen.findByRole("button", { name: /roll back to v0/i }),
+    ).toBeInTheDocument();
   });
 });

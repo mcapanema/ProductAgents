@@ -118,14 +118,15 @@ export function PromptsPanel() {
       <div className="master-detail">
         <div className="master-detail__list" style={{ flexBasis: 280 }}>
           {list.map((p) => (
-            <div
+            <button
+              type="button"
               className={`list-item${selected?.name === p.name ? " is-selected" : ""}`}
               key={p.name}
               onClick={() => requestOpen(p)}
             >
               <div>{p.name}</div>
               <div className="muted">{versionLabel(p.active, p.active)}</div>
-            </div>
+            </button>
           ))}
         </div>
         {selected && (
@@ -156,7 +157,12 @@ export function PromptsPanel() {
                     {versionLabel(v, selected.active)}
                   </Button>
                   {v !== selected.active && (
-                    <Button onClick={() => rollback(selected.name, v)}>↺</Button>
+                    <Button
+                      aria-label={`Roll back to ${versionLabel(v, selected.active)}`}
+                      onClick={() => rollback(selected.name, v)}
+                    >
+                      ↺
+                    </Button>
                   )}
                 </span>
               ))}
