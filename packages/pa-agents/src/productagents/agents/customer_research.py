@@ -8,6 +8,7 @@ store read is local — it honors "no external fetch during agent execution".
 from productagents.agents._analyst import run_analyst
 from productagents.agents._format import format_initiative
 from productagents.agents._stream import get_writer
+from productagents.agents.context import AgentContext
 from productagents.agents.stream_events import emit_status
 from productagents.core.models import Evidence, Initiative
 from productagents.knowledge.services.feedback_service import FeedbackQuery
@@ -25,11 +26,17 @@ def _prompt(initiative: Initiative, evidence: Evidence, prompts) -> str:
     )
 
 
-def _render_feedback(items) -> str:
-    return "\n".join(f"- {f.body}" for f in items)
+def _render_feedback(items, total: int) -> str:
+    body = "\n".join(f"- {f.body}" for f in items)
+    # Query.limit defaults to 50 (see FeedbackQuery/_query.py); Page.total is
+    # already computed from the same in-memory scan, so a "showing N of M"
+    # marker is free — more honest to the model than a silent first page.
+    if total > len(items):
+        body += f"\n\n(showing {len(items)} of {total} feedback items)"
+    return body
 
 
-async def _resolve_evidence(state: dict, ctx) -> dict:
+async def _resolve_evidence(state: dict, ctx: AgentContext) -> dict:
     """Return a state whose Evidence.customer_feedback prefers the store.
 
     Falls back to the scenario evidence (unchanged state) when the store is
@@ -49,12 +56,12 @@ async def _resolve_evidence(state: dict, ctx) -> dict:
         emit_status(ANALYST_ID, f"{len(page.items)} feedback items from store")
     )
     enriched = evidence.model_copy(
-        update={"customer_feedback": _render_feedback(page.items)}
+        update={"customer_feedback": _render_feedback(page.items, page.total)}
     )
     return {**state, "evidence": enriched}
 
 
-async def customer_research_node(state: dict, ctx) -> dict:
+async def customer_research_node(state: dict, ctx: AgentContext) -> dict:
     resolved = await _resolve_evidence(state, ctx)
     return await run_analyst(
         resolved,

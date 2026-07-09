@@ -4,6 +4,7 @@ import json
 
 from productagents.agents._analyst import run_analyst
 from productagents.agents._format import format_initiative
+from productagents.agents.context import AgentContext
 from productagents.core.models import Evidence, Initiative
 
 ANALYST_ID = "product_analytics"
@@ -20,7 +21,7 @@ def _prompt(initiative: Initiative, evidence: Evidence, prompts) -> str:
     )
 
 
-async def product_analytics_node(state: dict, ctx) -> dict:
+async def product_analytics_node(state: dict, ctx: AgentContext) -> dict:
     return await run_analyst(
         state,
         ctx,

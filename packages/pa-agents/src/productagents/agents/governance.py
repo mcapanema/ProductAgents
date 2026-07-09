@@ -16,6 +16,7 @@ import logging
 from productagents.agents._format import format_initiative, format_recommendation
 from productagents.agents._llm_call import invoke_structured
 from productagents.agents._stream import get_writer
+from productagents.agents.context import AgentContext
 from productagents.agents.prompts import PromptStore
 from productagents.agents.stream_events import (
     VERDICT,
@@ -78,7 +79,7 @@ def _prompt(
     )
 
 
-async def governance_node(state: dict, model, ctx) -> dict:
+async def governance_node(state: dict, model, ctx: AgentContext) -> dict:
     writer = get_writer()
     writer(emit_status(NODE_ID, f"{ROLE} reviewing…"))
     try:
