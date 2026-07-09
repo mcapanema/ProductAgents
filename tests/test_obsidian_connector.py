@@ -11,6 +11,21 @@ from productagents.connectors.obsidian.connector import (
 )
 from tests.connector_fakes import FakeSink
 
+
+class _CountingSink:
+    def __init__(self):
+        self.written = []
+        self.calls = 0
+
+    async def write(self, model):
+        self.calls += 1
+        self.written.append(model)
+
+    async def write_many(self, models):
+        self.calls += 1
+        self.written.extend(models)
+
+
 _T1 = datetime(2026, 1, 10, tzinfo=UTC)
 _T2 = datetime(2026, 1, 12, tzinfo=UTC)
 
@@ -100,3 +115,14 @@ async def test_sync_degrades_on_unreadable_note(tmp_path):
     assert result.ok is False
     assert result.error
     assert result.connector == "obsidian"
+
+
+async def test_sync_streams_one_write_per_note(tmp_path):
+    # two new notes → two write calls, not one buffered write
+    _write_note(tmp_path, "a.md", "note a", _T1)
+    _write_note(tmp_path, "b.md", "note b", _T2)
+    sink = _CountingSink()
+    connector = ObsidianConnector(ObsidianConfig(vault=str(tmp_path)), sink)
+    result = await connector.sync(cursor=None)
+    assert result.written == 2
+    assert sink.calls == 2  # one write per note (streamed), not a single buffered write

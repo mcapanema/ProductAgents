@@ -79,7 +79,9 @@ class CanonicalRepository[T: CanonicalModel]:
         existing.payload = {
             **incoming.payload,
             "id": stable_id,
-            "ingested_at": existing.payload["ingested_at"],  # first-seen time is stable
+            # Preserve first-seen timestamp; fallback for legacy rows
+            "ingested_at": existing.payload.get("ingested_at")
+            or incoming.payload["ingested_at"],
         }
         self._session.add(existing)
         return from_row(existing, self._model_type)

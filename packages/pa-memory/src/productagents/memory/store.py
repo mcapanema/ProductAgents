@@ -57,6 +57,11 @@ class DecisionStore:
 
     async def decisions(self) -> list[DecisionRecord]:
         """All decisions, oldest first (dedup's 'keep most recent' relies on this)."""
+        # ponytail: hydrates the full payload (incl. debate transcripts) for every
+        # historical decision on every recall. Honest at local-first scale (tens of
+        # decisions). Upgrade path when a workspace accrues thousands: add the
+        # ranking columns to DecisionRow (title/description/recommendation) + a
+        # migration, score over a slim projection, then hydrate only the ≤3 winners.
         rows = (
             (
                 await self._session.execute(

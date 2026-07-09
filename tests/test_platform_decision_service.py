@@ -75,6 +75,45 @@ async def test_hitl_run_requests_approval_and_resumes(decision_inputs_hitl):
     assert seen_request  # approver was actually invoked
 
 
+async def test_approver_receives_the_published_seq_not_sentinel(decision_inputs_hitl):
+    """The approver callback must receive the ApprovalRequested event with the
+    real seq (published via emit), not a sentinel seq=-1."""
+    initiative, evidence_spec, context_opener = decision_inputs_hitl
+    approver_received_request = {}
+    approval_request_from_stream = None
+
+    async def approver(request):
+        approver_received_request["request"] = request
+        from productagents.core.models import HumanDecision
+
+        return HumanDecision(verdict="approve", rationale="ok")
+
+    service = DecisionService(context_opener, human_in_the_loop=True)
+    _session, stream = service.start_session(
+        initiative, evidence_spec, approver=approver
+    )
+
+    # Collect all events from stream
+    received = await _collect(stream)
+
+    # Find the ApprovalRequested event from the stream
+    for e in received:
+        if isinstance(e, ev.ApprovalRequested):
+            approval_request_from_stream = e
+            break
+
+    # Verify the approver received a request
+    assert "request" in approver_received_request
+    request_to_approver = approver_received_request["request"]
+
+    # Verify the request has the real seq (not -1)
+    assert request_to_approver.seq != -1
+
+    # Verify the approver received the same seq as was published in the stream
+    assert approval_request_from_stream is not None
+    assert request_to_approver.seq == approval_request_from_stream.seq
+
+
 async def test_for_model_threads_workspace_into_both_openers(monkeypatch):
     """for_model must bind the workspace key into the agent-context opener and
     the event-store opener — otherwise live runs always hit "default"."""

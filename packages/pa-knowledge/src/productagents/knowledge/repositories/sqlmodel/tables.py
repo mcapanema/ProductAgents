@@ -49,6 +49,11 @@ class CanonicalRecord(SQLModel, table=True):
     """
 
     __tablename__ = "canonical_record"
+    # Deduplication identity: on upsert, records are matched by
+    # (workspace, connector, vendor_type, vendor_id) for synced sources, or by
+    # platform_id alone for manual records. This ensures that the same canonical
+    # entity (same source + same external ID) maps to exactly one row, and
+    # re-syncs preserve the platform_id across updates.
     __table_args__ = (
         UniqueConstraint(
             "workspace",

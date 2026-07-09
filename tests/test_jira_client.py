@@ -17,6 +17,20 @@ def test_build_jql_adds_project_filter():
     assert jql == 'project = "PROJ" ORDER BY updated ASC'
 
 
+def test_build_jql_escapes_quotes_in_project():
+    # A project value that tries to break out of the quoted literal must be
+    # neutralized (escaped), not interpolated raw.
+    jql = build_jql(project='X" OR project = "Y', since=None)
+    assert jql == 'project = "X\\" OR project = \\"Y" ORDER BY updated ASC'
+    # The injection pattern is escaped, not interpolated raw:
+    assert 'X" OR' not in jql
+
+
+def test_build_jql_escapes_backslash_in_project():
+    jql = build_jql(project="a\\b", since=None)
+    assert jql == 'project = "a\\\\b" ORDER BY updated ASC'
+
+
 def test_build_jql_adds_since_in_minute_format():
     jql = build_jql(project=None, since="2026-01-16T10:30:45.000+0000")
     assert jql == 'updated >= "2026-01-15 10:30" ORDER BY updated ASC'

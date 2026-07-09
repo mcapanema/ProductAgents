@@ -206,3 +206,35 @@ async def test_utc_datetime_normalizes_non_utc_offset_before_storage():
             row = await session.get(CanonicalRecord, str(created.id))
     assert row is not None
     assert row.ingested_at == datetime(2026, 1, 1, 5, 0, tzinfo=UTC)
+
+
+async def test_apply_update_legacy_row_without_ingested_at():
+    """N18: _apply_update gracefully handles legacy rows with no ingested_at key."""
+    src = SourceRef(connector="github", vendor_type="issue", vendor_id="123")
+    first = CustomerFeedback(body="v1", source=src)
+    async with memory_store() as (sessionmaker, _engine):
+        # Create an initial record with synced source
+        async with sessionmaker() as session:
+            repo = CanonicalRepository(session, CustomerFeedback)
+            created = await repo.upsert(first)
+        # Simulate a legacy row by removing ingested_at from payload
+        async with sessionmaker() as session:
+            row = await session.get(CanonicalRecord, str(created.id))
+            row.payload = {"body": "v1"}  # No ingested_at key
+            await session.commit()
+        # Update should succeed and handle missing ingested_at gracefully
+        second = CustomerFeedback(body="v2", source=src)
+        async with sessionmaker() as session:
+            repo = CanonicalRepository(session, CustomerFeedback)
+            updated = await repo.upsert(second)
+            second_ingested_at = second.ingested_at
+        # Verify the fallback used incoming.ingested_at, not a fresh timestamp
+        assert updated.id == created.id
+        assert updated.body == "v2"
+        assert updated.ingested_at == second_ingested_at
+        # Third upsert confirms the value is stable, not re-generated
+        third = CustomerFeedback(body="v3", source=src)
+        async with sessionmaker() as session:
+            repo = CanonicalRepository(session, CustomerFeedback)
+            updated_again = await repo.upsert(third)
+    assert updated_again.ingested_at == second_ingested_at

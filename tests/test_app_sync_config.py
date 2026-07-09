@@ -283,3 +283,42 @@ async def test_connector_plan_reads_db(tmp_path, monkeypatch):
     )
     assert "github" in plan.configs
     assert plan.problems == []
+
+
+async def test_load_db_config_handles_race_on_file_rename(tmp_path):
+    """N20: load_db_config suppresses FileNotFoundError on race condition."""
+    from unittest.mock import patch
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import StaticPool
+
+    from productagents.memory.store import create_all as memory_create_all
+    from productagents.platform.connectors import load_db_config
+
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    await memory_create_all(engine)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    yaml_path = tmp_path / "connectors.yaml"
+    yaml_path.write_text("connectors:\n  github:\n    owner: acme\n    repo: widgets\n")
+
+    # Patch os.replace to raise FileNotFoundError on `.imported` rename (race)
+    original_replace = __import__("os").replace
+
+    def mock_replace(src, dst):
+        # Raise FileNotFoundError if trying to rename to .imported (simulating race)
+        if dst.endswith(".imported"):
+            raise FileNotFoundError(f"File not found: {src}")
+        return original_replace(src, dst)
+
+    with patch(
+        "productagents.platform.connectors.os.replace", side_effect=mock_replace
+    ):
+        result = await load_db_config(
+            sessionmaker=maker,
+            workspace="default",
+            config_path=str(yaml_path),
+        )
+    # Should return the loaded config despite the race condition
+    assert "github" in result
+    assert result["github"]["owner"] == "acme"

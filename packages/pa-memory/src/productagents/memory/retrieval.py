@@ -69,12 +69,19 @@ def cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
+# ponytail: the semantic path runs over the placeholder HashingEmbedder, whose
+# only distinct signal below ~0.35 is hash-collision noise. Raise the bar so
+# semantic recall surfaces genuine overlap only; the real fix is a non-placeholder
+# embedder behind the Embedder protocol (then this threshold can be re-tuned/lowered).
+_SEMANTIC_THRESHOLD = 0.35
+
+
 def semantic_matches(
     query: list[float],
     embeddings: dict[str, list[float]],
     *,
     k: int = 5,
-    threshold: float = 0.1,
+    threshold: float = _SEMANTIC_THRESHOLD,
 ) -> set[str]:
     """Decision ids whose embedding is closest to ``query`` (top-k over threshold).
 
