@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from productagents.core._typing import List as _L
 from productagents.memory.tables import (
     ConnectorConfigRow,
     DecisionRow,
@@ -25,8 +26,6 @@ from productagents.memory.tables import (
     WorkspaceConfigRow,
     WorkspaceRow,
 )
-
-_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 def _now() -> str:

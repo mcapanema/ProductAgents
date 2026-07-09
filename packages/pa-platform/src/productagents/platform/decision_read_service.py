@@ -8,9 +8,8 @@ event log); this replays *decisions* (recommendation + predicted/actual outcomes
 
 from __future__ import annotations
 
+from productagents.core._typing import List as _L
 from productagents.core.models import DecisionRecord, OutcomeRecord
-
-_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 class DecisionReadService:

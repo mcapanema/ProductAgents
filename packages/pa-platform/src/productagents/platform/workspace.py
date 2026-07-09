@@ -16,11 +16,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from productagents.core._typing import List as _L
 from productagents.core.config import load_env
 
 logger = logging.getLogger(__name__)
-
-_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 DEFAULT_WORKSPACE = "default"
 

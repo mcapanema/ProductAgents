@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
+from productagents.core._typing import List as _L
 
 
 @dataclass(frozen=True)

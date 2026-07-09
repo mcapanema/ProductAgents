@@ -27,6 +27,32 @@ Approver = Callable[[ev.ApprovalRequested], Awaitable[HumanDecision]]
 Recorder = Callable[[DecisionRecord], Awaitable[None]]
 
 
+def build_finished_record(
+    session, initiative, evidence, finished
+) -> DecisionRecord | None:
+    """Build a ``DecisionRecord`` from a finished run, or ``None`` for a degraded run.
+
+    Pure — no I/O. The seam both ``DecisionService`` and ``FakeDecisionService``
+    use so the finished-run -> ``DecisionRecord`` mapping stays single-sourced
+    (mirrors ``_event_translation.translate``).
+    """
+    if finished.recommendation is None or finished.recommendation.failed:
+        return None  # degraded run — don't persist a failed decision
+    return DecisionRecord(
+        session_id=session.id,
+        initiative=initiative,
+        recommendation=finished.recommendation,
+        reports=finished.reports,
+        debate=finished.debate,
+        risks=finished.risks,
+        governance=finished.governance,
+        judgment=finished.judgment,
+        prior_lessons=finished.prior_lessons,
+        evidence_sources=evidence.sources,
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+
+
 class DecisionService:
     def __init__(
         self,
@@ -226,9 +252,9 @@ class DecisionService:
     async def _record(self, session, initiative, evidence, finished) -> None:
         if self._recorder is None:
             return
-        if finished.recommendation is None or finished.recommendation.failed:
-            return  # degraded run — don't persist a failed decision
-        record = self._build_record(session, initiative, evidence, finished)
+        record = build_finished_record(session, initiative, evidence, finished)
+        if record is None:
+            return
         await self._recorder(record)
 
     async def list_decisions(self) -> list[DecisionRecord]:
@@ -241,18 +267,3 @@ class DecisionService:
                 if record.decision_id == decision_id:
                     return record
         return None
-
-    def _build_record(self, session, initiative, evidence, finished) -> DecisionRecord:
-        return DecisionRecord(
-            session_id=session.id,
-            initiative=initiative,
-            recommendation=finished.recommendation,
-            reports=finished.reports,
-            debate=finished.debate,
-            risks=finished.risks,
-            governance=finished.governance,
-            judgment=finished.judgment,
-            prior_lessons=finished.prior_lessons,
-            evidence_sources=evidence.sources,
-            timestamp=datetime.now(UTC).isoformat(),
-        )

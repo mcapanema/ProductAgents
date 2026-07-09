@@ -154,24 +154,6 @@ def check_config(env: Mapping[str, str] | None = None) -> ConfigStatus:
     )
 
 
-def current_settings() -> dict[str, object]:
-    """Current tunable values (resolved env-or-default), for the Settings UI.
-
-    Values come from the same getters the agents use, so the defaults shown in
-    the GUI can never drift from the ones the pipeline applies. ``load()`` has
-    already materialized workspace-DB values into the environment, so this
-    reflects the full precedence chain.
-    """
-    return {
-        "debate_rounds": get_debate_rounds(),
-        "judge_threshold": get_judge_threshold(),
-        "judge_max_retries": get_judge_max_retries(),
-        "max_retries": env_int(
-            "PRODUCTAGENTS_MAX_RETRIES", DEFAULT_MAX_RETRIES, minimum=0
-        ),
-    }
-
-
 # Workspace configuration: friendly key -> env var. This is the ONLY set of
 # keys the DB path handles; anything else from the wire is silently dropped so
 # IPC can never write arbitrary env vars. Secrets are deliberately absent —
@@ -367,7 +349,21 @@ class ConfigurationService:
         return PROVIDERS
 
     def settings(self) -> dict[str, object]:
-        return current_settings()
+        """Current tunable values (resolved env-or-default), for the Settings UI.
+
+        Values come from the same getters the agents use, so the defaults
+        shown in the GUI can never drift from the ones the pipeline applies.
+        ``load()`` has already materialized workspace-DB values into the
+        environment, so this reflects the full precedence chain.
+        """
+        return {
+            "debate_rounds": get_debate_rounds(),
+            "judge_threshold": get_judge_threshold(),
+            "judge_max_retries": get_judge_max_retries(),
+            "max_retries": env_int(
+                "PRODUCTAGENTS_MAX_RETRIES", DEFAULT_MAX_RETRIES, minimum=0
+            ),
+        }
 
     def settings_origins(self) -> dict[str, str]:
         """Which precedence tier supplies each workspace key right now.

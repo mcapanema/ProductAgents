@@ -16,12 +16,11 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 
+from productagents.core._typing import List as _L
 from productagents.platform import events as ev
 from productagents.platform.session import Session
 
 logger = logging.getLogger(__name__)
-
-_L = list  # ponytail: 'list' method shadows the builtin under ty; alias keeps it honest
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ from productagents.agents.evidence import collect_evidence
 from productagents.platform import events as ev
 from productagents.platform._event_translation import translate
 from productagents.platform.configuration import ConfigStatus
-from productagents.platform.decision_service import DecisionService
+from productagents.platform.decision_service import build_finished_record
 from productagents.platform.session import Session
 
 
@@ -27,9 +27,6 @@ class FakeDecisionService:
         self._recorder = recorder
         self._evidence = evidence
         self._collector = collector
-        # Borrow the real service's runner→platform translation + record helpers
-        # so the mapping stays single-sourced.
-        self._svc = DecisionService(lambda: None, recorder=recorder)
 
     def start_session(self, initiative, evidence_spec, *, approver=None):
         if evidence_spec:
@@ -57,8 +54,10 @@ class FakeDecisionService:
                 seq += 1
             if isinstance(r, rn.RunAbortedEvent):
                 return
-            if isinstance(r, rn.FinishedEvent):
-                await self._svc._record(session, initiative, evidence, r)
+            if isinstance(r, rn.FinishedEvent) and self._recorder is not None:
+                record = build_finished_record(session, initiative, evidence, r)
+                if record is not None:
+                    await self._recorder(record)
 
     def _wrap_approver(self, session, approver):
         if approver is None:
