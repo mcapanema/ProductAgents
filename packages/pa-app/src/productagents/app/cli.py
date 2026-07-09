@@ -22,7 +22,6 @@ from productagents.platform.bootstrap import bootstrap_home
 from productagents.platform.configuration import ConfigurationService
 from productagents.platform.connector_service import ConnectorService
 from productagents.platform.connectors import describe_report, run_connector_sync
-from productagents.platform.context import make_recorder
 from productagents.platform.decision_read_service import DecisionReadService
 from productagents.platform.llm import get_model
 from productagents.platform.memory_service import MemoryService
@@ -134,24 +133,6 @@ async def sessions_show(session_id: str, *, service) -> int:
         if line is not None:
             print(line)
     return 0
-
-
-def _build_run_service(
-    *, human_in_the_loop: bool = False, workspace: str = "default"
-) -> WorkflowService:
-    """Production WorkflowService for runs: real model + DB recorder.
-
-    ``human_in_the_loop`` is False for the headless CLI ``run`` (governance stays
-    advisory and the run completes). The IPC adapter builds it ``True`` so a GUI
-    run can pause for approval; with no approver the graph still auto-approves.
-    """
-    model = get_model()
-    return WorkflowService.for_model(
-        model,
-        recorder=make_recorder(workspace=workspace),
-        human_in_the_loop=human_in_the_loop,
-        workspace=workspace,
-    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -801,7 +782,7 @@ def main(argv: list[str] | None = None) -> None:
         )
     if args.command == "run":
         try:
-            service = _build_run_service(
+            service = WorkflowService.production(
                 workspace=active, human_in_the_loop=args.approve
             )
         except Exception as exc:

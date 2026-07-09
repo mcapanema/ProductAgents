@@ -118,6 +118,31 @@ class WorkflowService:
                 )
         return cls(built)
 
+    @classmethod
+    def production(
+        cls,
+        *,
+        human_in_the_loop: bool = False,
+        workspace: str = "default",
+    ) -> WorkflowService:
+        """Run-capable registry: real model + DB-backed decision recorder.
+
+        The single composition point for a service that can actually ``run`` —
+        both the CLI ``run`` command and the IPC sidecar build it here, so no
+        ``pa-app`` module has to import another's private wiring. ``get_model``
+        raises if no API key is configured; callers that must survive that
+        (the sidecar) catch it and fall back to a model-less ``for_model``.
+        """
+        from productagents.platform.context import make_recorder
+        from productagents.platform.llm import get_model
+
+        return cls.for_model(
+            get_model(),
+            recorder=make_recorder(workspace=workspace),
+            human_in_the_loop=human_in_the_loop,
+            workspace=workspace,
+        )
+
     def list(self) -> _L[Workflow]:
         return list(self._workflows.values())
 
