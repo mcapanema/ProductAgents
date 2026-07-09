@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { RawEvents } from "./RawEvents";
 import type { IpcEvent } from "../ipc/types";
 
@@ -13,21 +13,22 @@ describe("RawEvents", () => {
     const events: IpcEvent[] = [
       { type: "NodeProgress", payload: { node: "market", message: "go" } },
     ];
-    render(<RawEvents events={events} />);
+    const { container } = render(<RawEvents events={events} />);
     expect(screen.getByText(/raw events \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText("NodeProgress")).toBeInTheDocument();
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
     // JSON payload should NOT be rendered when details is collapsed (performance optimization)
     expect(screen.queryByText(/"node": "market"/)).not.toBeInTheDocument();
   });
 
-  it("does not stringify events when details is collapsed", () => {
+  it("shows the JSON payload after clicking the summary to expand", async () => {
     const events: IpcEvent[] = [
       { type: "NodeProgress", payload: { node: "market", message: "go" } },
     ];
-    const { container } = render(<RawEvents events={events} />);
-    const details = container.querySelector("details");
-    expect(details).not.toHaveAttribute("open");
-    // JSON payload should not be rendered when closed
-    expect(screen.queryByText(/"node": "market"/)).not.toBeInTheDocument();
+    render(<RawEvents events={events} />);
+    fireEvent.click(screen.getByText(/raw events \(1\)/i));
+    // jsdom fires <details>'s "toggle" event asynchronously (spec-accurate), so
+    // the onToggle-driven React state update lands a tick after the click.
+    await waitFor(() => expect(screen.getByText(/"node": "market"/)).toBeInTheDocument());
   });
 });
