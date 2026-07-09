@@ -79,6 +79,13 @@ export function TopBar({
     );
   }, [ipc, entries, running]);
 
+  // A finished run may have recorded a new decision/session — invalidate the
+  // cached corpus when idle so the next focus reloads fresh data. (Fetching
+  // itself still waits for focus, and never runs mid-run: single-in-flight IPC.)
+  useEffect(() => {
+    if (!running) setEntries(null);
+  }, [running]);
+
   const active = activeWorkspaceName(workspaces);
 
   async function switchTo(name: string) {
