@@ -701,7 +701,7 @@ wheels = [
 
 [[package]]
 name = "langgraph"
-version = "1.2.6"
+version = "1.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
@@ -711,9 +711,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/7a/ea09b05bb0cbddfa43bd34fc581357e87fc3f21a751cc0d419688c3106da/langgraph-1.2.6.tar.gz", hash = "sha256:f9b45a34f13930c94d96cdb76277447ad2cc70ec2d18cd2764d7fdadb36cdc1b", size = 714400, upload-time = "2026-06-18T20:58:21.514Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/ad/583fda4c69501390b989770a465ccd0bdab1c1612eba582c012002ddf9b6/langgraph-1.2.8.tar.gz", hash = "sha256:f79d3575f45b404899358976e4fac0294eb75f8df1bfe8cd11286be7539c4548", size = 722464, upload-time = "2026-07-06T20:40:19.487Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/32/772db1b00a9fe42f50320d1aa20caefb76e621eff1f7218b9918093d631d/langgraph-1.2.6-py3-none-any.whl", hash = "sha256:1cf94d3ca124f84f77ce408fa1b06c3dee680a8aafffe364a8fd5d7d03eb8695", size = 246132, upload-time = "2026-06-18T20:58:20.335Z" },
+    { url = "https://files.pythonhosted.org/packages/36/49/b958a9963606807e5a20cc75fced14aa77c5cbcc470d5bf8ae13277cd298/langgraph-1.2.8-py3-none-any.whl", hash = "sha256:aa8de1d4df44162353d117589ae0bf6930ca009b62d2d6e26cc32580794c5be6", size = 246983, upload-time = "2026-07-06T20:40:18.242Z" },
 ]
 
 [[package]]
@@ -1050,7 +1050,7 @@ requires-dist = [
     { name = "langchain-anthropic", specifier = ">=0.3" },
     { name = "langchain-google-genai", specifier = ">=2.0" },
     { name = "langchain-openrouter", specifier = ">=0.2" },
-    { name = "langgraph", specifier = ">=0.6" },
+    { name = "langgraph", specifier = ">=1.2.8" },
     { name = "productagents-core", editable = "packages/pa-core" },
     { name = "productagents-knowledge", editable = "packages/pa-knowledge" },
     { name = "productagents-memory", editable = "packages/pa-memory" },
@@ -1120,7 +1120,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.14" },
     { name = "productagents-core", editable = "packages/pa-core" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.51" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
 ]
 
@@ -1140,7 +1140,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.14" },
     { name = "productagents-core", editable = "packages/pa-core" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.51" },
 ]
 
 [[package]]
