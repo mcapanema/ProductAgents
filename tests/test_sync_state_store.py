@@ -71,6 +71,8 @@ async def test_cursors_isolated_per_workspace():
 async def test_save_retries_on_integrity_error(monkeypatch):
     # Two writers racing the first save of the same connector_key: one wins the
     # INSERT, the loser's merge hits the PK and must retry-as-update, not abort.
+    import sqlalchemy.exc
+
     from productagents.knowledge.sync_state import SyncStateStore
     from tests.storage_fixtures import memory_store
 
@@ -84,7 +86,7 @@ async def test_save_retries_on_integrity_error(monkeypatch):
         async def flaky_commit():
             calls["n"] += 1
             if calls["n"] == 1:
-                raise __import__("sqlalchemy").exc.IntegrityError("x", {}, Exception())
+                raise sqlalchemy.exc.IntegrityError("x", {}, Exception())
             return await original_commit()
 
         monkeypatch.setattr(session, "commit", flaky_commit)

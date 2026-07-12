@@ -25,7 +25,7 @@ def _enable_sqlite_wal(engine: AsyncEngine) -> None:
     every new pooled connection."""
 
     @event.listens_for(engine.sync_engine, "connect")
-    def _set_pragmas(dbapi_conn, _record):  # ty: ignore[unused-ignore]
+    def _set_pragmas(dbapi_conn, _record):
         cur = dbapi_conn.cursor()
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA busy_timeout=5000")
