@@ -36,14 +36,14 @@ productagents-app = { workspace = true }
 [dependency-groups]
 dev = [
     "bandit[toml]>=1.9.4",
-    "import-linter>=2.0",
+    "import-linter>=2.13",
     "pre-commit>=4.6.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",
     "respx>=0.21",
-    "ruff>=0.15.18",
-    "ty==0.0.51",
+    "ruff>=0.15.21",
+    "ty==0.0.58",
 ]
 package = [
     "pyinstaller>=6.14",

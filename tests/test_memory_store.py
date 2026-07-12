@@ -131,8 +131,9 @@ async def test_commit_rolls_back_so_the_session_stays_usable(monkeypatch):
     async with memory_store() as (sessionmaker, _engine), sessionmaker() as session:
         from sqlalchemy import text
 
-        await session.execute(text("CREATE TABLE probe (x INTEGER PRIMARY KEY)"))  # ty: ignore[deprecated]  # raw-sql-test
-        await session.execute(text("INSERT INTO probe VALUES (1)"))  # ty: ignore[deprecated]  # raw-sql-test
+        # raw-sql-test
+        await session.execute(text("CREATE TABLE probe (x INTEGER PRIMARY KEY)"))
+        await session.execute(text("INSERT INTO probe VALUES (1)"))
         await commit(session)
 
         real_commit = session.commit
@@ -146,7 +147,8 @@ async def test_commit_rolls_back_so_the_session_stays_usable(monkeypatch):
         monkeypatch.setattr(session, "commit", real_commit)
 
         # Session recovered: a fresh insert commits fine.
-        await session.execute(text("INSERT INTO probe VALUES (2)"))  # ty: ignore[deprecated]  # raw-sql-test
+        # raw-sql-test
+        await session.execute(text("INSERT INTO probe VALUES (2)"))
         await commit(session)
-        rows = (await session.execute(text("SELECT x FROM probe ORDER BY x"))).all()  # ty: ignore[deprecated]  # raw-sql-test
+        rows = (await session.execute(text("SELECT x FROM probe ORDER BY x"))).all()
     assert rows == [(1,), (2,)]
