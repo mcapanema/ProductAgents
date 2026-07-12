@@ -22,23 +22,23 @@
     "@tauri-apps/plugin-updater": "^2",
     "@xyflow/react": "^12.11.1",
     "antd": "^6.5.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@playwright/test": "^1",
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^6",
     "@testing-library/react": "^16",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "@vitejs/plugin-react": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29",
-    "typescript": "^5.6",
+    "typescript": "^6.0",
     "typescript-eslint": "^8.62.1",
-    "vite": "^6",
+    "vite": "^8",
     "vitest": "^4.1.9"
   },
   "allowScripts": {
