@@ -103,7 +103,7 @@ def _prompt_approval(request) -> HumanDecision:
         print(f"unrecognized verdict {verdict!r} — defaulting to approve")
         verdict = "approve"
     rationale = input("rationale (optional)> ").strip()
-    return HumanDecision(verdict=verdict, rationale=rationale)  # ty: ignore[invalid-argument-type]
+    return HumanDecision(verdict=verdict, rationale=rationale)
 
 
 async def _cli_approver(request) -> HumanDecision:

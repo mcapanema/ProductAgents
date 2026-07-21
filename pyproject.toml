@@ -42,8 +42,8 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",
     "respx>=0.21",
-    "ruff>=0.15.21",
-    "ty==0.0.58",
+    "ruff>=0.15.22",
+    "ty==0.0.61",
 ]
 package = [
     "pyinstaller>=6.14",
