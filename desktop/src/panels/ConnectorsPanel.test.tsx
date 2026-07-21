@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { IpcProvider } from "../app/IpcProvider";
 import type { IpcClient } from "../ipc/client";
@@ -111,7 +111,13 @@ describe("ConnectorsPanel", () => {
     await screen.findByRole("heading", { name: "GitHub" });
     fireEvent.click(screen.getByRole("button", { name: /check health/i }));
     expect(await screen.findByText("Connected")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /sync now/i }));
+
+    // Both buttons share one `busy` flag, so Sync now stays disabled until the
+    // health call's `finally` has flushed. Clicking too early is a silent no-op.
+    const syncNow = screen.getByRole("button", { name: /sync now/i });
+    await waitFor(() => expect(syncNow).toBeEnabled());
+    fireEvent.click(syncNow);
+
     expect(await screen.findByText(/7 records written/)).toBeInTheDocument();
     expect(calls).toEqual(["github", "github"]);
   });
