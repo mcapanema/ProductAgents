@@ -27,7 +27,7 @@ def discover() -> dict[str, type[Connector]]:
     for ep in entry_points(group=_GROUP):
         try:
             cls: type[Connector] = ep.load()
-        except Exception:  # noqa: BLE001 — a broken plugin must not kill discovery
+        except Exception:
             logger.warning(
                 "connector entry point %r failed to load; skipping",
                 ep.name,

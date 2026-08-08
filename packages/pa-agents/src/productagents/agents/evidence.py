@@ -196,7 +196,7 @@ def _discovered_resolvers() -> list[Resolver]:
     for ep in entry_points(group=_EVIDENCE_GROUP):
         try:
             found.append(ep.load())
-        except Exception:  # noqa: BLE001 — one bad plugin must not break resolution
+        except Exception:
             logger.warning(
                 "evidence-source plugin %r failed to load; skipping",
                 ep.name,

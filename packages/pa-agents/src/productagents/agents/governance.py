@@ -84,7 +84,7 @@ async def governance_node(state: dict, model, ctx: AgentContext) -> dict:
     writer(emit_status(NODE_ID, f"{ROLE} reviewing…"))
     try:
         portfolio = await ctx.learning.decisions()
-    except Exception:  # noqa: BLE001 - degrade, never crash
+    except Exception:
         logger.warning(
             "governance: portfolio fetch failed; continuing without it",
             exc_info=True,

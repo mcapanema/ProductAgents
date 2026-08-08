@@ -60,7 +60,7 @@ def _build_workflows(active_name: str, *, human_in_the_loop: bool) -> WorkflowSe
         return WorkflowService.production(
             human_in_the_loop=human_in_the_loop, workspace=active_name
         )
-    except Exception:  # noqa: BLE001 — degraded mode; any failure (missing key, bad config) must not crash the sidecar
+    except Exception:
         logger.warning(
             "model unavailable; runs disabled until an API key is set", exc_info=True
         )
@@ -79,7 +79,7 @@ def _build_reflection(active_name: str):
 
     try:
         return ReflectionService.for_model(get_model(), workspace=active_name)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning(
             "model unavailable; reflection disabled until an API key is set",
             exc_info=True,

@@ -34,7 +34,7 @@ def discover() -> dict[str, WorkflowBuilder]:
     for ep in entry_points(group=_GROUP):
         try:
             found[ep.name] = ep.load()
-        except Exception:  # noqa: BLE001 — one bad plugin must not break discovery
+        except Exception:
             logger.warning(
                 "workflow plugin %r failed to load; skipping", ep.name, exc_info=True
             )
