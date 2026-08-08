@@ -28,7 +28,7 @@
   "devDependencies": {
     "@playwright/test": "^1",
     "@tauri-apps/cli": "^2",
-    "@testing-library/jest-dom": "^6",
+    "@testing-library/jest-dom": "^7",
     "@testing-library/react": "^16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
