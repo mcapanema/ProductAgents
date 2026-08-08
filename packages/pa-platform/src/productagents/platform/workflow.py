@@ -111,7 +111,7 @@ class WorkflowService:
                         workspace=workspace,
                     )
                 )
-            except Exception:  # noqa: BLE001 — one bad workflow must not break the rest
+            except Exception:
                 logger.warning(
                     "workflow %r failed to build; skipping", name, exc_info=True
                 )
