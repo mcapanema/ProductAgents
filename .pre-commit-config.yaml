@@ -3,7 +3,7 @@
 # ruff version); ty as a local hook so it uses the project's pinned ty.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.2
+    rev: v0.16.1
     hooks:
       - id: ruff-check
         args: [--fix]
