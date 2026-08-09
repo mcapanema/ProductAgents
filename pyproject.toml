@@ -43,7 +43,7 @@ dev = [
     "pytest-cov>=5",
     "respx>=0.21",
     "ruff>=0.16.1",
-    "ty==0.0.67",
+    "ty==0.0.69",
 ]
 package = [
     "pyinstaller>=6.14",
