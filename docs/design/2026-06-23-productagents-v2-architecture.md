@@ -154,11 +154,11 @@ productagents/core/
 
 ```python
 class CanonicalModel(BaseModel):
-    id: CanonicalId  # platform-owned, stable, not the vendor id
-    source: SourceRef  # which connector + which vendor record
+    id: CanonicalId                 # platform-owned, stable, not the vendor id
+    source: SourceRef               # which connector + which vendor record
     ingested_at: datetime
     updated_at: datetime
-    raw_fingerprint: str | None  # hash of source payload, for incremental sync
+    raw_fingerprint: str | None     # hash of source payload, for incremental sync
 ```
 
 **`SourceRef` is the lineage spine.** Every canonical record knows the connector,
@@ -211,7 +211,7 @@ productagents/connectors/
 
 ```python
 class Connector(ABC):
-    key: ClassVar[str]  # "jira", unique, used in config
+    key: ClassVar[str]                       # "jira", unique, used in config
     produces: ClassVar[frozenset[type[CanonicalModel]]]  # what it can emit
 
     def __init__(self, config: ConnectorConfig, sink: CanonicalSink): ...
@@ -291,9 +291,8 @@ class FeedbackService:
 
     async def search(self, query: FeedbackQuery) -> Page[CustomerFeedback]: ...
     async def get(self, id: FeedbackId) -> CustomerFeedback | None: ...
-    async def find_related(
-        self, initiative: InitiativeId, limit: int = 20
-    ) -> list[CustomerFeedback]: ...
+    async def find_related(self, initiative: InitiativeId,
+                           limit: int = 20) -> list[CustomerFeedback]: ...
 ```
 
 - **Inputs and outputs are typed canonical models** (and typed *query* objects,

@@ -60,6 +60,7 @@ def _build_workflows(active_name: str, *, human_in_the_loop: bool) -> WorkflowSe
         return WorkflowService.production(
             human_in_the_loop=human_in_the_loop, workspace=active_name
         )
+    # Degraded mode: any failure (missing key, bad config) must not crash the sidecar.
     except Exception:
         logger.warning(
             "model unavailable; runs disabled until an API key is set", exc_info=True

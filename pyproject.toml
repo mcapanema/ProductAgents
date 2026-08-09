@@ -186,6 +186,11 @@ src = [
     "packages/pa-platform/src",
 ]
 
+[tool.ruff.format]
+# Keep Markdown hand-formatted: ruff 0.16+ formats fenced code blocks in .md
+# files, which churns the agent-facing contracts (CLAUDE.md, design docs).
+exclude = ["*.md"]
+
 [tool.ruff.lint]
 # Curated, explicit rule set. The default ruff selection is nearly empty;
 # this locks in the rules the codebase was already written against (note the

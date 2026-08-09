@@ -44,17 +44,10 @@ from productagents.agents.graph import build_graph
 from productagents.agents.runner import run_decision
 from productagents.agents.evidence import collect_evidence
 from productagents.platform import DecisionService, ConnectorService, SessionService
-from productagents.platform import (
-    WorkflowService,
-    WorkspaceService,
-    PromptService,
-    ConfigurationService,
-)
+from productagents.platform import WorkflowService, WorkspaceService, PromptService, ConfigurationService
 from productagents.platform.llm import DEFAULT_MODEL, get_model
 from productagents.app.ipc import serve  # NDJSON sidecar loop (see app/CLAUDE.md)
-from productagents.app.cli import (
-    main,
-)  # console entry point (no subcommand → prints help)
+from productagents.app.cli import main  # console entry point (no subcommand → prints help)
 import productagents.memory as memory
 ```
 
