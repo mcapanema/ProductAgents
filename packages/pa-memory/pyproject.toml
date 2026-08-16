@@ -7,7 +7,7 @@ dependencies = [
     "productagents-core",
     "sqlalchemy[asyncio]>=2.0.51",
     "aiosqlite>=0.20",
-    "alembic>=1.19.0",
+    "alembic>=1.19.1",
 ]
 
 [build-system]

@@ -7,7 +7,7 @@ dependencies = [
     "productagents-core",
     "productagents-knowledge",
     "productagents-memory",
-    "langgraph>=1.2.10",
+    "langgraph>=1.2.11",
     "langchain>=1.3.14",
     "langchain-anthropic>=0.3",
     "langchain-google-genai>=2.0",
