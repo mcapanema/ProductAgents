@@ -5,7 +5,7 @@ description = "ProductAgents organizational memory subsystem."
 requires-python = ">=3.14"
 dependencies = [
     "productagents-core",
-    "sqlalchemy[asyncio]>=2.0.51",
+    "sqlalchemy[asyncio]>=2.0.52",
     "aiosqlite>=0.20",
     "alembic>=1.19.0",
 ]
