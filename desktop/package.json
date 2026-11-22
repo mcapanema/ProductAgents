@@ -21,9 +21,9 @@
     "@tauri-apps/plugin-shell": "^2",
     "@tauri-apps/plugin-updater": "^2",
     "@xyflow/react": "^12.11.6",
-    "antd": "^6.6.3",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "antd": "^6.7.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@playwright/test": "^1",
